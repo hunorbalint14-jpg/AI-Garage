@@ -38,7 +38,10 @@ export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string })
       return;
     }
 
-    router.push("/staff");
+    // Full page reload so the layout's server context re-executes with the
+    // new session. router.push does a client-side nav that keeps the layout
+    // cached in its stale (unauthenticated) state.
+    window.location.href = "/staff";
   }
 
   return (
