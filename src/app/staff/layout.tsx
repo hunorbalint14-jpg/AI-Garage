@@ -1,48 +1,35 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getStaffContext } from "@/lib/staff-context";
 import { SignOutButton } from "./sign-out-button";
-
-type Membership = {
-  role: string;
-  garage: { id: string; name: string; slug: string } | null;
-};
 
 export default async function StaffLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const ctx = await getStaffContext();
 
   // Unauthenticated routes under /staff (i.e. /staff/login) render plain
   // without the sidebar. The login page handles its own UI.
-  if (!user) {
-    return <>{children}</>;
-  }
+  if (!ctx) return <>{children}</>;
 
-  const { data: membership } = (await supabase
-    .from("garage_users")
-    .select("role, garage:garages(id, name, slug)")
-    .eq("user_id", user.id)
-    .maybeSingle()) as { data: Membership | null };
-
-  const fullName =
-    (user.user_metadata?.full_name as string | undefined) ??
-    user.email ??
-    "Staff";
-  const garageName = membership?.garage?.name ?? "Staff portal";
+  const fullName = ctx.user.fullName ?? ctx.user.email ?? "Staff";
+  const orgName = ctx.organization.name;
+  const locationName = ctx.location.name;
+  const showLocationLine = locationName && locationName !== orgName;
+  const role = ctx.orgRole ?? ctx.locationRole ?? "staff";
 
   return (
     <div className="flex min-h-screen">
       <aside className="flex w-56 flex-col border-r bg-muted/40 p-4">
-        <div className="mb-1 text-lg font-semibold leading-tight">
-          {garageName}
-        </div>
+        <div className="mb-1 text-lg font-semibold leading-tight">{orgName}</div>
+        {showLocationLine && (
+          <div className="mb-1 text-sm text-muted-foreground">
+            {locationName}
+          </div>
+        )}
         <div className="mb-6 text-xs text-muted-foreground capitalize">
-          {membership?.role ?? "staff"}
+          {role}
         </div>
 
         <nav className="flex flex-col gap-1 text-sm">
@@ -75,9 +62,9 @@ export default async function StaffLayout({
           </div>
           <div
             className="truncate text-xs text-muted-foreground"
-            title={user.email ?? ""}
+            title={ctx.user.email ?? ""}
           >
-            {user.email}
+            {ctx.user.email}
           </div>
           <SignOutButton />
         </div>

@@ -1,36 +1,89 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
 export type StaffContext = {
-  user: { id: string; email: string | undefined };
-  membership: {
-    garage_id: string;
-    role: string;
-    garage: { id: string; name: string; slug: string } | null;
-  };
+  user: { id: string; email: string | undefined; fullName: string | null };
+  organization: { id: string; slug: string; name: string };
+  location: { id: string; slug: string; name: string };
+  // Org-level role gives access across all locations in the org. Null if the
+  // user only has direct location membership.
+  orgRole: "owner" | "admin" | null;
+  // Location-level role for non-org-member staff at this specific location.
+  // Null if the user is accessing via org-level membership.
+  locationRole: string | null;
   supabase: Awaited<ReturnType<typeof createClient>>;
 };
 
 export async function getStaffContext(): Promise<StaffContext | null> {
   const supabase = await createClient();
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const { data: membership } = (await supabase
-    .from("garage_users")
-    .select("garage_id, role, garage:garages(id, name, slug)")
-    .eq("user_id", user.id)
-    .maybeSingle()) as {
-    data: StaffContext["membership"] | null;
+  const headersList = await headers();
+  const slug = headersList.get("x-tenant-slug");
+  if (!slug) return null;
+
+  type LocationWithOrg = {
+    id: string;
+    slug: string;
+    name: string;
+    organization_id: string;
+    organization: {
+      id: string;
+      slug: string;
+      name: string;
+    } | null;
   };
 
-  if (!membership) return null;
+  const { data: location } = (await supabase
+    .from("locations")
+    .select(
+      "id, slug, name, organization_id, organization:organizations(id, slug, name)",
+    )
+    .eq("slug", slug)
+    .maybeSingle()) as { data: LocationWithOrg | null };
+
+  if (!location || !location.organization) return null;
+
+  const [orgMembershipRes, locMembershipRes] = await Promise.all([
+    supabase
+      .from("org_users")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("organization_id", location.organization.id)
+      .maybeSingle(),
+    supabase
+      .from("location_users")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("location_id", location.id)
+      .maybeSingle(),
+  ]);
+
+  const orgRole = (orgMembershipRes.data?.role as
+    | "owner"
+    | "admin"
+    | undefined) ?? null;
+  const locationRole = (locMembershipRes.data?.role as string | undefined) ?? null;
+
+  // User must be a member of either the org or this specific location to access.
+  if (!orgRole && !locationRole) return null;
 
   return {
-    user: { id: user.id, email: user.email },
-    membership,
+    user: {
+      id: user.id,
+      email: user.email,
+      fullName:
+        (user.user_metadata?.full_name as string | undefined) ?? null,
+    },
+    organization: location.organization,
+    location: { id: location.id, slug: location.slug, name: location.name },
+    orgRole,
+    locationRole,
     supabase,
   };
 }

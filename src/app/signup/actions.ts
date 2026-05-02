@@ -25,12 +25,15 @@ export async function signUpGarage(formData: FormData): Promise<SignupResult> {
 
   const admin = createAdminClient();
 
-  const { data: existing } = await admin
-    .from("garages")
-    .select("id")
-    .eq("slug", slugInput)
-    .maybeSingle();
-  if (existing) return { error: "That subdomain is already taken." };
+  // The slug is unique on both organizations and locations. Reject early if
+  // either is taken so we surface a clean error before creating an auth user.
+  const [{ data: existingOrg }, { data: existingLoc }] = await Promise.all([
+    admin.from("organizations").select("id").eq("slug", slugInput).maybeSingle(),
+    admin.from("locations").select("id").eq("slug", slugInput).maybeSingle(),
+  ]);
+  if (existingOrg || existingLoc) {
+    return { error: "That subdomain is already taken." };
+  }
 
   const { data: userRes, error: userErr } = await admin.auth.admin.createUser({
     email,
@@ -43,23 +46,41 @@ export async function signUpGarage(formData: FormData): Promise<SignupResult> {
   }
   const userId = userRes.user.id;
 
-  const { data: garage, error: garageErr } = await admin
-    .from("garages")
+  const { data: org, error: orgErr } = await admin
+    .from("organizations")
     .insert({ slug: slugInput, name: businessName })
     .select("id")
     .single();
-  if (garageErr || !garage) {
+  if (orgErr || !org) {
     await admin.auth.admin.deleteUser(userId);
-    return { error: garageErr?.message ?? "Failed to create garage." };
+    return { error: orgErr?.message ?? "Failed to create organization." };
   }
 
-  const { error: linkErr } = await admin.from("garage_users").insert({
+  // First location uses the same slug as the org. Multi-location chains will
+  // pick distinct slugs for additional branches via the (future) add-location flow.
+  const { data: location, error: locErr } = await admin
+    .from("locations")
+    .insert({
+      organization_id: org.id,
+      slug: slugInput,
+      name: businessName,
+    })
+    .select("id")
+    .single();
+  if (locErr || !location) {
+    await admin.from("organizations").delete().eq("id", org.id);
+    await admin.auth.admin.deleteUser(userId);
+    return { error: locErr?.message ?? "Failed to create location." };
+  }
+
+  const { error: linkErr } = await admin.from("org_users").insert({
     user_id: userId,
-    garage_id: garage.id,
+    organization_id: org.id,
     role: "owner",
   });
   if (linkErr) {
-    await admin.from("garages").delete().eq("id", garage.id);
+    await admin.from("locations").delete().eq("id", location.id);
+    await admin.from("organizations").delete().eq("id", org.id);
     await admin.auth.admin.deleteUser(userId);
     return { error: linkErr.message };
   }
