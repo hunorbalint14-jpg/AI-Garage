@@ -82,12 +82,12 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $body$
   select exists (
     select 1 from public.org_users
     where user_id = auth.uid() and organization_id = org_id
   );
-$$;
+$body$;
 
 create or replace function public.is_org_owner(org_id uuid)
 returns boolean
@@ -95,12 +95,12 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $body$
   select exists (
     select 1 from public.org_users
     where user_id = auth.uid() and organization_id = org_id and role = 'owner'
   );
-$$;
+$body$;
 
 create or replace function public.is_location_member(loc_id uuid)
 returns boolean
@@ -108,7 +108,7 @@ language sql
 stable
 security definer
 set search_path = public
-as $$
+as $body$
   select
     exists (
       select 1 from public.location_users
@@ -120,7 +120,7 @@ as $$
       join public.org_users ou on ou.organization_id = l.organization_id
       where l.id = loc_id and ou.user_id = auth.uid()
     );
-$$;
+$body$;
 
 -- 12. Enable RLS on the two new tables
 alter table public.organizations enable row level security;
