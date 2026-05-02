@@ -29,7 +29,7 @@ export async function addCustomer(
   const { data, error } = await ctx.supabase
     .from("customers")
     .insert({
-      garage_id: ctx.membership.garage_id,
+      location_id: ctx.location.id,
       full_name: fullName,
       email,
       phone: phone || null,
@@ -79,8 +79,8 @@ export async function addVehicle(
     year = parsed;
   }
 
-  // Verify customer belongs to this garage (RLS would block otherwise, but we
-  // want a clear error rather than a confusing insert failure).
+  // Verify customer belongs to this location (RLS would block otherwise, but
+  // we want a clear error rather than a confusing insert failure).
   const { data: customer } = await ctx.supabase
     .from("customers")
     .select("id")
@@ -91,7 +91,7 @@ export async function addVehicle(
   const { data, error } = await ctx.supabase
     .from("vehicles")
     .insert({
-      garage_id: ctx.membership.garage_id,
+      location_id: ctx.location.id,
       customer_id: customerId,
       registration,
       make,
