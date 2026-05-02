@@ -26,6 +26,17 @@ function formatDate(d: string | null) {
   return new Date(d).toLocaleDateString("en-GB");
 }
 
+function dueDateClass(d: string | null): string {
+  if (!d) return "";
+  const days = Math.ceil(
+    (new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+  );
+  if (days < 0) return "text-red-600 font-semibold";
+  if (days <= 30) return "text-red-600 font-semibold";
+  if (days <= 60) return "text-amber-600 font-medium";
+  return "";
+}
+
 export default async function CustomerDetailPage({
   params,
 }: {
@@ -57,7 +68,9 @@ export default async function CustomerDetailPage({
         >
           ← Back to customers
         </Link>
-        <h1 className="text-2xl font-bold">{customer.full_name ?? "Unnamed customer"}</h1>
+        <h1 className="text-2xl font-bold">
+          {customer.full_name ?? "Unnamed customer"}
+        </h1>
       </div>
 
       <section className="rounded-lg border p-4">
@@ -111,14 +124,25 @@ export default async function CustomerDetailPage({
                       {[v.make, v.model].filter(Boolean).join(" ") || "—"}
                     </td>
                     <td className="px-4 py-2">{v.year ?? "—"}</td>
-                    <td className="px-4 py-2">{formatDate(v.mot_expiry)}</td>
-                    <td className="px-4 py-2">{formatDate(v.service_due)}</td>
+                    <td className={`px-4 py-2 ${dueDateClass(v.mot_expiry)}`}>
+                      {formatDate(v.mot_expiry)}
+                    </td>
+                    <td className={`px-4 py-2 ${dueDateClass(v.service_due)}`}>
+                      {formatDate(v.service_due)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
+
+        <p className="mt-2 text-xs text-muted-foreground">
+          <span className="text-red-600 font-semibold">Red</span> = due within
+          30 days or overdue.{" "}
+          <span className="text-amber-600 font-medium">Amber</span> = due within
+          60 days.
+        </p>
       </section>
     </div>
   );
