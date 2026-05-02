@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type StaffContext = {
   user: { id: string; email: string | undefined; fullName: string | null };
@@ -39,7 +40,11 @@ export async function getStaffContext(): Promise<StaffContext | null> {
     } | null;
   };
 
-  const { data: location } = (await supabase
+  // Use the admin client for the location lookup so RLS doesn't filter the
+  // row before we've had a chance to verify the user's membership ourselves.
+  // Location slugs are not sensitive — we check membership explicitly below.
+  const admin = createAdminClient();
+  const { data: location } = (await admin
     .from("locations")
     .select(
       "id, slug, name, organization_id, organization:organizations(id, slug, name)",
@@ -50,13 +55,13 @@ export async function getStaffContext(): Promise<StaffContext | null> {
   if (!location || !location.organization) return null;
 
   const [orgMembershipRes, locMembershipRes] = await Promise.all([
-    supabase
+    admin
       .from("org_users")
       .select("role")
       .eq("user_id", user.id)
       .eq("organization_id", location.organization.id)
       .maybeSingle(),
-    supabase
+    admin
       .from("location_users")
       .select("role")
       .eq("user_id", user.id)
@@ -70,7 +75,6 @@ export async function getStaffContext(): Promise<StaffContext | null> {
     | undefined) ?? null;
   const locationRole = (locMembershipRes.data?.role as string | undefined) ?? null;
 
-  // User must be a member of either the org or this specific location to access.
   if (!orgRole && !locationRole) return null;
 
   return {
