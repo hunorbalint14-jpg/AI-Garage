@@ -36,7 +36,7 @@ export function CustomerLoginForm({ garageName }: { garageName: string }) {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
         },
       });
       if (error) setError(error.message);
@@ -47,7 +47,7 @@ export function CustomerLoginForm({ garageName }: { garageName: string }) {
         password,
       });
       if (error) setError(error.message);
-      else router.push("/");
+      else window.location.href = "/dashboard";
     }
     setPending(false);
   }
