@@ -14,10 +14,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export function StaffLoginForm() {
+export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string }) {
   const router = useRouter();
   const supabase = createClient();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
