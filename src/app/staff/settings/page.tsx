@@ -8,7 +8,7 @@ export default async function SettingsPage() {
   const admin = createAdminClient();
   const { data: org } = await admin
     .from("organizations")
-    .select("name, primary_color, logo_url, slug, custom_domain")
+    .select("name, primary_color, logo_url, slug, custom_domain, phone")
     .eq("id", ctx.organization.id)
     .single();
 
@@ -41,6 +41,7 @@ export default async function SettingsPage() {
         initialName={org?.name ?? ""}
         initialColor={org?.primary_color ?? "#1f2937"}
         initialLogoUrl={org?.logo_url ?? ""}
+        initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
         canEdit={isOwner}
       />
     </div>
