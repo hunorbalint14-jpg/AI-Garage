@@ -56,12 +56,6 @@ export default async function StaffLayout({
             Customers
           </Link>
           <Link
-            href="/staff/vehicles"
-            className="rounded px-2 py-1 hover:bg-muted"
-          >
-            Vehicles
-          </Link>
-          <Link
             href="/staff/reminders"
             className="rounded px-2 py-1 hover:bg-muted"
           >
