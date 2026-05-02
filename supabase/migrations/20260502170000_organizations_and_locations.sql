@@ -74,7 +74,10 @@ alter table public.customers rename column garage_id to location_id;
 alter table public.vehicles rename column garage_id to location_id;
 
 -- 11. RLS helpers — drop old, add new
-drop function if exists public.is_garage_staff(uuid);
+-- CASCADE removes the dependent policies (customers_staff_all,
+-- vehicles_staff_all, garage_users_select_same_garage). They are
+-- recreated below under the new is_location_member helper.
+drop function if exists public.is_garage_staff(uuid) cascade;
 
 create or replace function public.is_org_member(org_id uuid)
 returns boolean
