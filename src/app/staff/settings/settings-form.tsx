@@ -10,6 +10,7 @@ type Props = {
   initialName: string;
   initialColor: string;
   initialLogoUrl: string;
+  initialPhone: string;
   canEdit: boolean;
 };
 
@@ -17,6 +18,7 @@ export function SettingsForm({
   initialName,
   initialColor,
   initialLogoUrl,
+  initialPhone,
   canEdit,
 }: Props) {
   const [pending, startTransition] = useTransition();
@@ -41,7 +43,7 @@ export function SettingsForm({
   return (
     <section className="rounded-lg border p-4">
       <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-        Branding
+        Branding &amp; contact
       </h2>
       <form action={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
@@ -53,6 +55,21 @@ export function SettingsForm({
             required
             disabled={!canEdit}
           />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="phone">Phone number (optional)</Label>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            defaultValue={initialPhone}
+            placeholder="0117 123 4567"
+            disabled={!canEdit}
+          />
+          <p className="text-xs text-muted-foreground">
+            Included in reminder emails so customers know how to book in.
+          </p>
         </div>
 
         <div className="flex flex-col gap-2">
