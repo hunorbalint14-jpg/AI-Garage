@@ -14,9 +14,13 @@ export default async function Home() {
           reminders, and AI-assisted client communication.
         </p>
         <div className="flex gap-3">
-          <Button render={<Link href="/signup">Get started</Link>} />
+          <Button
+            nativeButton={false}
+            render={<Link href="/signup">Get started</Link>}
+          />
           <Button
             variant="outline"
+            nativeButton={false}
             render={<Link href="/staff/login">Staff login</Link>}
           />
         </div>
@@ -34,7 +38,7 @@ export default async function Home() {
         service.
       </p>
       <div className="flex gap-3">
-        <Button render={<Link href="/login">Sign in</Link>} />
+        <Button nativeButton={false} render={<Link href="/login">Sign in</Link>} />
       </div>
     </main>
   );
