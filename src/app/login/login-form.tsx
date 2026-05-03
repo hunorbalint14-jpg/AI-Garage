@@ -123,6 +123,13 @@ export function CustomerLoginForm({ garageName }: { garageName: string }) {
                 ? "Email me a link"
                 : "Sign in"}
           </Button>
+
+          <p className="text-center text-xs text-muted-foreground">
+            New customer?{" "}
+            <a href="/register" className="underline">
+              Create an account
+            </a>
+          </p>
         </form>
       </CardContent>
     </Card>

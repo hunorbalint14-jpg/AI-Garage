@@ -42,6 +42,11 @@ export default async function Home() {
       </p>
       <div className="flex gap-3">
         <Button nativeButton={false} render={<Link href="/login">Sign in</Link>} />
+        <Button
+          variant="outline"
+          nativeButton={false}
+          render={<Link href="/register">Register</Link>}
+        />
       </div>
     </main>
   );
