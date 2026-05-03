@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { getStaffTenantUrl } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,8 +14,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+const ROOT_HOST =
+  (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000").split(":")[0];
+
+function isRootDomain() {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname;
+  return h === ROOT_HOST || h === `www.${ROOT_HOST}`;
+}
+
 export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string }) {
-  const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
@@ -27,21 +35,31 @@ export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string })
     setPending(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error: signInErr } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      setError(error.message);
+    if (signInErr) {
+      setError(signInErr.message);
       setPending(false);
       return;
     }
 
-    // Full page reload so the layout's server context re-executes with the
-    // new session. router.push does a client-side nav that keeps the layout
-    // cached in its stale (unauthenticated) state.
-    window.location.href = "/staff";
+    if (isRootDomain()) {
+      // Staff logged in from the root/marketing domain — look up their garage
+      // and redirect to the correct tenant subdomain.
+      const result = await getStaffTenantUrl();
+      if ("error" in result) {
+        setError(result.error);
+        setPending(false);
+        return;
+      }
+      window.location.href = result.url;
+    } else {
+      // Already on a tenant subdomain — stay here.
+      window.location.href = "/staff";
+    }
   }
 
   return (
@@ -79,7 +97,10 @@ export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string })
           </div>
 
           <p className="text-right text-xs">
-            <a href="/forgot-password" className="underline text-muted-foreground">
+            <a
+              href="/forgot-password"
+              className="underline text-muted-foreground"
+            >
               Forgot password?
             </a>
           </p>
