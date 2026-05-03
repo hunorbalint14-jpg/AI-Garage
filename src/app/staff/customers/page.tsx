@@ -16,6 +16,7 @@ export default async function CustomersPage() {
   const { data: customers, error } = (await ctx.supabase
     .from("customers")
     .select("id, full_name, email, phone, created_at")
+    .eq("location_id", ctx.location.id)
     .order("created_at", { ascending: false })) as {
     data: CustomerRow[] | null;
     error: { message: string } | null;
