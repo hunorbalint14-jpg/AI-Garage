@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(request: NextRequest) {
@@ -11,22 +11,47 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
   }
 
-  // Exchange the code server-side. Works for both regular sign-in and
-  // password reset — the session is written to cookies which the browser
-  // client loads via refreshSession() on the next page.
-  const supabase = await createClient();
+  // Determine the redirect target before building the response so we can
+  // write the session cookies directly onto it (Next.js cookies() helper
+  // does not attach to NextResponse.redirect, so the session would be lost).
+  const redirectTarget =
+    next === "/reset-password"
+      ? `${origin}/reset-password`
+      : `${origin}${next}`;
+
+  const response = NextResponse.redirect(redirectTarget);
+
+  // Exchange the code and write the resulting session cookies onto the
+  // redirect response so the browser receives them in one round trip.
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    },
+  );
+
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
   }
 
-  // Password reset: session is now in cookies. Go straight to the form.
-  // The reset-password page calls refreshSession() to load it client-side
-  // before calling updateUser().
+  // Password reset: session is in cookies on the response, /reset-password
+  // calls refreshSession() to load it into the browser client.
   if (next === "/reset-password") {
-    return NextResponse.redirect(`${origin}/reset-password`);
+    return response;
   }
 
+  // Regular sign-in: detect staff and redirect accordingly.
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -34,7 +59,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
   }
 
-  // Check if this user is org staff. If so, send them to the staff portal.
   const admin = createAdminClient();
   const slug = request.headers.get("x-tenant-slug");
 
@@ -62,10 +86,15 @@ export async function GET(request: NextRequest) {
       ]);
 
       if (orgCheck.data || locCheck.data) {
-        return NextResponse.redirect(`${origin}/staff`);
+        // Reuse response (has session cookies) but redirect to /staff
+        const staffResponse = NextResponse.redirect(`${origin}/staff`);
+        response.cookies.getAll().forEach(({ name, value, ...options }) => {
+          staffResponse.cookies.set(name, value, options);
+        });
+        return staffResponse;
       }
     }
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  return response;
 }
