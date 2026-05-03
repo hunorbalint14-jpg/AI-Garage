@@ -2,27 +2,37 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// Builds a 200 HTML response that immediately redirects via <meta> refresh.
+// Using a 200 (not 307) ensures browsers process Set-Cookie headers before
+// following the redirect — Next.js does not reliably include cookies in
+// NextResponse.redirect() 3xx responses.
+function htmlRedirect(url: string): NextResponse {
+  const html = `<!DOCTYPE html><html><head>
+<meta http-equiv="refresh" content="0; url=${url}">
+<script>window.location.replace(${JSON.stringify(url)})</script>
+</head><body>Redirecting…</body></html>`;
+  return new NextResponse(html, {
+    status: 200,
+    headers: { "content-type": "text/html; charset=utf-8" },
+  });
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "/dashboard";
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
+    return htmlRedirect(`${origin}/login?error=auth-callback-failed`);
   }
 
-  // Determine the redirect target before building the response so we can
-  // write the session cookies directly onto it (Next.js cookies() helper
-  // does not attach to NextResponse.redirect, so the session would be lost).
   const redirectTarget =
     next === "/reset-password"
       ? `${origin}/reset-password`
       : `${origin}${next}`;
 
-  const response = NextResponse.redirect(redirectTarget);
+  const response = htmlRedirect(redirectTarget);
 
-  // Exchange the code and write the resulting session cookies onto the
-  // redirect response so the browser receives them in one round trip.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -42,21 +52,18 @@ export async function GET(request: NextRequest) {
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
+    return htmlRedirect(`${origin}/login?error=auth-callback-failed`);
   }
 
-  // Password reset: session is in cookies on the response, /reset-password
-  // calls refreshSession() to load it into the browser client.
   if (next === "/reset-password") {
     return response;
   }
 
-  // Regular sign-in: detect staff and redirect accordingly.
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
+    return htmlRedirect(`${origin}/login?error=auth-callback-failed`);
   }
 
   const admin = createAdminClient();
@@ -71,23 +78,12 @@ export async function GET(request: NextRequest) {
 
     if (location) {
       const [orgCheck, locCheck] = await Promise.all([
-        admin
-          .from("org_users")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("organization_id", location.organization_id)
-          .maybeSingle(),
-        admin
-          .from("location_users")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("location_id", location.id)
-          .maybeSingle(),
+        admin.from("org_users").select("id").eq("user_id", user.id).eq("organization_id", location.organization_id).maybeSingle(),
+        admin.from("location_users").select("id").eq("user_id", user.id).eq("location_id", location.id).maybeSingle(),
       ]);
 
       if (orgCheck.data || locCheck.data) {
-        // Reuse response (has session cookies) but redirect to /staff
-        const staffResponse = NextResponse.redirect(`${origin}/staff`);
+        const staffResponse = htmlRedirect(`${origin}/staff`);
         response.cookies.getAll().forEach(({ name, value, ...options }) => {
           staffResponse.cookies.set(name, value, options);
         });
