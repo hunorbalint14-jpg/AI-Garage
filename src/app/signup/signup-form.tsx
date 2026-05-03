@@ -3,19 +3,11 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { signUpGarage } from "./actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
-const ROOT_HOSTNAME = ROOT_DOMAIN.split(":")[0];
+const ROOT_HOSTNAME = (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000").split(":")[0];
+
+const inputCls =
+  "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-white/30 focus:outline-none";
 
 export function SignupForm() {
   const [pending, startTransition] = useTransition();
@@ -35,89 +27,86 @@ export function SignupForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>Get started</CardTitle>
-        <CardDescription>
-          Create your garage&apos;s account. You&apos;ll get your own branded
-          subdomain.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form action={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="businessName">Business name</Label>
-            <Input id="businessName" name="businessName" required />
-          </div>
+    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-md shadow-2xl">
+      <h1 className="text-2xl font-bold tracking-tight">Get started free</h1>
+      <p className="mt-1.5 text-sm text-gray-400">
+        Create your garage&apos;s account. You&apos;ll get your own branded subdomain.
+      </p>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="slug">Subdomain</Label>
-            <Input
-              id="slug"
-              name="slug"
-              required
-              value={slug}
-              onChange={(e) =>
-                setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
-              }
-              placeholder="smith-motors"
-              autoComplete="off"
-            />
-            <p className="text-xs text-muted-foreground">
-              {slug || "your-garage"}.{ROOT_HOSTNAME}
-            </p>
-          </div>
+      <form action={handleSubmit} className="mt-6 flex flex-col gap-4">
+        <div>
+          <label htmlFor="businessName" className="mb-1.5 block text-xs font-medium text-gray-300">
+            Business name
+          </label>
+          <input id="businessName" name="businessName" required className={inputCls} />
+        </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="ownerName">Your name</Label>
-            <Input
-              id="ownerName"
-              name="ownerName"
-              required
-              autoComplete="name"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={6}
-              autoComplete="new-password"
-            />
-            <p className="text-xs text-muted-foreground">
-              At least 6 characters.
-            </p>
-          </div>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <Button type="submit" disabled={pending}>
-            {pending ? "Creating your garage…" : "Create garage"}
-          </Button>
-
-          <p className="text-center text-xs text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/staff/login" className="underline">
-              Staff sign in
-            </Link>
+        <div>
+          <label htmlFor="slug" className="mb-1.5 block text-xs font-medium text-gray-300">
+            Subdomain
+          </label>
+          <input
+            id="slug"
+            name="slug"
+            required
+            value={slug}
+            onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+            placeholder="smith-motors"
+            autoComplete="off"
+            className={inputCls}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            {slug || "your-garage"}.{ROOT_HOSTNAME}
           </p>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+
+        <div>
+          <label htmlFor="ownerName" className="mb-1.5 block text-xs font-medium text-gray-300">
+            Your name
+          </label>
+          <input id="ownerName" name="ownerName" required autoComplete="name" className={inputCls} />
+        </div>
+
+        <div>
+          <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-gray-300">
+            Email
+          </label>
+          <input id="email" name="email" type="email" required autoComplete="email" className={inputCls} />
+        </div>
+
+        <div>
+          <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-gray-300">
+            Password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            minLength={6}
+            autoComplete="new-password"
+            className={inputCls}
+          />
+          <p className="mt-1 text-xs text-gray-500">At least 6 characters.</p>
+        </div>
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60 shadow-lg shadow-indigo-900/50"
+        >
+          {pending ? "Creating your garage…" : "Create garage"}
+        </button>
+
+        <p className="text-center text-xs text-gray-400">
+          Already have an account?{" "}
+          <Link href="/staff/login" className="text-indigo-400 underline hover:text-indigo-300">
+            Staff sign in
+          </Link>
+        </p>
+      </form>
+    </div>
   );
 }

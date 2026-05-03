@@ -25,8 +25,8 @@ export function StaffNav() {
             href={href}
             className={`flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
               isActive
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                ? "bg-white/15 text-white"
+                : "text-gray-400 hover:bg-white/10 hover:text-white"
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" />
