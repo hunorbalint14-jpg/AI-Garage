@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { validateSlug } from "@/lib/slug";
 
 export type UpdateOrgResult = { error: string } | { success: true };
 
@@ -42,4 +43,47 @@ export async function updateOrganization(
   revalidatePath("/staff");
   revalidatePath("/");
   return { success: true };
+}
+
+export type AddLocationResult =
+  | { error: string }
+  | { success: true; slug: string };
+
+export async function addLocation(
+  formData: FormData,
+): Promise<AddLocationResult> {
+  const ctx = await requireStaffContext();
+
+  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
+    return { error: "Only organisation owners can add locations." };
+  }
+
+  const name = (formData.get("name") as string | null)?.trim();
+  const slugInput = (formData.get("slug") as string | null)?.trim().toLowerCase();
+
+  if (!name) return { error: "Location name is required." };
+  if (!slugInput) return { error: "Subdomain is required." };
+
+  const slugError = validateSlug(slugInput);
+  if (slugError) return { error: slugError };
+
+  const admin = createAdminClient();
+
+  const { data: existing } = await admin
+    .from("locations")
+    .select("id")
+    .eq("slug", slugInput)
+    .maybeSingle();
+  if (existing) return { error: "That subdomain is already taken." };
+
+  const { error } = await admin.from("locations").insert({
+    organization_id: ctx.organization.id,
+    slug: slugInput,
+    name,
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/staff/settings");
+  return { success: true, slug: slugInput };
 }
