@@ -4,20 +4,10 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { registerCustomer } from "./actions";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export function RegisterForm({
   garageName,
-  primaryColor = "#4f46e5",
+  primaryColor = "#6366f1",
 }: {
   garageName: string;
   primaryColor?: string;
@@ -36,7 +26,6 @@ export function RegisterForm({
         setError(result.error);
         return;
       }
-      // Account created — sign in immediately so the user lands on /dashboard
       const { error: signInErr } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -50,83 +39,77 @@ export function RegisterForm({
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Create your account</CardTitle>
-        <CardDescription>
-          Register with {garageName} to view your vehicles and MOT history.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form action={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="fullName">Full name</Label>
-            <Input
-              id="fullName"
-              name="fullName"
-              required
-              autoComplete="name"
-            />
-          </div>
+    <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-md shadow-2xl">
+      <h1 className="text-2xl font-bold tracking-tight">Create your account</h1>
+      <p className="mt-1.5 text-sm text-gray-400">
+        Register with {garageName} to view your vehicles and MOT history.
+      </p>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-          </div>
+      <form action={handleSubmit} className="mt-6 flex flex-col gap-4">
+        <Field id="fullName" label="Full name" name="fullName" autoComplete="name" required />
+        <Field
+          id="email"
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Field id="phone" label="Phone (optional)" name="phone" type="tel" autoComplete="tel" placeholder="07123 456789" />
+        <div>
+          <Field
+            id="password"
+            label="Password"
+            name="password"
+            type="password"
+            required
+            minLength={6}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <p className="mt-1 text-xs text-gray-500">At least 6 characters.</p>
+        </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="phone">Phone (optional)</Label>
-            <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              autoComplete="tel"
-              placeholder="07123 456789"
-            />
-          </div>
+        {error && <p className="text-sm text-red-400">{error}</p>}
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-            />
-            <p className="text-xs text-muted-foreground">At least 6 characters.</p>
-          </div>
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
+          style={{ backgroundColor: primaryColor, boxShadow: `0 8px 16px -8px ${primaryColor}60` }}
+        >
+          {pending ? "Creating account…" : "Create account"}
+        </button>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+        <p className="text-center text-xs text-gray-400">
+          Already have an account?{" "}
+          <Link href="/login" className="underline hover:text-white" style={{ color: primaryColor }}>
+            Sign in
+          </Link>
+        </p>
+      </form>
+    </div>
+  );
+}
 
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
-            style={{ backgroundColor: primaryColor }}
-          >
-            {pending ? "Creating account…" : "Create account"}
-          </button>
-
-          <p className="text-center text-xs text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/login" className="underline" style={{ color: primaryColor }}>
-              Sign in
-            </Link>
-          </p>
-        </form>
-      </CardContent>
-    </Card>
+function Field({
+  id,
+  label,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { id: string; label: string }) {
+  return (
+    <div>
+      <label htmlFor={id} className="mb-1.5 block text-xs font-medium text-gray-300">
+        {label}
+      </label>
+      <input
+        id={id}
+        {...props}
+        className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-white/30 focus:outline-none"
+      />
+    </div>
   );
 }

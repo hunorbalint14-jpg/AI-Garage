@@ -1,4 +1,5 @@
 import { ResetPasswordForm } from "./reset-password-form";
+import { AnimatedBackground } from "@/components/animated-background";
 import {
   Card,
   CardContent,
@@ -16,27 +17,29 @@ export default async function ResetPasswordPage({ searchParams }: Props) {
 
   if (!t) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-6">
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Link invalid</CardTitle>
-            <CardDescription>
+      <div className="relative min-h-screen bg-[#050c1a] text-white">
+        <AnimatedBackground />
+        <main className="relative z-10 flex min-h-screen items-center justify-center px-6">
+          <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-md text-center">
+            <h2 className="text-xl font-bold">Link invalid</h2>
+            <p className="mt-2 text-sm text-gray-400">
               This reset link is missing or has expired.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <a href="/forgot-password" className="text-sm underline">
+            </p>
+            <a href="/forgot-password" className="mt-4 inline-block text-sm text-indigo-400 underline hover:text-indigo-300">
               Request a new reset link
             </a>
-          </CardContent>
-        </Card>
-      </main>
+          </div>
+        </main>
+      </div>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <ResetPasswordForm token={t} />
-    </main>
+    <div className="relative min-h-screen bg-[#050c1a] text-white">
+      <AnimatedBackground />
+      <main className="relative z-10 flex min-h-screen items-center justify-center px-6">
+        <ResetPasswordForm token={t} />
+      </main>
+    </div>
   );
 }

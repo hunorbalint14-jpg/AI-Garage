@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { Car, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { Car, AlertCircle, Clock, CheckCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AnimatedBackground } from "@/components/animated-background";
 import { CustomerSignOutButton } from "./sign-out-button";
 
 type Vehicle = {
@@ -34,24 +35,24 @@ function dueBadge(d: string | null) {
   if (days === null) return null;
   if (days < 0)
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-semibold text-red-400">
         <AlertCircle className="h-3 w-3" /> Overdue
       </span>
     );
   if (days <= 30)
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-semibold text-red-400">
         <Clock className="h-3 w-3" /> Due in {days}d
       </span>
     );
   if (days <= 60)
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-400">
         <Clock className="h-3 w-3" /> Due in {days}d
       </span>
     );
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs text-green-700">
+    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs text-green-400">
       <CheckCircle className="h-3 w-3" /> OK
     </span>
   );
@@ -60,7 +61,6 @@ function dueBadge(d: string | null) {
 export default async function CustomerDashboard() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) redirect("/login");
 
   const headersList = await headers();
@@ -69,16 +69,20 @@ export default async function CustomerDashboard() {
 
   const admin = createAdminClient();
 
-  // Resolve the tenant
   const { data: location } = await admin
     .from("locations")
     .select("id, name, organization:organizations(id, name, primary_color, logo_url)")
     .eq("slug", slug)
-    .maybeSingle() as { data: { id: string; name: string; organization: { id: string; name: string; primary_color: string; logo_url: string | null } | null } | null };
+    .maybeSingle() as {
+    data: {
+      id: string;
+      name: string;
+      organization: { id: string; name: string; primary_color: string; logo_url: string | null } | null;
+    } | null;
+  };
 
   if (!location || !location.organization) redirect("/");
 
-  // Find and optionally link the customer record by email
   const { data: customer } = await admin
     .from("customers")
     .select("id, full_name, user_id")
@@ -87,10 +91,7 @@ export default async function CustomerDashboard() {
     .maybeSingle();
 
   if (customer && !customer.user_id) {
-    await admin
-      .from("customers")
-      .update({ user_id: user.id })
-      .eq("id", customer.id);
+    await admin.from("customers").update({ user_id: user.id }).eq("id", customer.id);
   }
 
   const { data: vehicles } = customer
@@ -104,38 +105,52 @@ export default async function CustomerDashboard() {
   const firstName = customer?.full_name?.split(" ")[0] ?? user.email?.split("@")[0] ?? "there";
   const orgColor = location.organization.primary_color;
   const orgName = location.organization.name;
+  const logoUrl = location.organization.logo_url;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="relative min-h-screen bg-[#050c1a] text-white overflow-x-hidden">
+      <AnimatedBackground brandColor={orgColor} />
+
       {/* Header */}
-      <header className="border-b bg-white px-6 py-4">
+      <header className="relative z-10 border-b border-white/5 px-6 py-4 backdrop-blur-sm">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
-          <h1 className="text-lg font-bold" style={{ color: orgColor }}>
-            {orgName}
-          </h1>
+          <div className="flex items-center gap-3">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt={orgName} className="h-8 w-auto object-contain" />
+            ) : (
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-bold text-white"
+                style={{ backgroundColor: orgColor }}
+              >
+                {orgName.split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
+              </div>
+            )}
+            <span className="text-sm font-semibold">{orgName}</span>
+          </div>
           <CustomerSignOutButton />
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-6 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold">Hi {firstName} 👋</h2>
-          <p className="text-sm text-muted-foreground">
+      <main className="relative z-10 mx-auto max-w-2xl px-6 py-10">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Hi {firstName} 👋</h1>
+          <p className="mt-1 text-sm text-gray-400">
             Here are your vehicles registered with {orgName}.
           </p>
         </div>
 
         {!customer ? (
-          <div className="rounded-lg border border-dashed p-8 text-center">
-            <p className="text-sm font-medium">No account found</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center backdrop-blur-sm">
+            <p className="font-semibold">No account found</p>
+            <p className="mt-2 text-sm text-gray-400">
               We couldn&apos;t find a customer record linked to{" "}
-              <strong>{user.email}</strong>. Please contact {orgName} to ensure
-              your email is registered correctly.
+              <span className="text-white">{user.email}</span>.
+              Please contact {orgName} to ensure your email is registered correctly.
             </p>
           </div>
         ) : !vehicles || vehicles.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-8 text-center text-sm text-gray-400 backdrop-blur-sm">
             No vehicles on file yet. Contact {orgName} to add your car.
           </div>
         ) : (
@@ -144,42 +159,48 @@ export default async function CustomerDashboard() {
               const name = [v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle";
               const motDays = dueDays(v.mot_expiry);
               const needsAttention = motDays !== null && motDays <= 30;
+
               return (
                 <div
                   key={v.id}
-                  className={`rounded-xl border bg-white p-5 shadow-sm transition-shadow hover:shadow-md ${needsAttention ? "border-red-200" : "border-gray-100"}`}
+                  className={`rounded-2xl border p-5 backdrop-blur-sm transition-all hover:bg-white/[0.06] ${
+                    needsAttention
+                      ? "border-red-500/30 bg-red-500/[0.05]"
+                      : "border-white/10 bg-white/[0.03]"
+                  }`}
                 >
                   <div className="mb-4 flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
-                        <Car className="h-5 w-5 text-gray-500" />
+                      <div
+                        className="flex h-10 w-10 items-center justify-center rounded-xl"
+                        style={{ backgroundColor: `${orgColor}25` }}
+                      >
+                        <Car className="h-5 w-5" style={{ color: orgColor }} />
                       </div>
                       <div>
-                        <p className="font-mono text-base font-bold tracking-wide">{v.registration}</p>
-                        <p className="text-sm text-muted-foreground">{name}</p>
+                        <p className="font-mono text-base font-bold tracking-widest">{v.registration}</p>
+                        <p className="text-sm text-gray-400">{name}</p>
                       </div>
                     </div>
                     {needsAttention && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-bold text-red-400">
                         <AlertCircle className="h-3 w-3" /> Action needed
                       </span>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-lg bg-gray-50 p-3">
-                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        MOT expiry
-                      </p>
-                      <p className="font-semibold">{formatDate(v.mot_expiry)}</p>
-                      <div className="mt-2">{dueBadge(v.mot_expiry)}</div>
-                    </div>
-                    <div className="rounded-lg bg-gray-50 p-3">
-                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Service due
-                      </p>
-                      <p className="font-semibold">{formatDate(v.service_due)}</p>
-                      <div className="mt-2">{dueBadge(v.service_due)}</div>
-                    </div>
+                    {[
+                      { label: "MOT expiry", date: v.mot_expiry },
+                      { label: "Service due", date: v.service_due },
+                    ].map(({ label, date }) => (
+                      <div key={label} className="rounded-xl bg-white/5 p-3">
+                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                          {label}
+                        </p>
+                        <p className="font-semibold">{formatDate(date)}</p>
+                        <div className="mt-2">{dueBadge(date)}</div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
