@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { Car, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CustomerSignOutButton } from "./sign-out-button";
@@ -32,12 +33,28 @@ function dueBadge(d: string | null) {
   const days = dueDays(d);
   if (days === null) return null;
   if (days < 0)
-    return <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Overdue</span>;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+        <AlertCircle className="h-3 w-3" /> Overdue
+      </span>
+    );
   if (days <= 30)
-    return <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">Due in {days}d</span>;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700">
+        <Clock className="h-3 w-3" /> Due in {days}d
+      </span>
+    );
   if (days <= 60)
-    return <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">Due in {days}d</span>;
-  return null;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+        <Clock className="h-3 w-3" /> Due in {days}d
+      </span>
+    );
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs text-green-700">
+      <CheckCircle className="h-3 w-3" /> OK
+    </span>
+  );
 }
 
 export default async function CustomerDashboard() {
@@ -126,34 +143,42 @@ export default async function CustomerDashboard() {
             {vehicles.map((v) => {
               const name = [v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle";
               const motDays = dueDays(v.mot_expiry);
-              const svcDays = dueDays(v.service_due);
+              const needsAttention = motDays !== null && motDays <= 30;
               return (
-                <div key={v.id} className="rounded-lg border bg-white p-4 shadow-sm">
-                  <div className="mb-3 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="font-mono text-lg font-bold">{v.registration}</p>
-                      <p className="text-sm text-muted-foreground">{name}</p>
+                <div
+                  key={v.id}
+                  className={`rounded-xl border bg-white p-5 shadow-sm transition-shadow hover:shadow-md ${needsAttention ? "border-red-200" : "border-gray-100"}`}
+                >
+                  <div className="mb-4 flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
+                        <Car className="h-5 w-5 text-gray-500" />
+                      </div>
+                      <div>
+                        <p className="font-mono text-base font-bold tracking-wide">{v.registration}</p>
+                        <p className="text-sm text-muted-foreground">{name}</p>
+                      </div>
                     </div>
-                    {(motDays !== null && motDays <= 30) && (
-                      <span className="rounded bg-red-100 px-2 py-1 text-xs font-bold text-red-700 uppercase tracking-wide">
-                        Action needed
+                    {needsAttention && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-1 text-xs font-bold text-red-700">
+                        <AlertCircle className="h-3 w-3" /> Action needed
                       </span>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-md bg-gray-50 p-3">
-                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <div className="rounded-lg bg-gray-50 p-3">
+                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         MOT expiry
                       </p>
-                      <p className="font-medium">{formatDate(v.mot_expiry)}</p>
-                      <div className="mt-1">{dueBadge(v.mot_expiry)}</div>
+                      <p className="font-semibold">{formatDate(v.mot_expiry)}</p>
+                      <div className="mt-2">{dueBadge(v.mot_expiry)}</div>
                     </div>
-                    <div className="rounded-md bg-gray-50 p-3">
-                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <div className="rounded-lg bg-gray-50 p-3">
+                      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                         Service due
                       </p>
-                      <p className="font-medium">{formatDate(v.service_due)}</p>
-                      <div className="mt-1">{dueBadge(v.service_due)}</div>
+                      <p className="font-semibold">{formatDate(v.service_due)}</p>
+                      <div className="mt-2">{dueBadge(v.service_due)}</div>
                     </div>
                   </div>
                 </div>

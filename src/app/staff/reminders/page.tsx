@@ -1,4 +1,5 @@
 import { requireStaffContext } from "@/lib/staff-context";
+import { PageHeader } from "@/components/staff/page-header";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 
@@ -30,12 +31,10 @@ export default async function RemindersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold">Reminders</h1>
-        <p className="text-sm text-muted-foreground">
-          All MOT and service reminders sent from this location.
-        </p>
-      </div>
+      <PageHeader
+        title="Reminders"
+        description="All MOT and service reminders sent from this location."
+      />
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">

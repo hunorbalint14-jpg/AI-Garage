@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Users, Car, AlertTriangle, Mail } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PageHeader } from "@/components/staff/page-header";
 
 type Vehicle = {
   id: string;
@@ -21,25 +23,37 @@ function StatCard({
   label,
   value,
   sub,
+  icon: Icon,
   accent,
 }: {
   label: string;
   value: number | string;
   sub?: string;
+  icon: React.ElementType;
   accent?: "red" | "amber" | "green";
 }) {
   const colours = {
-    red: "border-red-200 bg-red-50 text-red-700",
-    amber: "border-amber-200 bg-amber-50 text-amber-700",
-    green: "border-green-200 bg-green-50 text-green-700",
+    red: "border-red-200 bg-red-50",
+    amber: "border-amber-200 bg-amber-50",
+    green: "border-green-200 bg-green-50",
+  };
+  const iconColours = {
+    red: "text-red-500",
+    amber: "text-amber-500",
+    green: "text-green-600",
   };
   return (
     <div
-      className={`rounded-lg border p-4 ${accent ? colours[accent] : "border-border bg-card"}`}
+      className={`rounded-xl border p-5 ${accent ? colours[accent] : "border-border bg-card"}`}
     >
-      <p className="text-sm font-medium opacity-70">{label}</p>
-      <p className="mt-1 text-3xl font-bold">{value}</p>
-      {sub && <p className="mt-1 text-xs opacity-60">{sub}</p>}
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-muted-foreground">{label}</p>
+        <Icon className={`h-4 w-4 ${accent ? iconColours[accent] : "text-muted-foreground"}`} />
+      </div>
+      <p className={`mt-2 text-3xl font-bold ${accent === "red" ? "text-red-700" : accent === "amber" ? "text-amber-700" : accent === "green" ? "text-green-700" : ""}`}>
+        {value}
+      </p>
+      {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
     </div>
   );
 }
@@ -112,22 +126,25 @@ export default async function StaffDashboard() {
   }).length;
 
   return (
-    <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+    <div className="flex flex-col gap-8">
+      <PageHeader title="Dashboard" description={`Overview for ${ctx.location.name}`} />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Customers" value={totalCustomers} />
-        <StatCard label="Vehicles" value={totalVehicles} />
+        <StatCard label="Customers" value={totalCustomers} icon={Users} />
+        <StatCard label="Vehicles" value={totalVehicles} icon={Car} />
         <StatCard
           label="Overdue"
           value={overdue.length}
           sub="MOT or service past due"
+          icon={AlertTriangle}
           accent={overdue.length > 0 ? "red" : undefined}
         />
         <StatCard
-          label="Reminders this month"
+          label="Reminders sent"
           value={remindersThisMonth}
+          sub="this month"
+          icon={Mail}
           accent={remindersThisMonth > 0 ? "green" : undefined}
         />
       </div>

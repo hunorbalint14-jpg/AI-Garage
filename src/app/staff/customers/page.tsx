@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { UserPlus } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/staff/page-header";
 
 type CustomerRow = {
   id: string;
@@ -24,18 +26,21 @@ export default async function CustomersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Customers</h1>
-          <p className="text-sm text-muted-foreground">
-            All customers registered with your garage.
-          </p>
-        </div>
-        <Button
-          nativeButton={false}
-          render={<Link href="/staff/customers/new">Add customer</Link>}
-        />
-      </div>
+      <PageHeader
+        title="Customers"
+        description="All customers registered at this location."
+        action={
+          <Button
+            nativeButton={false}
+            render={
+              <Link href="/staff/customers/new">
+                <UserPlus className="mr-1.5 inline h-4 w-4" />
+                Add customer
+              </Link>
+            }
+          />
+        }
+      />
 
       {error && (
         <p className="text-sm text-red-600">Failed to load: {error.message}</p>
