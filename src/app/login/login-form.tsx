@@ -1,23 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 type Mode = "magic-link" | "password";
 
-export function CustomerLoginForm({ garageName }: { garageName: string }) {
-  const router = useRouter();
+export function CustomerLoginForm({
+  garageName,
+  primaryColor = "#4f46e5",
+}: {
+  garageName: string;
+  primaryColor?: string;
+}) {
   const supabase = createClient();
   const [mode, setMode] = useState<Mode>("magic-link");
   const [email, setEmail] = useState("");
@@ -42,10 +39,7 @@ export function CustomerLoginForm({ garageName }: { garageName: string }) {
       if (error) setError(error.message);
       else setMessage("Check your email for the sign-in link.");
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setError(error.message);
       else window.location.href = "/dashboard";
     }
@@ -53,33 +47,33 @@ export function CustomerLoginForm({ garageName }: { garageName: string }) {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm shadow-md">
       <CardHeader>
         <CardTitle>Sign in to {garageName}</CardTitle>
-        <CardDescription>
-          Use a one-time email link or your password.
-        </CardDescription>
+        <CardDescription>Use a one-time email link or your password.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-4 flex gap-2 text-sm">
-          <button
-            type="button"
-            onClick={() => setMode("magic-link")}
-            className={`rounded px-3 py-1 ${mode === "magic-link" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-          >
-            Email link
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("password")}
-            className={`rounded px-3 py-1 ${mode === "password" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
-          >
-            Password
-          </button>
+        {/* Mode toggle */}
+        <div className="mb-5 flex rounded-lg border p-0.5 text-sm">
+          {(["magic-link", "password"] as Mode[]).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className="flex-1 rounded-md py-1.5 text-center transition-all"
+              style={
+                mode === m
+                  ? { backgroundColor: primaryColor, color: "#fff" }
+                  : { color: "#6b7280" }
+              }
+            >
+              {m === "magic-link" ? "Email link" : "Password"}
+            </button>
+          ))}
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -92,41 +86,41 @@ export function CustomerLoginForm({ garageName }: { garageName: string }) {
           </div>
 
           {mode === "password" && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-            </div>
-          )}
-
-          {mode === "password" && (
-            <p className="text-right text-xs">
-              <a href="/forgot-password" className="underline text-muted-foreground">
-                Forgot password?
-              </a>
-            </p>
+            <>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+              <p className="text-right text-xs">
+                <a href="/forgot-password" className="underline text-muted-foreground">
+                  Forgot password?
+                </a>
+              </p>
+            </>
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           {message && <p className="text-sm text-green-700">{message}</p>}
 
-          <Button type="submit" disabled={pending}>
-            {pending
-              ? "Working…"
-              : mode === "magic-link"
-                ? "Email me a link"
-                : "Sign in"}
-          </Button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            style={{ backgroundColor: primaryColor }}
+          >
+            {pending ? "Working…" : mode === "magic-link" ? "Email me a link" : "Sign in"}
+          </button>
 
           <p className="text-center text-xs text-muted-foreground">
             New customer?{" "}
-            <a href="/register" className="underline">
+            <a href="/register" className="underline" style={{ color: primaryColor }}>
               Create an account
             </a>
           </p>
