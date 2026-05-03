@@ -13,13 +13,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export function ResetPasswordForm() {
+export function ResetPasswordForm({ token }: { token: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   function handleSubmit(formData: FormData) {
     setError(null);
+    formData.set("token", token);
     startTransition(async () => {
       const result = await updatePassword(formData);
       if ("error" in result) {
