@@ -4,6 +4,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { ReminderButton } from "./reminder-button";
+import { DeleteCustomerButton, DeleteVehicleButton } from "./delete-buttons";
 
 type Customer = {
   id: string;
@@ -90,16 +91,27 @@ export default async function CustomerDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <Link
-          href="/staff/customers"
-          className="text-sm text-muted-foreground underline"
-        >
-          ← Back to customers
-        </Link>
-        <h1 className="text-2xl font-bold">
-          {customer.full_name ?? "Unnamed customer"}
-        </h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link
+            href="/staff/customers"
+            className="text-sm text-muted-foreground underline"
+          >
+            ← Back to customers
+          </Link>
+          <h1 className="text-2xl font-bold">
+            {customer.full_name ?? "Unnamed customer"}
+          </h1>
+        </div>
+        <div className="flex shrink-0 gap-2 pt-5">
+          <Button
+            nativeButton={false}
+            variant="outline"
+            size="sm"
+            render={<Link href={`/staff/customers/${customer.id}/edit`}>Edit</Link>}
+          />
+          <DeleteCustomerButton customerId={customer.id} />
+        </div>
       </div>
 
       <section className="rounded-lg border p-4">
@@ -172,6 +184,18 @@ export default async function CustomerDetailPage({
                           reminderType="service"
                           disabled={!v.service_due || !customer.email}
                         />
+                        <div className="flex gap-2 text-xs pt-1 border-t">
+                          <Link
+                            href={`/staff/customers/${customer.id}/vehicles/${v.id}/edit`}
+                            className="underline text-muted-foreground"
+                          >
+                            Edit
+                          </Link>
+                          <DeleteVehicleButton
+                            vehicleId={v.id}
+                            customerId={customer.id}
+                          />
+                        </div>
                       </div>
                     </td>
                   </tr>

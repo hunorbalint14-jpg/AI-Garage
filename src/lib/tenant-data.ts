@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type Organization = {
   id: string;
@@ -26,8 +26,11 @@ export async function getCurrentTenant(): Promise<TenantContext | null> {
   const slug = headersList.get("x-tenant-slug");
   if (!slug) return null;
 
-  const supabase = await createClient();
-  const { data } = (await supabase
+  // Use admin client — locations have a members-only RLS policy but the
+  // branding data (name, colour) must be readable by anyone visiting the
+  // tenant subdomain before they are logged in.
+  const admin = createAdminClient();
+  const { data } = (await admin
     .from("locations")
     .select(
       "id, slug, name, organization:organizations(id, slug, name, primary_color, logo_url, custom_domain)",

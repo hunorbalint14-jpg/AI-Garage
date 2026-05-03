@@ -233,3 +233,125 @@ export async function sendReminder(
   revalidatePath("/staff/reminders");
   return { success: true, message: messageText };
 }
+
+// ── Edit / delete ──────────────────────────────────────────────────────────
+
+export type UpdateCustomerResult = { error: string } | { success: true };
+
+export async function updateCustomer(
+  customerId: string,
+  formData: FormData,
+): Promise<UpdateCustomerResult> {
+  const ctx = await requireStaffContext();
+
+  const fullName = (formData.get("fullName") as string | null)?.trim();
+  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
+  const phone = (formData.get("phone") as string | null)?.trim();
+
+  if (!fullName) return { error: "Name is required." };
+  if (!email) return { error: "Email is required." };
+  if (!EMAIL_RE.test(email)) return { error: "Email looks invalid." };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("customers")
+    .update({ full_name: fullName, email, phone: phone || null })
+    .eq("id", customerId)
+    .eq("location_id", ctx.location.id);
+
+  if (error) {
+    if (error.code === "23505") return { error: "A customer with that email already exists." };
+    return { error: error.message };
+  }
+
+  revalidatePath(`/staff/customers/${customerId}`);
+  revalidatePath("/staff/customers");
+  return { success: true };
+}
+
+export type DeleteCustomerResult = { error: string } | { success: true };
+
+export async function deleteCustomer(
+  customerId: string,
+): Promise<DeleteCustomerResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("customers")
+    .delete()
+    .eq("id", customerId)
+    .eq("location_id", ctx.location.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/staff/customers");
+  return { success: true };
+}
+
+export type UpdateVehicleResult = { error: string } | { success: true };
+
+export async function updateVehicle(
+  vehicleId: string,
+  customerId: string,
+  formData: FormData,
+): Promise<UpdateVehicleResult> {
+  const ctx = await requireStaffContext();
+
+  const registrationInput = formData.get("registration") as string | null;
+  const make = (formData.get("make") as string | null)?.trim() || null;
+  const model = (formData.get("model") as string | null)?.trim() || null;
+  const yearStr = formData.get("year") as string | null;
+  const motExpiry = (formData.get("motExpiry") as string | null) || null;
+  const serviceDue = (formData.get("serviceDue") as string | null) || null;
+
+  const regError = validateRegistration(registrationInput ?? "");
+  if (regError) return { error: regError };
+  const registration = normalizeRegistration(registrationInput ?? "");
+
+  let year: number | null = null;
+  if (yearStr) {
+    const parsed = parseInt(yearStr, 10);
+    const currentYear = new Date().getFullYear();
+    if (Number.isNaN(parsed) || parsed < 1900 || parsed > currentYear + 1) {
+      return { error: `Year must be between 1900 and ${currentYear + 1}.` };
+    }
+    year = parsed;
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("vehicles")
+    .update({ registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue })
+    .eq("id", vehicleId)
+    .eq("location_id", ctx.location.id);
+
+  if (error) {
+    if (error.code === "23505") return { error: "A vehicle with that registration is already on file." };
+    return { error: error.message };
+  }
+
+  revalidatePath(`/staff/customers/${customerId}`);
+  return { success: true };
+}
+
+export type DeleteVehicleResult = { error: string } | { success: true };
+
+export async function deleteVehicle(
+  vehicleId: string,
+  customerId: string,
+): Promise<DeleteVehicleResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("vehicles")
+    .delete()
+    .eq("id", vehicleId)
+    .eq("location_id", ctx.location.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/staff/customers/${customerId}`);
+  return { success: true };
+}

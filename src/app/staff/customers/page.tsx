@@ -72,12 +72,20 @@ export default async function CustomersPage() {
                     {new Date(c.created_at).toLocaleDateString("en-GB")}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <Link
-                      href={`/staff/customers/${c.id}`}
-                      className="text-sm underline"
-                    >
-                      View
-                    </Link>
+                    <div className="flex justify-end gap-3">
+                      <Link
+                        href={`/staff/customers/${c.id}`}
+                        className="text-sm underline"
+                      >
+                        View
+                      </Link>
+                      <Link
+                        href={`/staff/customers/${c.id}/edit`}
+                        className="text-sm underline text-muted-foreground"
+                      >
+                        Edit
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
