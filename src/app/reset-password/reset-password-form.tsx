@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, useEffect, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,6 @@ import {
 
 function ResetPasswordFormInner() {
   const supabase = createClient();
-  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -25,17 +23,16 @@ function ResetPasswordFormInner() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const code = searchParams.get("code");
-    if (!code) {
-      setError("Reset link is missing or invalid. Please request a new one.");
-      return;
-    }
-    // Exchange the code client-side so the browser session is set immediately.
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) {
-        setError("Reset link has expired or already been used. Please request a new one.");
-      } else {
+    // The server exchanged the reset code and set the session in cookies.
+    // refreshSession() loads those cookies into the browser client's memory
+    // so that updateUser() can access the session.
+    supabase.auth.refreshSession().then(({ data, error }) => {
+      if (!error && data.session) {
         setReady(true);
+      } else {
+        setError(
+          "Reset link has expired or already been used. Please request a new one.",
+        );
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,11 +146,15 @@ function ResetPasswordFormInner() {
 
 export function ResetPasswordForm() {
   return (
-    <Suspense fallback={
-      <Card className="w-full max-w-sm">
-        <CardHeader><CardTitle>Loading…</CardTitle></CardHeader>
-      </Card>
-    }>
+    <Suspense
+      fallback={
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle>Loading…</CardTitle>
+          </CardHeader>
+        </Card>
+      }
+    >
       <ResetPasswordFormInner />
     </Suspense>
   );

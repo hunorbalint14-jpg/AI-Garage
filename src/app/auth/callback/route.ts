@@ -11,18 +11,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
   }
 
-  // Password reset: redirect BEFORE exchanging the code.
-  // The code can only be used once — if we exchange it here the client-side
-  // exchangeCodeForSession on /reset-password would fail with "already used".
-  if (next === "/reset-password") {
-    return NextResponse.redirect(`${origin}/reset-password?code=${code}`);
-  }
-
-  // Regular sign-in: exchange the code server-side.
+  // Exchange the code server-side. Works for both regular sign-in and
+  // password reset — the session is written to cookies which the browser
+  // client loads via refreshSession() on the next page.
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
+  }
+
+  // Password reset: session is now in cookies. Go straight to the form.
+  // The reset-password page calls refreshSession() to load it client-side
+  // before calling updateUser().
+  if (next === "/reset-password") {
+    return NextResponse.redirect(`${origin}/reset-password`);
   }
 
   const {
