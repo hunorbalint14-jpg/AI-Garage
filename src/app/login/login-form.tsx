@@ -105,6 +105,14 @@ export function CustomerLoginForm({ garageName }: { garageName: string }) {
             </div>
           )}
 
+          {mode === "password" && (
+            <p className="text-right text-xs">
+              <a href="/forgot-password" className="underline text-muted-foreground">
+                Forgot password?
+              </a>
+            </p>
+          )}
+
           {error && <p className="text-sm text-red-600">{error}</p>}
           {message && <p className="text-sm text-green-700">{message}</p>}
 

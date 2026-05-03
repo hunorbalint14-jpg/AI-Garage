@@ -22,6 +22,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
   }
 
+  // Password reset flow: go straight to the reset form, skip role detection.
+  if (next === "/reset-password") {
+    return NextResponse.redirect(`${origin}/reset-password`);
+  }
+
   // Check if this user is org staff. If so, send them to the staff portal.
   const admin = createAdminClient();
   const slug = request.headers.get("x-tenant-slug");

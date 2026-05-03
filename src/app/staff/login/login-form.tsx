@@ -78,6 +78,12 @@ export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string })
             />
           </div>
 
+          <p className="text-right text-xs">
+            <a href="/forgot-password" className="underline text-muted-foreground">
+              Forgot password?
+            </a>
+          </p>
+
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <Button type="submit" disabled={pending}>
