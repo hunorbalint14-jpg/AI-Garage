@@ -15,7 +15,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export function RegisterForm({ garageName }: { garageName: string }) {
+export function RegisterForm({
+  garageName,
+  primaryColor = "#4f46e5",
+}: {
+  garageName: string;
+  primaryColor?: string;
+}) {
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -104,13 +110,18 @@ export function RegisterForm({ garageName }: { garageName: string }) {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <Button type="submit" disabled={pending}>
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            style={{ backgroundColor: primaryColor }}
+          >
             {pending ? "Creating account…" : "Create account"}
-          </Button>
+          </button>
 
           <p className="text-center text-xs text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="underline">
+            <Link href="/login" className="underline" style={{ color: primaryColor }}>
               Sign in
             </Link>
           </p>
