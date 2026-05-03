@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition, useEffect, Suspense } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useTransition } from "react";
+import { updatePassword } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,48 +13,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-function ResetPasswordFormInner() {
-  const supabase = createClient();
+export function ResetPasswordForm() {
   const [pending, startTransition] = useTransition();
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    // The server exchanged the reset code and set the session in cookies.
-    // refreshSession() loads those cookies into the browser client's memory
-    // so that updateUser() can access the session.
-    supabase.auth.refreshSession().then(({ data, error }) => {
-      if (!error && data.session) {
-        setReady(true);
-      } else {
-        setError(
-          "Reset link has expired or already been used. Please request a new one.",
-        );
-      }
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function handleSubmit(formData: FormData) {
     setError(null);
-
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters.");
-      return;
-    }
-    if (password !== confirm) {
-      setError("Passwords don't match.");
-      return;
-    }
-
     startTransition(async () => {
-      const { error } = await supabase.auth.updateUser({ password });
-      if (error) {
-        setError(error.message);
+      const result = await updatePassword(formData);
+      if ("error" in result) {
+        setError(result.error);
       } else {
         setDone(true);
         setTimeout(() => {
@@ -77,32 +46,6 @@ function ResetPasswordFormInner() {
     );
   }
 
-  if (error && !ready) {
-    return (
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Link invalid</CardTitle>
-          <CardDescription>{error}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <a href="/forgot-password" className="text-sm underline">
-            Request a new reset link
-          </a>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!ready) {
-    return (
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Verifying reset link…</CardTitle>
-        </CardHeader>
-      </Card>
-    );
-  }
-
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
@@ -110,16 +53,15 @@ function ResetPasswordFormInner() {
         <CardDescription>Must be at least 6 characters.</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form action={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="password">New password</Label>
             <Input
               id="password"
+              name="password"
               type="password"
               required
               minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
           </div>
@@ -127,10 +69,9 @@ function ResetPasswordFormInner() {
             <Label htmlFor="confirm">Confirm password</Label>
             <Input
               id="confirm"
+              name="confirm"
               type="password"
               required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
               autoComplete="new-password"
             />
           </div>
@@ -141,21 +82,5 @@ function ResetPasswordFormInner() {
         </form>
       </CardContent>
     </Card>
-  );
-}
-
-export function ResetPasswordForm() {
-  return (
-    <Suspense
-      fallback={
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <CardTitle>Loading…</CardTitle>
-          </CardHeader>
-        </Card>
-      }
-    >
-      <ResetPasswordFormInner />
-    </Suspense>
   );
 }
