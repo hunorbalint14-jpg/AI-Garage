@@ -3,16 +3,6 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getStaffTenantUrl } from "./actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 const ROOT_HOST =
   (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000").split(":")[0];
@@ -23,12 +13,20 @@ function isRootDomain() {
   return h === ROOT_HOST || h === `www.${ROOT_HOST}`;
 }
 
-export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string }) {
+export function StaffLoginForm({
+  initialEmail = "",
+  accentColor,
+}: {
+  initialEmail?: string;
+  accentColor?: string;
+}) {
   const supabase = createClient();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const btnColor = accentColor ?? "#6366f1";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,8 +45,6 @@ export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string })
     }
 
     if (isRootDomain()) {
-      // Staff logged in from the root/marketing domain — look up their garage
-      // and redirect to the correct tenant subdomain.
       const result = await getStaffTenantUrl();
       if ("error" in result) {
         setError(result.error);
@@ -57,61 +53,64 @@ export function StaffLoginForm({ initialEmail = "" }: { initialEmail?: string })
       }
       window.location.href = result.url;
     } else {
-      // Already on a tenant subdomain — stay here.
       window.location.href = "/staff";
     }
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Staff sign in</CardTitle>
-        <CardDescription>
-          For garage owners and staff. Customers should use the main sign-in
-          page.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-          </div>
+    <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-md shadow-2xl">
+      <h1 className="text-2xl font-bold tracking-tight">Staff sign in</h1>
+      <p className="mt-1.5 text-sm text-gray-400">
+        For garage owners and staff. Customers should use the main sign-in page.
+      </p>
 
-          <p className="text-right text-xs">
-            <a
-              href="/forgot-password"
-              className="underline text-muted-foreground"
-            >
-              Forgot password?
-            </a>
-          </p>
+      <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
+        <div>
+          <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-gray-300">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:border-white/30 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-gray-300">
+            Password
+          </label>
+          <input
+            id="password"
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+          />
+        </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+        <p className="text-right text-xs">
+          <a href="/forgot-password" className="text-gray-400 hover:text-white underline">
+            Forgot password?
+          </a>
+        </p>
 
-          <Button type="submit" disabled={pending}>
-            {pending ? "Signing in…" : "Sign in"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        {error && <p className="text-sm text-red-400">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
+          style={{ backgroundColor: btnColor, boxShadow: `0 8px 16px -8px ${btnColor}60` }}
+        >
+          {pending ? "Signing in…" : "Sign in"}
+        </button>
+      </form>
+    </div>
   );
 }

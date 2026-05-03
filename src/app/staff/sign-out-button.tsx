@@ -2,7 +2,6 @@
 
 import { useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
 
 export function SignOutButton() {
   const supabase = createClient();
@@ -11,21 +10,18 @@ export function SignOutButton() {
   function handleSignOut() {
     startTransition(async () => {
       await supabase.auth.signOut();
-      // Full reload clears the cached layout so the sidebar disappears cleanly.
       window.location.href = "/staff/login";
     });
   }
 
   return (
-    <Button
+    <button
       type="button"
-      variant="outline"
-      size="sm"
-      onClick={handleSignOut}
       disabled={pending}
-      className="w-full"
+      onClick={handleSignOut}
+      className="w-full rounded-lg border border-white/10 bg-white/5 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/10 hover:text-white transition-colors disabled:opacity-50"
     >
       {pending ? "Signing out…" : "Sign out"}
-    </Button>
+    </button>
   );
 }

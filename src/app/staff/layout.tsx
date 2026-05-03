@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SignOutButton } from "./sign-out-button";
 import { LocationSwitcher } from "@/components/staff/location-switcher";
 import { StaffNav } from "@/components/staff/staff-nav";
+import { AnimatedBackground } from "@/components/animated-background";
 
 function OrgAvatar({ name, color }: { name: string; color: string }) {
   const initials = name
@@ -45,39 +46,40 @@ export default async function StaffLayout({
     .eq("id", ctx.organization.id)
     .single();
   const brandColor =
-    (org as { primary_color: string } | null)?.primary_color ?? "#1f2937";
+    (org as { primary_color: string } | null)?.primary_color ?? "#6366f1";
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="flex w-60 shrink-0 flex-col border-r bg-card">
-        <div className="flex items-center gap-3 border-b px-4 py-4">
+    <div className="relative flex min-h-screen bg-[#050c1a]">
+      <AnimatedBackground brandColor={brandColor} />
+
+      {/* Sidebar */}
+      <aside className="relative z-10 flex w-60 shrink-0 flex-col border-r border-white/10 bg-[#0a1020]/90 backdrop-blur-xl">
+        <div className="flex items-center gap-3 border-b border-white/10 px-4 py-4">
           <OrgAvatar name={ctx.organization.name} color={brandColor} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold leading-tight">
+            <p className="truncate text-sm font-semibold leading-tight text-white">
               {ctx.organization.name}
             </p>
-            <p className="text-xs capitalize text-muted-foreground">{role}</p>
+            <p className="text-xs capitalize text-gray-400">{role}</p>
           </div>
         </div>
 
-        <div className="border-b px-3 py-3">
+        <div className="border-b border-white/10 px-3 py-3">
           <LocationSwitcher
             locations={locations ?? []}
             currentSlug={ctx.location.slug}
           />
         </div>
 
-        {/* StaffNav is a client component that owns its icon imports —
-            icons cannot be passed as props from server to client components */}
         <StaffNav />
 
-        <div className="border-t px-4 py-4">
+        <div className="border-t border-white/10 px-4 py-4">
           <div className="mb-3 min-w-0">
-            <p className="truncate text-sm font-medium" title={fullName}>
+            <p className="truncate text-sm font-medium text-white" title={fullName}>
               {fullName}
             </p>
             <p
-              className="truncate text-xs text-muted-foreground"
+              className="truncate text-xs text-gray-400"
               title={ctx.user.email ?? ""}
             >
               {ctx.user.email}
@@ -87,7 +89,8 @@ export default async function StaffLayout({
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      {/* Main content — light panel on dark background */}
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col bg-[#f8fafc]">
         <main className="flex-1 p-6 lg:p-8">{children}</main>
       </div>
     </div>

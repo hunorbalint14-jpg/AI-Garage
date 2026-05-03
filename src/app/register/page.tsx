@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant-data";
 import { RegisterForm } from "./register-form";
+import { AnimatedBackground } from "@/components/animated-background";
 
 export default async function RegisterPage() {
   const tenant = await getCurrentTenant();
@@ -12,27 +13,30 @@ export default async function RegisterPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (user) redirect("/dashboard");
 
-  const primaryColor = tenant.organization.primary_color;
-  const logoUrl = tenant.organization.logo_url;
-  const orgName = tenant.organization.name;
+  const { name: orgName, primary_color: primaryColor, logo_url: logoUrl } = tenant.organization;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div
-        className="w-full border-b py-4 px-6 text-center"
-        style={{ background: `${primaryColor}12`, borderColor: `${primaryColor}20` }}
-      >
-        {logoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={logoUrl} alt={orgName} className="mx-auto h-8 w-auto object-contain" />
-        ) : (
-          <Link href="/" className="text-base font-bold" style={{ color: primaryColor }}>
-            {orgName}
-          </Link>
-        )}
-      </div>
+    <div className="relative min-h-screen bg-[#050c1a] text-white overflow-x-hidden">
+      <AnimatedBackground brandColor={primaryColor} />
 
-      <main className="flex min-h-[calc(100vh-57px)] items-center justify-center p-6">
+      <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
+        <Link href="/" className="flex items-center gap-3">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={logoUrl} alt={orgName} className="h-8 w-auto object-contain" />
+          ) : (
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white"
+              style={{ backgroundColor: primaryColor }}
+            >
+              {orgName.split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
+            </div>
+          )}
+          <span className="text-base font-semibold">{orgName}</span>
+        </Link>
+      </nav>
+
+      <main className="relative z-10 flex min-h-[calc(100vh-72px)] items-center justify-center px-6 pb-12">
         <RegisterForm garageName={orgName} primaryColor={primaryColor} />
       </main>
     </div>

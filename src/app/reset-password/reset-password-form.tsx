@@ -2,16 +2,6 @@
 
 import { useState, useTransition } from "react";
 import { updatePassword } from "./actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const [pending, startTransition] = useTransition();
@@ -27,61 +17,67 @@ export function ResetPasswordForm({ token }: { token: string }) {
         setError(result.error);
       } else {
         setDone(true);
-        setTimeout(() => {
-          window.location.href = "/";
-        }, 2000);
+        setTimeout(() => { window.location.href = "/"; }, 2000);
       }
     });
   }
 
   if (done) {
     return (
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Password updated</CardTitle>
-          <CardDescription>
-            Your password has been changed. Redirecting you now…
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-md text-center">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/20 text-green-400">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-bold">Password updated</h2>
+        <p className="mt-2 text-sm text-gray-400">Redirecting you now…</p>
+      </div>
     );
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Choose a new password</CardTitle>
-        <CardDescription>Must be at least 6 characters.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form action={handleSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">New password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={6}
-              autoComplete="new-password"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="confirm">Confirm password</Label>
-            <Input
-              id="confirm"
-              name="confirm"
-              type="password"
-              required
-              autoComplete="new-password"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" disabled={pending}>
-            {pending ? "Updating…" : "Update password"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-md shadow-2xl">
+      <h1 className="text-2xl font-bold tracking-tight">Choose a new password</h1>
+      <p className="mt-1.5 text-sm text-gray-400">Must be at least 6 characters.</p>
+
+      <form action={handleSubmit} className="mt-6 flex flex-col gap-4">
+        <div>
+          <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-gray-300">
+            New password
+          </label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            minLength={6}
+            autoComplete="new-password"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+          />
+        </div>
+        <div>
+          <label htmlFor="confirm" className="mb-1.5 block text-xs font-medium text-gray-300">
+            Confirm password
+          </label>
+          <input
+            id="confirm"
+            name="confirm"
+            type="password"
+            required
+            autoComplete="new-password"
+            className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+          />
+        </div>
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
+        >
+          {pending ? "Updating…" : "Update password"}
+        </button>
+      </form>
+    </div>
   );
 }
