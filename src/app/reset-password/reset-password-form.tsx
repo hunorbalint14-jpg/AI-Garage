@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,13 +14,32 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export function ResetPasswordForm() {
+function ResetPasswordFormInner() {
   const supabase = createClient();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    const code = searchParams.get("code");
+    if (!code) {
+      setError("Reset link is missing or invalid. Please request a new one.");
+      return;
+    }
+    // Exchange the code client-side so the browser session is set immediately.
+    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+      if (error) {
+        setError("Reset link has expired or already been used. Please request a new one.");
+      } else {
+        setReady(true);
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +60,6 @@ export function ResetPasswordForm() {
         setError(error.message);
       } else {
         setDone(true);
-        // Give the session a moment to settle then redirect
         setTimeout(() => {
           window.location.href = "/";
         }, 2000);
@@ -56,6 +75,32 @@ export function ResetPasswordForm() {
           <CardDescription>
             Your password has been changed. Redirecting you now…
           </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (error && !ready) {
+    return (
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle>Link invalid</CardTitle>
+          <CardDescription>{error}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <a href="/forgot-password" className="text-sm underline">
+            Request a new reset link
+          </a>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!ready) {
+    return (
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle>Verifying reset link…</CardTitle>
         </CardHeader>
       </Card>
     );
@@ -99,5 +144,17 @@ export function ResetPasswordForm() {
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+export function ResetPasswordForm() {
+  return (
+    <Suspense fallback={
+      <Card className="w-full max-w-sm">
+        <CardHeader><CardTitle>Loading…</CardTitle></CardHeader>
+      </Card>
+    }>
+      <ResetPasswordFormInner />
+    </Suspense>
   );
 }

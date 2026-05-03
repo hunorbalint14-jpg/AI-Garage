@@ -22,9 +22,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
   }
 
-  // Password reset flow: go straight to the reset form, skip role detection.
+  // Password reset flow: skip the server-side exchange and pass the code
+  // directly to the reset page so the browser client can exchange it.
+  // This avoids the 'Auth session missing' error caused by the browser
+  // client not seeing a session that was set server-side via cookies.
   if (next === "/reset-password") {
-    return NextResponse.redirect(`${origin}/reset-password`);
+    return NextResponse.redirect(`${origin}/reset-password?code=${code}`);
   }
 
   // Check if this user is org staff. If so, send them to the staff portal.
