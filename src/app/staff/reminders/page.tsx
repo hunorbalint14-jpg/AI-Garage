@@ -6,8 +6,10 @@ import Link from "next/link";
 type ReminderRow = {
   id: string;
   type: string;
+  channel: string;
   subject: string;
-  recipient_email: string;
+  recipient_email: string | null;
+  recipient_phone: string | null;
   status: string;
   sent_at: string;
   customer: { id: string; full_name: string | null } | null;
@@ -21,7 +23,7 @@ export default async function RemindersPage() {
   const { data: reminders } = (await admin
     .from("reminders")
     .select(
-      "id, type, subject, recipient_email, status, sent_at, customer:customers(id, full_name), vehicle:vehicles(registration)",
+      "id, type, channel, subject, recipient_email, recipient_phone, status, sent_at, customer:customers(id, full_name), vehicle:vehicles(registration)",
     )
     .eq("location_id", ctx.location.id)
     .order("sent_at", { ascending: false })
@@ -33,12 +35,12 @@ export default async function RemindersPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Reminders"
-        description="All MOT and service reminders sent from this location."
+        description="All MOT, service, and custom messages sent from this location."
       />
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-          No reminders sent yet. Open a customer&apos;s vehicle record to send one.
+          No messages sent yet. Open a customer record to send one.
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
@@ -49,6 +51,7 @@ export default async function RemindersPage() {
                 <th className="px-4 py-2 font-medium">Customer</th>
                 <th className="px-4 py-2 font-medium">Vehicle</th>
                 <th className="px-4 py-2 font-medium">Type</th>
+                <th className="px-4 py-2 font-medium">Channel</th>
                 <th className="px-4 py-2 font-medium">Sent to</th>
                 <th className="px-4 py-2 font-medium">Status</th>
               </tr>
@@ -61,10 +64,7 @@ export default async function RemindersPage() {
                   </td>
                   <td className="px-4 py-2">
                     {r.customer ? (
-                      <Link
-                        href={`/staff/customers/${r.customer.id}`}
-                        className="underline"
-                      >
+                      <Link href={`/staff/customers/${r.customer.id}`} className="underline">
                         {r.customer.full_name ?? "Unknown"}
                       </Link>
                     ) : (
@@ -75,15 +75,14 @@ export default async function RemindersPage() {
                     {r.vehicle?.registration ?? "—"}
                   </td>
                   <td className="px-4 py-2 capitalize">{r.type}</td>
+                  <td className="px-4 py-2 uppercase text-xs font-medium">
+                    {r.channel}
+                  </td>
                   <td className="px-4 py-2 text-muted-foreground">
-                    {r.recipient_email}
+                    {r.channel === "sms" ? (r.recipient_phone ?? "—") : (r.recipient_email ?? "—")}
                   </td>
                   <td className="px-4 py-2">
-                    <span
-                      className={
-                        r.status === "sent" ? "text-green-700" : "text-red-600"
-                      }
-                    >
+                    <span className={r.status === "sent" ? "text-green-700" : "text-red-600"}>
                       {r.status}
                     </span>
                   </td>
