@@ -10,7 +10,7 @@ type Props = {
 export function AnimatedBackground({ brandColor }: Props) {
   if (brandColor) {
     return (
-      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10" aria-hidden>
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden>
         <div
           className="animate-blob absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full blur-[120px]"
           style={{ backgroundColor: brandColor, opacity: 0.35 }}
@@ -29,7 +29,7 @@ export function AnimatedBackground({ brandColor }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10" aria-hidden>
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0" aria-hidden>
       <div className="animate-blob absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full bg-indigo-900/40 blur-[120px]" />
       <div className="animate-blob animation-delay-2 absolute top-1/3 -right-40 h-[500px] w-[500px] rounded-full bg-blue-900/30 blur-[100px]" />
       <div className="animate-blob animation-delay-4 absolute bottom-0 left-1/3 h-[400px] w-[400px] rounded-full bg-violet-900/25 blur-[80px]" />
