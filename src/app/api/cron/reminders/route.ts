@@ -160,6 +160,7 @@ export async function GET(request: NextRequest) {
               message_text: messageText,
               status: emailResult.success ? "sent" : "failed",
               error_message: emailResult.success ? null : emailResult.error,
+              resend_email_id: emailResult.success ? emailResult.messageId : null,
             });
 
             if (emailResult.success) {

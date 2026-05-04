@@ -182,6 +182,7 @@ export async function sendReminder(
       message_text: messageText,
       status: emailResult.success ? "sent" : "failed",
       error_message: emailResult.success ? null : emailResult.error,
+      resend_email_id: emailResult.success ? emailResult.messageId : null,
     });
 
     sentChannels.push(emailResult.success ? "email" : `email (failed: ${emailResult.error})`);
@@ -220,13 +221,15 @@ export async function sendReminder(
   return { success: true, channels: sentChannels };
 }
 
-export type SendCustomMessageResult = { error: string } | { success: true; summary: string };
+export type DraftMessagePreviewResult =
+  | { error: string }
+  | { email: string | null; sms: string | null };
 
-export async function sendCustomMessage(
+export async function draftMessagePreview(
   customerId: string,
   topic: string,
   channels: ("email" | "sms")[],
-): Promise<SendCustomMessageResult> {
+): Promise<DraftMessagePreviewResult> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
@@ -240,29 +243,53 @@ export async function sendCustomMessage(
 
   if (!customer) return { error: "Customer not found." };
 
+  const wantsEmail = channels.includes("email") && !!customer.email;
+  const wantsSms = channels.includes("sms") && !!customer.phone;
+  if (!wantsEmail && !wantsSms) return { error: "No valid channel available for this customer." };
+
   const firstName = customer.full_name?.split(" ")[0] ?? "there";
   const garageName = org?.name ?? ctx.organization.name;
   const garagePhone = org?.phone ?? null;
 
-  const wantsEmail = channels.includes("email") && !!customer.email;
-  const wantsSms = channels.includes("sms") && !!customer.phone;
-
-  if (!wantsEmail && !wantsSms) {
-    return { error: "No valid channel available for this customer." };
-  }
-
-  let drafted: { email: string; sms: string };
   try {
-    drafted = await draftCustomMessage({ garageName, garagePhone, customerFirstName: firstName, topic });
-  } catch {
-    return { error: "Failed to draft message with AI. Please try again." };
+    const drafted = await draftCustomMessage({ garageName, garagePhone, customerFirstName: firstName, topic });
+    return {
+      email: wantsEmail ? drafted.email : null,
+      sms: wantsSms ? drafted.sms : null,
+    };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { error: `AI draft failed: ${msg}` };
   }
+}
 
+export type SendDraftedMessageResult = { error: string } | { success: true; summary: string };
+
+export async function sendDraftedMessage(
+  customerId: string,
+  topic: string,
+  emailText: string | null,
+  smsText: string | null,
+): Promise<SendDraftedMessageResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  const [customerRes, orgRes] = await Promise.all([
+    admin.from("customers").select("id, full_name, email, phone").eq("id", customerId).maybeSingle(),
+    admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
+  ]);
+
+  const customer = customerRes.data as { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
+  const org = orgRes.data;
+
+  if (!customer) return { error: "Customer not found." };
+
+  const garageName = org?.name ?? ctx.organization.name;
   const subject = `Message from ${garageName} — ${topic.slice(0, 60)}`;
   const results: string[] = [];
 
-  if (wantsEmail) {
-    const emailResult = await sendEmail({ to: customer.email!, subject, text: drafted.email });
+  if (emailText && customer.email) {
+    const emailResult = await sendEmail({ to: customer.email, subject, text: emailText });
     await admin.from("reminders").insert({
       location_id: ctx.location.id,
       customer_id: customer.id,
@@ -272,15 +299,16 @@ export async function sendCustomMessage(
       recipient_email: customer.email,
       recipient_phone: null,
       subject,
-      message_text: drafted.email,
+      message_text: emailText,
       status: emailResult.success ? "sent" : "failed",
       error_message: emailResult.success ? null : emailResult.error,
+      resend_email_id: emailResult.success ? emailResult.messageId : null,
     });
     results.push(emailResult.success ? "email sent" : `email failed: ${emailResult.error}`);
   }
 
-  if (wantsSms) {
-    const smsResult = await sendSms({ to: customer.phone!, body: drafted.sms });
+  if (smsText && customer.phone) {
+    const smsResult = await sendSms({ to: customer.phone, body: smsText });
     await admin.from("reminders").insert({
       location_id: ctx.location.id,
       customer_id: customer.id,
@@ -290,12 +318,14 @@ export async function sendCustomMessage(
       recipient_email: null,
       recipient_phone: customer.phone,
       subject,
-      message_text: drafted.sms,
+      message_text: smsText,
       status: smsResult.success ? "sent" : "failed",
       error_message: smsResult.success ? null : smsResult.error,
     });
     results.push(smsResult.success ? "SMS sent" : `SMS failed: ${smsResult.error}`);
   }
+
+  if (results.length === 0) return { error: "Nothing to send." };
 
   const allFailed = results.every((r) => r.includes("failed"));
   if (allFailed) return { error: results.join("; ") };

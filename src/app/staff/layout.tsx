@@ -91,7 +91,7 @@ export default async function StaffLayout({
           />
         </div>
 
-        <StaffNav theme={theme} brandColor={brandColor} />
+        <StaffNav theme={theme} brandColor={brandColor} orgRole={ctx.orgRole} />
 
         <div className={`border-t ${cfg.sidebarBorder} px-4 py-4`}>
           <div className="mb-3 min-w-0">

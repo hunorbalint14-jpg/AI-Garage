@@ -117,6 +117,58 @@ export async function draftCustomMessage(
   };
 }
 
+export type DraftBroadcastInput = {
+  garageName: string;
+  garagePhone: string | null;
+  topic: string;
+};
+
+export async function draftBroadcastMessage(
+  input: DraftBroadcastInput,
+): Promise<{ email: string; sms: string }> {
+  const { garageName, garagePhone, topic } = input;
+  const contactLine = garagePhone
+    ? `Call us on ${garagePhone} or reply to this email.`
+    : `Reply to this email to get in touch.`;
+
+  const [emailRes, smsRes] = await Promise.all([
+    anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
+      system: [{
+        type: "text",
+        text: `You draft short broadcast marketing emails for UK garages to send to all their customers. British English. Under 120 words. Start with "Dear customer," — warm but professional. End with a clear call to action. No subject line, no sign-off placeholder. Do not use a specific customer name.`,
+        cache_control: { type: "ephemeral" },
+      }],
+      messages: [{
+        role: "user",
+        content: `Broadcast email from ${garageName}. Topic: ${topic}. Contact: ${contactLine}`,
+      }],
+    }),
+    anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 80,
+      system: [{
+        type: "text",
+        text: `Draft a broadcast SMS for a UK garage to send to all customers. Max 160 characters. British English. Include garage name and key info. No customer name, no sign-off.`,
+        cache_control: { type: "ephemeral" },
+      }],
+      messages: [{
+        role: "user",
+        content: `Broadcast SMS from ${garageName}. Topic: ${topic}.${garagePhone ? ` Tel: ${garagePhone}.` : ""}`,
+      }],
+    }),
+  ]);
+
+  const emailBlock = emailRes.content[0];
+  const smsBlock = smsRes.content[0];
+
+  return {
+    email: emailBlock.type === "text" ? emailBlock.text.trim() : `Dear customer,\n\n${topic}\n\nRegards, ${garageName}`,
+    sms: smsBlock.type === "text" ? smsBlock.text.trim() : `${topic}. Contact ${garageName}.${garagePhone ? ` Tel: ${garagePhone}` : ""}`,
+  };
+}
+
 export function fallbackReminderMessage(input: DraftReminderInput): string {
   const { customerFirstName, vehicleDescription, registration, reminderType, dueDate, garageName, garagePhone } = input;
   const label = reminderType === "mot" ? "MOT" : "service";
