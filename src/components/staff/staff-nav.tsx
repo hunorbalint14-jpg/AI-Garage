@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Bell, Settings, Megaphone } from "lucide-react";
+import { LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays } from "lucide-react";
 import type { PortalTheme } from "@/lib/portal-themes";
 import { PORTAL_THEMES } from "@/lib/portal-themes";
 
 const BASE_NAV = [
   { href: "/staff", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/staff/customers", icon: Users, label: "Customers" },
+  { href: "/staff/bookings", icon: CalendarDays, label: "Bookings" },
   { href: "/staff/reminders", icon: Bell, label: "Reminders" },
   { href: "/staff/settings", icon: Settings, label: "Settings" },
 ];
