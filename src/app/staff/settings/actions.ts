@@ -26,6 +26,9 @@ export async function updateOrganization(
     return { error: "Primary color must be a valid hex colour (e.g. #1f2937)." };
   }
 
+  const portalTheme = (formData.get("portalTheme") as string | null) || null;
+  const validThemes = ["dark", "light", "glass"];
+
   const admin = createAdminClient();
   const { error } = await admin
     .from("organizations")
@@ -34,6 +37,9 @@ export async function updateOrganization(
       ...(primaryColor ? { primary_color: primaryColor } : {}),
       logo_url: logoUrl,
       phone,
+      ...(portalTheme && validThemes.includes(portalTheme)
+        ? { portal_theme: portalTheme }
+        : {}),
     })
     .eq("id", ctx.organization.id);
 
