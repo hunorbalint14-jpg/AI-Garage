@@ -297,7 +297,7 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="quantity" className="text-xs">Qty</Label>
-                <Input id="quantity" name="quantity" type="number" step="0.5" min="0.1" defaultValue="1" required disabled={pending} />
+                <Input id="quantity" name="quantity" type="number" step="any" min="0.01" defaultValue="1" required disabled={pending} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="unitPrice" className="text-xs">Unit price (£)</Label>
