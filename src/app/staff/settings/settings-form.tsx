@@ -35,6 +35,7 @@ type Props = {
   initialLogoUrl: string;
   initialPhone: string;
   initialTheme: Theme;
+  initialGoogleReviewUrl: string;
   canEdit: boolean;
 };
 
@@ -44,6 +45,7 @@ export function SettingsForm({
   initialLogoUrl,
   initialPhone,
   initialTheme,
+  initialGoogleReviewUrl,
   canEdit,
 }: Props) {
   const [pending, startTransition] = useTransition();
@@ -126,6 +128,21 @@ export function SettingsForm({
             placeholder="https://example.com/logo.png"
             disabled={!canEdit}
           />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="googleReviewUrl">Google review URL (optional)</Label>
+          <Input
+            id="googleReviewUrl"
+            name="googleReviewUrl"
+            type="url"
+            defaultValue={initialGoogleReviewUrl}
+            placeholder="https://g.page/r/your-business/review"
+            disabled={!canEdit}
+          />
+          <p className="text-xs text-muted-foreground">
+            Used when sending post-service review requests to customers.
+          </p>
         </div>
 
         {/* ── Portal theme picker ── */}

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob } from "../actions";
+import { useRouter } from "next/navigation";
+import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob, sendReviewRequest } from "../actions";
+import { createInvoiceFromJob } from "../../invoices/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,8 +40,10 @@ function formatGBP(n: number): string {
 }
 
 export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [reviewSuccess, setReviewSuccess] = useState<string | null>(null);
 
   const isOpen = job.status === "open";
   const isInvoiced = job.status === "invoiced";
@@ -105,6 +109,25 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
     startTransition(async () => {
       const result = await deleteJob(job.id);
       if ("error" in result) setError(result.error);
+    });
+  }
+
+  function handleCreateInvoice() {
+    setError(null);
+    startTransition(async () => {
+      const result = await createInvoiceFromJob(job.id);
+      if ("error" in result) setError(result.error);
+      else router.push(`/staff/invoices/${result.invoiceId}`);
+    });
+  }
+
+  function handleReviewRequest() {
+    setReviewSuccess(null);
+    setError(null);
+    startTransition(async () => {
+      const result = await sendReviewRequest(job.id);
+      if ("error" in result) setError(result.error);
+      else setReviewSuccess(`Review request sent via ${result.channels.join(" + ")}.`);
     });
   }
 
@@ -286,24 +309,40 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
         )}
       </section>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <div className="rounded-lg border p-4 flex flex-wrap gap-2">
-        {isOpen && (
-          <Button onClick={handleComplete} disabled={pending}>
-            Mark complete
-          </Button>
-        )}
-        {!isOpen && !isInvoiced && (
-          <Button variant="outline" onClick={handleReopen} disabled={pending}>
-            Reopen job
-          </Button>
-        )}
-        {!isInvoiced && (
-          <Button variant="destructive" onClick={handleDelete} disabled={pending}>
-            Delete job
-          </Button>
-        )}
+      <div className="rounded-lg border p-4 flex flex-col gap-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Actions</h2>
+        <div className="flex flex-wrap gap-2">
+          {isOpen && (
+            <Button onClick={handleComplete} disabled={pending}>
+              Mark complete
+            </Button>
+          )}
+          {!isOpen && !isInvoiced && (
+            <>
+              <Button onClick={handleCreateInvoice} disabled={pending}>
+                Create invoice
+              </Button>
+              <Button variant="outline" onClick={handleReviewRequest} disabled={pending}>
+                Request Google review
+              </Button>
+              <Button variant="outline" onClick={handleReopen} disabled={pending}>
+                Reopen job
+              </Button>
+            </>
+          )}
+          {isInvoiced && (
+            <Button variant="outline" onClick={handleReviewRequest} disabled={pending}>
+              Request Google review
+            </Button>
+          )}
+          {!isInvoiced && (
+            <Button variant="destructive" onClick={handleDelete} disabled={pending}>
+              Delete job
+            </Button>
+          )}
+        </div>
+        {reviewSuccess && <p className="text-sm text-green-700">{reviewSuccess}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
     </div>
   );
