@@ -20,6 +20,7 @@ export async function updateOrganization(
   const primaryColor = (formData.get("primaryColor") as string | null)?.trim();
   const logoUrl = (formData.get("logoUrl") as string | null)?.trim() || null;
   const phone = (formData.get("phone") as string | null)?.trim() || null;
+  const googleReviewUrl = (formData.get("googleReviewUrl") as string | null)?.trim() || null;
 
   if (!name) return { error: "Organization name is required." };
   if (primaryColor && !/^#[0-9a-fA-F]{6}$/.test(primaryColor)) {
@@ -37,6 +38,7 @@ export async function updateOrganization(
       ...(primaryColor ? { primary_color: primaryColor } : {}),
       logo_url: logoUrl,
       phone,
+      google_review_url: googleReviewUrl,
       ...(portalTheme && validThemes.includes(portalTheme)
         ? { portal_theme: portalTheme }
         : {}),

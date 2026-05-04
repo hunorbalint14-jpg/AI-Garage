@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email";
+import { sendSms } from "@/lib/sms";
 
 export type JobItemType = "part" | "labour" | "other";
 export type JobStatus = "open" | "complete" | "invoiced";
@@ -144,6 +146,73 @@ export async function reopenJob(jobId: string): Promise<UpdateJobResult> {
   revalidatePath(`/staff/jobs/${jobId}`);
   revalidatePath("/staff/bookings");
   return { success: true };
+}
+
+export type SendReviewRequestResult = { error: string } | { success: true; channels: string[] };
+
+export async function sendReviewRequest(jobId: string): Promise<SendReviewRequestResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  const [jobRes, orgRes] = await Promise.all([
+    admin.from("jobs").select("id, location_id, customer_id, status").eq("id", jobId).maybeSingle(),
+    admin.from("organizations").select("name, phone, google_review_url").eq("id", ctx.organization.id).maybeSingle(),
+  ]);
+
+  const job = jobRes.data as { id: string; location_id: string; customer_id: string | null; status: string } | null;
+  if (!job || job.location_id !== ctx.location.id) return { error: "Job not found." };
+  if (job.status === "open") return { error: "Complete the job before requesting a review." };
+  if (!job.customer_id) return { error: "No customer linked to this job." };
+
+  const org = orgRes.data as { name: string; phone: string | null; google_review_url: string | null } | null;
+  const reviewUrl = org?.google_review_url;
+  if (!reviewUrl) return { error: "No Google review URL configured. Add it in Settings." };
+
+  const { data: customer } = await admin
+    .from("customers")
+    .select("full_name, email, phone")
+    .eq("id", job.customer_id)
+    .maybeSingle();
+
+  if (!customer) return { error: "Customer not found." };
+  if (!customer.email && !customer.phone) return { error: "Customer has no email or phone." };
+
+  const garageName = org?.name ?? ctx.organization.name;
+  const firstName = customer.full_name?.split(" ")[0] ?? "there";
+
+  const emailText = `Hi ${firstName},
+
+Thank you for your recent visit to ${garageName}. We hope you're happy with the service!
+
+If you have a moment, we'd really appreciate a Google review — it helps us a lot:
+
+${reviewUrl}
+
+Thanks again,
+${garageName}`;
+
+  const smsText = `Hi ${firstName}, thanks for visiting ${garageName}! We'd love a quick Google review: ${reviewUrl}`;
+
+  const sentChannels: string[] = [];
+
+  if (customer.email) {
+    const result = await sendEmail({
+      to: customer.email,
+      subject: `How was your visit to ${garageName}?`,
+      text: emailText,
+    });
+    sentChannels.push(result.success ? "email" : `email failed: ${result.error}`);
+  }
+
+  if (customer.phone) {
+    const result = await sendSms({ to: customer.phone, body: smsText });
+    sentChannels.push(result.success ? "SMS" : `SMS failed: ${result.error}`);
+  }
+
+  const allFailed = sentChannels.every((c) => c.includes("failed"));
+  if (allFailed) return { error: sentChannels.join("; ") };
+
+  return { success: true, channels: sentChannels };
 }
 
 export async function deleteJob(jobId: string): Promise<UpdateJobResult> {

@@ -15,7 +15,7 @@ export default async function SettingsPage() {
   const [orgRes, locationsRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, custom_domain, phone, portal_theme")
+      .select("name, primary_color, logo_url, slug, custom_domain, phone, portal_theme, google_review_url")
       .eq("id", ctx.organization.id)
       .single(),
     admin
@@ -44,6 +44,7 @@ export default async function SettingsPage() {
         initialLogoUrl={org?.logo_url ?? ""}
         initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
         initialTheme={((org as { portal_theme?: string } | null)?.portal_theme ?? "dark") as "dark" | "light" | "glass"}
+        initialGoogleReviewUrl={(org as { google_review_url?: string | null } | null)?.google_review_url ?? ""}
         canEdit={isOwner}
       />
 
