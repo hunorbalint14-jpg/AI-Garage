@@ -3,23 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  normalizeRegistration,
-  validateRegistration,
-} from "@/lib/registration";
+import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { sendEmail } from "@/lib/email";
+import { sendSms } from "@/lib/sms";
 import {
   draftReminderMessage,
+  draftSmsReminderMessage,
+  draftCustomMessage,
   fallbackReminderMessage,
+  fallbackSmsReminderMessage,
 } from "@/lib/ai-messages";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type AddCustomerResult = { error: string } | { customerId: string };
 
-export async function addCustomer(
-  formData: FormData,
-): Promise<AddCustomerResult> {
+export async function addCustomer(formData: FormData): Promise<AddCustomerResult> {
   const ctx = await requireStaffContext();
 
   const fullName = (formData.get("fullName") as string | null)?.trim();
@@ -32,19 +31,12 @@ export async function addCustomer(
 
   const { data, error } = await ctx.supabase
     .from("customers")
-    .insert({
-      location_id: ctx.location.id,
-      full_name: fullName,
-      email,
-      phone: phone || null,
-    })
+    .insert({ location_id: ctx.location.id, full_name: fullName, email, phone: phone || null })
     .select("id")
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      return { error: "A customer with that email already exists." };
-    }
+    if (error.code === "23505") return { error: "A customer with that email already exists." };
     return { error: error.message };
   }
 
@@ -52,14 +44,9 @@ export async function addCustomer(
   return { customerId: data.id };
 }
 
-export type AddVehicleResult =
-  | { error: string }
-  | { vehicleId: string; customerId: string };
+export type AddVehicleResult = { error: string } | { vehicleId: string; customerId: string };
 
-export async function addVehicle(
-  customerId: string,
-  formData: FormData,
-): Promise<AddVehicleResult> {
+export async function addVehicle(customerId: string, formData: FormData): Promise<AddVehicleResult> {
   const ctx = await requireStaffContext();
 
   const registrationInput = formData.get("registration") as string | null;
@@ -92,23 +79,12 @@ export async function addVehicle(
 
   const { data, error } = await ctx.supabase
     .from("vehicles")
-    .insert({
-      location_id: ctx.location.id,
-      customer_id: customerId,
-      registration,
-      make,
-      model,
-      year,
-      mot_expiry: motExpiry,
-      service_due: serviceDue,
-    })
+    .insert({ location_id: ctx.location.id, customer_id: customerId, registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue })
     .select("id")
     .single();
 
   if (error) {
-    if (error.code === "23505") {
-      return { error: "A vehicle with that registration is already on file." };
-    }
+    if (error.code === "23505") return { error: "A vehicle with that registration is already on file." };
     return { error: error.message };
   }
 
@@ -116,9 +92,7 @@ export async function addVehicle(
   return { vehicleId: data.id, customerId };
 }
 
-export type SendReminderResult =
-  | { error: string }
-  | { success: true; message: string };
+export type SendReminderResult = { error: string } | { success: true; channels: string[] };
 
 export async function sendReminder(
   vehicleId: string,
@@ -127,13 +101,10 @@ export async function sendReminder(
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  // Fetch vehicle, customer, and org in parallel
   const [vehicleRes, orgRes] = await Promise.all([
     admin
       .from("vehicles")
-      .select(
-        "id, registration, make, model, year, mot_expiry, service_due, customer:customers(id, full_name, email)",
-      )
+      .select("id, registration, make, model, year, mot_expiry, service_due, customer:customers(id, full_name, email, phone)")
       .eq("id", vehicleId)
       .maybeSingle(),
     admin
@@ -151,7 +122,7 @@ export async function sendReminder(
     year: number | null;
     mot_expiry: string | null;
     service_due: string | null;
-    customer: { id: string; full_name: string | null; email: string | null } | null;
+    customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
   };
 
   const vehicle = vehicleRes.data as VehicleWithCustomer | null;
@@ -159,27 +130,21 @@ export async function sendReminder(
 
   if (!vehicle) return { error: "Vehicle not found." };
   if (!vehicle.customer) return { error: "Customer not found." };
-  if (!vehicle.customer.email) {
-    return { error: "This customer has no email address on file." };
+
+  const customer = vehicle.customer;
+  if (!customer.email && !customer.phone) {
+    return { error: "Customer has no email or phone number on file." };
   }
 
-  const dueDate =
-    reminderType === "mot" ? vehicle.mot_expiry : vehicle.service_due;
+  const dueDate = reminderType === "mot" ? vehicle.mot_expiry : vehicle.service_due;
   if (!dueDate) {
-    return {
-      error: `No ${reminderType === "mot" ? "MOT expiry" : "service due"} date set for this vehicle.`,
-    };
+    return { error: `No ${reminderType === "mot" ? "MOT expiry" : "service due"} date set for this vehicle.` };
   }
 
-  const firstName = vehicle.customer.full_name?.split(" ")[0] ?? "there";
-  const vehicleDescription = [vehicle.year, vehicle.make, vehicle.model]
-    .filter(Boolean)
-    .join(" ");
-  const formattedDate = new Date(dueDate).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const firstName = customer.full_name?.split(" ")[0] ?? "there";
+  const vehicleDescription = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ");
+  const formattedDate = new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  const label = reminderType === "mot" ? "MOT" : "service";
 
   const draftInput = {
     garageName: org?.name ?? ctx.organization.name,
@@ -191,57 +156,160 @@ export async function sendReminder(
     dueDate: formattedDate,
   };
 
-  let messageText: string;
-  try {
-    messageText = await draftReminderMessage(draftInput);
-  } catch {
-    messageText = fallbackReminderMessage(draftInput);
+  const sentChannels: string[] = [];
+
+  // Email channel
+  if (customer.email) {
+    let messageText: string;
+    try {
+      messageText = await draftReminderMessage(draftInput);
+    } catch {
+      messageText = fallbackReminderMessage(draftInput);
+    }
+
+    const subject = `${label.toUpperCase()} reminder — ${vehicle.registration} due ${formattedDate}`;
+    const emailResult = await sendEmail({ to: customer.email, subject, text: messageText });
+
+    await admin.from("reminders").insert({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: vehicle.id,
+      type: reminderType,
+      channel: "email",
+      recipient_email: customer.email,
+      recipient_phone: null,
+      subject,
+      message_text: messageText,
+      status: emailResult.success ? "sent" : "failed",
+      error_message: emailResult.success ? null : emailResult.error,
+    });
+
+    sentChannels.push(emailResult.success ? "email" : `email (failed: ${emailResult.error})`);
   }
 
-  const subject =
-    reminderType === "mot"
-      ? `MOT reminder — ${vehicle.registration} due ${formattedDate}`
-      : `Service reminder — ${vehicle.registration} due ${formattedDate}`;
+  // SMS channel
+  if (customer.phone) {
+    let smsText: string;
+    try {
+      smsText = await draftSmsReminderMessage(draftInput);
+    } catch {
+      smsText = fallbackSmsReminderMessage(draftInput);
+    }
 
-  const emailResult = await sendEmail({
-    to: vehicle.customer.email,
-    subject,
-    text: messageText,
-  });
+    const smsResult = await sendSms({ to: customer.phone, body: smsText });
 
-  // Log the reminder regardless of send outcome
-  await admin.from("reminders").insert({
-    location_id: ctx.location.id,
-    customer_id: vehicle.customer.id,
-    vehicle_id: vehicle.id,
-    type: reminderType,
-    channel: "email",
-    recipient_email: vehicle.customer.email,
-    subject,
-    message_text: messageText,
-    status: emailResult.success ? "sent" : "failed",
-    error_message: emailResult.success ? null : emailResult.error,
-  });
+    await admin.from("reminders").insert({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: vehicle.id,
+      type: reminderType,
+      channel: "sms",
+      recipient_email: null,
+      recipient_phone: customer.phone,
+      subject: `${label.toUpperCase()} reminder — ${vehicle.registration} due ${formattedDate}`,
+      message_text: smsText,
+      status: smsResult.success ? "sent" : "failed",
+      error_message: smsResult.success ? null : smsResult.error,
+    });
 
-  if (!emailResult.success) {
-    return {
-      error: `Message drafted but email failed to send: ${emailResult.error}`,
-    };
+    sentChannels.push(smsResult.success ? "SMS" : `SMS (failed: ${smsResult.error})`);
   }
 
-  revalidatePath(`/staff/customers/${vehicle.customer.id}`);
+  revalidatePath(`/staff/customers/${customer.id}`);
   revalidatePath("/staff/reminders");
-  return { success: true, message: messageText };
+  return { success: true, channels: sentChannels };
+}
+
+export type SendCustomMessageResult = { error: string } | { success: true; summary: string };
+
+export async function sendCustomMessage(
+  customerId: string,
+  topic: string,
+  channels: ("email" | "sms")[],
+): Promise<SendCustomMessageResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  const [customerRes, orgRes] = await Promise.all([
+    admin.from("customers").select("id, full_name, email, phone").eq("id", customerId).maybeSingle(),
+    admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
+  ]);
+
+  const customer = customerRes.data as { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
+  const org = orgRes.data;
+
+  if (!customer) return { error: "Customer not found." };
+
+  const firstName = customer.full_name?.split(" ")[0] ?? "there";
+  const garageName = org?.name ?? ctx.organization.name;
+  const garagePhone = org?.phone ?? null;
+
+  const wantsEmail = channels.includes("email") && !!customer.email;
+  const wantsSms = channels.includes("sms") && !!customer.phone;
+
+  if (!wantsEmail && !wantsSms) {
+    return { error: "No valid channel available for this customer." };
+  }
+
+  let drafted: { email: string; sms: string };
+  try {
+    drafted = await draftCustomMessage({ garageName, garagePhone, customerFirstName: firstName, topic });
+  } catch {
+    return { error: "Failed to draft message with AI. Please try again." };
+  }
+
+  const subject = `Message from ${garageName} — ${topic.slice(0, 60)}`;
+  const results: string[] = [];
+
+  if (wantsEmail) {
+    const emailResult = await sendEmail({ to: customer.email!, subject, text: drafted.email });
+    await admin.from("reminders").insert({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: null,
+      type: "custom",
+      channel: "email",
+      recipient_email: customer.email,
+      recipient_phone: null,
+      subject,
+      message_text: drafted.email,
+      status: emailResult.success ? "sent" : "failed",
+      error_message: emailResult.success ? null : emailResult.error,
+    });
+    results.push(emailResult.success ? "email sent" : `email failed: ${emailResult.error}`);
+  }
+
+  if (wantsSms) {
+    const smsResult = await sendSms({ to: customer.phone!, body: drafted.sms });
+    await admin.from("reminders").insert({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: null,
+      type: "custom",
+      channel: "sms",
+      recipient_email: null,
+      recipient_phone: customer.phone,
+      subject,
+      message_text: drafted.sms,
+      status: smsResult.success ? "sent" : "failed",
+      error_message: smsResult.success ? null : smsResult.error,
+    });
+    results.push(smsResult.success ? "SMS sent" : `SMS failed: ${smsResult.error}`);
+  }
+
+  const allFailed = results.every((r) => r.includes("failed"));
+  if (allFailed) return { error: results.join("; ") };
+
+  revalidatePath(`/staff/customers/${customerId}`);
+  revalidatePath("/staff/reminders");
+  return { success: true, summary: results.join(", ") };
 }
 
 // ── Edit / delete ──────────────────────────────────────────────────────────
 
 export type UpdateCustomerResult = { error: string } | { success: true };
 
-export async function updateCustomer(
-  customerId: string,
-  formData: FormData,
-): Promise<UpdateCustomerResult> {
+export async function updateCustomer(customerId: string, formData: FormData): Promise<UpdateCustomerResult> {
   const ctx = await requireStaffContext();
 
   const fullName = (formData.get("fullName") as string | null)?.trim();
@@ -271,9 +339,7 @@ export async function updateCustomer(
 
 export type DeleteCustomerResult = { error: string } | { success: true };
 
-export async function deleteCustomer(
-  customerId: string,
-): Promise<DeleteCustomerResult> {
+export async function deleteCustomer(customerId: string): Promise<DeleteCustomerResult> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
@@ -291,11 +357,7 @@ export async function deleteCustomer(
 
 export type UpdateVehicleResult = { error: string } | { success: true };
 
-export async function updateVehicle(
-  vehicleId: string,
-  customerId: string,
-  formData: FormData,
-): Promise<UpdateVehicleResult> {
+export async function updateVehicle(vehicleId: string, customerId: string, formData: FormData): Promise<UpdateVehicleResult> {
   const ctx = await requireStaffContext();
 
   const registrationInput = formData.get("registration") as string | null;
@@ -337,10 +399,7 @@ export async function updateVehicle(
 
 export type DeleteVehicleResult = { error: string } | { success: true };
 
-export async function deleteVehicle(
-  vehicleId: string,
-  customerId: string,
-): Promise<DeleteVehicleResult> {
+export async function deleteVehicle(vehicleId: string, customerId: string): Promise<DeleteVehicleResult> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 

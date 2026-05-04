@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { ReminderButton } from "./reminder-button";
 import { DeleteCustomerButton, DeleteVehicleButton } from "./delete-buttons";
+import { DraftMessagePanel } from "./draft-message-panel";
 
 type Customer = {
   id: string;
@@ -177,12 +178,12 @@ export default async function CustomerDetailPage({
                         <ReminderButton
                           vehicleId={v.id}
                           reminderType="mot"
-                          disabled={!v.mot_expiry || !customer.email}
+                          disabled={!v.mot_expiry || (!customer.email && !customer.phone)}
                         />
                         <ReminderButton
                           vehicleId={v.id}
                           reminderType="service"
-                          disabled={!v.service_due || !customer.email}
+                          disabled={!v.service_due || (!customer.email && !customer.phone)}
                         />
                         <div className="flex gap-2 text-xs pt-1 border-t">
                           <Link
@@ -209,10 +210,16 @@ export default async function CustomerDetailPage({
           <span className="text-red-600 font-semibold">Red</span> = due within
           30 days or overdue.{" "}
           <span className="text-amber-600 font-medium">Amber</span> = due within
-          60 days. Reminder buttons are disabled if no date is set or the
-          customer has no email.
+          60 days. Reminders send to all available channels (email + SMS).
+          Buttons disabled if no date set or no contact details on file.
         </p>
       </section>
+
+      <DraftMessagePanel
+        customerId={customer.id}
+        hasEmail={!!customer.email}
+        hasPhone={!!customer.phone}
+      />
 
       {reminders.length > 0 && (
         <section>

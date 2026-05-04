@@ -25,7 +25,7 @@ export function ReminderButton({ vehicleId, reminderType, disabled }: Props) {
         setMessage(result.error);
       } else {
         setStatus("success");
-        setMessage("Reminder sent.");
+        setMessage(`Sent via ${result.channels.join(" + ")}.`);
       }
     });
   }
