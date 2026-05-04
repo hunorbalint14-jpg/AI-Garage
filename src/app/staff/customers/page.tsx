@@ -30,15 +30,22 @@ export default async function CustomersPage() {
         title="Customers"
         description="All customers registered at this location."
         action={
-          <Button
-            nativeButton={false}
-            render={
-              <Link href="/staff/customers/new">
-                <UserPlus className="mr-1.5 inline h-4 w-4" />
-                Add customer
-              </Link>
-            }
-          />
+          <div className="flex gap-2">
+            <Button
+              nativeButton={false}
+              variant="outline"
+              render={<Link href="/staff/customers/import">Import CSV</Link>}
+            />
+            <Button
+              nativeButton={false}
+              render={
+                <Link href="/staff/customers/new">
+                  <UserPlus className="mr-1.5 inline h-4 w-4" />
+                  Add customer
+                </Link>
+              }
+            />
+          </div>
         }
       />
 

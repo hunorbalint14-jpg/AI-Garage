@@ -20,10 +20,12 @@ export async function sendEmail({
   to,
   subject,
   text,
+  html,
 }: {
   to: string;
   subject: string;
   text: string;
+  html?: string;
 }): Promise<SendEmailResult> {
   try {
     const { data, error } = await resend.emails.send({
@@ -31,7 +33,7 @@ export async function sendEmail({
       to: [to],
       subject,
       text,
-      html: textToHtml(text),
+      html: html ?? textToHtml(text),
     });
 
     if (error) return { success: false, error: error.message };
