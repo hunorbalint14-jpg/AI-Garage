@@ -2,30 +2,41 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Bell, Settings } from "lucide-react";
+import { LayoutDashboard, Users, Bell, Settings, Megaphone } from "lucide-react";
 import type { PortalTheme } from "@/lib/portal-themes";
 import { PORTAL_THEMES } from "@/lib/portal-themes";
 
-const NAV_ITEMS = [
+const BASE_NAV = [
   { href: "/staff", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/staff/customers", icon: Users, label: "Customers" },
   { href: "/staff/reminders", icon: Bell, label: "Reminders" },
   { href: "/staff/settings", icon: Settings, label: "Settings" },
 ];
 
+const OWNER_NAV = [
+  { href: "/staff/campaigns", icon: Megaphone, label: "Campaigns" },
+];
+
 export function StaffNav({
   theme = "dark",
   brandColor = "#6366f1",
+  orgRole,
 }: {
   theme?: PortalTheme;
   brandColor?: string;
+  orgRole?: "owner" | "admin" | null;
 }) {
   const pathname = usePathname();
   const cfg = PORTAL_THEMES[theme];
 
+  const navItems = [
+    ...BASE_NAV,
+    ...(orgRole ? OWNER_NAV : []),
+  ];
+
   return (
     <nav className="flex-1 space-y-0.5 px-3 py-4">
-      {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+      {navItems.map(({ href, icon: Icon, label }) => {
         const isActive =
           href === "/staff" ? pathname === "/staff" : pathname.startsWith(href);
 
