@@ -5,6 +5,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
+import { checkVehicleRecalls } from "@/lib/dvsa-recalls";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
@@ -44,6 +45,27 @@ export async function addCustomer(formData: FormData): Promise<AddCustomerResult
 
   revalidatePath("/staff/customers");
   return { customerId: data.id };
+}
+
+export type RecallCheckResult =
+  | { error: string }
+  | { hasRecall: boolean; recalls: { makeModel: string; recallNumber: string; defectDescription: string; remedyDescription: string; recallDate: string }[] };
+
+export async function checkRecalls(vehicleId: string, registration: string): Promise<RecallCheckResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+  const result = await checkVehicleRecalls(registration);
+  if (!result.success) return { error: result.error };
+
+  // Store recall status on the vehicle
+  await admin.from("vehicles").update({
+    recall_status: result.hasRecall ? "has_recall" : "clear",
+    recall_checked_at: new Date().toISOString(),
+    recall_detail: result.hasRecall ? JSON.stringify(result.recalls) : null,
+  }).eq("id", vehicleId).eq("location_id", ctx.location.id);
+
+  revalidatePath("/staff/customers");
+  return { hasRecall: result.hasRecall, recalls: result.recalls };
 }
 
 export type DvlaLookupResult = { error: string } | { vehicle: DvsaVehicle };

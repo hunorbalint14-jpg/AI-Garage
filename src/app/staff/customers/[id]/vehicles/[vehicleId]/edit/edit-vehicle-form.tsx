@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateVehicle, dvlaLookup } from "../../../../actions";
+import { updateVehicle, dvlaLookup, checkRecalls } from "../../../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,13 +18,18 @@ type Vehicle = {
   service_due: string | null;
 };
 
+type RecallInfo = { makeModel: string; recallNumber: string; defectDescription: string; remedyDescription: string; recallDate: string };
+
 export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; customerId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [lookupPending, startLookup] = useTransition();
+  const [recallPending, startRecall] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupHint, setLookupHint] = useState<string | null>(null);
+  const [recallResult, setRecallResult] = useState<{ hasRecall: boolean; recalls: RecallInfo[] } | null>(null);
+  const [recallError, setRecallError] = useState<string | null>(null);
   const [motHint, setMotHint] = useState<string | null>(null);
 
   const [registration, setRegistration] = useState(vehicle.registration);
@@ -54,6 +59,16 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
           ? `No MOT history — vehicle under 3 years old. First MOT due ${v.motExpiry ?? "unknown"} (auto-filled).`
           : null);
       }
+    });
+  }
+
+  function handleRecallCheck() {
+    setRecallError(null);
+    setRecallResult(null);
+    startRecall(async () => {
+      const result = await checkRecalls(vehicle.id, registration);
+      if ("error" in result) setRecallError(result.error);
+      else setRecallResult(result);
     });
   }
 
@@ -139,6 +154,37 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
             {pending ? "Saving…" : "Save changes"}
           </Button>
         </form>
+
+        <div className="mt-4 border-t pt-4 flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={recallPending || !registration.trim()}
+              onClick={handleRecallCheck}
+            >
+              {recallPending ? "Checking…" : "Check DVSA safety recalls"}
+            </Button>
+            {recallError && <span className="text-xs text-red-600">{recallError}</span>}
+          </div>
+          {recallResult && (
+            recallResult.hasRecall ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex flex-col gap-2">
+                <p className="text-sm font-semibold text-red-700">⚠️ {recallResult.recalls.length} outstanding recall{recallResult.recalls.length !== 1 ? "s" : ""} found</p>
+                {recallResult.recalls.map((r, i) => (
+                  <div key={i} className="text-xs text-red-800 border-t border-red-200 pt-2">
+                    <p className="font-medium">{r.recallNumber} {r.recallDate ? `(${new Date(r.recallDate).toLocaleDateString("en-GB")})` : ""}</p>
+                    <p className="mt-0.5">{r.defectDescription}</p>
+                    {r.remedyDescription && <p className="mt-0.5 text-red-700">Remedy: {r.remedyDescription}</p>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-green-700">✓ No outstanding recalls found for {registration}.</p>
+            )
+          )}
+        </div>
       </CardContent>
     </Card>
   );
