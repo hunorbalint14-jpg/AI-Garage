@@ -7,6 +7,7 @@ export type DvsaVehicle = {
   year: number | null;
   motExpiry: string | null; // YYYY-MM-DD
   colour: string | null;
+  noMotHistory: boolean; // true = new vehicle, motExpiry is calculated first-due date
 };
 
 export type DvsaResult =
@@ -57,14 +58,23 @@ async function getAccessToken(): Promise<string> {
 }
 
 function parseMotExpiry(tests: { testResult: string; expiryDate?: string }[]): string | null {
-  // motTests sorted newest first; find most recent passed test
-  const passed = tests.find((t) => t.testResult === "PASSED" && t.expiryDate);
-  return passed?.expiryDate ?? null; // already YYYY-MM-DD
+  const passed = tests.find((t) => t.testResult?.toUpperCase() === "PASSED" && t.expiryDate);
+  return passed?.expiryDate ?? null;
 }
 
-function parseYear(firstUsedDate: string | undefined): number | null {
+function firstMotDueDate(firstUsedDate: string | undefined): string | null {
   if (!firstUsedDate) return null;
-  const year = parseInt(firstUsedDate.slice(0, 4), 10); // "YYYY-MM-DD" → take first 4
+  const d = new Date(firstUsedDate);
+  if (isNaN(d.getTime())) return null;
+  d.setFullYear(d.getFullYear() + 3);
+  return d.toISOString().split("T")[0];
+}
+
+function parseYear(v: Record<string, unknown>): number | null {
+  // Try multiple field names in order of preference
+  const raw = (v.firstUsedDate ?? v.registrationDate ?? v.manufactureDate) as string | undefined;
+  if (!raw) return null;
+  const year = parseInt(String(raw).slice(0, 4), 10);
   return Number.isNaN(year) ? null : year;
 }
 
@@ -102,18 +112,43 @@ export async function lookupVehicle(registration: string): Promise<DvsaResult> {
     return { success: false, error: `DVSA API error (${res.status}): ${text.slice(0, 200)}` };
   }
 
-  const vehicle = await res.json();
+  const vehicle = await res.json() as Record<string, unknown>;
   if (!vehicle) return { success: false, error: "No data returned for this registration." };
+
+  // Debug: log raw fields to server console to help diagnose missing data
+  console.log("[DVSA] raw fields:", {
+    registration: vehicle.registration,
+    make: vehicle.make,
+    model: vehicle.model,
+    firstUsedDate: vehicle.firstUsedDate,
+    registrationDate: vehicle.registrationDate,
+    primaryColour: vehicle.primaryColour,
+    motTestCount: Array.isArray(vehicle.motTests) ? (vehicle.motTests as unknown[]).length : "n/a",
+    latestTestResult: Array.isArray(vehicle.motTests) && (vehicle.motTests as Record<string, unknown>[]).length > 0
+      ? (vehicle.motTests as Record<string, unknown>[])[0].testResult : "none",
+    latestExpiryDate: Array.isArray(vehicle.motTests) && (vehicle.motTests as Record<string, unknown>[]).length > 0
+      ? (vehicle.motTests as Record<string, unknown>[])[0].expiryDate : "none",
+  });
+
+  const make = vehicle.make as string | undefined;
+  const motTests = Array.isArray(vehicle.motTests)
+    ? (vehicle.motTests as { testResult: string; expiryDate?: string }[])
+    : [];
+
+  const motExpiry = parseMotExpiry(motTests);
+  const noMotHistory = motTests.length === 0;
+  const firstUsed = (vehicle.firstUsedDate ?? vehicle.registrationDate) as string | undefined;
 
   return {
     success: true,
     vehicle: {
-      registration: vehicle.registration ?? reg,
-      make: vehicle.make ? (vehicle.make as string).charAt(0) + (vehicle.make as string).slice(1).toLowerCase() : null,
-      model: vehicle.model ?? null,
-      year: parseYear(vehicle.firstUsedDate),
-      motExpiry: parseMotExpiry(vehicle.motTests ?? []),
-      colour: vehicle.primaryColour ?? null,
+      registration: (vehicle.registration as string) ?? reg,
+      make: make ? make.charAt(0).toUpperCase() + make.slice(1).toLowerCase() : null,
+      model: (vehicle.model as string) ?? null,
+      year: parseYear(vehicle),
+      motExpiry: motExpiry ?? (noMotHistory ? firstMotDueDate(firstUsed) : null),
+      colour: (vehicle.primaryColour as string) ?? null,
+      noMotHistory,
     },
   };
 }
