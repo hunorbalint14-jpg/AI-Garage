@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { draftMessagePreview, sendDraftedMessage } from "../actions";
+import { draftMessagePreview, sendDraftedMessage, type DraftMessagePreviewResult } from "../actions";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -24,12 +24,12 @@ const TEXTAREA_CLASS =
 export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
   const [step, setStep] = useState<Step>({ type: "idle" });
   const [topic, setTopic] = useState("");
-  const [channels, setChannels] = useState<Set<"email" | "sms">>(new Set());
+  const [channels, setChannels] = useState<Set<"email" | "sms" | "whatsapp">>(new Set());
   const [emailText, setEmailText] = useState("");
   const [smsText, setSmsText] = useState("");
   const [pending, startTransition] = useTransition();
 
-  function toggleChannel(ch: "email" | "sms") {
+  function toggleChannel(ch: "email" | "sms" | "whatsapp") {
     setChannels((prev) => {
       const next = new Set(prev);
       next.has(ch) ? next.delete(ch) : next.add(ch);
@@ -60,6 +60,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
         topic,
         emailText || null,
         smsText || null,
+        channels.has("whatsapp") ? (emailText || null) : null,
       );
       if ("error" in result) {
         setStep({ type: "error", message: result.error });
@@ -119,6 +120,17 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
                   disabled={isDrafting}
                 />
                 SMS
+              </label>
+            )}
+            {hasPhone && (
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={channels.has("whatsapp")}
+                  onChange={() => toggleChannel("whatsapp")}
+                  disabled={isDrafting}
+                />
+                WhatsApp
               </label>
             )}
             {!hasEmail && !hasPhone && (

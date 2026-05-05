@@ -10,9 +10,9 @@ const TEXTAREA_CLASS =
 type Step =
   | { type: "idle" }
   | { type: "drafting" }
-  | { type: "preview"; emailCount: number; smsCount: number }
+  | { type: "preview"; emailCount: number; smsCount: number; whatsappCount: number }
   | { type: "sending" }
-  | { type: "done"; emailSent: number; smsSent: number; emailFailed: number; smsFailed: number }
+  | { type: "done"; emailSent: number; smsSent: number; whatsappSent: number; emailFailed: number; smsFailed: number; whatsappFailed: number }
   | { type: "error"; message: string };
 
 type Props = { hasCustomers: boolean };
@@ -20,12 +20,12 @@ type Props = { hasCustomers: boolean };
 export function BroadcastForm({ hasCustomers }: Props) {
   const [step, setStep] = useState<Step>({ type: "idle" });
   const [topic, setTopic] = useState("");
-  const [channels, setChannels] = useState<Set<"email" | "sms">>(new Set(["email"]));
+  const [channels, setChannels] = useState<Set<"email" | "sms" | "whatsapp">>(new Set(["email"]));
   const [emailText, setEmailText] = useState("");
   const [smsText, setSmsText] = useState("");
   const [pending, startTransition] = useTransition();
 
-  function toggleChannel(ch: "email" | "sms") {
+  function toggleChannel(ch: "email" | "sms" | "whatsapp") {
     setChannels((prev) => {
       const next = new Set(prev);
       next.has(ch) ? next.delete(ch) : next.add(ch);
@@ -43,7 +43,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
       } else {
         setEmailText(result.email);
         setSmsText(result.sms);
-        setStep({ type: "preview", emailCount: result.emailCount, smsCount: result.smsCount });
+        setStep({ type: "preview", emailCount: result.emailCount, smsCount: result.smsCount, whatsappCount: result.whatsappCount });
       }
     });
   }
@@ -55,6 +55,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
         topic,
         emailText || null,
         smsText || null,
+        channels.has("whatsapp") ? (emailText || null) : null,
       );
       if ("error" in result) {
         setStep({ type: "error", message: result.error });
@@ -63,8 +64,10 @@ export function BroadcastForm({ hasCustomers }: Props) {
           type: "done",
           emailSent: result.emailSent,
           smsSent: result.smsSent,
+          whatsappSent: result.whatsappSent,
           emailFailed: result.emailFailed,
           smsFailed: result.smsFailed,
+          whatsappFailed: result.whatsappFailed,
         });
       }
     });
@@ -83,13 +86,15 @@ export function BroadcastForm({ hasCustomers }: Props) {
   const isSending = step.type === "sending";
 
   if (step.type === "done") {
-    const { emailSent, smsSent, emailFailed, smsFailed } = step;
+    const { emailSent, smsSent, whatsappSent, emailFailed, smsFailed, whatsappFailed } = step;
     const parts = [];
     if (emailSent > 0) parts.push(`${emailSent} email${emailSent !== 1 ? "s" : ""}`);
     if (smsSent > 0) parts.push(`${smsSent} SMS`);
+    if (whatsappSent > 0) parts.push(`${whatsappSent} WhatsApp`);
     const failParts = [];
     if (emailFailed > 0) failParts.push(`${emailFailed} email${emailFailed !== 1 ? "s" : ""} failed`);
     if (smsFailed > 0) failParts.push(`${smsFailed} SMS failed`);
+    if (whatsappFailed > 0) failParts.push(`${whatsappFailed} WhatsApp failed`);
 
     return (
       <div className="rounded-lg border p-6 flex flex-col gap-4">
@@ -124,7 +129,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
 
           <div className="flex items-center gap-4 text-sm">
             <span className="font-medium">Channels:</span>
-            {(["email", "sms"] as const).map((ch) => (
+            {(["email", "sms", "whatsapp"] as const).map((ch) => (
               <label key={ch} className="flex items-center gap-2 cursor-pointer select-none capitalize">
                 <input
                   type="checkbox"
@@ -132,7 +137,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
                   onChange={() => toggleChannel(ch)}
                   disabled={isDrafting}
                 />
-                {ch === "sms" ? "SMS" : "Email"}
+                {ch === "sms" ? "SMS" : ch === "whatsapp" ? "WhatsApp" : "Email"}
               </label>
             ))}
           </div>
@@ -160,9 +165,11 @@ export function BroadcastForm({ hasCustomers }: Props) {
         <>
           <div className="text-sm text-muted-foreground rounded-md bg-muted/40 px-3 py-2">
             Will send to{" "}
-            {step.emailCount > 0 && `${step.emailCount} customer${step.emailCount !== 1 ? "s" : ""} by email`}
-            {step.emailCount > 0 && step.smsCount > 0 && " and "}
-            {step.smsCount > 0 && `${step.smsCount} customer${step.smsCount !== 1 ? "s" : ""} by SMS`}.
+            {[
+              step.emailCount > 0 && `${step.emailCount} by email`,
+              step.smsCount > 0 && `${step.smsCount} by SMS`,
+              step.whatsappCount > 0 && `${step.whatsappCount} by WhatsApp`,
+            ].filter(Boolean).join(", ")}.
             Review and edit before sending.
           </div>
 
