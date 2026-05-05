@@ -171,14 +171,16 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
           {recallResult && (
             recallResult.hasRecall ? (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex flex-col gap-2">
-                <p className="text-sm font-semibold text-red-700">⚠️ {recallResult.recalls.length} outstanding recall{recallResult.recalls.length !== 1 ? "s" : ""} found</p>
-                {recallResult.recalls.map((r, i) => (
-                  <div key={i} className="text-xs text-red-800 border-t border-red-200 pt-2">
-                    <p className="font-medium">{r.recallNumber} {r.recallDate ? `(${new Date(r.recallDate).toLocaleDateString("en-GB")})` : ""}</p>
-                    <p className="mt-0.5">{r.defectDescription}</p>
-                    {r.remedyDescription && <p className="mt-0.5 text-red-700">Remedy: {r.remedyDescription}</p>}
-                  </div>
-                ))}
+                <p className="text-sm font-semibold text-red-700">⚠️ Outstanding safety recall on this vehicle</p>
+                <p className="text-xs text-red-800">DVSA has flagged an outstanding recall for {registration}. The customer's vehicle should not be returned until the recall is addressed.</p>
+                <a
+                  href={`https://www.check-mot.service.gov.uk/results?registration=${encodeURIComponent(registration)}&checkRecalls=true`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-red-700 underline"
+                >
+                  View full recall details for {registration} on GOV.UK →
+                </a>
               </div>
             ) : (
               <p className="text-xs text-green-700">✓ No outstanding recalls found for {registration}.</p>
