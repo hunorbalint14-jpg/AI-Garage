@@ -289,6 +289,9 @@ export async function draftMessagePreview(
   const wantsWhatsApp = channels.includes("whatsapp") && !!customer.phone;
   if (!wantsEmail && !wantsSms && !wantsWhatsApp) return { error: "No valid channel available for this customer." };
 
+  // WhatsApp uses the email draft (longer, richer text) — so draft email if email OR whatsapp selected
+  const needsEmailDraft = wantsEmail || wantsWhatsApp;
+
   const firstName = customer.full_name?.split(" ")[0] ?? "there";
   const garageName = org?.name ?? ctx.organization.name;
   const garagePhone = org?.phone ?? null;
@@ -296,7 +299,7 @@ export async function draftMessagePreview(
   try {
     const drafted = await draftCustomMessage({ garageName, garagePhone, customerFirstName: firstName, topic });
     return {
-      email: wantsEmail ? drafted.email : null,
+      email: needsEmailDraft ? drafted.email : null,
       sms: wantsSms ? drafted.sms : null,
     };
   } catch (err) {
@@ -370,7 +373,8 @@ export async function sendDraftedMessage(
 
   if (whatsappText && customer.phone) {
     const waResult = await sendWhatsApp({ to: customer.phone, body: whatsappText });
-    await admin.from("reminders").insert({
+    console.log("[sendDraftedMessage] whatsapp send result:", waResult);
+    const { error: waInsertErr } = await admin.from("reminders").insert({
       location_id: ctx.location.id,
       customer_id: customer.id,
       vehicle_id: null,
@@ -383,6 +387,7 @@ export async function sendDraftedMessage(
       status: waResult.success ? "sent" : "failed",
       error_message: waResult.success ? null : waResult.error,
     });
+    if (waInsertErr) console.error("[sendDraftedMessage] whatsapp insert failed:", waInsertErr.message, waInsertErr.code);
     results.push(waResult.success ? "WhatsApp sent" : `WhatsApp failed: ${waResult.error}`);
   }
 

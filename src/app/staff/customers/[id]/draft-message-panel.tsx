@@ -19,7 +19,7 @@ type Step =
   | { type: "error"; message: string };
 
 const TEXTAREA_CLASS =
-  "w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm resize-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
+  "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm resize-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
 export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
   const [step, setStep] = useState<Step>({ type: "idle" });
@@ -58,8 +58,8 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
       const result = await sendDraftedMessage(
         customerId,
         topic,
-        emailText || null,
-        smsText || null,
+        channels.has("email") ? (emailText || null) : null,
+        channels.has("sms") ? (smsText || null) : null,
         channels.has("whatsapp") ? (emailText || null) : null,
       );
       if ("error" in result) {
