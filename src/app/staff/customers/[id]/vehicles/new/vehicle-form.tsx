@@ -2,22 +2,46 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addVehicle } from "../../../actions";
+import { addVehicle, dvlaLookup } from "../../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function VehicleForm({ customerId }: { customerId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [lookupPending, startLookup] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupHint, setLookupHint] = useState<string | null>(null);
+
+  const [registration, setRegistration] = useState("");
+  const [make, setMake] = useState("");
+  const [model, setModel] = useState("");
+  const [year, setYear] = useState("");
+  const [motExpiry, setMotExpiry] = useState("");
+  const [serviceDue, setServiceDue] = useState("");
+
+  function handleLookup() {
+    if (!registration.trim()) return;
+    setLookupError(null);
+    setLookupHint(null);
+    startLookup(async () => {
+      const result = await dvlaLookup(registration.trim());
+      if ("error" in result) {
+        setLookupError(result.error);
+      } else {
+        const v = result.vehicle;
+        if (v.make) setMake(v.make);
+        if (v.model) setModel(v.model);
+        if (v.year) setYear(String(v.year));
+        if (v.motExpiry) setMotExpiry(v.motExpiry);
+        const filled = [v.make, v.model, v.year, v.motExpiry].filter(Boolean);
+        setLookupHint(`Found: ${filled.join(", ") || "vehicle exists but no details returned"}.`);
+      }
+    });
+  }
 
   function handleSubmit(formData: FormData) {
     setError(null);
@@ -36,32 +60,49 @@ export function VehicleForm({ customerId }: { customerId: string }) {
       <CardHeader>
         <CardTitle>New vehicle</CardTitle>
         <CardDescription>
-          Registration is required. Other fields are optional and can be filled
-          in later. (DVLA auto-lookup coming soon.)
+          Enter a registration and click Lookup to auto-fill details from DVLA.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="registration">Registration</Label>
-            <Input
-              id="registration"
-              name="registration"
-              required
-              placeholder="AB12 CDE"
-              autoComplete="off"
-              className="font-mono uppercase"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="registration"
+                name="registration"
+                required
+                placeholder="AB12 CDE"
+                autoComplete="off"
+                className="font-mono uppercase"
+                value={registration}
+                onChange={(e) => {
+                  setRegistration(e.target.value.toUpperCase());
+                  setLookupHint(null);
+                  setLookupError(null);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!registration.trim() || lookupPending}
+                onClick={handleLookup}
+              >
+                {lookupPending ? "Looking up…" : "Lookup"}
+              </Button>
+            </div>
+            {lookupHint && <p className="text-xs text-green-700">{lookupHint}</p>}
+            {lookupError && <p className="text-xs text-red-600">{lookupError}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="make">Make</Label>
-              <Input id="make" name="make" placeholder="Ford" />
+              <Input id="make" name="make" placeholder="Ford" value={make} onChange={(e) => setMake(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="model">Model</Label>
-              <Input id="model" name="model" placeholder="Focus" />
+              <Input id="model" name="model" placeholder="Focus" value={model} onChange={(e) => setModel(e.target.value)} />
             </div>
           </div>
 
@@ -74,17 +115,19 @@ export function VehicleForm({ customerId }: { customerId: string }) {
               min="1900"
               max={new Date().getFullYear() + 1}
               placeholder="2018"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="motExpiry">MOT expiry</Label>
-              <Input id="motExpiry" name="motExpiry" type="date" />
+              <Input id="motExpiry" name="motExpiry" type="date" value={motExpiry} onChange={(e) => setMotExpiry(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="serviceDue">Service due</Label>
-              <Input id="serviceDue" name="serviceDue" type="date" />
+              <Input id="serviceDue" name="serviceDue" type="date" value={serviceDue} onChange={(e) => setServiceDue(e.target.value)} />
             </div>
           </div>
 

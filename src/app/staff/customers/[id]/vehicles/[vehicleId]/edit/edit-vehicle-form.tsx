@@ -2,16 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateVehicle } from "../../../../actions";
+import { updateVehicle, dvlaLookup } from "../../../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Vehicle = {
   id: string;
@@ -23,26 +18,47 @@ type Vehicle = {
   service_due: string | null;
 };
 
-export function EditVehicleForm({
-  vehicle,
-  customerId,
-}: {
-  vehicle: Vehicle;
-  customerId: string;
-}) {
+export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; customerId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [lookupPending, startLookup] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [lookupHint, setLookupHint] = useState<string | null>(null);
+
+  const [registration, setRegistration] = useState(vehicle.registration);
+  const [make, setMake] = useState(vehicle.make ?? "");
+  const [model, setModel] = useState(vehicle.model ?? "");
+  const [year, setYear] = useState(vehicle.year ? String(vehicle.year) : "");
+  const [motExpiry, setMotExpiry] = useState(vehicle.mot_expiry ?? "");
+  const [serviceDue, setServiceDue] = useState(vehicle.service_due ?? "");
+
+  function handleLookup() {
+    if (!registration.trim()) return;
+    setLookupError(null);
+    setLookupHint(null);
+    startLookup(async () => {
+      const result = await dvlaLookup(registration.trim());
+      if ("error" in result) {
+        setLookupError(result.error);
+      } else {
+        const v = result.vehicle;
+        if (v.make) setMake(v.make);
+        if (v.model) setModel(v.model);
+        if (v.year) setYear(String(v.year));
+        if (v.motExpiry) setMotExpiry(v.motExpiry);
+        const filled = [v.make, v.model, v.year, v.motExpiry].filter(Boolean);
+        setLookupHint(`Updated from DVLA: ${filled.join(", ") || "vehicle found"}.`);
+      }
+    });
+  }
 
   function handleSubmit(formData: FormData) {
     setError(null);
     startTransition(async () => {
       const result = await updateVehicle(vehicle.id, customerId, formData);
-      if ("error" in result) {
-        setError(result.error);
-      } else {
-        router.push(`/staff/customers/${customerId}`);
-      }
+      if ("error" in result) setError(result.error);
+      else router.push(`/staff/customers/${customerId}`);
     });
   }
 
@@ -55,25 +71,40 @@ export function EditVehicleForm({
         <form action={handleSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="registration">Registration</Label>
-            <Input
-              id="registration"
-              name="registration"
-              required
-              defaultValue={vehicle.registration}
-              className="font-mono uppercase"
-              autoComplete="off"
-            />
+            <div className="flex gap-2">
+              <Input
+                id="registration"
+                name="registration"
+                required
+                className="font-mono uppercase"
+                autoComplete="off"
+                value={registration}
+                onChange={(e) => { setRegistration(e.target.value.toUpperCase()); setLookupHint(null); setLookupError(null); }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!registration.trim() || lookupPending}
+                onClick={handleLookup}
+              >
+                {lookupPending ? "Looking up…" : "Refresh DVLA"}
+              </Button>
+            </div>
+            {lookupHint && <p className="text-xs text-green-700">{lookupHint}</p>}
+            {lookupError && <p className="text-xs text-red-600">{lookupError}</p>}
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="make">Make</Label>
-              <Input id="make" name="make" defaultValue={vehicle.make ?? ""} />
+              <Input id="make" name="make" value={make} onChange={(e) => setMake(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="model">Model</Label>
-              <Input id="model" name="model" defaultValue={vehicle.model ?? ""} />
+              <Input id="model" name="model" value={model} onChange={(e) => setModel(e.target.value)} />
             </div>
           </div>
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="year">Year</Label>
             <Input
@@ -82,29 +113,22 @@ export function EditVehicleForm({
               type="number"
               min="1900"
               max={new Date().getFullYear() + 1}
-              defaultValue={vehicle.year ?? ""}
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-2">
               <Label htmlFor="motExpiry">MOT expiry</Label>
-              <Input
-                id="motExpiry"
-                name="motExpiry"
-                type="date"
-                defaultValue={vehicle.mot_expiry ?? ""}
-              />
+              <Input id="motExpiry" name="motExpiry" type="date" value={motExpiry} onChange={(e) => setMotExpiry(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="serviceDue">Service due</Label>
-              <Input
-                id="serviceDue"
-                name="serviceDue"
-                type="date"
-                defaultValue={vehicle.service_due ?? ""}
-              />
+              <Input id="serviceDue" name="serviceDue" type="date" value={serviceDue} onChange={(e) => setServiceDue(e.target.value)} />
             </div>
           </div>
+
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" disabled={pending} className="self-start">
             {pending ? "Saving…" : "Save changes"}

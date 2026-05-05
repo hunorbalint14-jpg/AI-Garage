@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
+import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import {
@@ -42,6 +43,17 @@ export async function addCustomer(formData: FormData): Promise<AddCustomerResult
 
   revalidatePath("/staff/customers");
   return { customerId: data.id };
+}
+
+export type DvlaLookupResult = { error: string } | { vehicle: DvsaVehicle };
+
+export async function dvlaLookup(registration: string): Promise<DvlaLookupResult> {
+  await requireStaffContext();
+  const regError = validateRegistration(registration);
+  if (regError) return { error: regError };
+  const result = await lookupVehicle(registration);
+  if (!result.success) return { error: result.error };
+  return { vehicle: result.vehicle };
 }
 
 export type AddVehicleResult = { error: string } | { vehicleId: string; customerId: string };
