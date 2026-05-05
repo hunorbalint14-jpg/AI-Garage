@@ -74,6 +74,34 @@ export default async function SettingsPage() {
 
         {isOwner && <AddLocationForm />}
       </section>
+
+      <section className="flex flex-col gap-3 rounded-lg border p-4">
+        <div>
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Booking widget
+          </h2>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Embed this on your website so customers can request appointments directly.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2">
+          {locations.map((l) => (
+            <div key={l.id} className="flex flex-col gap-1">
+              <p className="text-xs font-medium text-muted-foreground">{l.name}</p>
+              <pre className="rounded-md bg-muted px-3 py-2 text-xs font-mono whitespace-pre-wrap break-all select-all">
+{`<iframe
+  src="https://${l.slug}.${ROOT_HOST}/book"
+  width="100%"
+  height="680"
+  style="border:none;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.08)"
+  title="Book an appointment at ${org?.name ?? ""}"
+  loading="lazy">
+</iframe>`}
+              </pre>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
