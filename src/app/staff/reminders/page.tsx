@@ -75,8 +75,8 @@ export default async function RemindersPage() {
                     {r.vehicle?.registration ?? "—"}
                   </td>
                   <td className="px-4 py-2 capitalize">{r.type}</td>
-                  <td className="px-4 py-2 uppercase text-xs font-medium">
-                    {r.channel}
+                  <td className="px-4 py-2 text-xs font-medium">
+                    {r.channel === "whatsapp" ? "WhatsApp" : r.channel.toUpperCase()}
                   </td>
                   <td className="px-4 py-2 text-muted-foreground">
                     {r.channel === "sms" ? (r.recipient_phone ?? "—") : (r.recipient_email ?? "—")}

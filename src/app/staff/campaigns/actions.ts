@@ -5,15 +5,16 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { draftBroadcastMessage } from "@/lib/ai-messages";
 
 export type DraftBroadcastPreviewResult =
   | { error: string }
-  | { email: string; sms: string; emailCount: number; smsCount: number };
+  | { email: string; sms: string; emailCount: number; smsCount: number; whatsappCount: number };
 
 export async function draftBroadcastPreview(
   topic: string,
-  channels: ("email" | "sms")[],
+  channels: ("email" | "sms" | "whatsapp")[],
 ): Promise<DraftBroadcastPreviewResult> {
   const ctx = await requireStaffContext();
   if (!ctx.orgRole) return { error: "Only org owners and admins can send campaigns." };
@@ -28,8 +29,9 @@ export async function draftBroadcastPreview(
   const customers = customersRes.data ?? [];
   const emailCount = channels.includes("email") ? customers.filter((c) => c.email).length : 0;
   const smsCount = channels.includes("sms") ? customers.filter((c) => c.phone).length : 0;
+  const whatsappCount = channels.includes("whatsapp") ? customers.filter((c) => c.phone).length : 0;
 
-  if (emailCount + smsCount === 0) {
+  if (emailCount + smsCount + whatsappCount === 0) {
     return { error: "No customers with matching contact details at this location." };
   }
 
@@ -38,7 +40,7 @@ export async function draftBroadcastPreview(
 
   try {
     const drafted = await draftBroadcastMessage({ garageName, garagePhone, topic });
-    return { ...drafted, emailCount, smsCount };
+    return { ...drafted, emailCount, smsCount, whatsappCount };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { error: `AI draft failed: ${msg}` };
@@ -47,7 +49,7 @@ export async function draftBroadcastPreview(
 
 export type SendBroadcastResult =
   | { error: string }
-  | { success: true; emailSent: number; smsSent: number; emailFailed: number; smsFailed: number };
+  | { success: true; emailSent: number; smsSent: number; whatsappSent: number; emailFailed: number; smsFailed: number; whatsappFailed: number };
 
 const MAX_CUSTOMERS = 500;
 
@@ -55,6 +57,7 @@ export async function sendBroadcast(
   topic: string,
   emailText: string | null,
   smsText: string | null,
+  whatsappText: string | null,
 ): Promise<SendBroadcastResult> {
   const ctx = await requireStaffContext();
   if (!ctx.orgRole) return { error: "Only org owners and admins can send campaigns." };
@@ -72,7 +75,7 @@ export async function sendBroadcast(
   const garageName = orgRes.data?.name ?? ctx.organization.name;
   const subject = `${garageName} — ${topic.slice(0, 60)}`;
 
-  let emailSent = 0, emailFailed = 0, smsSent = 0, smsFailed = 0;
+  let emailSent = 0, emailFailed = 0, smsSent = 0, smsFailed = 0, whatsappSent = 0, whatsappFailed = 0;
 
   for (const customer of customers) {
     if (emailText && customer.email) {
@@ -111,9 +114,27 @@ export async function sendBroadcast(
       });
       result.success ? smsSent++ : smsFailed++;
     }
+
+    if (whatsappText && customer.phone) {
+      const result = await sendWhatsApp({ to: customer.phone, body: whatsappText });
+      await admin.from("reminders").insert({
+        location_id: ctx.location.id,
+        customer_id: customer.id,
+        vehicle_id: null,
+        type: "campaign",
+        channel: "whatsapp",
+        recipient_email: null,
+        recipient_phone: customer.phone,
+        subject,
+        message_text: whatsappText,
+        status: result.success ? "sent" : "failed",
+        error_message: result.success ? null : result.error,
+      });
+      result.success ? whatsappSent++ : whatsappFailed++;
+    }
   }
 
   revalidatePath("/staff/campaigns");
   revalidatePath("/staff/reminders");
-  return { success: true, emailSent, smsSent, emailFailed, smsFailed };
+  return { success: true, emailSent, smsSent, whatsappSent, emailFailed, smsFailed, whatsappFailed };
 }

@@ -7,6 +7,7 @@ import { normalizeRegistration, validateRegistration } from "@/lib/registration"
 import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import {
   draftReminderMessage,
   draftSmsReminderMessage,
@@ -228,6 +229,34 @@ export async function sendReminder(
     sentChannels.push(smsResult.success ? "SMS" : `SMS (failed: ${smsResult.error})`);
   }
 
+  // WhatsApp channel (uses SMS text — short, personal)
+  if (customer.phone) {
+    let waText: string;
+    try {
+      waText = await draftSmsReminderMessage(draftInput);
+    } catch {
+      waText = fallbackSmsReminderMessage(draftInput);
+    }
+
+    const waResult = await sendWhatsApp({ to: customer.phone, body: waText });
+
+    await admin.from("reminders").insert({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: vehicle.id,
+      type: reminderType,
+      channel: "whatsapp",
+      recipient_email: null,
+      recipient_phone: customer.phone,
+      subject: `${label.toUpperCase()} reminder — ${vehicle.registration} due ${formattedDate}`,
+      message_text: waText,
+      status: waResult.success ? "sent" : "failed",
+      error_message: waResult.success ? null : waResult.error,
+    });
+
+    sentChannels.push(waResult.success ? "WhatsApp" : `WhatsApp (failed: ${waResult.error})`);
+  }
+
   revalidatePath(`/staff/customers/${customer.id}`);
   revalidatePath("/staff/reminders");
   return { success: true, channels: sentChannels };
@@ -240,7 +269,7 @@ export type DraftMessagePreviewResult =
 export async function draftMessagePreview(
   customerId: string,
   topic: string,
-  channels: ("email" | "sms")[],
+  channels: ("email" | "sms" | "whatsapp")[],
 ): Promise<DraftMessagePreviewResult> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
@@ -257,7 +286,8 @@ export async function draftMessagePreview(
 
   const wantsEmail = channels.includes("email") && !!customer.email;
   const wantsSms = channels.includes("sms") && !!customer.phone;
-  if (!wantsEmail && !wantsSms) return { error: "No valid channel available for this customer." };
+  const wantsWhatsApp = channels.includes("whatsapp") && !!customer.phone;
+  if (!wantsEmail && !wantsSms && !wantsWhatsApp) return { error: "No valid channel available for this customer." };
 
   const firstName = customer.full_name?.split(" ")[0] ?? "there";
   const garageName = org?.name ?? ctx.organization.name;
@@ -282,6 +312,7 @@ export async function sendDraftedMessage(
   topic: string,
   emailText: string | null,
   smsText: string | null,
+  whatsappText: string | null,
 ): Promise<SendDraftedMessageResult> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
@@ -335,6 +366,24 @@ export async function sendDraftedMessage(
       error_message: smsResult.success ? null : smsResult.error,
     });
     results.push(smsResult.success ? "SMS sent" : `SMS failed: ${smsResult.error}`);
+  }
+
+  if (whatsappText && customer.phone) {
+    const waResult = await sendWhatsApp({ to: customer.phone, body: whatsappText });
+    await admin.from("reminders").insert({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: null,
+      type: "custom",
+      channel: "whatsapp",
+      recipient_email: null,
+      recipient_phone: customer.phone,
+      subject,
+      message_text: whatsappText,
+      status: waResult.success ? "sent" : "failed",
+      error_message: waResult.success ? null : waResult.error,
+    });
+    results.push(waResult.success ? "WhatsApp sent" : `WhatsApp failed: ${waResult.error}`);
   }
 
   if (results.length === 0) return { error: "Nothing to send." };

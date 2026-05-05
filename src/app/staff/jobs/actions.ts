@@ -6,6 +6,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { sendWhatsApp } from "@/lib/whatsapp";
 
 export type JobItemType = "part" | "labour" | "other";
 export type JobStatus = "open" | "complete" | "invoiced";
@@ -205,14 +206,16 @@ ${garageName}`;
   }
 
   if (customer.phone) {
-    const result = await sendSms({ to: customer.phone, body: smsText });
-    sentChannels.push(result.success ? "SMS" : `SMS failed: ${result.error}`);
+    const smsResult = await sendSms({ to: customer.phone, body: smsText });
+    sentChannels.push(smsResult.success ? "SMS" : `SMS failed: ${smsResult.error}`);
+    const waResult = await sendWhatsApp({ to: customer.phone, body: smsText });
+    sentChannels.push(waResult.success ? "WhatsApp" : `WhatsApp failed: ${waResult.error}`);
   }
 
   const allFailed = sentChannels.every((c) => c.includes("failed"));
   if (allFailed) return { error: sentChannels.join("; ") };
 
-  return { success: true, channels: sentChannels };
+  return { success: true, channels: sentChannels.filter((c) => !c.includes("failed")) };
 }
 
 export async function deleteJob(jobId: string): Promise<UpdateJobResult> {

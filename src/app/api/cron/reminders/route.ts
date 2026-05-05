@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import {
   draftReminderMessage,
   draftSmsReminderMessage,
@@ -168,6 +169,43 @@ export async function GET(request: NextRequest) {
             } else {
               results.failed++;
               results.errors.push(`${vehicle.registration} (${reminderType}/email): ${emailResult.error}`);
+            }
+          }
+        }
+
+        // WhatsApp channel
+        if (customer.phone) {
+          const alreadySent = await wasRecentlySent(admin, vehicle.id, reminderType, "whatsapp", dedupCutoff);
+          if (alreadySent) {
+            results.skipped++;
+          } else {
+            let waText: string;
+            try {
+              waText = await draftSmsReminderMessage(draftInput);
+            } catch {
+              waText = fallbackSmsReminderMessage(draftInput);
+            }
+
+            const waResult = await sendWhatsApp({ to: customer.phone, body: waText });
+
+            await admin.from("reminders").insert({
+              location_id: location.id,
+              customer_id: customer.id,
+              vehicle_id: vehicle.id,
+              type: reminderType,
+              channel: "whatsapp",
+              recipient_email: null,
+              recipient_phone: customer.phone,
+              subject,
+              message_text: waText,
+              status: waResult.success ? "sent" : "failed",
+              error_message: waResult.success ? null : waResult.error,
+            });
+
+            if (waResult.success) results.sent++;
+            else {
+              results.failed++;
+              results.errors.push(`${vehicle.registration} (${reminderType}/whatsapp): ${waResult.error}`);
             }
           }
         }
