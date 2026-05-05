@@ -15,6 +15,7 @@ export function VehicleForm({ customerId }: { customerId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupHint, setLookupHint] = useState<string | null>(null);
+  const [motHint, setMotHint] = useState<string | null>(null);
 
   const [registration, setRegistration] = useState("");
   const [make, setMake] = useState("");
@@ -37,8 +38,11 @@ export function VehicleForm({ customerId }: { customerId: string }) {
         if (v.model) setModel(v.model);
         if (v.year) setYear(String(v.year));
         if (v.motExpiry) setMotExpiry(v.motExpiry);
-        const filled = [v.make, v.model, v.year, v.motExpiry].filter(Boolean);
-        setLookupHint(`Found: ${filled.join(", ") || "vehicle exists but no details returned"}.`);
+        const filled = [v.make, v.model, v.year].filter(Boolean);
+        setLookupHint(`Found: ${filled.join(", ") || "vehicle exists"}.`);
+        setMotHint(v.noMotHistory
+          ? `No MOT history — vehicle under 3 years old. First MOT due ${v.motExpiry ?? "unknown"} (auto-filled).`
+          : null);
       }
     });
   }
@@ -124,6 +128,7 @@ export function VehicleForm({ customerId }: { customerId: string }) {
             <div className="flex flex-col gap-2">
               <Label htmlFor="motExpiry">MOT expiry</Label>
               <Input id="motExpiry" name="motExpiry" type="date" value={motExpiry} onChange={(e) => setMotExpiry(e.target.value)} />
+              {motHint && <p className="text-xs text-amber-600">{motHint}</p>}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="serviceDue">Service due</Label>
