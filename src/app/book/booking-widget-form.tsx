@@ -42,9 +42,9 @@ export function BookingWidgetForm({ orgColor, garageName }: Props) {
         >
           ✓
         </div>
-        <h2 className="text-xl font-bold text-gray-900">Booking request sent!</h2>
+        <h2 className="text-xl font-bold text-gray-900">Booking confirmed!</h2>
         <p className="text-sm text-gray-500 max-w-xs">
-          {garageName} will confirm your appointment shortly. Check your email for a confirmation.
+          Your appointment is confirmed. Check your email for details. We look forward to seeing you!
         </p>
       </div>
     );
@@ -122,7 +122,7 @@ export function BookingWidgetForm({ orgColor, garageName }: Props) {
 
       <p className="text-center text-xs text-gray-400">
         Powered by{" "}
-        <span className="font-medium text-gray-500">Garage AI</span>
+        <span className="font-medium text-gray-500">AI Garage</span>
       </p>
     </form>
   );

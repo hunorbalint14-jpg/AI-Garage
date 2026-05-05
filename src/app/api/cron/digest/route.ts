@@ -67,7 +67,7 @@ function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle:
   </thead>
   <tbody>${tableRows}</tbody>
 </table>
-<p style="margin:24px 0 0;font-size:12px;color:#9ca3af">Sent every Monday via Garage AI. Showing MOT and service due within ${WINDOW_DAYS} days.</p>
+<p style="margin:24px 0 0;font-size:12px;color:#9ca3af">Sent every Monday via AI Garage. Showing MOT and service due within ${WINDOW_DAYS} days.</p>
 </body></html>`;
 }
 

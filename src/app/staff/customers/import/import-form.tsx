@@ -40,7 +40,7 @@ export function ImportForm() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "garage-ai-import-template.csv";
+    a.download = "ai-garage-import-template.csv";
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -70,7 +70,7 @@ export function ImportForm() {
             accept=".csv"
             required
             disabled={pending}
-            className="text-sm file:mr-3 file:rounded file:border file:border-input file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium"
+            className="text-sm file:mr-3 file:rounded file:border file:border-black/20 dark:file:border-white/25 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium"
           />
           <div>
             <Button type="submit" disabled={pending}>

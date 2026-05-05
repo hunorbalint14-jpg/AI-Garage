@@ -32,7 +32,7 @@ const FEATURES = [
   {
     icon: Zap,
     title: "White-Label Branding",
-    desc: "Your logo, your colours, your domain. Customers never see Garage-AI — they see your garage.",
+    desc: "Your logo, your colours, your domain. Customers never see AI Garage — they see your garage.",
   },
 ];
 
@@ -43,7 +43,7 @@ function MarketingPage() {
 
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         <span className="text-xl font-bold tracking-tight">
-          Garage<span className="text-indigo-400">AI</span>
+          AI<span className="text-indigo-400">Garage</span>
         </span>
         <div className="flex items-center gap-3">
           <Link
@@ -132,7 +132,7 @@ function MarketingPage() {
       </section>
 
       <footer className="relative z-10 border-t border-white/5 px-6 py-8 text-center text-sm text-gray-600">
-        © {new Date().getFullYear()} GarageAI · Built for UK garages
+        © {new Date().getFullYear()} AI Garage · Built for UK garages
       </footer>
     </div>
   );

@@ -131,7 +131,7 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
     });
   }
 
-  const inputClass = "w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
+  const inputClass = "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
   return (
     <div className="flex flex-col gap-6">
