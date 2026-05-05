@@ -58,7 +58,7 @@ export function InvoiceActions({ invoiceId, status, hasCustomerEmail }: Props) {
             Delete
           </Button>
         )}
-        <Button variant="outline" onClick={() => window.print()} disabled={pending}>
+        <Button variant="outline" onClick={() => window.open(`/api/invoice/${invoiceId}/print`, "_blank")} disabled={pending}>
           Print / Save PDF
         </Button>
       </div>
