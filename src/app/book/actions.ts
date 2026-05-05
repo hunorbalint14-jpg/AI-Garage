@@ -120,15 +120,15 @@ export async function submitWidgetBooking(
   const firstName = fullName.split(" ")[0];
 
   // Confirmation to customer
-  const confirmText = `Hi ${firstName},\n\nYour ${typeLabel} appointment request${registration ? ` for ${registration}` : ""} at ${garageName} on ${dateStr} has been received.\n\nWe'll confirm your booking shortly.${garagePhone ? `\n\nCall us on ${garagePhone} if you need to make changes.` : ""}\n\nThank you,\n${garageName}`;
+  const confirmText = `Hi ${firstName},\n\nYour ${typeLabel} appointment${registration ? ` for ${registration}` : ""} at ${garageName} is confirmed for ${dateStr}.${garagePhone ? `\n\nTo reschedule or cancel, call us on ${garagePhone} or reply to this email.` : "\n\nTo reschedule or cancel, reply to this email."}\n\nSee you then!\n${garageName}`;
 
   await sendEmail({
     to: email,
-    subject: `Booking request received — ${typeLabel} at ${garageName}`,
+    subject: `Booking confirmed — ${typeLabel} at ${garageName}`,
     text: confirmText,
   });
   if (phone) {
-    await sendSms({ to: phone, body: `Hi ${firstName}, your ${typeLabel} booking request at ${garageName} for ${dateStr} has been received. We'll confirm shortly.` });
+    await sendSms({ to: phone, body: `Hi ${firstName}, your ${typeLabel} at ${garageName} on ${dateStr} is confirmed.${garagePhone ? ` Call ${garagePhone} to reschedule.` : ""}` });
   }
 
   // Notify staff (org owners/admins)
@@ -142,8 +142,8 @@ export async function submitWidgetBooking(
     if (data.user?.email) {
       await sendEmail({
         to: data.user.email,
-        subject: `New booking request — ${typeLabel} from ${fullName}`,
-        text: `New booking request via the widget:\n\nCustomer: ${fullName} (${email}${phone ? `, ${phone}` : ""})\nType: ${typeLabel}\nPreferred: ${dateStr}${registration ? `\nVehicle: ${registration}` : ""}${notes ? `\nNotes: ${notes}` : ""}\n\nLog in to ${garageName}'s staff portal to confirm.`,
+        subject: `New booking — ${typeLabel} from ${fullName}`,
+        text: `New booking via the widget:\n\nCustomer: ${fullName} (${email}${phone ? `, ${phone}` : ""})\nType: ${typeLabel}\nPreferred: ${dateStr}${registration ? `\nVehicle: ${registration}` : ""}${notes ? `\nNotes: ${notes}` : ""}\n\nLog in to view the booking in the staff portal.`,
       });
     }
   }

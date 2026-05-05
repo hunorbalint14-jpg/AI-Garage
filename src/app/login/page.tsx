@@ -5,7 +5,7 @@ import { AnimatedBackground } from "@/components/animated-background";
 
 export default async function CustomerLoginPage() {
   const tenant = await getCurrentTenant();
-  const orgName = tenant?.organization.name ?? "Garage-AI";
+  const orgName = tenant?.organization.name ?? "AI Garage";
   const primaryColor = tenant?.organization.primary_color ?? "#6366f1";
   const logoUrl = tenant?.organization.logo_url ?? null;
 

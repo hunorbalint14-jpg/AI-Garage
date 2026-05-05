@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { Car, AlertCircle, Clock, CheckCircle, CalendarDays, Receipt } from "lucide-react";
+import { BookingCard } from "./booking-card";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AnimatedBackground } from "@/components/animated-background";
@@ -263,18 +264,7 @@ export default async function CustomerDashboard() {
             </h2>
             <div className="flex flex-col gap-3">
               {bookings.map((b) => (
-                <div key={b.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 flex items-center justify-between gap-4 backdrop-blur-sm">
-                  <div>
-                    <p className="font-semibold">{typeLabel(b.type)}</p>
-                    <p className="text-sm text-gray-400">
-                      {new Date(b.scheduled_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      {b.vehicle ? ` · ${b.vehicle.registration}` : ""}
-                    </p>
-                  </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${b.status === "in_progress" ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"}`}>
-                    {b.status === "in_progress" ? "In progress" : "Confirmed"}
-                  </span>
-                </div>
+                <BookingCard key={b.id} booking={b} orgColor={orgColor} />
               ))}
             </div>
           </section>
