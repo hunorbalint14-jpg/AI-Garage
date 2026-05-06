@@ -34,9 +34,15 @@ export default async function BookPage() {
     .or(`user_id.eq.${user.id},email.eq.${user.email ?? ""}`)
     .maybeSingle();
 
-  const vehicles = customer
-    ? ((await admin.from("vehicles").select("id, registration, make, model").eq("customer_id", customer.id).order("created_at", { ascending: false })).data ?? [])
-    : [];
+  const [vehiclesRes, servicesRes] = await Promise.all([
+    customer
+      ? admin.from("vehicles").select("id, registration, make, model").eq("customer_id", customer.id).order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    admin.from("services").select("id, name, category, duration_minutes, price").eq("location_id", location.id).eq("active", true).order("category").order("name"),
+  ]);
+
+  const vehicles = vehiclesRes.data ?? [];
+  const services = (servicesRes.data ?? []) as { id: string; name: string; category: string; duration_minutes: number; price: number | null }[];
 
   const orgColor = location.organization.primary_color;
   const orgName = location.organization.name;
@@ -75,7 +81,7 @@ export default async function BookPage() {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
-          <BookingRequestForm vehicles={vehicles as { id: string; registration: string; make: string | null; model: string | null }[]} orgColor={orgColor} />
+          <BookingRequestForm vehicles={vehicles as { id: string; registration: string; make: string | null; model: string | null }[]} services={services} orgColor={orgColor} />
         </div>
       </main>
     </div>

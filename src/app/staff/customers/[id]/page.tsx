@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ReminderButton } from "./reminder-button";
 import { DeleteCustomerButton, DeleteVehicleButton } from "./delete-buttons";
 import { DraftMessagePanel } from "./draft-message-panel";
+import { StaffDiagnostic } from "./staff-diagnostic";
 
 type Customer = {
   id: string;
@@ -23,6 +24,7 @@ type Vehicle = {
   year: number | null;
   mot_expiry: string | null;
   service_due: string | null;
+  tax_due_date: string | null;
 };
 
 type Reminder = {
@@ -65,7 +67,7 @@ export default async function CustomerDetailPage({
       .maybeSingle(),
     admin
       .from("vehicles")
-      .select("id, registration, make, model, year, mot_expiry, service_due")
+      .select("id, registration, make, model, year, mot_expiry, service_due, tax_due_date")
       .eq("customer_id", id)
       .order("created_at", { ascending: false }),
     admin
@@ -156,6 +158,7 @@ export default async function CustomerDetailPage({
                   <th className="px-4 py-2 font-medium">Year</th>
                   <th className="px-4 py-2 font-medium">MOT expiry</th>
                   <th className="px-4 py-2 font-medium">Service due</th>
+                  <th className="px-4 py-2 font-medium">Road tax</th>
                   <th className="px-4 py-2 font-medium">Reminders</th>
                 </tr>
               </thead>
@@ -172,6 +175,9 @@ export default async function CustomerDetailPage({
                     </td>
                     <td className={`px-4 py-2 ${dueDateClass(v.service_due)}`}>
                       {formatDate(v.service_due)}
+                    </td>
+                    <td className={`px-4 py-2 ${dueDateClass(v.tax_due_date)}`}>
+                      {formatDate(v.tax_due_date)}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-2">
@@ -210,7 +216,7 @@ export default async function CustomerDetailPage({
           <span className="text-red-600 font-semibold">Red</span> = due within
           30 days or overdue.{" "}
           <span className="text-amber-600 font-medium">Amber</span> = due within
-          60 days. Reminders send to all available channels (email + SMS).
+          60 days. Reminders send to all available channels (email + SMS + WhatsApp). MOT and service only.
           Buttons disabled if no date set or no contact details on file.
         </p>
       </section>
@@ -220,6 +226,10 @@ export default async function CustomerDetailPage({
         hasEmail={!!customer.email}
         hasPhone={!!customer.phone}
       />
+
+      {vehicles.length > 0 && (
+        <StaffDiagnostic vehicles={vehicles.map((v) => ({ id: v.id, registration: v.registration, make: v.make, model: v.model }))} />
+      )}
 
       {reminders.length > 0 && (
         <section>

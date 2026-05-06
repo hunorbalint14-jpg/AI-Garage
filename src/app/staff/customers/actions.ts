@@ -5,6 +5,8 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
+import { lookupVehicleVes } from "@/lib/dvla-ves";
+import { checkVehicleRecalls } from "@/lib/dvsa-recalls";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
@@ -46,6 +48,36 @@ export async function addCustomer(formData: FormData): Promise<AddCustomerResult
   return { customerId: data.id };
 }
 
+export type RecallCheckResult =
+  | { error: string }
+  | { hasRecall: boolean; recalls: { makeModel: string; recallNumber: string; defectDescription: string; remedyDescription: string; recallDate: string }[] };
+
+export async function checkRecalls(vehicleId: string, registration: string): Promise<RecallCheckResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+  const result = await checkVehicleRecalls(registration);
+  if (!result.success) return { error: result.error };
+
+  // Store recall status on the vehicle
+  await admin.from("vehicles").update({
+    recall_status: result.hasRecall ? "has_recall" : "clear",
+    recall_checked_at: new Date().toISOString(),
+    recall_detail: result.hasRecall ? JSON.stringify(result.recalls) : null,
+  }).eq("id", vehicleId).eq("location_id", ctx.location.id);
+
+  revalidatePath("/staff/customers");
+  return { hasRecall: result.hasRecall, recalls: result.recalls };
+}
+
+export type VedLookupResult = { error: string } | { taxDueDate: string | null; taxStatus: string | null };
+
+export async function vedLookup(registration: string): Promise<VedLookupResult> {
+  await requireStaffContext();
+  const result = await lookupVehicleVes(registration);
+  if (!result.success) return { error: result.error };
+  return { taxDueDate: result.taxDueDate, taxStatus: result.taxStatus };
+}
+
 export type DvlaLookupResult = { error: string } | { vehicle: DvsaVehicle };
 
 export async function dvlaLookup(registration: string): Promise<DvlaLookupResult> {
@@ -68,6 +100,7 @@ export async function addVehicle(customerId: string, formData: FormData): Promis
   const yearStr = formData.get("year") as string | null;
   const motExpiry = (formData.get("motExpiry") as string | null) || null;
   const serviceDue = (formData.get("serviceDue") as string | null) || null;
+  const taxDueDate = (formData.get("taxDueDate") as string | null) || null;
 
   const regError = validateRegistration(registrationInput ?? "");
   if (regError) return { error: regError };
@@ -92,7 +125,7 @@ export async function addVehicle(customerId: string, formData: FormData): Promis
 
   const { data, error } = await ctx.supabase
     .from("vehicles")
-    .insert({ location_id: ctx.location.id, customer_id: customerId, registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue })
+    .insert({ location_id: ctx.location.id, customer_id: customerId, registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue, tax_due_date: taxDueDate })
     .select("id")
     .single();
 
@@ -462,6 +495,7 @@ export async function updateVehicle(vehicleId: string, customerId: string, formD
   const yearStr = formData.get("year") as string | null;
   const motExpiry = (formData.get("motExpiry") as string | null) || null;
   const serviceDue = (formData.get("serviceDue") as string | null) || null;
+  const taxDueDate = (formData.get("taxDueDate") as string | null) || null;
 
   const regError = validateRegistration(registrationInput ?? "");
   if (regError) return { error: regError };
@@ -480,7 +514,7 @@ export async function updateVehicle(vehicleId: string, customerId: string, formD
   const admin = createAdminClient();
   const { error } = await admin
     .from("vehicles")
-    .update({ registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue })
+    .update({ registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue, tax_due_date: taxDueDate })
     .eq("id", vehicleId)
     .eq("location_id", ctx.location.id);
 

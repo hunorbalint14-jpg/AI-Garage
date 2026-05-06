@@ -22,6 +22,16 @@ export default async function BookingWidgetPage() {
 
   const org = location.organization;
 
+  const { data: servicesData } = await admin
+    .from("services")
+    .select("id, name, category, duration_minutes, price")
+    .eq("location_id", location.id)
+    .eq("active", true)
+    .order("category")
+    .order("name");
+
+  const services = (servicesData ?? []) as { id: string; name: string; category: string; duration_minutes: number; price: number | null }[];
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-start justify-center p-4 pt-8">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-md border border-black/[0.06] p-7">
@@ -44,7 +54,7 @@ export default async function BookingWidgetPage() {
           </div>
         </div>
 
-        <BookingWidgetForm orgColor={org.primary_color} garageName={org.name} />
+        <BookingWidgetForm orgColor={org.primary_color} garageName={org.name} services={services} />
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { Car, AlertCircle, Clock, CheckCircle, CalendarDays, Receipt } from "lucide-react";
 import { BookingCard } from "./booking-card";
+import { DiagnosticPanel } from "./diagnostic-panel";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AnimatedBackground } from "@/components/animated-background";
@@ -16,6 +17,7 @@ type Vehicle = {
   year: number | null;
   mot_expiry: string | null;
   service_due: string | null;
+  tax_due_date: string | null;
 };
 
 type InvoiceRow = {
@@ -124,7 +126,7 @@ export default async function CustomerDashboard() {
     ? await Promise.all([
         admin
           .from("vehicles")
-          .select("id, registration, make, model, year, mot_expiry, service_due")
+          .select("id, registration, make, model, year, mot_expiry, service_due, tax_due_date")
           .eq("customer_id", customer.id)
           .order("created_at", { ascending: false }),
         admin
@@ -241,7 +243,7 @@ export default async function CustomerDashboard() {
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
-                      {[{ label: "MOT expiry", date: v.mot_expiry }, { label: "Service due", date: v.service_due }].map(({ label, date }) => (
+                      {[{ label: "MOT expiry", date: v.mot_expiry }, { label: "Service due", date: v.service_due }, { label: "Road tax due", date: v.tax_due_date }].map(({ label, date }) => (
                         <div key={label} className="rounded-xl bg-white/5 p-3">
                           <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">{label}</p>
                           <p className="font-semibold">{formatDate(date)}</p>
@@ -268,6 +270,11 @@ export default async function CustomerDashboard() {
               ))}
             </div>
           </section>
+        )}
+
+        {/* AI Diagnostic */}
+        {customer && vehicles.length > 0 && (
+          <DiagnosticPanel vehicles={vehicles} orgColor={orgColor} />
         )}
 
         {/* Invoices */}

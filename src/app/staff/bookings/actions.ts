@@ -12,7 +12,6 @@ export type BookingStatus = "scheduled" | "in_progress" | "complete" | "cancelle
 
 export type CreateBookingResult = { error: string } | { success: true; bookingId: string };
 
-const VALID_TYPES: BookingType[] = ["mot", "service", "repair", "diagnostic", "other"];
 
 function bookingTypeLabel(type: string): string {
   if (type === "mot") return "MOT";
@@ -92,7 +91,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
 
   if (!customerId) return { error: "Customer is required." };
   if (!scheduledAt) return { error: "Date and time are required." };
-  if (!type || !VALID_TYPES.includes(type as BookingType)) return { error: "Invalid appointment type." };
+  if (!type?.trim()) return { error: "Appointment type is required." };
 
   const duration = durationStr ? parseInt(durationStr, 10) : 60;
   if (Number.isNaN(duration) || duration < 15 || duration > 480) {

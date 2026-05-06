@@ -5,8 +5,11 @@ import { requestBooking } from "./actions";
 
 type Vehicle = { id: string; registration: string; make: string | null; model: string | null };
 
+type Service = { id: string; name: string; category: string; duration_minutes: number; price: number | null };
+
 type Props = {
   vehicles: Vehicle[];
+  services: Service[];
   orgColor: string;
 };
 
@@ -17,12 +20,12 @@ function defaultDateTime() {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function BookingRequestForm({ vehicles, orgColor }: Props) {
+export function BookingRequestForm({ vehicles, services, orgColor }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const inputClass = "w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-colors";
+  const inputClass = "w-full rounded-xl border border-white/15 bg-[#0d1525] px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/30 transition-colors [&>option]:bg-[#0d1525] [&>option]:text-white";
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -71,11 +74,23 @@ export function BookingRequestForm({ vehicles, orgColor }: Props) {
       <div className="flex flex-col gap-1.5">
         <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Appointment type</label>
         <select name="type" disabled={pending} className={inputClass}>
-          <option value="mot">MOT</option>
-          <option value="service">Service</option>
-          <option value="repair">Repair</option>
-          <option value="diagnostic">Diagnostic</option>
-          <option value="other">Other</option>
+          {services.length > 0 ? (
+            [...new Set(services.map((s) => s.category))].map((cat) => (
+              <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
+                {services.filter((s) => s.category === cat).map((s) => (
+                  <option key={s.id} value={s.name}>{s.name}{s.price ? ` — £${s.price.toFixed(2)}` : ""}</option>
+                ))}
+              </optgroup>
+            ))
+          ) : (
+            <>
+              <option value="mot">MOT</option>
+              <option value="service">Service</option>
+              <option value="repair">Repair</option>
+              <option value="diagnostic">Diagnostic</option>
+              <option value="other">Other</option>
+            </>
+          )}
         </select>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateVehicle, dvlaLookup } from "../../../../actions";
+import { updateVehicle, dvlaLookup, checkRecalls, vedLookup } from "../../../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,13 +18,18 @@ type Vehicle = {
   service_due: string | null;
 };
 
+type RecallInfo = { makeModel: string; recallNumber: string; defectDescription: string; remedyDescription: string; recallDate: string };
+
 export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; customerId: string }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [lookupPending, startLookup] = useTransition();
+  const [recallPending, startRecall] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookupHint, setLookupHint] = useState<string | null>(null);
+  const [recallResult, setRecallResult] = useState<{ hasRecall: boolean; recalls: RecallInfo[] } | null>(null);
+  const [recallError, setRecallError] = useState<string | null>(null);
   const [motHint, setMotHint] = useState<string | null>(null);
 
   const [registration, setRegistration] = useState(vehicle.registration);
@@ -33,17 +38,27 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
   const [year, setYear] = useState(vehicle.year ? String(vehicle.year) : "");
   const [motExpiry, setMotExpiry] = useState(vehicle.mot_expiry ?? "");
   const [serviceDue, setServiceDue] = useState(vehicle.service_due ?? "");
+  const [taxDueDate, setTaxDueDate] = useState((vehicle as typeof vehicle & { tax_due_date?: string | null }).tax_due_date ?? "");
+  const [vedPending, startVed] = useTransition();
+  const [vedHint, setVedHint] = useState<string | null>(null);
+  const [vedError, setVedError] = useState<string | null>(null);
 
   function handleLookup() {
     if (!registration.trim()) return;
     setLookupError(null);
     setLookupHint(null);
+    setVedError(null);
+    setVedHint(null);
     startLookup(async () => {
-      const result = await dvlaLookup(registration.trim());
-      if ("error" in result) {
-        setLookupError(result.error);
+      const [motResult, vedResult] = await Promise.all([
+        dvlaLookup(registration.trim()),
+        vedLookup(registration.trim()),
+      ]);
+
+      if ("error" in motResult) {
+        setLookupError(motResult.error);
       } else {
-        const v = result.vehicle;
+        const v = motResult.vehicle;
         if (v.make) setMake(v.make);
         if (v.model) setModel(v.model);
         if (v.year) setYear(String(v.year));
@@ -54,6 +69,23 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
           ? `No MOT history — vehicle under 3 years old. First MOT due ${v.motExpiry ?? "unknown"} (auto-filled).`
           : null);
       }
+
+      if (!("error" in vedResult)) {
+        if (vedResult.taxDueDate) setTaxDueDate(vedResult.taxDueDate);
+        if (vedResult.taxDueDate) {
+          setVedHint(`Tax due: ${new Date(vedResult.taxDueDate).toLocaleDateString("en-GB")}${vedResult.taxStatus ? ` (${vedResult.taxStatus})` : ""}`);
+        }
+      }
+    });
+  }
+
+  function handleRecallCheck() {
+    setRecallError(null);
+    setRecallResult(null);
+    startRecall(async () => {
+      const result = await checkRecalls(vehicle.id, registration);
+      if ("error" in result) setRecallError(result.error);
+      else setRecallResult(result);
     });
   }
 
@@ -134,11 +166,50 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
             </div>
           </div>
 
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="taxDueDate">Road tax due</Label>
+            <Input id="taxDueDate" name="taxDueDate" type="date" value={taxDueDate} onChange={(e) => setTaxDueDate(e.target.value)} />
+            {vedHint && <p className="text-xs text-green-700">{vedHint}</p>}
+          </div>
+
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button type="submit" disabled={pending} className="self-start">
             {pending ? "Saving…" : "Save changes"}
           </Button>
         </form>
+
+        <div className="mt-4 border-t pt-4 flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={recallPending || !registration.trim()}
+              onClick={handleRecallCheck}
+            >
+              {recallPending ? "Checking…" : "Check DVSA safety recalls"}
+            </Button>
+            {recallError && <span className="text-xs text-red-600">{recallError}</span>}
+          </div>
+          {recallResult && (
+            recallResult.hasRecall ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex flex-col gap-2">
+                <p className="text-sm font-semibold text-red-700">⚠️ Outstanding safety recall on this vehicle</p>
+                <p className="text-xs text-red-800">DVSA has flagged an outstanding recall for {registration}. The customer's vehicle should not be returned until the recall is addressed.</p>
+                <a
+                  href={`https://www.check-mot.service.gov.uk/results?registration=${encodeURIComponent(registration)}&checkRecalls=true`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-red-700 underline"
+                >
+                  View full recall details for {registration} on GOV.UK →
+                </a>
+              </div>
+            ) : (
+              <p className="text-xs text-green-700">✓ No outstanding recalls found for {registration}.</p>
+            )
+          )}
+        </div>
       </CardContent>
     </Card>
   );

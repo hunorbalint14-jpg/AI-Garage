@@ -28,7 +28,7 @@ export default async function NewBookingPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [customersRes, vehiclesRes] = await Promise.all([
+  const [customersRes, vehiclesRes, servicesRes] = await Promise.all([
     admin
       .from("customers")
       .select("id, full_name, email, phone")
@@ -41,10 +41,18 @@ export default async function NewBookingPage({
       .eq("location_id", ctx.location.id)
       .order("created_at", { ascending: false })
       .limit(2000),
+    admin
+      .from("services")
+      .select("id, name, category, duration_minutes, price")
+      .eq("location_id", ctx.location.id)
+      .eq("active", true)
+      .order("category", { ascending: true })
+      .order("name", { ascending: true }),
   ]);
 
   const customers = (customersRes.data ?? []) as CustomerRow[];
   const vehicles = (vehiclesRes.data ?? []) as VehicleRow[];
+  const services = (servicesRes.data ?? []) as { id: string; name: string; category: string; duration_minutes: number; price: number | null }[];
 
   return (
     <div className="flex flex-col gap-6">
@@ -57,6 +65,7 @@ export default async function NewBookingPage({
       <BookingForm
         customers={customers}
         vehicles={vehicles}
+        services={services}
         defaultCustomerId={params.customer ?? null}
         defaultVehicleId={params.vehicle ?? null}
       />
