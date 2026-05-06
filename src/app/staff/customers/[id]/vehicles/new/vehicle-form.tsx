@@ -28,33 +28,22 @@ export function VehicleForm({ customerId }: { customerId: string }) {
   const [vedHint, setVedHint] = useState<string | null>(null);
   const [vedError, setVedError] = useState<string | null>(null);
 
-  function handleVedLookup() {
-    if (!registration.trim()) return;
-    setVedError(null);
-    setVedHint(null);
-    startVed(async () => {
-      const result = await vedLookup(registration.trim());
-      if ("error" in result) {
-        setVedError(result.error);
-      } else {
-        if (result.taxDueDate) setTaxDueDate(result.taxDueDate);
-        setVedHint(result.taxDueDate
-          ? `Tax due: ${new Date(result.taxDueDate).toLocaleDateString("en-GB")}${result.taxStatus ? ` (${result.taxStatus})` : ""}`
-          : `Status: ${result.taxStatus ?? "unknown"}`);
-      }
-    });
-  }
-
   function handleLookup() {
     if (!registration.trim()) return;
     setLookupError(null);
     setLookupHint(null);
+    setVedError(null);
+    setVedHint(null);
     startLookup(async () => {
-      const result = await dvlaLookup(registration.trim());
-      if ("error" in result) {
-        setLookupError(result.error);
+      const [motResult, vedResult] = await Promise.all([
+        dvlaLookup(registration.trim()),
+        vedLookup(registration.trim()),
+      ]);
+
+      if ("error" in motResult) {
+        setLookupError(motResult.error);
       } else {
-        const v = result.vehicle;
+        const v = motResult.vehicle;
         if (v.make) setMake(v.make);
         if (v.model) setModel(v.model);
         if (v.year) setYear(String(v.year));
@@ -64,6 +53,13 @@ export function VehicleForm({ customerId }: { customerId: string }) {
         setMotHint(v.noMotHistory
           ? `No MOT history — vehicle under 3 years old. First MOT due ${v.motExpiry ?? "unknown"} (auto-filled).`
           : null);
+      }
+
+      if (!("error" in vedResult)) {
+        if (vedResult.taxDueDate) setTaxDueDate(vedResult.taxDueDate);
+        if (vedResult.taxDueDate) {
+          setVedHint(`Tax due: ${new Date(vedResult.taxDueDate).toLocaleDateString("en-GB")}${vedResult.taxStatus ? ` (${vedResult.taxStatus})` : ""}`);
+        }
       }
     });
   }
@@ -158,21 +154,9 @@ export function VehicleForm({ customerId }: { customerId: string }) {
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="taxDueDate">Road tax due</Label>
-              <Button
-                type="button"
-                size="xs"
-                variant="outline"
-                disabled={!registration.trim() || vedPending}
-                onClick={handleVedLookup}
-              >
-                {vedPending ? "Looking up…" : "Lookup DVLA"}
-              </Button>
-            </div>
+            <Label htmlFor="taxDueDate">Road tax due</Label>
             <Input id="taxDueDate" name="taxDueDate" type="date" value={taxDueDate} onChange={(e) => setTaxDueDate(e.target.value)} />
             {vedHint && <p className="text-xs text-green-700">{vedHint}</p>}
-            {vedError && <p className="text-xs text-red-600">{vedError}</p>}
           </div>
 
 

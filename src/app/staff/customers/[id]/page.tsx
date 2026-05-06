@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ReminderButton } from "./reminder-button";
 import { DeleteCustomerButton, DeleteVehicleButton } from "./delete-buttons";
 import { DraftMessagePanel } from "./draft-message-panel";
+import { StaffDiagnostic } from "./staff-diagnostic";
 
 type Customer = {
   id: string;
@@ -225,6 +226,10 @@ export default async function CustomerDetailPage({
         hasEmail={!!customer.email}
         hasPhone={!!customer.phone}
       />
+
+      {vehicles.length > 0 && (
+        <StaffDiagnostic vehicles={vehicles.map((v) => ({ id: v.id, registration: v.registration, make: v.make, model: v.model }))} />
+      )}
 
       {reminders.length > 0 && (
         <section>

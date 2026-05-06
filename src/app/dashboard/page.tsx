@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { Car, AlertCircle, Clock, CheckCircle, CalendarDays, Receipt } from "lucide-react";
 import { BookingCard } from "./booking-card";
+import { DiagnosticPanel } from "./diagnostic-panel";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AnimatedBackground } from "@/components/animated-background";
@@ -269,6 +270,11 @@ export default async function CustomerDashboard() {
               ))}
             </div>
           </section>
+        )}
+
+        {/* AI Diagnostic */}
+        {customer && vehicles.length > 0 && (
+          <DiagnosticPanel vehicles={vehicles} orgColor={orgColor} />
         )}
 
         {/* Invoices */}

@@ -9,14 +9,20 @@ import { Label } from "@/components/ui/label";
 
 type Customer = { id: string; full_name: string | null; email: string | null; phone: string | null };
 type Vehicle = { id: string; customer_id: string; registration: string; make: string | null; model: string | null };
+type Service = { id: string; name: string; category: string; duration_minutes: number; price: number | null };
 
-const TYPE_DEFAULTS: Record<string, number> = {
-  mot: 60,
-  service: 90,
-  repair: 120,
-  diagnostic: 60,
-  other: 60,
-};
+const FALLBACK_TYPES: { value: string; label: string; duration: number }[] = [
+  { value: "mot", label: "MOT", duration: 60 },
+  { value: "service", label: "Service", duration: 90 },
+  { value: "repair", label: "Repair", duration: 120 },
+  { value: "diagnostic", label: "Diagnostic", duration: 60 },
+  { value: "other", label: "Other", duration: 60 },
+];
+
+function fmt(n: number | null) {
+  if (n === null) return "";
+  return ` — £${n.toFixed(2)}`;
+}
 
 function defaultDateTime(): string {
   const d = new Date();
@@ -29,11 +35,13 @@ function defaultDateTime(): string {
 export function BookingForm({
   customers,
   vehicles,
+  services,
   defaultCustomerId,
   defaultVehicleId,
 }: {
   customers: Customer[];
   vehicles: Vehicle[];
+  services: Service[];
   defaultCustomerId: string | null;
   defaultVehicleId: string | null;
 }) {
@@ -43,8 +51,9 @@ export function BookingForm({
 
   const [customerId, setCustomerId] = useState(defaultCustomerId ?? "");
   const [vehicleId, setVehicleId] = useState(defaultVehicleId ?? "");
-  const [type, setType] = useState("service");
-  const [duration, setDuration] = useState(90);
+  const firstService = services[0];
+  const [type, setType] = useState(firstService?.name ?? "service");
+  const [duration, setDuration] = useState(firstService?.duration_minutes ?? 90);
 
   const customerVehicles = useMemo(
     () => vehicles.filter((v) => v.customer_id === customerId),
@@ -53,7 +62,13 @@ export function BookingForm({
 
   function handleTypeChange(t: string) {
     setType(t);
-    if (TYPE_DEFAULTS[t]) setDuration(TYPE_DEFAULTS[t]);
+    const svc = services.find((s) => s.name === t);
+    if (svc) {
+      setDuration(svc.duration_minutes);
+    } else {
+      const fallback = FALLBACK_TYPES.find((f) => f.value === t);
+      if (fallback) setDuration(fallback.duration);
+    }
   }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -155,11 +170,25 @@ export function BookingForm({
           disabled={pending}
           className={inputClass}
         >
-          <option value="mot">MOT</option>
-          <option value="service">Service</option>
-          <option value="repair">Repair</option>
-          <option value="diagnostic">Diagnostic</option>
-          <option value="other">Other</option>
+          {services.length > 0 ? (
+            // Group by category
+            (() => {
+              const cats = [...new Set(services.map((s) => s.category))];
+              return cats.map((cat) => (
+                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
+                  {services.filter((s) => s.category === cat).map((s) => (
+                    <option key={s.id} value={s.name}>
+                      {s.name}{fmt(s.price)} · {s.duration_minutes}min
+                    </option>
+                  ))}
+                </optgroup>
+              ));
+            })()
+          ) : (
+            FALLBACK_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))
+          )}
         </select>
       </div>
 

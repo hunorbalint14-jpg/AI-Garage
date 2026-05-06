@@ -3,9 +3,12 @@
 import { useState, useTransition } from "react";
 import { submitWidgetBooking } from "./actions";
 
+type Service = { id: string; name: string; category: string; duration_minutes: number; price: number | null };
+
 type Props = {
   orgColor: string;
   garageName: string;
+  services: Service[];
 };
 
 function defaultDateTime() {
@@ -17,7 +20,7 @@ function defaultDateTime() {
 
 const INPUT = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors disabled:opacity-50";
 
-export function BookingWidgetForm({ orgColor, garageName }: Props) {
+export function BookingWidgetForm({ orgColor, garageName, services }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -78,11 +81,25 @@ export function BookingWidgetForm({ orgColor, garageName }: Props) {
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-gray-600">Appointment type *</label>
           <select name="type" required disabled={pending} className={INPUT}>
-            <option value="mot">MOT</option>
-            <option value="service">Service</option>
-            <option value="repair">Repair</option>
-            <option value="diagnostic">Diagnostic</option>
-            <option value="other">Other</option>
+            {services.length > 0 ? (
+              [...new Set(services.map((s) => s.category))].map((cat) => (
+                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
+                  {services.filter((s) => s.category === cat).map((s) => (
+                    <option key={s.id} value={s.name}>
+                      {s.name}{s.price ? ` — £${s.price.toFixed(2)}` : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              ))
+            ) : (
+              <>
+                <option value="mot">MOT</option>
+                <option value="service">Service</option>
+                <option value="repair">Repair</option>
+                <option value="diagnostic">Diagnostic</option>
+                <option value="other">Other</option>
+              </>
+            )}
           </select>
         </div>
         <div className="flex flex-col gap-1">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt, TrendingUp, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt, TrendingUp, Building2, Wrench } from "lucide-react";
 import type { PortalTheme } from "@/lib/portal-themes";
 import { PORTAL_THEMES } from "@/lib/portal-themes";
 
@@ -18,6 +18,7 @@ const BASE_NAV = [
 
 const OWNER_NAV = [
   { href: "/staff/revenue", icon: TrendingUp, label: "Revenue" },
+  { href: "/staff/services", icon: Wrench, label: "Services" },
   { href: "/staff/campaigns", icon: Megaphone, label: "Campaigns" },
 ];
 
