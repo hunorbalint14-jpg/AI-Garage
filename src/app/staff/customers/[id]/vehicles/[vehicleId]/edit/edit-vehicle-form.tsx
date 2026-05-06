@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateVehicle, dvlaLookup, checkRecalls } from "../../../../actions";
+import { updateVehicle, dvlaLookup, checkRecalls, vedLookup } from "../../../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,10 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
   const [year, setYear] = useState(vehicle.year ? String(vehicle.year) : "");
   const [motExpiry, setMotExpiry] = useState(vehicle.mot_expiry ?? "");
   const [serviceDue, setServiceDue] = useState(vehicle.service_due ?? "");
+  const [taxDueDate, setTaxDueDate] = useState((vehicle as typeof vehicle & { tax_due_date?: string | null }).tax_due_date ?? "");
+  const [vedPending, startVed] = useTransition();
+  const [vedHint, setVedHint] = useState<string | null>(null);
+  const [vedError, setVedError] = useState<string | null>(null);
 
   function handleLookup() {
     if (!registration.trim()) return;
@@ -58,6 +62,20 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
         setMotHint(v.noMotHistory
           ? `No MOT history — vehicle under 3 years old. First MOT due ${v.motExpiry ?? "unknown"} (auto-filled).`
           : null);
+      }
+    });
+  }
+
+  function handleVedLookup() {
+    setVedError(null); setVedHint(null);
+    startVed(async () => {
+      const result = await vedLookup(registration.trim());
+      if ("error" in result) { setVedError(result.error); }
+      else {
+        if (result.taxDueDate) setTaxDueDate(result.taxDueDate);
+        setVedHint(result.taxDueDate
+          ? `Tax due: ${new Date(result.taxDueDate).toLocaleDateString("en-GB")}${result.taxStatus ? ` (${result.taxStatus})` : ""}`
+          : `Status: ${result.taxStatus ?? "unknown"}`);
       }
     });
   }
@@ -147,6 +165,18 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
               <Label htmlFor="serviceDue">Service due</Label>
               <Input id="serviceDue" name="serviceDue" type="date" value={serviceDue} onChange={(e) => setServiceDue(e.target.value)} />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="taxDueDate">Road tax due</Label>
+              <Button type="button" size="xs" variant="outline" disabled={!registration.trim() || vedPending} onClick={handleVedLookup}>
+                {vedPending ? "Looking up…" : "Lookup DVLA"}
+              </Button>
+            </div>
+            <Input id="taxDueDate" name="taxDueDate" type="date" value={taxDueDate} onChange={(e) => setTaxDueDate(e.target.value)} />
+            {vedHint && <p className="text-xs text-green-700">{vedHint}</p>}
+            {vedError && <p className="text-xs text-red-600">{vedError}</p>}
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

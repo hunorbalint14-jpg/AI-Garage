@@ -5,6 +5,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
+import { lookupVehicleVes } from "@/lib/dvla-ves";
 import { checkVehicleRecalls } from "@/lib/dvsa-recalls";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
@@ -68,6 +69,15 @@ export async function checkRecalls(vehicleId: string, registration: string): Pro
   return { hasRecall: result.hasRecall, recalls: result.recalls };
 }
 
+export type VedLookupResult = { error: string } | { taxDueDate: string | null; taxStatus: string | null };
+
+export async function vedLookup(registration: string): Promise<VedLookupResult> {
+  await requireStaffContext();
+  const result = await lookupVehicleVes(registration);
+  if (!result.success) return { error: result.error };
+  return { taxDueDate: result.taxDueDate, taxStatus: result.taxStatus };
+}
+
 export type DvlaLookupResult = { error: string } | { vehicle: DvsaVehicle };
 
 export async function dvlaLookup(registration: string): Promise<DvlaLookupResult> {
@@ -90,6 +100,7 @@ export async function addVehicle(customerId: string, formData: FormData): Promis
   const yearStr = formData.get("year") as string | null;
   const motExpiry = (formData.get("motExpiry") as string | null) || null;
   const serviceDue = (formData.get("serviceDue") as string | null) || null;
+  const taxDueDate = (formData.get("taxDueDate") as string | null) || null;
 
   const regError = validateRegistration(registrationInput ?? "");
   if (regError) return { error: regError };
@@ -114,7 +125,7 @@ export async function addVehicle(customerId: string, formData: FormData): Promis
 
   const { data, error } = await ctx.supabase
     .from("vehicles")
-    .insert({ location_id: ctx.location.id, customer_id: customerId, registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue })
+    .insert({ location_id: ctx.location.id, customer_id: customerId, registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue, tax_due_date: taxDueDate })
     .select("id")
     .single();
 
@@ -484,6 +495,7 @@ export async function updateVehicle(vehicleId: string, customerId: string, formD
   const yearStr = formData.get("year") as string | null;
   const motExpiry = (formData.get("motExpiry") as string | null) || null;
   const serviceDue = (formData.get("serviceDue") as string | null) || null;
+  const taxDueDate = (formData.get("taxDueDate") as string | null) || null;
 
   const regError = validateRegistration(registrationInput ?? "");
   if (regError) return { error: regError };
@@ -502,7 +514,7 @@ export async function updateVehicle(vehicleId: string, customerId: string, formD
   const admin = createAdminClient();
   const { error } = await admin
     .from("vehicles")
-    .update({ registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue })
+    .update({ registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue, tax_due_date: taxDueDate })
     .eq("id", vehicleId)
     .eq("location_id", ctx.location.id);
 

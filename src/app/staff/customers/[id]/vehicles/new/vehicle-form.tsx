@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addVehicle, dvlaLookup } from "../../../actions";
+import { addVehicle, dvlaLookup, vedLookup } from "../../../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +23,27 @@ export function VehicleForm({ customerId }: { customerId: string }) {
   const [year, setYear] = useState("");
   const [motExpiry, setMotExpiry] = useState("");
   const [serviceDue, setServiceDue] = useState("");
+  const [taxDueDate, setTaxDueDate] = useState("");
+  const [vedPending, startVed] = useTransition();
+  const [vedHint, setVedHint] = useState<string | null>(null);
+  const [vedError, setVedError] = useState<string | null>(null);
+
+  function handleVedLookup() {
+    if (!registration.trim()) return;
+    setVedError(null);
+    setVedHint(null);
+    startVed(async () => {
+      const result = await vedLookup(registration.trim());
+      if ("error" in result) {
+        setVedError(result.error);
+      } else {
+        if (result.taxDueDate) setTaxDueDate(result.taxDueDate);
+        setVedHint(result.taxDueDate
+          ? `Tax due: ${new Date(result.taxDueDate).toLocaleDateString("en-GB")}${result.taxStatus ? ` (${result.taxStatus})` : ""}`
+          : `Status: ${result.taxStatus ?? "unknown"}`);
+      }
+    });
+  }
 
   function handleLookup() {
     if (!registration.trim()) return;
@@ -135,6 +156,25 @@ export function VehicleForm({ customerId }: { customerId: string }) {
               <Input id="serviceDue" name="serviceDue" type="date" value={serviceDue} onChange={(e) => setServiceDue(e.target.value)} />
             </div>
           </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="taxDueDate">Road tax due</Label>
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={!registration.trim() || vedPending}
+                onClick={handleVedLookup}
+              >
+                {vedPending ? "Looking up…" : "Lookup DVLA"}
+              </Button>
+            </div>
+            <Input id="taxDueDate" name="taxDueDate" type="date" value={taxDueDate} onChange={(e) => setTaxDueDate(e.target.value)} />
+            {vedHint && <p className="text-xs text-green-700">{vedHint}</p>}
+            {vedError && <p className="text-xs text-red-600">{vedError}</p>}
+          </div>
+
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 

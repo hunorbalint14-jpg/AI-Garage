@@ -28,6 +28,7 @@ type VehicleRow = {
   year: number | null;
   mot_expiry: string | null;
   service_due: string | null;
+  tax_due_date: string | null;
   customer: {
     id: string;
     full_name: string | null;
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     const { data: vehicles } = (await admin
       .from("vehicles")
-      .select("id, registration, make, model, year, mot_expiry, service_due, customer:customers(id, full_name, email, phone)")
+      .select("id, registration, make, model, year, mot_expiry, service_due, tax_due_date, customer:customers(id, full_name, email, phone)")
       .eq("location_id", location.id)
       .or(`mot_expiry.lte.${windowEndStr},service_due.lte.${windowEndStr}`)
       .gt("mot_expiry", todayStr)
@@ -246,6 +247,51 @@ export async function GET(request: NextRequest) {
               results.errors.push(`${vehicle.registration} (${reminderType}/sms): ${smsResult.error}`);
             }
           }
+        }
+      }
+    }
+  }
+
+  // VED (road tax) reminders — simple template, no AI draft needed
+  for (const location of locations ?? []) {
+    const org = location.organization;
+    const { data: vedVehicles } = (await admin
+      .from("vehicles")
+      .select("id, registration, tax_due_date, customer:customers(id, full_name, email, phone)")
+      .eq("location_id", location.id)
+      .not("tax_due_date", "is", null)
+      .lte("tax_due_date", windowEndStr)
+      .gte("tax_due_date", todayStr)
+      .limit(100)) as { data: { id: string; registration: string; tax_due_date: string; customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null }[] | null };
+
+    for (const v of vedVehicles ?? []) {
+      const customer = v.customer;
+      if (!customer) continue;
+
+      const daysUntil = Math.ceil((new Date(v.tax_due_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysUntil < 0 || daysUntil > REMIND_DAYS_BEFORE) continue;
+
+      const firstName = customer.full_name?.split(" ")[0] ?? "there";
+      const garageName = org?.name ?? location.name;
+      const formattedDate = new Date(v.tax_due_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+      const subject = `Road tax reminder — ${v.registration} due ${formattedDate}`;
+      const body = `Hi ${firstName},\n\nThis is a friendly reminder that the road tax for your vehicle ${v.registration} is due on ${formattedDate}.\n\nYou can renew online at gov.uk/renew-vehicle-tax or at your local Post Office.\n\nThank you,\n${garageName}`;
+
+      if (customer.email) {
+        const alreadySent = await wasRecentlySent(admin, v.id, "tax", "email", dedupCutoff);
+        if (!alreadySent) {
+          const emailResult = await sendEmail({ to: customer.email, subject, text: body });
+          await admin.from("reminders").insert({ location_id: location.id, customer_id: customer.id, vehicle_id: v.id, type: "tax", channel: "email", recipient_email: customer.email, recipient_phone: null, subject, message_text: body, status: emailResult.success ? "sent" : "failed", error_message: emailResult.success ? null : emailResult.error });
+          emailResult.success ? results.sent++ : results.failed++;
+        }
+      }
+      if (customer.phone) {
+        const smsBody = `Hi ${firstName}, your road tax for ${v.registration} is due ${formattedDate}. Renew at gov.uk/renew-vehicle-tax.`;
+        const alreadySent = await wasRecentlySent(admin, v.id, "tax", "sms", dedupCutoff);
+        if (!alreadySent) {
+          const smsResult = await sendSms({ to: customer.phone, body: smsBody });
+          await admin.from("reminders").insert({ location_id: location.id, customer_id: customer.id, vehicle_id: v.id, type: "tax", channel: "sms", recipient_email: null, recipient_phone: customer.phone, subject, message_text: smsBody, status: smsResult.success ? "sent" : "failed", error_message: smsResult.success ? null : smsResult.error });
+          smsResult.success ? results.sent++ : results.failed++;
         }
       }
     }
