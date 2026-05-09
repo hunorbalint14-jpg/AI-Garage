@@ -1,4 +1,4 @@
-export type PortalTheme = "dark" | "light" | "glass";
+export type PortalTheme = "dark" | "light" | "glass" | "workshop";
 
 export type ThemeConfig = {
   outer: string;
@@ -53,5 +53,17 @@ export const PORTAL_THEMES: Record<PortalTheme, ThemeConfig> = {
     navInactive: "text-gray-300 hover:bg-white/10 hover:text-white",
     showBlobs: true,
     blobIntensity: "strong",
+  },
+  workshop: {
+    outer: "flex min-h-screen bg-[#0e1014]",
+    sidebar: "flex w-60 shrink-0 flex-col border-r border-[#2a2f37] bg-[#15181d]",
+    content: "flex min-w-0 flex-1 flex-col bg-[#0e1014] text-foreground dark",
+    sidebarText: "text-[#e6e8eb]",
+    sidebarSubtext: "text-[#5a6170]",
+    sidebarBorder: "border-[#2a2f37]",
+    navActive: "bg-[#f4d35e] text-[#0e1014] font-bold",
+    navInactive: "text-[#9aa1ad] hover:bg-[#1c2026] hover:text-[#e6e8eb]",
+    showBlobs: false,
+    blobIntensity: "none",
   },
 };

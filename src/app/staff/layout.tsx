@@ -35,11 +35,31 @@ export default async function StaffLayout({
   const role = ctx.orgRole ?? ctx.locationRole ?? "staff";
 
   const admin = createAdminClient();
-  const { data: locations } = await admin
-    .from("locations")
-    .select("id, slug, name")
-    .eq("organization_id", ctx.organization.id)
-    .order("created_at", { ascending: true });
+
+  // Location-level staff see only their accessible locations; owners/admins see all
+  let locationsData: { id: string; slug: string; name: string }[] = [];
+  if (ctx.orgRole) {
+    const { data } = await admin
+      .from("locations")
+      .select("id, slug, name")
+      .eq("organization_id", ctx.organization.id)
+      .order("created_at", { ascending: true });
+    locationsData = data ?? [];
+  } else {
+    const { data: accessRows } = await admin
+      .from("location_users")
+      .select("location_id")
+      .eq("user_id", ctx.user.id);
+    const ids = (accessRows ?? []).map((r) => r.location_id);
+    if (ids.length) {
+      const { data } = await admin
+        .from("locations")
+        .select("id, slug, name")
+        .in("id", ids)
+        .order("created_at", { ascending: true });
+      locationsData = data ?? [];
+    }
+  }
 
   const { data: org } = await admin
     .from("organizations")
@@ -55,6 +75,31 @@ export default async function StaffLayout({
   const cfg = PORTAL_THEMES[theme];
 
   const isDark = theme !== "light";
+  const isWorkshop = theme === "workshop";
+
+  const orgInitials = ctx.organization.name
+    .split(/\s+/)
+    .map((w: string) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const userInitials = fullName
+    .split(/\s+/)
+    .map((w: string) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const workshopOnBrand = (() => {
+    try {
+      const h = brandColor.replace("#", "");
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.45 ? "#0e1014" : "#e6e8eb";
+    } catch { return "#0e1014"; }
+  })();
 
   return (
     <div className={cfg.outer}>
@@ -67,25 +112,56 @@ export default async function StaffLayout({
 
       {/* Sidebar */}
       <aside className={cfg.sidebar}>
-        <div
-          className={`flex items-center gap-3 border-b ${cfg.sidebarBorder} px-4 py-4`}
-        >
-          <OrgAvatar name={ctx.organization.name} color={brandColor} />
-          <div className="min-w-0">
-            <p
-              className={`truncate text-sm font-semibold leading-tight ${cfg.sidebarText}`}
+        {/* Header */}
+        {isWorkshop ? (
+          <div className="flex items-center gap-3 border-b border-[#2a2f37] px-4 py-4">
+            <div
+              style={{
+                width: 30,
+                height: 30,
+                background: brandColor,
+                color: workshopOnBrand,
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 800,
+                fontSize: 13,
+                clipPath: "polygon(0 0, 100% 0, 100% 78%, 78% 100%, 0 100%)",
+                fontFamily: "var(--font-geist-mono, monospace)",
+                flexShrink: 0,
+              }}
             >
-              {ctx.organization.name}
-            </p>
-            <p className={`text-xs capitalize ${cfg.sidebarSubtext}`}>
-              {role}
-            </p>
+              {orgInitials}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold leading-tight text-[#e6e8eb]">
+                {ctx.organization.name}
+              </p>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#5a6170]">
+                {role.toUpperCase()} · ON SHIFT
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div
+            className={`flex items-center gap-3 border-b ${cfg.sidebarBorder} px-4 py-4`}
+          >
+            <OrgAvatar name={ctx.organization.name} color={brandColor} />
+            <div className="min-w-0">
+              <p
+                className={`truncate text-sm font-semibold leading-tight ${cfg.sidebarText}`}
+              >
+                {ctx.organization.name}
+              </p>
+              <p className={`text-xs capitalize ${cfg.sidebarSubtext}`}>
+                {role}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className={`border-b ${cfg.sidebarBorder} px-3 py-3`}>
           <LocationSwitcher
-            locations={locations ?? []}
+            locations={locationsData}
             currentSlug={ctx.location.slug}
             dark={isDark}
           />
@@ -93,23 +169,60 @@ export default async function StaffLayout({
 
         <StaffNav theme={theme} brandColor={brandColor} orgRole={ctx.orgRole} />
 
-        <div className={`border-t ${cfg.sidebarBorder} px-4 py-4`}>
-          <div className="mb-3 min-w-0">
-            <p
-              className={`truncate text-sm font-medium ${cfg.sidebarText}`}
-              title={fullName}
-            >
-              {fullName}
-            </p>
-            <p
-              className={`truncate text-xs ${cfg.sidebarSubtext}`}
-              title={ctx.user.email ?? ""}
-            >
-              {ctx.user.email}
-            </p>
+        {/* Footer */}
+        {isWorkshop ? (
+          <div className="border-t border-[#2a2f37] px-4 py-3">
+            <div className="mb-3 flex items-center gap-3">
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 99,
+                  background: `${brandColor}22`,
+                  color: brandColor,
+                  display: "grid",
+                  placeItems: "center",
+                  fontWeight: 700,
+                  fontSize: 11,
+                  fontFamily: "var(--font-geist-mono, monospace)",
+                  flexShrink: 0,
+                }}
+              >
+                {userInitials}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-[#e6e8eb]">
+                  {fullName}
+                </p>
+                <p
+                  className="truncate font-mono text-[10px] text-[#5a6170]"
+                  title={ctx.user.email ?? ""}
+                >
+                  {ctx.user.email}
+                </p>
+              </div>
+            </div>
+            <SignOutButton dark={true} />
           </div>
-          <SignOutButton dark={isDark} />
-        </div>
+        ) : (
+          <div className={`border-t ${cfg.sidebarBorder} px-4 py-4`}>
+            <div className="mb-3 min-w-0">
+              <p
+                className={`truncate text-sm font-medium ${cfg.sidebarText}`}
+                title={fullName}
+              >
+                {fullName}
+              </p>
+              <p
+                className={`truncate text-xs ${cfg.sidebarSubtext}`}
+                title={ctx.user.email ?? ""}
+              >
+                {ctx.user.email}
+              </p>
+            </div>
+            <SignOutButton dark={isDark} />
+          </div>
+        )}
       </aside>
 
       {/* Main content */}

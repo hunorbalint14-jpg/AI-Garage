@@ -43,7 +43,7 @@ export default async function SettingsPage() {
         initialColor={org?.primary_color ?? "#1f2937"}
         initialLogoUrl={org?.logo_url ?? ""}
         initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
-        initialTheme={((org as { portal_theme?: string } | null)?.portal_theme ?? "dark") as "dark" | "light" | "glass"}
+        initialTheme={((org as { portal_theme?: string } | null)?.portal_theme ?? "dark") as "dark" | "light" | "glass" | "workshop"}
         initialGoogleReviewUrl={(org as { google_review_url?: string | null } | null)?.google_review_url ?? ""}
         canEdit={isOwner}
       />

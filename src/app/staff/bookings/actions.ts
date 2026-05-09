@@ -83,6 +83,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
 
   const customerId = (formData.get("customerId") as string | null)?.trim();
   const vehicleId = (formData.get("vehicleId") as string | null)?.trim() || null;
+  const bayId = (formData.get("bayId") as string | null)?.trim() || null;
   const scheduledAt = (formData.get("scheduledAt") as string | null)?.trim();
   const durationStr = (formData.get("durationMinutes") as string | null)?.trim();
   const type = (formData.get("type") as string | null)?.trim();
@@ -124,6 +125,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       location_id: ctx.location.id,
       customer_id: customerId,
       vehicle_id: vehicleId,
+      bay_id: bayId || null,
       scheduled_at: isoScheduled,
       duration_minutes: duration,
       type,
@@ -184,10 +186,16 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
 
   if (jobErr) return { error: jobErr.message };
 
-  await admin.from("bookings").update({ status: "in_progress" }).eq("id", bookingId);
+  const { error: bookingUpdateErr } = await admin
+    .from("bookings")
+    .update({ status: "in_progress" })
+    .eq("id", bookingId);
+
+  if (bookingUpdateErr) return { error: `Job created but booking status update failed: ${bookingUpdateErr.message}` };
 
   revalidatePath("/staff/bookings");
   revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff");
   return { success: true, jobId: job.id };
 }
 
@@ -205,6 +213,7 @@ export async function cancelBooking(bookingId: string): Promise<UpdateBookingSta
 
   revalidatePath("/staff/bookings");
   revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff");
   return { success: true };
 }
 
@@ -222,6 +231,7 @@ export async function markNoShow(bookingId: string): Promise<UpdateBookingStatus
 
   revalidatePath("/staff/bookings");
   revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff");
   return { success: true };
 }
 

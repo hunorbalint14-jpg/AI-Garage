@@ -28,7 +28,7 @@ export default async function NewBookingPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [customersRes, vehiclesRes, servicesRes] = await Promise.all([
+  const [customersRes, vehiclesRes, servicesRes, baysRes] = await Promise.all([
     admin
       .from("customers")
       .select("id, full_name, email, phone")
@@ -48,11 +48,18 @@ export default async function NewBookingPage({
       .eq("active", true)
       .order("category", { ascending: true })
       .order("name", { ascending: true }),
+    admin
+      .from("bays")
+      .select("id, name, description")
+      .eq("location_id", ctx.location.id)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
   ]);
 
   const customers = (customersRes.data ?? []) as CustomerRow[];
   const vehicles = (vehiclesRes.data ?? []) as VehicleRow[];
   const services = (servicesRes.data ?? []) as { id: string; name: string; category: string; duration_minutes: number; price: number | null }[];
+  const bays = (baysRes.data ?? []) as { id: string; name: string; description: string | null }[];
 
   return (
     <div className="flex flex-col gap-6">
@@ -66,6 +73,7 @@ export default async function NewBookingPage({
         customers={customers}
         vehicles={vehicles}
         services={services}
+        bays={bays}
         defaultCustomerId={params.customer ?? null}
         defaultVehicleId={params.vehicle ?? null}
       />

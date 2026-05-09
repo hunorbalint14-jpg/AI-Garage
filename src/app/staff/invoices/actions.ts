@@ -101,7 +101,7 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [jobRes, itemsRes, orgRes] = await Promise.all([
+  const [jobRes, itemsRes] = await Promise.all([
     admin
       .from("jobs")
       .select("id, location_id, customer_id, status")
@@ -111,7 +111,6 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
       .from("job_items")
       .select("id, description, type, quantity, unit_price")
       .eq("job_id", jobId),
-    admin.from("organizations").select("name").eq("id", ctx.organization.id).maybeSingle(),
   ]);
 
   const job = jobRes.data as { id: string; location_id: string; customer_id: string | null; status: string } | null;
@@ -160,6 +159,7 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
 
   revalidatePath(`/staff/jobs/${jobId}`);
   revalidatePath("/staff/invoices");
+  revalidatePath("/staff/revenue");
   return { success: true, invoiceId: invoice.id };
 }
 
@@ -228,6 +228,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
 
   revalidatePath(`/staff/invoices/${invoiceId}`);
   revalidatePath("/staff/invoices");
+  revalidatePath("/staff/revenue");
   return { success: true };
 }
 
@@ -245,6 +246,7 @@ export async function markInvoicePaid(invoiceId: string): Promise<InvoiceActionR
 
   revalidatePath(`/staff/invoices/${invoiceId}`);
   revalidatePath("/staff/invoices");
+  revalidatePath("/staff/revenue");
   return { success: true };
 }
 
@@ -268,5 +270,6 @@ export async function deleteInvoice(invoiceId: string): Promise<InvoiceActionRes
   }
 
   revalidatePath("/staff/invoices");
+  revalidatePath("/staff/revenue");
   redirect("/staff/invoices");
 }

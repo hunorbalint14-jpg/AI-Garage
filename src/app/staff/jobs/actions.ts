@@ -7,6 +7,22 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { estimateLabourTime } from "@/lib/ai-labour";
+
+export type LabourEstimateResult = { error: string } | { hours: number; note: string };
+
+export async function suggestLabourTime(
+  description: string,
+  vehicleDescription?: string,
+): Promise<LabourEstimateResult> {
+  await requireStaffContext();
+  if (!description.trim()) return { error: "Description required." };
+  try {
+    return await estimateLabourTime(description.trim(), vehicleDescription);
+  } catch {
+    return { error: "Could not estimate — try a more specific description." };
+  }
+}
 
 export type JobItemType = "part" | "labour" | "other";
 export type JobStatus = "open" | "complete" | "invoiced";
@@ -117,6 +133,8 @@ export async function completeJob(jobId: string): Promise<UpdateJobResult> {
 
   revalidatePath(`/staff/jobs/${jobId}`);
   revalidatePath("/staff/bookings");
+  revalidatePath("/staff/revenue");
+  revalidatePath("/staff");
   return { success: true };
 }
 

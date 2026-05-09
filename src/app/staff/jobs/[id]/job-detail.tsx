@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob, sendReviewRequest } from "../actions";
+import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob, sendReviewRequest, suggestLabourTime } from "../actions";
 import { createInvoiceFromJob } from "../../invoices/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,8 +42,15 @@ function formatGBP(n: number): string {
 export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [suggestPending, startSuggest] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [reviewSuccess, setReviewSuccess] = useState<string | null>(null);
+
+  // Controlled add-item form state
+  const [itemDesc, setItemDesc] = useState("");
+  const [itemType, setItemType] = useState("part");
+  const [itemQty, setItemQty] = useState("1");
+  const [labourHint, setLabourHint] = useState<string | null>(null);
 
   const isOpen = job.status === "open";
   const isInvoiced = job.status === "invoiced";
@@ -64,6 +71,25 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
         setError(result.error);
       } else {
         form.reset();
+        setItemDesc("");
+        setItemType("part");
+        setItemQty("1");
+        setLabourHint(null);
+      }
+    });
+  }
+
+  function handleSuggestLabour() {
+    if (!itemDesc.trim()) return;
+    setLabourHint(null);
+    const vehicleDesc = [job.vehicle?.year, job.vehicle?.make, job.vehicle?.model].filter(Boolean).join(" ") || undefined;
+    startSuggest(async () => {
+      const result = await suggestLabourTime(itemDesc.trim(), vehicleDesc);
+      if ("error" in result) {
+        setLabourHint(`Error: ${result.error}`);
+      } else {
+        setItemQty(String(result.hours));
+        setLabourHint(`Suggested ${result.hours}h — ${result.note}`);
       }
     });
   }
@@ -285,19 +311,56 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_100px_120px_auto] gap-2 items-end">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="description-new" className="text-xs">Description</Label>
-                <Input id="description-new" name="description" placeholder="e.g. Front brake pads" required disabled={pending} />
+                <Input
+                  id="description-new"
+                  name="description"
+                  placeholder="e.g. Front brake pads"
+                  required
+                  disabled={pending}
+                  value={itemDesc}
+                  onChange={(e) => { setItemDesc(e.target.value); setLabourHint(null); }}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="type" className="text-xs">Type</Label>
-                <select id="type" name="type" defaultValue="part" disabled={pending} className={inputClass}>
+                <select
+                  id="type"
+                  name="type"
+                  value={itemType}
+                  onChange={(e) => { setItemType(e.target.value); setLabourHint(null); }}
+                  disabled={pending}
+                  className={inputClass}
+                >
                   <option value="part">Part</option>
                   <option value="labour">Labour</option>
                   <option value="other">Other</option>
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="quantity" className="text-xs">Qty</Label>
-                <Input id="quantity" name="quantity" type="number" step="any" min="0.01" defaultValue="1" required disabled={pending} />
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="quantity" className="text-xs">Qty / hrs</Label>
+                  {itemType === "labour" && itemDesc.trim().length > 3 && (
+                    <button
+                      type="button"
+                      onClick={handleSuggestLabour}
+                      disabled={suggestPending}
+                      className="text-[10px] text-primary underline disabled:opacity-50"
+                    >
+                      {suggestPending ? "…" : "Suggest"}
+                    </button>
+                  )}
+                </div>
+                <Input
+                  id="quantity"
+                  name="quantity"
+                  type="number"
+                  step="any"
+                  min="0.01"
+                  required
+                  disabled={pending}
+                  value={itemQty}
+                  onChange={(e) => setItemQty(e.target.value)}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="unitPrice" className="text-xs">Unit price (£)</Label>
@@ -305,6 +368,11 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
               </div>
               <Button type="submit" disabled={pending}>{pending ? "Adding…" : "Add"}</Button>
             </div>
+            {labourHint && (
+              <p className={`text-xs ${labourHint.startsWith("Error") ? "text-red-600" : "text-green-700"}`}>
+                {labourHint}
+              </p>
+            )}
           </form>
         )}
       </section>
