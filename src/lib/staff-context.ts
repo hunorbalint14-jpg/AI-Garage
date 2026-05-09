@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveTenantFromHost } from "@/lib/tenant";
 
 export type StaffContext = {
   user: { id: string; email: string | undefined; fullName: string | null };
@@ -25,7 +26,11 @@ export async function getStaffContext(): Promise<StaffContext | null> {
   if (!user) return null;
 
   const headersList = await headers();
-  const slug = headersList.get("x-tenant-slug");
+  const slug =
+    headersList.get("x-tenant-slug") ??
+    resolveTenantFromHost(
+      headersList.get("host") ?? headersList.get("x-forwarded-host") ?? "",
+    ).slug;
   if (!slug) return null;
 
   type LocationWithOrg = {
