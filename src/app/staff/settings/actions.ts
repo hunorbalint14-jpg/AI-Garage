@@ -28,7 +28,7 @@ export async function updateOrganization(
   }
 
   const portalTheme = (formData.get("portalTheme") as string | null) || null;
-  const validThemes = ["dark", "light", "glass"];
+  const validThemes = ["dark", "light", "glass", "workshop"];
 
   const admin = createAdminClient();
   const { error } = await admin

@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 type Customer = { id: string; full_name: string | null; email: string | null; phone: string | null };
 type Vehicle = { id: string; customer_id: string; registration: string; make: string | null; model: string | null };
 type Service = { id: string; name: string; category: string; duration_minutes: number; price: number | null };
+type Bay = { id: string; name: string; description: string | null };
 
 const FALLBACK_TYPES: { value: string; label: string; duration: number }[] = [
   { value: "mot", label: "MOT", duration: 60 },
@@ -36,12 +37,14 @@ export function BookingForm({
   customers,
   vehicles,
   services,
+  bays,
   defaultCustomerId,
   defaultVehicleId,
 }: {
   customers: Customer[];
   vehicles: Vehicle[];
   services: Service[];
+  bays: Bay[];
   defaultCustomerId: string | null;
   defaultVehicleId: string | null;
 }) {
@@ -203,6 +206,20 @@ export function BookingForm({
           className={inputClass + " resize-none"}
         />
       </div>
+
+      {bays.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="bayId">Bay (optional)</Label>
+          <select id="bayId" name="bayId" disabled={pending} className={inputClass}>
+            <option value="">— Unassigned —</option>
+            {bays.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}{b.description ? ` — ${b.description}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
         <input type="checkbox" name="sendConfirmation" defaultChecked disabled={pending} />

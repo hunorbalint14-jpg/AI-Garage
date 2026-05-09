@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Theme = "dark" | "light" | "glass";
+type Theme = "dark" | "light" | "glass" | "workshop";
 
 const THEMES: { id: Theme; label: string; description: string; preview: string }[] = [
   {
@@ -26,6 +26,12 @@ const THEMES: { id: Theme; label: string; description: string; preview: string }
     label: "Glass",
     description: "Transparent sidebar, strong brand blobs, glass content",
     preview: "bg-[#050c1a]",
+  },
+  {
+    id: "workshop",
+    label: "Workshop",
+    description: "Industrial dark, amber accents, monospace details",
+    preview: "bg-[#0e1014]",
   },
 ];
 
@@ -148,7 +154,7 @@ export function SettingsForm({
         {/* ── Portal theme picker ── */}
         <div className="flex flex-col gap-2">
           <Label>Staff portal theme</Label>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {THEMES.map((t) => {
               const isSelected = theme === t.id;
               return (
@@ -164,7 +170,7 @@ export function SettingsForm({
                   {/* Mini preview */}
                   <div className={`relative flex h-16 w-full items-stretch overflow-hidden ${t.preview}`}>
                     {/* Blobs for dark/glass previews */}
-                    {t.id !== "light" && (
+                    {t.id !== "light" && t.id !== "workshop" && (
                       <>
                         <div
                           className="absolute -top-4 -left-4 h-12 w-12 rounded-full blur-xl opacity-60"
@@ -179,7 +185,9 @@ export function SettingsForm({
                     {/* Sidebar strip */}
                     <div
                       className={`relative z-10 w-8 border-r ${
-                        t.id === "dark"
+                        t.id === "workshop"
+                          ? "bg-[#15181d] border-[#2a2f37]"
+                          : t.id === "dark"
                           ? "bg-[#0a1020]/70 border-white/10"
                           : t.id === "light"
                           ? "bg-white border-gray-200"
@@ -189,15 +197,20 @@ export function SettingsForm({
                       {[0, 1, 2].map((i) => (
                         <div
                           key={i}
-                          className="mx-1 mt-1.5 h-1 rounded-full"
+                          className="mx-1 mt-1.5 h-1"
                           style={{
+                            borderRadius: t.id === "workshop" ? 0 : 9999,
                             backgroundColor:
-                              i === 0
+                              t.id === "workshop"
+                                ? i === 0
+                                  ? color
+                                  : "#2a2f37"
+                                : i === 0
                                 ? color
                                 : t.id === "light"
                                 ? "#9ca3af"
                                 : "rgba(255,255,255,0.3)",
-                            opacity: i === 0 ? 1 : 0.5,
+                            opacity: i === 0 ? 1 : 0.6,
                           }}
                         />
                       ))}
@@ -205,7 +218,9 @@ export function SettingsForm({
                     {/* Content area */}
                     <div
                       className={`relative z-10 flex-1 ${
-                        t.id === "dark"
+                        t.id === "workshop"
+                          ? "bg-[#0e1014]"
+                          : t.id === "dark"
                           ? "bg-[#f8fafc]"
                           : t.id === "light"
                           ? "bg-gray-50"
