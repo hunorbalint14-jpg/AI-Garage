@@ -63,7 +63,10 @@ export async function GET(request: NextRequest) {
   } else {
     // Detect staff — check if user belongs to this location's org
     const admin = createAdminClient();
-    const slug = request.headers.get("x-tenant-slug");
+    const { resolveTenantFromHost } = await import("@/lib/tenant");
+    const slug =
+      request.headers.get("x-tenant-slug") ??
+      resolveTenantFromHost(request.headers.get("host") ?? "").slug;
 
     if (slug) {
       const { data: location } = await admin
