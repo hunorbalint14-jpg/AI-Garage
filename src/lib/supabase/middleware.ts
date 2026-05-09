@@ -5,17 +5,18 @@ export async function updateSession(
   request: NextRequest,
   extraRequestHeaders?: Record<string, string>,
 ) {
-  // Merge any extra headers (e.g. x-tenant-slug) into the forwarded request
-  // so server components can read them via request.headers / headers().
-  const forwardHeaders = new Headers(request.headers);
-  if (extraRequestHeaders) {
-    for (const [k, v] of Object.entries(extraRequestHeaders)) {
-      forwardHeaders.set(k, v);
+  const buildForwardHeaders = () => {
+    const h = new Headers(request.headers);
+    if (extraRequestHeaders) {
+      for (const [k, v] of Object.entries(extraRequestHeaders)) {
+        h.set(k, v);
+      }
     }
-  }
+    return h;
+  };
 
   let supabaseResponse = NextResponse.next({
-    request: { headers: forwardHeaders },
+    request: { headers: buildForwardHeaders() },
   });
 
   const supabase = createServerClient(
@@ -30,8 +31,9 @@ export async function updateSession(
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
+          // Rebuild after cookie mutations so refreshed tokens are forwarded
           supabaseResponse = NextResponse.next({
-            request: { headers: forwardHeaders },
+            request: { headers: buildForwardHeaders() },
           });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
@@ -41,7 +43,11 @@ export async function updateSession(
     },
   );
 
-  await supabase.auth.getUser();
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // Invalid/expired session — let routes handle redirect to login
+  }
 
   return supabaseResponse;
 }
