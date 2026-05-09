@@ -3,14 +3,14 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { resolveTenantFromHost } from "@/lib/tenant";
 
 export async function proxy(request: NextRequest) {
-  const response = await updateSession(request);
-
   const tenant = resolveTenantFromHost(request.headers.get("host"));
+
+  const extraHeaders: Record<string, string> = {};
   if (tenant.slug) {
-    response.headers.set("x-tenant-slug", tenant.slug);
+    extraHeaders["x-tenant-slug"] = tenant.slug;
   }
 
-  return response;
+  return updateSession(request, extraHeaders);
 }
 
 export const config = {
