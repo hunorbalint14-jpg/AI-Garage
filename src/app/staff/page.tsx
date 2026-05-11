@@ -45,11 +45,13 @@ function TodaySchedule({
   now: Date;
 }) {
   const DAY_START = 8;
-  const DAY_SPAN = 10;
+  const DAY_SPAN = 14; // 08:00–22:00
+  const PX_PER_HOUR = 90;
+  const TIMELINE_W = DAY_SPAN * PX_PER_HOUR;
   const nowH = now.getHours() + now.getMinutes() / 60;
-  const nowPct = ((nowH - DAY_START) / DAY_SPAN) * 100;
+  const nowPx = (nowH - DAY_START) * PX_PER_HOUR;
   const showNow = nowH >= DAY_START && nowH <= DAY_START + DAY_SPAN;
-  const hours = Array.from({ length: 11 }, (_, i) => i + DAY_START);
+  const hours = Array.from({ length: DAY_SPAN + 1 }, (_, i) => i + DAY_START);
   const mono = "var(--font-geist-mono, monospace)";
   const LABEL_W = 130;
 
@@ -80,11 +82,11 @@ function TodaySchedule({
   function renderBlock(b: BookingSlot) {
     const startDate = new Date(b.scheduledAt);
     const startH = startDate.getHours() + startDate.getMinutes() / 60;
-    const leftPct = Math.max(0, ((startH - DAY_START) / DAY_SPAN) * 100);
-    const widthPct = Math.min(100 - leftPct, (b.durationMinutes / 60 / DAY_SPAN) * 100);
-    if (widthPct <= 0 || leftPct >= 100) return null;
+    const leftPx = Math.max(0, (startH - DAY_START) * PX_PER_HOUR);
+    const widthPx = Math.max(4, (b.durationMinutes / 60) * PX_PER_HOUR);
+    if (leftPx >= TIMELINE_W) return null;
     const s = BOOKING_STATUS[b.status] ?? BOOKING_STATUS.scheduled;
-    const isNarrow = widthPct < 8;
+    const isNarrow = widthPx < 40;
 
     const endDate = new Date(startDate.getTime() + b.durationMinutes * 60000);
     const fmt = (d: Date) => d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
@@ -92,7 +94,7 @@ function TodaySchedule({
     const durStr = b.durationMinutes >= 60
       ? `${Math.floor(b.durationMinutes / 60)}h${b.durationMinutes % 60 ? ` ${b.durationMinutes % 60}m` : ""}`
       : `${b.durationMinutes}m`;
-    const tooltipSide = leftPct > 55 ? { right: 0 } : { left: 0 };
+    const tooltipSide = leftPx > TIMELINE_W * 0.55 ? { right: 0 } : { left: 0 };
 
     return (
       <Link
@@ -101,8 +103,8 @@ function TodaySchedule({
         className="booking-block"
         style={{
           position: "absolute",
-          left: `${leftPct}%`,
-          width: `${Math.max(widthPct, 0.8)}%`,
+          left: leftPx,
+          width: widthPx,
           top: 6,
           bottom: 6,
           background: s.bg,
@@ -157,7 +159,7 @@ function TodaySchedule({
       <div style={{ padding: "16px 22px", borderBottom: "1px solid #2a2f37", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 10, color: "#5a6170", fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            Day schedule · {now.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · 08:00–18:00
+            Day schedule · {now.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · 08:00–22:00
           </div>
           <div style={{ fontSize: 16, fontWeight: 600, color: "#e6e8eb", marginTop: 4 }}>
             {bookings.length === 0
@@ -178,13 +180,13 @@ function TodaySchedule({
       </div>
 
       {/* Schedule grid */}
-      <div>
+      <div style={{ overflowX: "auto" }}>
         {/* Ruler */}
-        <div style={{ display: "grid", gridTemplateColumns: `${LABEL_W}px 1fr`, borderBottom: "1px solid #2a2f37", minWidth: 560 }}>
-          <div style={{ padding: "8px 12px", fontFamily: mono, fontSize: 9, color: "#5a6170", letterSpacing: "0.12em" }}>BAY</div>
-          <div style={{ position: "relative", height: 26 }}>
+        <div style={{ display: "flex", borderBottom: "1px solid #2a2f37", minWidth: LABEL_W + TIMELINE_W }}>
+          <div style={{ width: LABEL_W, flexShrink: 0, padding: "8px 12px", fontFamily: mono, fontSize: 9, color: "#5a6170", letterSpacing: "0.12em", position: "sticky", left: 0, background: "#15181d", zIndex: 2, borderRight: "1px solid #2a2f37" }}>BAY</div>
+          <div style={{ position: "relative", width: TIMELINE_W, flexShrink: 0, height: 26 }}>
             {hours.map((h) => (
-              <div key={h} style={{ position: "absolute", left: `${((h - DAY_START) / DAY_SPAN) * 100}%`, top: 8, transform: "translateX(-50%)", fontFamily: mono, fontSize: 9, color: "#5a6170" }}>
+              <div key={h} style={{ position: "absolute", left: (h - DAY_START) * PX_PER_HOUR, top: 8, transform: "translateX(-50%)", fontFamily: mono, fontSize: 9, color: "#5a6170" }}>
                 {String(h).padStart(2, "0")}
               </div>
             ))}
@@ -196,14 +198,13 @@ function TodaySchedule({
           <div
             key={row.id ?? "unassigned"}
             style={{
-              display: "grid",
-              gridTemplateColumns: `${LABEL_W}px 1fr`,
+              display: "flex",
               borderBottom: ri < rows.length - 1 ? "1px solid #2a2f37" : "none",
               minHeight: 54,
-              minWidth: 560,
+              minWidth: LABEL_W + TIMELINE_W,
             }}
           >
-            <div style={{ padding: "8px 12px", borderRight: "1px solid #2a2f37", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <div style={{ width: LABEL_W, flexShrink: 0, padding: "8px 12px", borderRight: "1px solid #2a2f37", display: "flex", flexDirection: "column", justifyContent: "center", position: "sticky", left: 0, background: "#15181d", zIndex: 1 }}>
               <div style={{ fontFamily: mono, fontSize: 11, color: "#ffb020", fontWeight: 600, letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {row.name}
               </div>
@@ -211,12 +212,12 @@ function TodaySchedule({
                 <div style={{ fontSize: 10, color: "#5a6170", marginTop: 2 }}>{row.sub}</div>
               )}
             </div>
-            <div style={{ position: "relative", padding: "6px 0" }}>
-              {hours.slice(1, -1).map((h) => (
-                <div key={h} style={{ position: "absolute", left: `${((h - DAY_START) / DAY_SPAN) * 100}%`, top: 0, bottom: 0, borderLeft: "1px dashed #2a2f37" }} />
+            <div style={{ position: "relative", width: TIMELINE_W, flexShrink: 0, padding: "6px 0" }}>
+              {hours.slice(1).map((h) => (
+                <div key={h} style={{ position: "absolute", left: (h - DAY_START) * PX_PER_HOUR, top: 0, bottom: 0, borderLeft: "1px dashed #2a2f37" }} />
               ))}
               {showNow && (
-                <div style={{ position: "absolute", left: `${nowPct}%`, top: 0, bottom: 0, borderLeft: "1px dashed #ffb020", zIndex: 10 }} />
+                <div style={{ position: "absolute", left: nowPx, top: 0, bottom: 0, borderLeft: "1px dashed #ffb020", zIndex: 10 }} />
               )}
               {row.items.map((b) => renderBlock(b))}
             </div>
@@ -224,7 +225,7 @@ function TodaySchedule({
         ))}
 
         {bookings.length === 0 && (
-          <div style={{ gridColumn: "1 / -1", padding: "32px 22px", textAlign: "center", color: "#5a6170", fontFamily: mono, fontSize: 12 }}>
+          <div style={{ width: "100%", padding: "32px 22px", textAlign: "center", color: "#5a6170", fontFamily: mono, fontSize: 12 }}>
             // NO BOOKINGS TODAY
           </div>
         )}
