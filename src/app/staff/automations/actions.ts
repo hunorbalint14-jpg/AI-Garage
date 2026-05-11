@@ -108,9 +108,11 @@ export async function runTaskNow(taskType: TaskType): Promise<ActionResult> {
   const secret = process.env.CRON_SECRET;
   if (!secret) return { error: "CRON_SECRET not configured." };
 
-  const root = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000";
-  const protocol = root.includes("localhost") ? "http" : "https";
-  const baseUrl = `${protocol}://${root}`;
+  const { headers } = await import("next/headers");
+  const h = await headers();
+  const host = h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.includes("localhost") || host.includes("localtest.me") ? "http" : "https");
+  const baseUrl = `${proto}://${host}`;
 
   const pathMap: Record<TaskType, string> = {
     mot_reminders:     "/api/cron/reminders",
@@ -119,12 +121,15 @@ export async function runTaskNow(taskType: TaskType): Promise<ActionResult> {
     weekly_digest:     "/api/cron/digest",
   };
 
-  const res = await fetch(
-    `${baseUrl}${pathMap[taskType]}?location_id=${ctx.location.id}&task_type=${taskType}`,
-    { headers: { authorization: `Bearer ${secret}` }, cache: "no-store" },
-  );
-
-  if (!res.ok) return { error: `Trigger failed: HTTP ${res.status}` };
+  try {
+    const res = await fetch(
+      `${baseUrl}${pathMap[taskType]}?location_id=${ctx.location.id}&task_type=${taskType}`,
+      { headers: { authorization: `Bearer ${secret}` }, cache: "no-store" },
+    );
+    if (!res.ok) return { error: `Trigger failed: HTTP ${res.status}` };
+  } catch (e) {
+    return { error: `Trigger failed: ${(e as Error).message}` };
+  }
 
   const admin = createAdminClient();
   await admin
