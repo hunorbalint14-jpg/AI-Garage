@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   const windowEnd = new Date(now);
-  windowEnd.setDate(windowEnd.getDate() + REMIND_DAYS_BEFORE);
+  windowEnd.setDate(windowEnd.getDate() + REMIND_DAYS_BEFORE_DEFAULT);
   const dedupCutoff = new Date(now);
   dedupCutoff.setDate(dedupCutoff.getDate() - DEDUP_DAYS);
 
