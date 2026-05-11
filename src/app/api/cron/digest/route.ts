@@ -93,6 +93,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const filterLocationId = searchParams.get("location_id");
+
   const admin = createAdminClient();
   const now = new Date();
   const windowEnd = new Date(now);
@@ -100,9 +103,12 @@ export async function GET(request: NextRequest) {
   const windowEndStr = windowEnd.toISOString().split("T")[0];
   const todayStr = now.toISOString().split("T")[0];
 
-  const { data: locations } = (await admin
+  let locQuery = admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name)")) as { data: LocationRow[] | null };
+    .select("id, name, organization:organizations(id, name)");
+  if (filterLocationId) locQuery = locQuery.eq("id", filterLocationId);
+
+  const { data: locations } = (await locQuery) as { data: LocationRow[] | null };
 
   const results = { digests: 0, errors: [] as string[] };
 
