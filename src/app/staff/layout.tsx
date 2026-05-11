@@ -5,6 +5,7 @@ import { LocationSwitcher } from "@/components/staff/location-switcher";
 import { StaffNav } from "@/components/staff/staff-nav";
 import { AnimatedBackground } from "@/components/animated-background";
 import { PORTAL_THEMES, type PortalTheme } from "@/lib/portal-themes";
+import { ColorSchemeSync } from "@/components/staff/color-scheme-sync";
 
 function OrgAvatar({ name, color }: { name: string; color: string }) {
   const initials = name
@@ -103,6 +104,7 @@ export default async function StaffLayout({
 
   return (
     <div className={cfg.outer}>
+      <ColorSchemeSync dark={isDark} />
       {cfg.showBlobs && (
         <AnimatedBackground
           brandColor={brandColor}
