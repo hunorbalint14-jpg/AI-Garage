@@ -235,6 +235,35 @@ export async function markNoShow(bookingId: string): Promise<UpdateBookingStatus
   return { success: true };
 }
 
+export type AssignBayResult = { error: string } | { success: true };
+
+export async function assignBay(bookingId: string, bayId: string | null): Promise<AssignBayResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  if (bayId) {
+    const { data: bay } = await admin
+      .from("bays")
+      .select("id")
+      .eq("id", bayId)
+      .eq("location_id", ctx.location.id)
+      .maybeSingle();
+    if (!bay) return { error: "Bay not found at this location." };
+  }
+
+  const { error } = await admin
+    .from("bookings")
+    .update({ bay_id: bayId })
+    .eq("id", bookingId)
+    .eq("location_id", ctx.location.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff");
+  return { success: true };
+}
+
 export async function deleteBooking(bookingId: string): Promise<UpdateBookingStatusResult> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();

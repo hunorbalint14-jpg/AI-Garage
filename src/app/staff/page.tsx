@@ -39,19 +39,26 @@ function TodaySchedule({
   bookings,
   bays,
   now,
+  workStart = 8,
+  workEnd = 18,
 }: {
   bookings: BookingSlot[];
   bays: BayRow[];
   now: Date;
+  workStart?: number;
+  workEnd?: number;
 }) {
-  const DAY_START = 8;
-  const DAY_SPAN = 14; // 08:00–22:00
+  const DAY_START = Math.max(0, workStart - 1);
+  const DAY_END = Math.min(23, workEnd + 1);
+  const DAY_SPAN = DAY_END - DAY_START;
   const PX_PER_HOUR = 90;
   const TIMELINE_W = DAY_SPAN * PX_PER_HOUR;
   const nowH = now.getHours() + now.getMinutes() / 60;
   const nowPx = (nowH - DAY_START) * PX_PER_HOUR;
   const showNow = nowH >= DAY_START && nowH <= DAY_START + DAY_SPAN;
   const hours = Array.from({ length: DAY_SPAN + 1 }, (_, i) => i + DAY_START);
+  const padStart = `${String(DAY_START).padStart(2, "0")}:00`;
+  const padEnd = `${String(DAY_END).padStart(2, "0")}:00`;
   const mono = "var(--font-geist-mono, monospace)";
   const LABEL_W = 130;
 
@@ -159,7 +166,7 @@ function TodaySchedule({
       <div style={{ padding: "16px 22px", borderBottom: "1px solid #2a2f37", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
           <div style={{ fontSize: 10, color: "#5a6170", fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase" }}>
-            Day schedule · {now.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · 08:00–22:00
+            Day schedule · {now.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {padStart}–{padEnd}
           </div>
           <div style={{ fontSize: 16, fontWeight: 600, color: "#e6e8eb", marginTop: 4 }}>
             {bookings.length === 0
@@ -481,6 +488,7 @@ export default async function StaffDashboard() {
     todayBookingsRes,
     weekPaidRes,
     baysRes,
+    locationHoursRes,
   ] = await Promise.all([
     admin
       .from("customers")
@@ -534,6 +542,11 @@ export default async function StaffDashboard() {
       .eq("location_id", ctx.location.id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true }),
+    admin
+      .from("locations")
+      .select("business_hours_start, business_hours_end")
+      .eq("id", ctx.location.id)
+      .single(),
   ]);
 
   const totalCustomers = customersRes.count ?? 0;
@@ -567,6 +580,8 @@ export default async function StaffDashboard() {
   }));
   const todayBookings = todaySchedule.length;
   const locationBays = (baysRes.data ?? []) as BayRow[];
+  const businessHoursStart: number = (locationHoursRes.data as { business_hours_start?: number } | null)?.business_hours_start ?? 8;
+  const businessHoursEnd: number = (locationHoursRes.data as { business_hours_end?: number } | null)?.business_hours_end ?? 18;
   const weekPaid = weekPaidRes.data ?? [];
 
   const revByDay: Record<string, number> = {};
@@ -761,7 +776,7 @@ export default async function StaffDashboard() {
       </div>
 
       {/* Day schedule — row 2 */}
-      <TodaySchedule bookings={todaySchedule} bays={locationBays} now={now} />
+      <TodaySchedule bookings={todaySchedule} bays={locationBays} now={now} workStart={businessHoursStart} workEnd={businessHoursEnd} />
 
       {/* Two-column: revenue chart + priority list */}
       <div

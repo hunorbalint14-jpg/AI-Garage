@@ -2,6 +2,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./settings-form";
 import { AddLocationForm } from "./add-location-form";
+import { BusinessHoursForm } from "./business-hours-form";
 
 type LocationRow = { id: string; slug: string; name: string; created_at: string };
 
@@ -12,7 +13,7 @@ export default async function SettingsPage() {
   const ctx = await requireStaffContext();
 
   const admin = createAdminClient();
-  const [orgRes, locationsRes] = await Promise.all([
+  const [orgRes, locationsRes, currentLocRes] = await Promise.all([
     admin
       .from("organizations")
       .select("name, primary_color, logo_url, slug, custom_domain, phone, portal_theme, google_review_url")
@@ -23,11 +24,17 @@ export default async function SettingsPage() {
       .select("id, slug, name, created_at")
       .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: true }),
+    admin
+      .from("locations")
+      .select("business_hours_start, business_hours_end")
+      .eq("id", ctx.location.id)
+      .single(),
   ]);
 
   const org = orgRes.data;
   const locations = (locationsRes.data ?? []) as LocationRow[];
   const isOwner = ctx.orgRole === "owner" || ctx.orgRole === "admin";
+  const locHours = currentLocRes.data as { business_hours_start?: number; business_hours_end?: number } | null;
 
   return (
     <div className="flex flex-col gap-6 max-w-xl">
@@ -45,6 +52,12 @@ export default async function SettingsPage() {
         initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
         initialTheme={((org as { portal_theme?: string } | null)?.portal_theme ?? "dark") as "dark" | "light" | "glass" | "workshop"}
         initialGoogleReviewUrl={(org as { google_review_url?: string | null } | null)?.google_review_url ?? ""}
+        canEdit={isOwner}
+      />
+
+      <BusinessHoursForm
+        initialStart={locHours?.business_hours_start ?? 8}
+        initialEnd={locHours?.business_hours_end ?? 18}
         canEdit={isOwner}
       />
 
