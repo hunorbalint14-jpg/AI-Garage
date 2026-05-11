@@ -181,7 +181,7 @@ export function BookingForm({
             (() => {
               const cats = [...new Set(services.map((s) => s.category))];
               return cats.map((cat) => (
-                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
+                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)} style={{ background: "var(--background)", color: "var(--muted-foreground)" }}>
                   {services.filter((s) => s.category === cat).map((s) => (
                     <option key={s.id} value={s.name}>
                       {s.name}{fmt(s.price)} · {s.duration_minutes}min
