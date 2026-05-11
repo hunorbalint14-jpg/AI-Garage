@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { BookingActions } from "./booking-actions";
+import { BaySelector } from "./bay-selector";
 
 type Booking = {
   id: string;
@@ -12,6 +13,7 @@ type Booking = {
   status: string;
   notes: string | null;
   created_at: string;
+  bay_id: string | null;
   customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
   vehicle: { id: string; registration: string; make: string | null; model: string | null; year: number | null } | null;
   location_id: string;
@@ -47,11 +49,11 @@ export default async function BookingDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [bookingRes, jobRes] = await Promise.all([
+  const [bookingRes, jobRes, baysRes] = await Promise.all([
     admin
       .from("bookings")
       .select(
-        "id, scheduled_at, duration_minutes, type, status, notes, created_at, location_id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
+        "id, scheduled_at, duration_minutes, type, status, notes, created_at, location_id, bay_id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -60,12 +62,19 @@ export default async function BookingDetailPage({
       .select("id, status, completed_at")
       .eq("booking_id", id)
       .maybeSingle(),
+    admin
+      .from("bays")
+      .select("id, name")
+      .eq("location_id", ctx.location.id)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true }),
   ]);
 
   const booking = bookingRes.data as Booking | null;
   if (!booking || booking.location_id !== ctx.location.id) notFound();
 
   const job = jobRes.data as LinkedJob | null;
+  const bays = (baysRes.data ?? []) as { id: string; name: string }[];
 
   return (
     <div className="flex flex-col gap-6">
@@ -145,6 +154,13 @@ export default async function BookingDetailPage({
           <p className="text-sm whitespace-pre-wrap">{booking.notes}</p>
         </section>
       )}
+
+      <section className="rounded-lg border p-4">
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          Bay assignment
+        </h2>
+        <BaySelector bookingId={booking.id} bays={bays} currentBayId={booking.bay_id} />
+      </section>
 
       {job && (
         <section className="rounded-lg border p-4 bg-muted/20">

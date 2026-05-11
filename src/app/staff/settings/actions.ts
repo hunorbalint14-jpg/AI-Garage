@@ -53,6 +53,36 @@ export async function updateOrganization(
   return { success: true };
 }
 
+export type UpdateHoursResult = { error: string } | { success: true };
+
+export async function updateBusinessHours(
+  formData: FormData,
+): Promise<UpdateHoursResult> {
+  const ctx = await requireStaffContext();
+  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
+    return { error: "Only organisation owners can update business hours." };
+  }
+
+  const start = parseInt(formData.get("hoursStart") as string, 10);
+  const end = parseInt(formData.get("hoursEnd") as string, 10);
+
+  if (isNaN(start) || isNaN(end) || start < 0 || end > 23 || start >= end) {
+    return { error: "Invalid hours. Start must be before end (0–23)." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("locations")
+    .update({ business_hours_start: start, business_hours_end: end })
+    .eq("id", ctx.location.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/staff/settings");
+  revalidatePath("/staff");
+  return { success: true };
+}
+
 export type AddLocationResult =
   | { error: string }
   | { success: true; slug: string };
