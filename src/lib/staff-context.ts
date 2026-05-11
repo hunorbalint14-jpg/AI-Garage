@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -17,7 +18,7 @@ export type StaffContext = {
   supabase: Awaited<ReturnType<typeof createClient>>;
 };
 
-export async function getStaffContext(): Promise<StaffContext | null> {
+export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
   const supabase = await createClient();
 
   const {
@@ -95,7 +96,7 @@ export async function getStaffContext(): Promise<StaffContext | null> {
     locationRole,
     supabase,
   };
-}
+});
 
 export async function requireStaffContext(): Promise<StaffContext> {
   const ctx = await getStaffContext();
