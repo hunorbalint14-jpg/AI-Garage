@@ -85,7 +85,7 @@ function dueDaysLabel(days: number | null): string {
 function dueDaysColor(days: number | null): string {
   if (days === null) return "#5a6170";
   if (days < 0) return "#ff5b5b";
-  if (days <= 14) return "#ffb020";
+  if (days <= 14) return accent;
   return "#9aa1ad";
 }
 
@@ -107,10 +107,14 @@ function ChannelDot({ status }: { status: "sent" | "failed" | null }) {
 export function ReminderComposer({
   queue,
   history,
+  brandColor = accent,
 }: {
   queue: QueueVehicle[];
   history: SentReminder[];
+  brandColor?: string;
 }) {
+  const accent = brandColor;
+  const accentBg = `${brandColor}18`;
   const [mode, setMode] = useState<"queue" | "history">("queue");
   const [selectedHistory, setSelectedHistory] = useState<SentReminder | null>(null);
   const [selected, setSelected] = useState<QueueVehicle | null>(null);
@@ -251,9 +255,9 @@ export function ReminderComposer({
                 fontSize: 10,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase" as const,
-                background: mode === m ? "#1c1810" : "transparent",
-                color: mode === m ? "#ffb020" : "#5a6170",
-                borderBottom: `2px solid ${mode === m ? "#ffb020" : "transparent"}`,
+                background: mode === m ? accentBg : "transparent",
+                color: mode === m ? accent : "#5a6170",
+                borderBottom: `2px solid ${mode === m ? accent : "transparent"}`,
                 borderTop: "none",
                 borderLeft: "none",
                 borderRight: "none",
@@ -325,7 +329,7 @@ export function ReminderComposer({
                       width: "100%",
                       padding: "12px 16px",
                       borderBottom: "1px solid #2a2f37",
-                      borderLeft: `3px solid ${isActive ? "#ffb020" : "transparent"}`,
+                      borderLeft: `3px solid ${isActive ? accent : "transparent"}`,
                       background: isActive ? "#1c1810" : "transparent",
                       textAlign: "left",
                       cursor: "pointer",
@@ -426,7 +430,7 @@ export function ReminderComposer({
                       width: "100%",
                       padding: "12px 16px",
                       borderBottom: "1px solid #2a2f37",
-                      borderLeft: `3px solid ${isActive ? "#ffb020" : "transparent"}`,
+                      borderLeft: `3px solid ${isActive ? accent : "transparent"}`,
                       background: isActive ? "#1c1810" : "transparent",
                       textAlign: "left",
                       cursor: "pointer",
@@ -568,7 +572,7 @@ export function ReminderComposer({
           <div style={{ padding: "24px 32px", flex: 1 }}>
             {/* Draft header */}
             <div style={{ marginBottom: 4 }}>
-              <span style={{ fontFamily: mono, fontSize: 10, color: "#ffb020", letterSpacing: "0.16em" }}>
+              <span style={{ fontFamily: mono, fontSize: 10, color: accent, letterSpacing: "0.16em" }}>
                 // DRAFT {String(draftIndex).padStart(2, "0")} OF {String(pendingQueue.length).padStart(2, "0")}
               </span>
               {" "}
@@ -582,7 +586,7 @@ export function ReminderComposer({
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24, fontSize: 12 }}>
               <Plate reg={selected.registration} />
               <span style={{ color: "#5a6170", fontFamily: mono }}>·</span>
-              <span style={{ fontFamily: mono, fontSize: 11, color: "#ffb020" }}>
+              <span style={{ fontFamily: mono, fontSize: 11, color: accent }}>
                 {selected.primaryReminderType.toUpperCase()}{" "}
                 {dueDaysLabel(
                   selected.primaryReminderType === "mot" ? selected.motDays : selected.svcDays,
@@ -632,7 +636,7 @@ export function ReminderComposer({
                         disabled={isLoading || isSending}
                         style={{
                           background: isActive ? "#1c1810" : "#15181d",
-                          borderTop: `2px solid ${isActive ? "#ffb020" : "transparent"}`,
+                          borderTop: `2px solid ${isActive ? accent : "transparent"}`,
                           padding: "10px 12px",
                           cursor: "pointer",
                           textAlign: "left",
@@ -640,7 +644,7 @@ export function ReminderComposer({
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontFamily: mono, fontSize: 10, color: "#ffb020" }}>
+                          <span style={{ fontFamily: mono, fontSize: 10, color: accent }}>
                             {t.n}
                           </span>
                           <span
@@ -659,7 +663,7 @@ export function ReminderComposer({
                                 fontFamily: mono,
                                 fontSize: 9,
                                 color: "#0e1014",
-                                background: "#ffb020",
+                                background: accent,
                                 padding: "1px 5px",
                                 borderRadius: 2,
                               }}
@@ -683,7 +687,7 @@ export function ReminderComposer({
                   textAlign: "center",
                   fontFamily: mono,
                   fontSize: 12,
-                  color: "#ffb020",
+                  color: accent,
                   letterSpacing: "0.1em",
                 }}
               >
@@ -745,9 +749,9 @@ export function ReminderComposer({
                           fontSize: 11,
                           padding: "4px 10px",
                           borderRadius: 2,
-                          border: `1px solid ${channels[c.key] ? "#ffb020" : "#2a2f37"}`,
+                          border: `1px solid ${channels[c.key] ? accent : "#2a2f37"}`,
                           background: channels[c.key] ? "#1c1810" : "transparent",
-                          color: channels[c.key] ? "#ffb020" : "#5a6170",
+                          color: channels[c.key] ? accent : "#5a6170",
                           cursor: "pointer",
                         }}
                       >
@@ -819,7 +823,7 @@ export function ReminderComposer({
                       <span style={{ fontFamily: mono, fontSize: 10, color: "#5a6170" }}>
                         {editSms.length} chars
                         {editSms.length > 160 && (
-                          <span style={{ color: "#ffb020" }}> · {Math.ceil(editSms.length / 160)} segments</span>
+                          <span style={{ color: accent }}> · {Math.ceil(editSms.length / 160)} segments</span>
                         )}
                       </span>
                     </div>
@@ -1024,7 +1028,7 @@ export function ReminderComposer({
                 marginTop: 10,
                 fontFamily: mono,
                 fontSize: 10,
-                color: "#ffb020",
+                color: accent,
                 textDecoration: "none",
                 padding: "3px 8px",
                 border: "1px solid #3a2c14",

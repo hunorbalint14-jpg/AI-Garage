@@ -128,5 +128,13 @@ export default async function RemindersPage() {
   }
   const history = [...groupMap.values()].slice(0, 60);
 
-  return <ReminderComposer queue={queue} history={history} />;
+  const { data: orgData } = await admin
+    .from("organizations")
+    .select("primary_color")
+    .eq("id", ctx.organization.id)
+    .single();
+
+  const brandColor = (orgData as { primary_color?: string } | null)?.primary_color ?? "#6366f1";
+
+  return <ReminderComposer queue={queue} history={history} brandColor={brandColor} />;
 }
