@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob, sendReviewRequest, suggestLabourTime } from "../actions";
-import { createInvoiceFromJob } from "../../invoices/actions";
+import { createInvoiceFromJob, sendInvoice } from "../../invoices/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -144,6 +144,24 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
       const result = await createInvoiceFromJob(job.id);
       if ("error" in result) setError(result.error);
       else router.push(`/staff/invoices/${result.invoiceId}`);
+    });
+  }
+
+  function handleCreateAndSendInvoice() {
+    setError(null);
+    startTransition(async () => {
+      const result = await createInvoiceFromJob(job.id);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      const sendResult = await sendInvoice(result.invoiceId);
+      if ("error" in sendResult) {
+        setError(`Invoice created, but send failed: ${sendResult.error}`);
+        router.push(`/staff/invoices/${result.invoiceId}`);
+        return;
+      }
+      router.push(`/staff/invoices/${result.invoiceId}`);
     });
   }
 
@@ -387,8 +405,11 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
           )}
           {!isOpen && !isInvoiced && (
             <>
-              <Button onClick={handleCreateInvoice} disabled={pending}>
-                Create invoice
+              <Button onClick={handleCreateAndSendInvoice} disabled={pending}>
+                {pending ? "Working…" : "Create & send invoice"}
+              </Button>
+              <Button variant="outline" onClick={handleCreateInvoice} disabled={pending}>
+                Create invoice (draft)
               </Button>
               <Button variant="outline" onClick={handleReviewRequest} disabled={pending}>
                 Request Google review
