@@ -121,13 +121,13 @@ export default async function CustomersPage({
           )}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-x-auto rounded-lg border">
           {query && (
             <div className="border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
               {customers?.length ?? 0} result{customers?.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
             </div>
           )}
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[600px] text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
                 <th className="px-4 py-2 font-medium">Name</th>
