@@ -59,31 +59,51 @@ function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle:
     .sort((a, b) => a.days - b.days)
     .map((r) => `
       <tr style="border-top:1px solid #e5e7eb">
-        <td style="padding:8px 12px;color:${rowColor(r.days)};font-weight:${r.days <= 7 ? "600" : "400"}">${r.days <= 7 ? "⚠️ " : ""}${r.customerName}</td>
-        <td style="padding:8px 12px;color:#6b7280">${r.vehicle}</td>
-        <td style="padding:8px 12px;font-family:monospace">${r.registration}</td>
-        <td style="padding:8px 12px;text-transform:uppercase;font-size:12px;font-weight:600">${r.type}</td>
-        <td style="padding:8px 12px">${r.dueDate}</td>
-        <td style="padding:8px 12px;color:${rowColor(r.days)};font-weight:600;text-align:right">${r.days}d</td>
+        <td data-label="Customer" style="padding:8px 12px;color:${rowColor(r.days)};font-weight:${r.days <= 7 ? "600" : "400"}">${r.days <= 7 ? "⚠️ " : ""}${r.customerName}</td>
+        <td data-label="Vehicle" style="padding:8px 12px;color:#6b7280">${r.vehicle}</td>
+        <td data-label="Reg" style="padding:8px 12px;font-family:monospace">${r.registration}</td>
+        <td data-label="Type" style="padding:8px 12px;text-transform:uppercase;font-size:12px;font-weight:600">${r.type}</td>
+        <td data-label="Due" style="padding:8px 12px">${r.dueDate}</td>
+        <td data-label="Days" style="padding:8px 12px;color:${rowColor(r.days)};font-weight:600;text-align:right">${r.days}d</td>
       </tr>`).join("");
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#111827;max-width:700px;margin:0 auto;padding:32px 24px">
+  return `<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:14px; color:#111827; margin:0; padding:0; background:#f3f4f6; }
+  .wrap { max-width:700px; margin:0 auto; padding:32px 24px; background:#ffffff; }
+  table { width:100%; border-collapse:collapse; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; }
+  th, td { padding:10px 12px; text-align:left; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; background:#f9fafb; }
+  @media only screen and (max-width: 600px) {
+    .wrap { padding:20px 12px; }
+    table, thead, tbody, th, td, tr { display:block; }
+    thead { display:none; }
+    tr { border:1px solid #e5e7eb; border-radius:6px; padding:10px; margin-bottom:10px; }
+    td { border:none !important; padding:4px 0; text-align:left !important; font-size:13px; }
+    td:before { content: attr(data-label) ": "; font-weight:600; color:#6b7280; text-transform:uppercase; font-size:11px; letter-spacing:.05em; }
+  }
+</style>
+</head><body>
+<div class="wrap">
 <h2 style="margin:0 0 4px">${orgName} — Weekly Due Report</h2>
 <p style="margin:0 0 24px;color:#6b7280">${today}</p>
-<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
+<table>
   <thead>
-    <tr style="background:#f9fafb">
-      <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Customer</th>
-      <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Vehicle</th>
-      <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Reg</th>
-      <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Type</th>
-      <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Due</th>
-      <th style="padding:10px 12px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Days</th>
+    <tr>
+      <th>Customer</th>
+      <th>Vehicle</th>
+      <th>Reg</th>
+      <th>Type</th>
+      <th>Due</th>
+      <th style="text-align:right">Days</th>
     </tr>
   </thead>
   <tbody>${tableRows}</tbody>
 </table>
 <p style="margin:24px 0 0;font-size:12px;color:#9ca3af">Sent every Monday via AI Garage. Showing MOT and service due within ${windowDays} days.</p>
+</div>
 </body></html>`;
 }
 

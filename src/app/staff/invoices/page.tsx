@@ -123,13 +123,13 @@ export default async function InvoicesPage({
           {query ? `No invoices found for "${query}".` : "No invoices yet. Complete a job and create an invoice from the job card."}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-x-auto rounded-lg border">
           {query && (
             <div className="border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
               {rows.length} result{rows.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
             </div>
           )}
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[700px] text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
                 <th className="px-4 py-2 font-medium">Number</th>
