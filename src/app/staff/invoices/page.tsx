@@ -56,7 +56,7 @@ export default async function InvoicesPage({
         .ilike("full_name", `%${query}%`),
     ]);
 
-    const byNumber = (byNumberRes.data ?? []) as InvoiceRow[];
+    const byNumber = (byNumberRes.data ?? []) as unknown as InvoiceRow[];
     const customerIds = (custRes.data ?? []).map((c: { id: string }) => c.id);
     const existingIds = new Set(byNumber.map((i) => i.id));
 
@@ -69,7 +69,7 @@ export default async function InvoicesPage({
         .in("customer_id", customerIds)
         .order("created_at", { ascending: false })
         .limit(200);
-      byCustomer = ((data ?? []) as InvoiceRow[]).filter((i) => !existingIds.has(i.id));
+      byCustomer = ((data ?? []) as unknown as InvoiceRow[]).filter((i) => !existingIds.has(i.id));
     }
 
     invoices = [...byNumber, ...byCustomer];
