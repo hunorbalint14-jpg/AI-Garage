@@ -52,7 +52,7 @@ function rowColor(days: number): string {
   return "#374151";
 }
 
-function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle: string; registration: string; type: string; dueDate: string; days: number }[]): string {
+function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle: string; registration: string; type: string; dueDate: string; days: number }[], windowDays: number): string {
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   const tableRows = rows
@@ -83,7 +83,7 @@ function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle:
   </thead>
   <tbody>${tableRows}</tbody>
 </table>
-<p style="margin:24px 0 0;font-size:12px;color:#9ca3af">Sent every Monday via AI Garage. Showing MOT and service due within ${WINDOW_DAYS} days.</p>
+<p style="margin:24px 0 0;font-size:12px;color:#9ca3af">Sent every Monday via AI Garage. Showing MOT and service due within ${windowDays} days.</p>
 </body></html>`;
 }
 
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
   const now = new Date();
   const windowEnd = new Date(now);
-  windowEnd.setDate(windowEnd.getDate() + WINDOW_DAYS);
+  windowEnd.setDate(windowEnd.getDate() + WINDOW_DAYS_DEFAULT);
   const windowEndStr = windowEnd.toISOString().split("T")[0];
   const todayStr = now.toISOString().split("T")[0];
 
@@ -181,7 +181,7 @@ export async function GET(request: NextRequest) {
     if (!rows.length) continue;
 
     const subject = `${org.name} — ${rows.length} vehicle${rows.length !== 1 ? "s" : ""} due in the next ${WINDOW_DAYS} days`;
-    const html = buildDigestHtml(org.name, rows);
+    const html = buildDigestHtml(org.name, rows, WINDOW_DAYS);
     const text = `Weekly due report for ${org.name}. ${rows.length} vehicles due within ${WINDOW_DAYS} days.`;
 
     for (const email of staffEmails) {
