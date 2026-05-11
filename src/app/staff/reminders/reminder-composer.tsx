@@ -107,7 +107,7 @@ function ChannelDot({ status }: { status: "sent" | "failed" | null }) {
 export function ReminderComposer({
   queue,
   history,
-  brandColor = accent,
+  brandColor = "#6366f1",
 }: {
   queue: QueueVehicle[];
   history: SentReminder[];
