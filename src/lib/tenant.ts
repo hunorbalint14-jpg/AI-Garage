@@ -1,4 +1,7 @@
-const ROOT_DOMAIN = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "garage-ai.local:3000";
+const ROOT_DOMAIN =
+  process.env.ROOT_DOMAIN ??
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN ??
+  "garage-ai.local:3000";
 
 export type TenantContext = {
   slug: string | null;
