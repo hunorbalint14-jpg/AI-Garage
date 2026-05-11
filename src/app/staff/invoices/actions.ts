@@ -15,6 +15,8 @@ function buildInvoiceHtml(args: {
   garageName: string;
   garagePhone: string | null;
   garageEmail: string | null;
+  logoUrl: string | null;
+  brandColor: string;
   customerName: string;
   items: { description: string; type: string; quantity: number; unit_price: number }[];
   subtotal: number;
@@ -23,78 +25,164 @@ function buildInvoiceHtml(args: {
   total: number;
   notes: string | null;
 }): string {
-  const { invoiceNumber, issuedAt, dueAt, garageName, garagePhone, garageEmail, customerName, items, subtotal, vatRate, vatAmount, total, notes } = args;
+  const { invoiceNumber, issuedAt, dueAt, garageName, garagePhone, garageEmail, logoUrl, brandColor, customerName, items, subtotal, vatRate, vatAmount, total, notes } = args;
   const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
-  const rows = items.map((it) => `
-    <tr style="border-top:1px solid #e5e7eb">
-      <td style="padding:8px 12px">${it.description}</td>
-      <td style="padding:8px 12px;text-transform:capitalize;color:#6b7280">${it.type}</td>
-      <td style="padding:8px 12px;text-align:right;font-family:monospace">${it.quantity}</td>
-      <td style="padding:8px 12px;text-align:right;font-family:monospace">${fmt(it.unit_price)}</td>
-      <td style="padding:8px 12px;text-align:right;font-family:monospace;font-weight:600">${fmt(it.quantity * it.unit_price)}</td>
+  // Compute readable text color on brand background (luminance check)
+  const onBrand = (() => {
+    try {
+      const h = brandColor.replace("#", "");
+      const r = parseInt(h.slice(0, 2), 16);
+      const g = parseInt(h.slice(2, 4), 16);
+      const b = parseInt(h.slice(4, 6), 16);
+      return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? "#0e1014" : "#ffffff";
+    } catch { return "#ffffff"; }
+  })();
+
+  const rows = items.map((it, idx) => `
+    <tr${idx % 2 === 1 ? ' style="background:#fafafa"' : ""}>
+      <td data-label="Item" style="padding:14px 16px;border-bottom:1px solid #f1f5f9;color:#111827">
+        <div style="font-weight:600">${it.description}</div>
+        <div style="font-size:12px;color:#6b7280;text-transform:capitalize;margin-top:2px">${it.type}</div>
+      </td>
+      <td data-label="Qty" style="padding:14px 16px;border-bottom:1px solid #f1f5f9;text-align:right;color:#374151;white-space:nowrap">${it.quantity}</td>
+      <td data-label="Unit" style="padding:14px 16px;border-bottom:1px solid #f1f5f9;text-align:right;color:#374151;white-space:nowrap">${fmt(it.unit_price)}</td>
+      <td data-label="Total" style="padding:14px 16px;border-bottom:1px solid #f1f5f9;text-align:right;color:#111827;font-weight:600;white-space:nowrap">${fmt(it.quantity * it.unit_price)}</td>
     </tr>`).join("");
 
-  const contact = [garagePhone, garageEmail].filter(Boolean).join(" · ");
+  const contactLine = [garagePhone, garageEmail].filter(Boolean).join(" · ");
 
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;color:#111827;max-width:680px;margin:0 auto;padding:32px 24px">
-<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px">
-  <div>
-    <h1 style="margin:0 0 4px;font-size:24px">${garageName}</h1>
-    ${contact ? `<p style="margin:0;color:#6b7280;font-size:13px">${contact}</p>` : ""}
+  const logoBlock = logoUrl
+    ? `<img src="${logoUrl}" alt="${garageName}" height="48" style="display:block;max-height:48px;width:auto;border:0;outline:none">`
+    : `<div style="font-size:22px;font-weight:700;color:#0f172a;letter-spacing:-0.01em">${garageName}</div>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invoice ${invoiceNumber}</title>
+<style>
+  body { margin:0; padding:0; background:#f3f4f6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; color:#111827; -webkit-font-smoothing:antialiased; }
+  table { border-collapse:collapse; }
+  a { color:${brandColor}; text-decoration:none; }
+  @media only screen and (max-width: 600px) {
+    .container { padding:16px !important; }
+    .card { border-radius:0 !important; }
+    .hero { padding:24px 20px !important; }
+    .hero-name { font-size:18px !important; }
+    .hero-amount { font-size:24px !important; }
+    .items-wrap { padding:16px !important; }
+    .items, .items thead, .items tbody, .items th, .items td, .items tr { display:block; }
+    .items thead { display:none; }
+    .items tr { padding:12px; border:1px solid #e5e7eb; border-radius:8px; margin-bottom:10px; }
+    .items td { border:none !important; padding:4px 0 !important; text-align:left !important; }
+    .items td:before { content: attr(data-label) ": "; font-weight:600; color:#6b7280; text-transform:uppercase; font-size:11px; letter-spacing:.04em; }
+    .totals { padding:16px !important; }
+    .meta-grid td { display:block !important; width:100% !important; padding:6px 0 !important; }
+  }
+</style>
+</head>
+<body>
+<div class="container" style="max-width:680px;margin:0 auto;padding:32px 20px">
+  <div class="card" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04)">
+
+    <!-- Hero: brand color band with logo + invoice total -->
+    <div class="hero" style="background:${brandColor};padding:32px 32px;color:${onBrand}">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="top" style="padding:0">
+            <div style="margin-bottom:12px">${logoBlock}</div>
+            <div class="hero-name" style="font-size:20px;font-weight:600;color:${onBrand};opacity:0.95">${garageName}</div>
+            ${contactLine ? `<div style="font-size:13px;margin-top:4px;color:${onBrand};opacity:0.8">${contactLine}</div>` : ""}
+          </td>
+          <td valign="top" align="right" style="padding:0;white-space:nowrap">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.75;color:${onBrand}">Invoice</div>
+            <div style="font-size:15px;font-family:'SF Mono',Menlo,Consolas,monospace;margin-top:4px;color:${onBrand};opacity:0.95">${invoiceNumber}</div>
+            <div class="hero-amount" style="font-size:28px;font-weight:700;margin-top:16px;color:${onBrand}">${fmt(total)}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Meta: bill to + dates -->
+    <div style="padding:24px 32px;border-bottom:1px solid #f1f5f9;background:#fafafa">
+      <table role="presentation" class="meta-grid" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td valign="top" style="padding:0 12px 0 0;width:40%">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;margin-bottom:6px">Bill to</div>
+            <div style="font-size:15px;font-weight:600;color:#111827">${customerName}</div>
+          </td>
+          <td valign="top" style="padding:0 12px;width:30%">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;margin-bottom:6px">Issued</div>
+            <div style="font-size:14px;color:#374151">${fmtDate(issuedAt)}</div>
+          </td>
+          <td valign="top" style="padding:0 0 0 12px;width:30%">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;margin-bottom:6px">Due</div>
+            <div style="font-size:14px;font-weight:600;color:#111827">${fmtDate(dueAt)}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Items table -->
+    <div class="items-wrap" style="padding:24px 32px">
+      <table role="presentation" class="items" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <thead>
+          <tr>
+            <th align="left" style="padding:0 16px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;border-bottom:2px solid #e5e7eb">Item</th>
+            <th align="right" style="padding:0 16px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;border-bottom:2px solid #e5e7eb">Qty</th>
+            <th align="right" style="padding:0 16px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;border-bottom:2px solid #e5e7eb">Unit</th>
+            <th align="right" style="padding:0 16px 10px;font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;border-bottom:2px solid #e5e7eb">Total</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals" style="padding:0 32px 24px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td></td>
+          <td align="right" style="padding:0;width:240px">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="padding:8px 0;color:#6b7280;font-size:14px">Subtotal</td>
+                <td align="right" style="padding:8px 0;color:#374151;font-size:14px">${fmt(subtotal)}</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">VAT (${vatRate}%)</td>
+                <td align="right" style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#374151;font-size:14px">${fmt(vatAmount)}</td>
+              </tr>
+              <tr>
+                <td style="padding:14px 0 0;font-weight:700;font-size:16px;color:#0f172a">Total due</td>
+                <td align="right" style="padding:14px 0 0;font-weight:700;font-size:18px;color:${brandColor}">${fmt(total)}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    ${notes ? `
+    <div style="padding:20px 32px;background:#fafafa;border-top:1px solid #f1f5f9;font-size:13px;color:#4b5563;line-height:1.6">
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;margin-bottom:6px">Notes</div>
+      ${notes}
+    </div>` : ""}
+
+    <!-- Footer -->
+    <div style="padding:20px 32px;background:#f9fafb;border-top:1px solid #f1f5f9;text-align:center">
+      <div style="font-size:12px;color:#6b7280">Thank you for your business — ${garageName}</div>
+      ${contactLine ? `<div style="font-size:12px;color:#9ca3af;margin-top:4px">${contactLine}</div>` : ""}
+    </div>
   </div>
-  <div style="text-align:right">
-    <p style="margin:0;font-size:20px;font-weight:700;color:#1f2937">INVOICE</p>
-    <p style="margin:4px 0 0;font-size:13px;color:#6b7280">${invoiceNumber}</p>
-  </div>
+
+  <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0">Sent via AI Garage</p>
 </div>
-
-<div style="display:flex;gap:48px;margin-bottom:32px">
-  <div>
-    <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af">Bill to</p>
-    <p style="margin:0;font-weight:600">${customerName}</p>
-  </div>
-  <div>
-    <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af">Issued</p>
-    <p style="margin:0">${new Date(issuedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
-  </div>
-  <div>
-    <p style="margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af">Due</p>
-    <p style="margin:0;font-weight:600">${new Date(dueAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
-  </div>
-</div>
-
-<table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px">
-  <thead>
-    <tr style="background:#f9fafb">
-      <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Description</th>
-      <th style="padding:10px 12px;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Type</th>
-      <th style="padding:10px 12px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Qty</th>
-      <th style="padding:10px 12px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Unit</th>
-      <th style="padding:10px 12px;text-align:right;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Total</th>
-    </tr>
-  </thead>
-  <tbody>${rows}</tbody>
-  <tfoot style="border-top:2px solid #e5e7eb">
-    <tr>
-      <td colspan="4" style="padding:8px 12px;text-align:right;color:#6b7280">Subtotal</td>
-      <td style="padding:8px 12px;text-align:right;font-family:monospace">${fmt(subtotal)}</td>
-    </tr>
-    <tr>
-      <td colspan="4" style="padding:8px 12px;text-align:right;color:#6b7280">VAT (${vatRate}%)</td>
-      <td style="padding:8px 12px;text-align:right;font-family:monospace">${fmt(vatAmount)}</td>
-    </tr>
-    <tr style="background:#f9fafb">
-      <td colspan="4" style="padding:10px 12px;text-align:right;font-weight:700;font-size:15px">Total</td>
-      <td style="padding:10px 12px;text-align:right;font-family:monospace;font-weight:700;font-size:15px">${fmt(total)}</td>
-    </tr>
-  </tfoot>
-</table>
-
-${notes ? `<p style="color:#6b7280;font-size:13px">${notes}</p>` : ""}
-<p style="color:#9ca3af;font-size:12px;margin-top:32px">Generated by AI Garage · ${garageName}</p>
-</body></html>`;
+</body>
+</html>`;
 }
 
 export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoiceResult> {
@@ -175,7 +263,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
       .select("id, location_id, invoice_number, subtotal, vat_rate, vat_amount, total, issued_at, due_at, notes, customer:customers(full_name, email), job:jobs(id)")
       .eq("id", invoiceId)
       .maybeSingle(),
-    admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
+    admin.from("organizations").select("name, phone, logo_url, primary_color").eq("id", ctx.organization.id).maybeSingle(),
   ]);
 
   type InvoiceRow = {
@@ -194,7 +282,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     ? await admin.from("job_items").select("description, type, quantity, unit_price").eq("job_id", invoice.job.id)
     : { data: [] };
 
-  const org = orgRes.data;
+  const org = orgRes.data as { name: string; phone: string | null; logo_url: string | null; primary_color: string | null } | null;
   const garageName = org?.name ?? ctx.organization.name;
 
   const html = buildInvoiceHtml({
@@ -204,6 +292,8 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     garageName,
     garagePhone: org?.phone ?? null,
     garageEmail: ctx.user.email ?? null,
+    logoUrl: org?.logo_url ?? null,
+    brandColor: org?.primary_color ?? "#1f2937",
     customerName: invoice.customer.full_name ?? "Customer",
     items: (itemsRes.data ?? []) as { description: string; type: string; quantity: number; unit_price: number }[],
     subtotal: invoice.subtotal,
