@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
 
 export type TaskType = "mot_reminders" | "service_reminders" | "tax_reminders" | "weekly_digest";
 
@@ -17,16 +18,54 @@ const REMINDER_TYPES: TaskType[] = ["mot_reminders", "service_reminders", "tax_r
 export async function ensureDefaultTasks(locationId: string) {
   const admin = createAdminClient();
   const allTypes: TaskType[] = [...REMINDER_TYPES, "weekly_digest"];
-  const defaults: Record<TaskType, object> = {
-    mot_reminders:     { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] },
-    service_reminders: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] },
-    tax_reminders:     { remind_days_before: 30, channels: ["email", "sms"] },
-    weekly_digest:     { window_days: 30 },
+  const defaults: Record<TaskType, { settings: object; frequency: Frequency; hour: number; day_of_week: number | null }> = {
+    mot_reminders:     { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
+    service_reminders: { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
+    tax_reminders:     { settings: { remind_days_before: 30, channels: ["email", "sms"] },             frequency: "daily",  hour: 9, day_of_week: null },
+    weekly_digest:     { settings: { window_days: 30 },                                                 frequency: "weekly", hour: 8, day_of_week: 1 },
   };
   await admin.from("scheduled_tasks").upsert(
-    allTypes.map((t) => ({ location_id: locationId, task_type: t, settings: defaults[t] })),
+    allTypes.map((t) => {
+      const d = defaults[t];
+      return {
+        location_id: locationId,
+        task_type: t,
+        settings: d.settings,
+        frequency: d.frequency,
+        hour: d.hour,
+        day_of_week: d.day_of_week,
+        next_run_at: computeNextRunAt(d.frequency, d.hour, d.day_of_week).toISOString(),
+      };
+    }),
     { onConflict: "location_id,task_type", ignoreDuplicates: true },
   );
+}
+
+export async function updateSchedule(
+  taskId: string,
+  frequency: Frequency,
+  hour: number,
+  dayOfWeek: number | null,
+): Promise<ActionResult> {
+  const ctx = await requireStaffContext();
+  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
+    return { error: "Only owners can manage automations." };
+  }
+  if (hour < 0 || hour > 23) return { error: "Hour must be 0–23." };
+  if (frequency === "weekly" && (dayOfWeek === null || dayOfWeek < 0 || dayOfWeek > 6)) {
+    return { error: "Day of week required for weekly tasks." };
+  }
+
+  const nextRunAt = computeNextRunAt(frequency, hour, dayOfWeek).toISOString();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("scheduled_tasks")
+    .update({ frequency, hour, day_of_week: frequency === "weekly" ? dayOfWeek : null, next_run_at: nextRunAt })
+    .eq("id", taskId)
+    .eq("location_id", ctx.location.id);
+  if (error) return { error: error.message };
+  revalidatePath("/staff/automations");
+  return { success: true };
 }
 
 export async function toggleTask(taskId: string, enabled: boolean): Promise<ActionResult> {

@@ -88,6 +88,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const filterLocationId = searchParams.get("location_id");
+  const filterTaskType = searchParams.get("task_type");
+
   const admin = createAdminClient();
 
   const now = new Date();
@@ -99,11 +103,12 @@ export async function GET(request: NextRequest) {
   const windowEndStr = windowEnd.toISOString().split("T")[0];
   const todayStr = now.toISOString().split("T")[0];
 
-  const { data: locations } = (await admin
+  let locationsQuery = admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name, phone)")) as {
-    data: LocationRow[] | null;
-  };
+    .select("id, name, organization:organizations(id, name, phone)");
+  if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
+
+  const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
   const results = { sent: 0, skipped: 0, failed: 0, errors: [] as string[] };
 
@@ -144,6 +149,8 @@ export async function GET(request: NextRequest) {
       if (!customer) continue;
 
       for (const reminderType of ["mot", "service"] as const) {
+        const taskTypeName = reminderType === "mot" ? "mot_reminders" : "service_reminders";
+        if (filterTaskType && filterTaskType !== taskTypeName) continue;
         const taskEnabled = reminderType === "mot" ? motEnabled : serviceEnabled;
         if (!taskEnabled) continue;
         const remindDays = reminderType === "mot" ? motDays : serviceDays;
@@ -294,6 +301,9 @@ export async function GET(request: NextRequest) {
   }
 
   // VED (road tax) reminders — simple template, no AI draft needed
+  if (filterTaskType && filterTaskType !== "tax_reminders") {
+    return NextResponse.json({ success: true, ...results });
+  }
   for (const location of locations ?? []) {
     const org = location.organization;
     const taxConfig = await getTaskConfig(admin, location.id, "tax_reminders");

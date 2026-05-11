@@ -1,9 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toggleTask, updateTaskSettings, runTaskNow, type TaskType, type TaskSettings } from "./actions";
+import { toggleTask, updateTaskSettings, updateSchedule, runTaskNow, type TaskType, type TaskSettings } from "./actions";
+import { formatSchedule, type Frequency } from "@/lib/cron/schedule";
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
+const DAYS = [
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+  { value: 0, label: "Sun" },
+];
 
 type Task = {
   id: string;
@@ -11,13 +21,17 @@ type Task = {
   enabled: boolean;
   settings: Record<string, unknown>;
   last_run_at: string | null;
+  frequency: Frequency;
+  hour: number;
+  day_of_week: number | null;
+  next_run_at: string | null;
 };
 
-const TASK_META: Record<TaskType, { label: string; description: string; schedule: string; audience: "customer" | "staff"; hasRemindDays: boolean; hasChannels: boolean; hasWindowDays: boolean }> = {
-  mot_reminders:     { label: "MOT reminders",     description: "Send customers a personalised AI reminder before their MOT expires.", schedule: "Daily at 09:00 UTC",         audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
-  service_reminders: { label: "Service reminders",  description: "Remind customers when their vehicle service is due.",                schedule: "Daily at 09:00 UTC",         audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
-  tax_reminders:     { label: "Road tax reminders", description: "Alert customers when their road tax (VED) renewal is due.",          schedule: "Daily at 09:00 UTC",         audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
-  weekly_digest:     { label: "Weekly staff digest","description": "Email all org owners/admins a summary of upcoming MOTs and services.", schedule: "Every Monday at 08:00 UTC", audience: "staff",    hasRemindDays: false, hasChannels: false, hasWindowDays: true  },
+const TASK_META: Record<TaskType, { label: string; description: string; audience: "customer" | "staff"; hasRemindDays: boolean; hasChannels: boolean; hasWindowDays: boolean }> = {
+  mot_reminders:     { label: "MOT reminders",      description: "Send customers a personalised AI reminder before their MOT expires.",          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
+  service_reminders: { label: "Service reminders",  description: "Remind customers when their vehicle service is due.",                          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
+  tax_reminders:     { label: "Road tax reminders", description: "Alert customers when their road tax (VED) renewal is due.",                    audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
+  weekly_digest:     { label: "Weekly staff digest","description": "Email org owners/admins a summary of upcoming MOTs and services.",            audience: "staff",    hasRemindDays: false, hasChannels: false, hasWindowDays: true  },
 };
 
 export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
@@ -26,6 +40,9 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
   const [remindDays, setRemindDays] = useState<number>((task.settings.remind_days_before as number) ?? 30);
   const [windowDays, setWindowDays] = useState<number>((task.settings.window_days as number) ?? 30);
   const [channels, setChannels] = useState<string[]>((task.settings.channels as string[]) ?? ["email", "sms"]);
+  const [frequency, setFrequency] = useState<Frequency>(task.frequency);
+  const [hour, setHour] = useState<number>(task.hour);
+  const [dayOfWeek, setDayOfWeek] = useState<number>(task.day_of_week ?? 1);
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -55,9 +72,14 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
       ? { remind_days_before: remindDays, channels }
       : { window_days: windowDays };
     startTransition(async () => {
-      const res = await updateTaskSettings(task.id, settings);
-      if ("error" in res) setError(res.error);
-      else { setSaved(true); setTimeout(() => setSaved(false), 2000); }
+      const [settingsRes, scheduleRes] = await Promise.all([
+        updateTaskSettings(task.id, settings),
+        updateSchedule(task.id, frequency, hour, frequency === "weekly" ? dayOfWeek : null),
+      ]);
+      if ("error" in settingsRes) { setError(settingsRes.error); return; }
+      if ("error" in scheduleRes) { setError(scheduleRes.error); return; }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     });
   }
 
@@ -91,7 +113,12 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
           </div>
           <p className="text-xs text-muted-foreground">{meta.description}</p>
           <div className="mt-1.5 flex items-center gap-3 flex-wrap">
-            <span className="text-xs text-muted-foreground font-mono">{meta.schedule}</span>
+            <span className="text-xs text-muted-foreground font-mono">{formatSchedule(task.frequency, task.hour, task.day_of_week)}</span>
+            {task.next_run_at && (
+              <span className="text-xs text-muted-foreground">
+                Next: {new Date(task.next_run_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+              </span>
+            )}
             {task.last_run_at && (
               <span className="text-xs text-muted-foreground">
                 Last run: {new Date(task.last_run_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
@@ -121,6 +148,41 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
 
       {expanded && (
         <div className="border-t px-4 py-3 flex flex-col gap-3 bg-muted/20">
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="text-xs text-muted-foreground w-36">Schedule</label>
+            <select
+              value={frequency}
+              onChange={(e) => setFrequency(e.target.value as Frequency)}
+              disabled={!canEdit}
+              className="rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
+            >
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+            {frequency === "weekly" && (
+              <select
+                value={dayOfWeek}
+                onChange={(e) => setDayOfWeek(Number(e.target.value))}
+                disabled={!canEdit}
+                className="rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
+              >
+                {DAYS.map((d) => (
+                  <option key={d.value} value={d.value}>{d.label}</option>
+                ))}
+              </select>
+            )}
+            <span className="text-xs text-muted-foreground">at</span>
+            <select
+              value={hour}
+              onChange={(e) => setHour(Number(e.target.value))}
+              disabled={!canEdit}
+              className="rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
+            >
+              {Array.from({ length: 24 }, (_, i) => (
+                <option key={i} value={i}>{String(i).padStart(2, "0")}:00</option>
+              ))}
+            </select>
+          </div>
           {meta.hasRemindDays && (
             <div className="flex items-center gap-3">
               <label className="text-xs text-muted-foreground w-36">Remind days before</label>

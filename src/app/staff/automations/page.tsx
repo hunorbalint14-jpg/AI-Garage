@@ -11,6 +11,10 @@ type ScheduledTask = {
   enabled: boolean;
   settings: Record<string, unknown>;
   last_run_at: string | null;
+  frequency: "daily" | "weekly";
+  hour: number;
+  day_of_week: number | null;
+  next_run_at: string | null;
 };
 
 const TASK_ORDER: TaskType[] = ["mot_reminders", "service_reminders", "tax_reminders", "weekly_digest"];
@@ -24,7 +28,7 @@ export default async function AutomationsPage() {
 
   const { data, error } = await admin
     .from("scheduled_tasks")
-    .select("id, task_type, enabled, settings, last_run_at")
+    .select("id, task_type, enabled, settings, last_run_at, frequency, hour, day_of_week, next_run_at")
     .eq("location_id", ctx.location.id)
     .order("created_at", { ascending: true });
 
