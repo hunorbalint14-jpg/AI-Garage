@@ -26,6 +26,8 @@ const PERM_LABELS: { key: keyof Permissions; label: string; desc: string }[] = [
   { key: "bays", label: "Bays", desc: "Set up and manage workshop bays" },
   { key: "staff", label: "Manage staff", desc: "Invite and remove team members" },
   { key: "automations", label: "Automations", desc: "Configure automated workflows" },
+  { key: "fleet", label: "Fleet", desc: "Manage fleet accounts and vehicles" },
+  { key: "invoices", label: "Invoices", desc: "Create and manage invoices" },
 ];
 
 function PermDot({ active }: { active: boolean }) {
