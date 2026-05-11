@@ -82,7 +82,7 @@ function dueDaysLabel(days: number | null): string {
   return `+${days}d`;
 }
 
-function dueDaysColor(days: number | null): string {
+function dueDaysColor(days: number | null, accent: string): string {
   if (days === null) return "#5a6170";
   if (days < 0) return "#ff5b5b";
   if (days <= 14) return accent;
@@ -313,7 +313,7 @@ export function ReminderComposer({
                   v.primaryReminderType === "mot" ? v.motDays : v.svcDays;
                 const label = v.primaryReminderType === "mot" ? "MOT" : "SVC";
                 const dayLabel = dueDaysLabel(primaryDays);
-                const dayColor = dueDaysColor(primaryDays);
+                const dayColor = dueDaysColor(primaryDays, accent);
                 const lastSentDays = v.lastReminderAt
                   ? Math.floor(
                       (Date.now() - new Date(v.lastReminderAt).getTime()) / (1000 * 60 * 60 * 24),
@@ -1107,7 +1107,7 @@ export function ReminderComposer({
                             style={{
                               fontFamily: mono,
                               fontSize: 12,
-                              color: dueDaysColor(r.days),
+                              color: dueDaysColor(r.days, accent),
                               fontWeight: 600,
                             }}
                           >
