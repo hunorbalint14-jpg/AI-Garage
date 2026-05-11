@@ -7,7 +7,23 @@ import { sendEmail } from "@/lib/email";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const WINDOW_DAYS = 30;
+const WINDOW_DAYS_DEFAULT = 30;
+
+async function getTaskConfig(
+  admin: ReturnType<typeof createAdminClient>,
+  locationId: string,
+): Promise<{ enabled: boolean; window_days: number }> {
+  const { data } = await admin
+    .from("scheduled_tasks")
+    .select("enabled, settings")
+    .eq("location_id", locationId)
+    .eq("task_type", "weekly_digest")
+    .maybeSingle();
+  return {
+    enabled: data?.enabled ?? true,
+    window_days: ((data?.settings as Record<string, unknown> | null)?.window_days as number) ?? WINDOW_DAYS_DEFAULT,
+  };
+}
 
 type VehicleRow = {
   id: string;
@@ -36,7 +52,7 @@ function rowColor(days: number): string {
   return "#374151";
 }
 
-function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle: string; registration: string; type: string; dueDate: string; days: number }[]): string {
+function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle: string; registration: string; type: string; dueDate: string; days: number }[], windowDays: number): string {
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   const tableRows = rows
@@ -67,7 +83,7 @@ function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle:
   </thead>
   <tbody>${tableRows}</tbody>
 </table>
-<p style="margin:24px 0 0;font-size:12px;color:#9ca3af">Sent every Monday via AI Garage. Showing MOT and service due within ${WINDOW_DAYS} days.</p>
+<p style="margin:24px 0 0;font-size:12px;color:#9ca3af">Sent every Monday via AI Garage. Showing MOT and service due within ${windowDays} days.</p>
 </body></html>`;
 }
 
@@ -80,7 +96,7 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
   const now = new Date();
   const windowEnd = new Date(now);
-  windowEnd.setDate(windowEnd.getDate() + WINDOW_DAYS);
+  windowEnd.setDate(windowEnd.getDate() + WINDOW_DAYS_DEFAULT);
   const windowEndStr = windowEnd.toISOString().split("T")[0];
   const todayStr = now.toISOString().split("T")[0];
 
@@ -91,20 +107,26 @@ export async function GET(request: NextRequest) {
   const results = { digests: 0, errors: [] as string[] };
 
   // Group locations by org to send one digest per org
-  const orgMap = new Map<string, { org: { id: string; name: string }; locationIds: string[]; locationNames: string[] }>();
+  type OrgEntry = { org: { id: string; name: string }; locationIds: string[]; locationNames: string[]; locationConfigs: { enabled: boolean; window_days: number }[] };
+  const orgMap = new Map<string, OrgEntry>();
 
   for (const location of locations ?? []) {
     if (!location.organization) continue;
     const orgId = location.organization.id;
     if (!orgMap.has(orgId)) {
-      orgMap.set(orgId, { org: location.organization, locationIds: [], locationNames: [] });
+      orgMap.set(orgId, { org: location.organization, locationIds: [], locationNames: [], locationConfigs: [] });
     }
     const entry = orgMap.get(orgId)!;
+    const cfg = await getTaskConfig(admin, location.id);
     entry.locationIds.push(location.id);
     entry.locationNames.push(location.name);
+    entry.locationConfigs.push(cfg);
   }
 
-  for (const { org, locationIds } of orgMap.values()) {
+  for (const { org, locationIds, locationConfigs } of orgMap.values()) {
+    const anyEnabled = locationConfigs.some((c) => c.enabled);
+    if (!anyEnabled) continue;
+    const WINDOW_DAYS = Math.max(...locationConfigs.filter((c) => c.enabled).map((c) => c.window_days));
     // Get org owner/admin user IDs
     const { data: orgUsers } = await admin
       .from("org_users")
@@ -159,7 +181,7 @@ export async function GET(request: NextRequest) {
     if (!rows.length) continue;
 
     const subject = `${org.name} — ${rows.length} vehicle${rows.length !== 1 ? "s" : ""} due in the next ${WINDOW_DAYS} days`;
-    const html = buildDigestHtml(org.name, rows);
+    const html = buildDigestHtml(org.name, rows, WINDOW_DAYS);
     const text = `Weekly due report for ${org.name}. ${rows.length} vehicles due within ${WINDOW_DAYS} days.`;
 
     for (const email of staffEmails) {

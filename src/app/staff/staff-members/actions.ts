@@ -27,14 +27,17 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
   if (!["admin", "manager", "staff"].includes(role)) return { error: "Invalid role." };
 
   const rawPerms: Permissions = {
-    bookings: formData.get("perm_bookings") === "on",
-    customers: formData.get("perm_customers") === "on",
-    reminders: formData.get("perm_reminders") === "on",
-    revenue: formData.get("perm_revenue") === "on",
-    campaigns: formData.get("perm_campaigns") === "on",
-    services: formData.get("perm_services") === "on",
-    bays: formData.get("perm_bays") === "on",
-    staff: formData.get("perm_staff") === "on",
+    bookings:    formData.get("perm_bookings") === "on",
+    customers:   formData.get("perm_customers") === "on",
+    reminders:   formData.get("perm_reminders") === "on",
+    revenue:     formData.get("perm_revenue") === "on",
+    campaigns:   formData.get("perm_campaigns") === "on",
+    services:    formData.get("perm_services") === "on",
+    bays:        formData.get("perm_bays") === "on",
+    staff:       formData.get("perm_staff") === "on",
+    automations: formData.get("perm_automations") === "on",
+    fleet:       formData.get("perm_fleet") === "on",
+    invoices:    formData.get("perm_invoices") === "on",
   };
 
   const admin = createAdminClient();

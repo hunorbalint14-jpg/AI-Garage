@@ -17,8 +17,24 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const REMIND_DAYS_BEFORE = 30;
+const REMIND_DAYS_BEFORE_DEFAULT = 30;
 const DEDUP_DAYS = 30;
+
+type TaskRow = { enabled: boolean; settings: Record<string, unknown> };
+
+async function getTaskConfig(
+  admin: ReturnType<typeof createAdminClient>,
+  locationId: string,
+  taskType: string,
+): Promise<TaskRow> {
+  const { data } = await admin
+    .from("scheduled_tasks")
+    .select("enabled, settings")
+    .eq("location_id", locationId)
+    .eq("task_type", taskType)
+    .maybeSingle();
+  return data ?? { enabled: true, settings: {} };
+}
 
 type VehicleRow = {
   id: string;
@@ -76,7 +92,7 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   const windowEnd = new Date(now);
-  windowEnd.setDate(windowEnd.getDate() + REMIND_DAYS_BEFORE);
+  windowEnd.setDate(windowEnd.getDate() + REMIND_DAYS_BEFORE_DEFAULT);
   const dedupCutoff = new Date(now);
   dedupCutoff.setDate(dedupCutoff.getDate() - DEDUP_DAYS);
 
@@ -94,11 +110,32 @@ export async function GET(request: NextRequest) {
   for (const location of locations ?? []) {
     const org = location.organization;
 
+    const [motConfig, serviceConfig, taxConfig] = await Promise.all([
+      getTaskConfig(admin, location.id, "mot_reminders"),
+      getTaskConfig(admin, location.id, "service_reminders"),
+      getTaskConfig(admin, location.id, "tax_reminders"),
+    ]);
+
+    const motEnabled = motConfig.enabled;
+    const serviceEnabled = serviceConfig.enabled;
+    const motDays = (motConfig.settings.remind_days_before as number) ?? REMIND_DAYS_BEFORE_DEFAULT;
+    const serviceDays = (serviceConfig.settings.remind_days_before as number) ?? REMIND_DAYS_BEFORE_DEFAULT;
+    const motChannels = (motConfig.settings.channels as string[]) ?? ["email", "sms", "whatsapp"];
+    const serviceChannels = (serviceConfig.settings.channels as string[]) ?? ["email", "sms", "whatsapp"];
+
+    const maxDays = Math.max(
+      motEnabled ? motDays : 0,
+      serviceEnabled ? serviceDays : 0,
+    );
+    const windowEndDyn = new Date(now);
+    windowEndDyn.setDate(windowEndDyn.getDate() + maxDays);
+    const windowEndDynStr = windowEndDyn.toISOString().split("T")[0];
+
     const { data: vehicles } = (await admin
       .from("vehicles")
       .select("id, registration, make, model, year, mot_expiry, service_due, tax_due_date, customer:customers(id, full_name, email, phone)")
       .eq("location_id", location.id)
-      .or(`mot_expiry.lte.${windowEndStr},service_due.lte.${windowEndStr}`)
+      .or(`mot_expiry.lte.${windowEndDynStr},service_due.lte.${windowEndDynStr}`)
       .gt("mot_expiry", todayStr)
       .limit(100)) as { data: VehicleRow[] | null };
 
@@ -107,13 +144,17 @@ export async function GET(request: NextRequest) {
       if (!customer) continue;
 
       for (const reminderType of ["mot", "service"] as const) {
+        const taskEnabled = reminderType === "mot" ? motEnabled : serviceEnabled;
+        if (!taskEnabled) continue;
+        const remindDays = reminderType === "mot" ? motDays : serviceDays;
+        const allowedChannels = reminderType === "mot" ? motChannels : serviceChannels;
         const dueDate = reminderType === "mot" ? vehicle.mot_expiry : vehicle.service_due;
         if (!dueDate) continue;
 
         const daysUntilDue = Math.ceil(
           (new Date(dueDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
         );
-        if (daysUntilDue < 0 || daysUntilDue > REMIND_DAYS_BEFORE) continue;
+        if (daysUntilDue < 0 || daysUntilDue > remindDays) continue;
 
         const firstName = customer.full_name?.split(" ")[0] ?? "there";
         const vehicleDescription = [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ");
@@ -136,7 +177,7 @@ export async function GET(request: NextRequest) {
         };
 
         // Email channel
-        if (customer.email) {
+        if (customer.email && allowedChannels.includes("email")) {
           const alreadySent = await wasRecentlySent(admin, vehicle.id, reminderType, "email", dedupCutoff);
           if (alreadySent) {
             results.skipped++;
@@ -175,7 +216,7 @@ export async function GET(request: NextRequest) {
         }
 
         // WhatsApp channel
-        if (customer.phone) {
+        if (customer.phone && allowedChannels.includes("whatsapp")) {
           const alreadySent = await wasRecentlySent(admin, vehicle.id, reminderType, "whatsapp", dedupCutoff);
           if (alreadySent) {
             results.skipped++;
@@ -212,7 +253,7 @@ export async function GET(request: NextRequest) {
         }
 
         // SMS channel
-        if (customer.phone) {
+        if (customer.phone && allowedChannels.includes("sms")) {
           const alreadySent = await wasRecentlySent(admin, vehicle.id, reminderType, "sms", dedupCutoff);
           if (alreadySent) {
             results.skipped++;
@@ -255,12 +296,20 @@ export async function GET(request: NextRequest) {
   // VED (road tax) reminders — simple template, no AI draft needed
   for (const location of locations ?? []) {
     const org = location.organization;
+    const taxConfig = await getTaskConfig(admin, location.id, "tax_reminders");
+    if (!taxConfig.enabled) continue;
+    const taxDays = (taxConfig.settings.remind_days_before as number) ?? REMIND_DAYS_BEFORE_DEFAULT;
+    const taxChannels = (taxConfig.settings.channels as string[]) ?? ["email", "sms"];
+    const taxWindowEnd = new Date(now);
+    taxWindowEnd.setDate(taxWindowEnd.getDate() + taxDays);
+    const taxWindowEndStr = taxWindowEnd.toISOString().split("T")[0];
+
     const { data: vedVehicles } = (await admin
       .from("vehicles")
       .select("id, registration, tax_due_date, customer:customers(id, full_name, email, phone)")
       .eq("location_id", location.id)
       .not("tax_due_date", "is", null)
-      .lte("tax_due_date", windowEndStr)
+      .lte("tax_due_date", taxWindowEndStr)
       .gte("tax_due_date", todayStr)
       .limit(100)) as { data: { id: string; registration: string; tax_due_date: string; customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null }[] | null };
 
@@ -269,7 +318,7 @@ export async function GET(request: NextRequest) {
       if (!customer) continue;
 
       const daysUntil = Math.ceil((new Date(v.tax_due_date).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysUntil < 0 || daysUntil > REMIND_DAYS_BEFORE) continue;
+      if (daysUntil < 0 || daysUntil > taxDays) continue;
 
       const firstName = customer.full_name?.split(" ")[0] ?? "there";
       const garageName = org?.name ?? location.name;
@@ -277,7 +326,7 @@ export async function GET(request: NextRequest) {
       const subject = `Road tax reminder — ${v.registration} due ${formattedDate}`;
       const body = `Hi ${firstName},\n\nThis is a friendly reminder that the road tax for your vehicle ${v.registration} is due on ${formattedDate}.\n\nYou can renew online at gov.uk/renew-vehicle-tax or at your local Post Office.\n\nThank you,\n${garageName}`;
 
-      if (customer.email) {
+      if (customer.email && taxChannels.includes("email")) {
         const alreadySent = await wasRecentlySent(admin, v.id, "tax", "email", dedupCutoff);
         if (!alreadySent) {
           const emailResult = await sendEmail({ to: customer.email, subject, text: body });
@@ -285,7 +334,7 @@ export async function GET(request: NextRequest) {
           emailResult.success ? results.sent++ : results.failed++;
         }
       }
-      if (customer.phone) {
+      if (customer.phone && taxChannels.includes("sms")) {
         const smsBody = `Hi ${firstName}, your road tax for ${v.registration} is due ${formattedDate}. Renew at gov.uk/renew-vehicle-tax.`;
         const alreadySent = await wasRecentlySent(admin, v.id, "tax", "sms", dedupCutoff);
         if (!alreadySent) {

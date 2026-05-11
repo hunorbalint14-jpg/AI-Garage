@@ -2,6 +2,9 @@ import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
+import { InvoiceSearch } from "./invoice-search";
+
+export const dynamic = "force-dynamic";
 
 type InvoiceRow = {
   id: string;
@@ -25,16 +28,60 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
-export default async function InvoicesPage() {
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
+  const { q } = await searchParams;
+  const query = q?.trim() ?? "";
 
-  const { data: invoices } = (await admin
-    .from("invoices")
-    .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
-    .eq("location_id", ctx.location.id)
-    .order("created_at", { ascending: false })
-    .limit(200)) as { data: InvoiceRow[] | null };
+  let invoices: InvoiceRow[] | null = null;
+
+  if (query) {
+    const [byNumberRes, custRes] = await Promise.all([
+      admin
+        .from("invoices")
+        .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
+        .eq("location_id", ctx.location.id)
+        .ilike("invoice_number", `%${query}%`)
+        .order("created_at", { ascending: false })
+        .limit(200),
+      admin
+        .from("customers")
+        .select("id")
+        .eq("location_id", ctx.location.id)
+        .ilike("full_name", `%${query}%`),
+    ]);
+
+    const byNumber = (byNumberRes.data ?? []) as unknown as InvoiceRow[];
+    const customerIds = (custRes.data ?? []).map((c: { id: string }) => c.id);
+    const existingIds = new Set(byNumber.map((i) => i.id));
+
+    let byCustomer: InvoiceRow[] = [];
+    if (customerIds.length > 0) {
+      const { data } = await admin
+        .from("invoices")
+        .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
+        .eq("location_id", ctx.location.id)
+        .in("customer_id", customerIds)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      byCustomer = ((data ?? []) as unknown as InvoiceRow[]).filter((i) => !existingIds.has(i.id));
+    }
+
+    invoices = [...byNumber, ...byCustomer];
+  } else {
+    const { data } = await admin
+      .from("invoices")
+      .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
+      .eq("location_id", ctx.location.id)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    invoices = data as InvoiceRow[] | null;
+  }
 
   const rows = (invoices ?? []).map((inv) => {
     const status =
@@ -52,7 +99,9 @@ export default async function InvoicesPage() {
         description="All invoices raised at this location."
       />
 
-      {rows.length > 0 && (
+      <InvoiceSearch initialQ={query} />
+
+      {!query && rows.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Outstanding</p>
@@ -71,10 +120,15 @@ export default async function InvoicesPage() {
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-          No invoices yet. Complete a job and create an invoice from the job card.
+          {query ? `No invoices found for "${query}".` : "No invoices yet. Complete a job and create an invoice from the job card."}
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
+          {query && (
+            <div className="border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+              {rows.length} result{rows.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
+            </div>
+          )}
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>

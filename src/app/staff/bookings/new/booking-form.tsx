@@ -88,7 +88,7 @@ export function BookingForm({
     });
   }
 
-  const inputClass = "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
+  const inputClass = "w-full rounded-md border border-black/20 dark:border-white/25 bg-background text-foreground px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border p-6 flex flex-col gap-4 max-w-2xl">
@@ -173,12 +173,15 @@ export function BookingForm({
           disabled={pending}
           className={inputClass}
         >
+          <option value="" disabled style={{ background: "var(--background)", color: "var(--muted-foreground)" }}>
+            — Select type —
+          </option>
           {services.length > 0 ? (
             // Group by category
             (() => {
               const cats = [...new Set(services.map((s) => s.category))];
               return cats.map((cat) => (
-                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
+                <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)} style={{ background: "var(--background)", color: "var(--muted-foreground)" }}>
                   {services.filter((s) => s.category === cat).map((s) => (
                     <option key={s.id} value={s.name}>
                       {s.name}{fmt(s.price)} · {s.duration_minutes}min

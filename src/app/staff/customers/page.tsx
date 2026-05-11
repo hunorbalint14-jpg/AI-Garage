@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { UserPlus } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/staff/page-header";
+import { CustomerSearch } from "./customer-search";
+
+export const dynamic = "force-dynamic";
 
 type CustomerRow = {
   id: string;
@@ -12,17 +16,66 @@ type CustomerRow = {
   created_at: string;
 };
 
-export default async function CustomersPage() {
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+  const { q } = await searchParams;
+  const query = q?.trim() ?? "";
 
-  const { data: customers, error } = (await ctx.supabase
-    .from("customers")
-    .select("id, full_name, email, phone, created_at")
-    .eq("location_id", ctx.location.id)
-    .order("created_at", { ascending: false })) as {
-    data: CustomerRow[] | null;
-    error: { message: string } | null;
-  };
+  let customers: CustomerRow[] | null = null;
+  let error: { message: string } | null = null;
+
+  if (query) {
+    // Parallel: match by name/phone + match by vehicle reg
+    const [custRes, vehRes] = await Promise.all([
+      admin
+        .from("customers")
+        .select("id, full_name, email, phone, created_at")
+        .eq("location_id", ctx.location.id)
+        .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
+        .order("full_name", { ascending: true }),
+      admin
+        .from("vehicles")
+        .select("customer_id")
+        .eq("location_id", ctx.location.id)
+        .ilike("registration", `%${query}%`),
+    ]);
+
+    if (custRes.error) {
+      error = custRes.error;
+    } else {
+      const byNamePhone = custRes.data as CustomerRow[];
+      const regCustomerIds = (vehRes.data ?? []).map((v: { customer_id: string }) => v.customer_id);
+
+      // Fetch customers matched by reg (if any not already in byNamePhone)
+      const existingIds = new Set(byNamePhone.map((c) => c.id));
+      const missingIds = regCustomerIds.filter((id) => !existingIds.has(id));
+
+      if (missingIds.length > 0) {
+        const { data: regCustomers } = await admin
+          .from("customers")
+          .select("id, full_name, email, phone, created_at")
+          .eq("location_id", ctx.location.id)
+          .in("id", missingIds)
+          .order("full_name", { ascending: true });
+        customers = [...byNamePhone, ...((regCustomers as CustomerRow[]) ?? [])];
+      } else {
+        customers = byNamePhone;
+      }
+    }
+  } else {
+    const res = await admin
+      .from("customers")
+      .select("id, full_name, email, phone, created_at")
+      .eq("location_id", ctx.location.id)
+      .order("created_at", { ascending: false });
+    customers = res.data as CustomerRow[] | null;
+    if (res.error) error = res.error;
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,6 +102,8 @@ export default async function CustomersPage() {
         }
       />
 
+      <CustomerSearch initialQ={query} />
+
       {error && (
         <p className="text-sm text-red-600">Failed to load: {error.message}</p>
       )}
@@ -56,15 +111,22 @@ export default async function CustomersPage() {
       {!error && (!customers || customers.length === 0) ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-12 text-center">
           <p className="text-sm text-muted-foreground">
-            No customers yet. Add your first one to get started.
+            {query ? `No customers found for "${query}".` : "No customers yet. Add your first one to get started."}
           </p>
-          <Button
-            nativeButton={false}
-            render={<Link href="/staff/customers/new">Add customer</Link>}
-          />
+          {!query && (
+            <Button
+              nativeButton={false}
+              render={<Link href="/staff/customers/new">Add customer</Link>}
+            />
+          )}
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border">
+          {query && (
+            <div className="border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
+              {customers?.length ?? 0} result{customers?.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
+            </div>
+          )}
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
@@ -86,16 +148,10 @@ export default async function CustomersPage() {
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-3">
-                      <Link
-                        href={`/staff/customers/${c.id}`}
-                        className="text-sm underline"
-                      >
+                      <Link href={`/staff/customers/${c.id}`} className="text-sm underline">
                         View
                       </Link>
-                      <Link
-                        href={`/staff/customers/${c.id}/edit`}
-                        className="text-sm underline text-muted-foreground"
-                      >
+                      <Link href={`/staff/customers/${c.id}/edit`} className="text-sm underline text-muted-foreground">
                         Edit
                       </Link>
                     </div>
