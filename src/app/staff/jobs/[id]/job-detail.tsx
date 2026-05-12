@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob, sendReviewRequest, suggestLabourTime } from "../actions";
 import { createInvoiceFromJob, sendInvoice } from "../../invoices/actions";
 import { VoiceNotes } from "./voice-notes";
+import { ItemRow } from "./item-row";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -274,25 +275,18 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
             </thead>
             <tbody>
               {items.map((it) => (
-                <tr key={it.id} className="border-t">
-                  <td className="px-4 py-2">{it.description}</td>
-                  <td className="px-4 py-2 capitalize text-muted-foreground">{it.type}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{it.quantity}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{formatGBP(it.unit_price)}</td>
-                  <td className="px-4 py-2 text-right tabular-nums font-medium">{formatGBP(it.quantity * it.unit_price)}</td>
-                  {isOpen && (
-                    <td className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveItem(it.id)}
-                        disabled={pending}
-                        className="text-xs text-red-600 underline"
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  )}
-                </tr>
+                <ItemRow
+                  key={it.id}
+                  jobId={job.id}
+                  itemId={it.id}
+                  description={it.description}
+                  type={it.type}
+                  initialQuantity={it.quantity}
+                  initialUnitPrice={it.unit_price}
+                  editable={isOpen}
+                  onRemove={() => handleRemoveItem(it.id)}
+                  removePending={pending}
+                />
               ))}
             </tbody>
             <tfoot className="bg-muted/30 text-sm">

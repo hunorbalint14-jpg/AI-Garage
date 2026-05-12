@@ -85,6 +85,35 @@ export async function removeJobItem(jobId: string, itemId: string): Promise<Remo
   return { success: true };
 }
 
+export type UpdateJobItemResult = { error: string } | { success: true };
+
+export async function updateJobItem(
+  jobId: string,
+  itemId: string,
+  quantity: number,
+  unitPrice: number,
+): Promise<UpdateJobItemResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  if (!Number.isFinite(quantity) || quantity <= 0) return { error: "Quantity must be greater than 0." };
+  if (!Number.isFinite(unitPrice) || unitPrice < 0) return { error: "Unit price must be 0 or greater." };
+
+  const { data: job } = await admin.from("jobs").select("location_id, status").eq("id", jobId).maybeSingle();
+  if (!job || job.location_id !== ctx.location.id) return { error: "Job not found." };
+  if (job.status !== "open") return { error: "Cannot modify a completed job." };
+
+  const { error } = await admin
+    .from("job_items")
+    .update({ quantity, unit_price: unitPrice })
+    .eq("id", itemId)
+    .eq("job_id", jobId);
+  if (error) return { error: error.message };
+
+  revalidatePath(`/staff/jobs/${jobId}`);
+  return { success: true };
+}
+
 export type UpdateJobResult = { error: string } | { success: true };
 
 export async function updateJob(jobId: string, formData: FormData): Promise<UpdateJobResult> {
