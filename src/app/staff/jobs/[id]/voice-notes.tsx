@@ -67,7 +67,20 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
       setInterim(interimText);
     };
     recognition.onerror = (event) => {
-      setError(`Speech recognition error: ${event.error}`);
+      const isHttps = window.location.protocol === "https:" || window.location.hostname === "localhost";
+      if (event.error === "not-allowed") {
+        setError(
+          isHttps
+            ? "Microphone blocked. Click the lock icon in the address bar → Site settings → set Microphone to Allow, then reload."
+            : "Microphone requires HTTPS. You're on HTTP — try the production URL or localhost.",
+        );
+      } else if (event.error === "no-speech") {
+        setError("No speech detected. Try speaking louder or closer to the mic.");
+      } else if (event.error === "audio-capture") {
+        setError("No microphone found on this device.");
+      } else {
+        setError(`Speech recognition error: ${event.error}`);
+      }
       setPhase("error");
     };
     recognition.onend = () => {
@@ -276,7 +289,16 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
         <p className="mt-3 text-sm text-green-700 dark:text-green-400">Applied successfully.</p>
       )}
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="mt-3 flex flex-col gap-2">
+          <p className="text-sm text-red-600">{error}</p>
+          {phase === "error" && (
+            <Button variant="outline" onClick={reset} className="self-start">
+              Try again
+            </Button>
+          )}
+        </div>
+      )}
     </section>
   );
 }
