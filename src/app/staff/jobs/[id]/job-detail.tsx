@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob, sendReviewRequest, suggestLabourTime } from "../actions";
 import { createInvoiceFromJob, sendInvoice } from "../../invoices/actions";
+import { VoiceNotes } from "./voice-notes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -216,6 +217,8 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
           </dd>
         </dl>
       </section>
+
+      {isOpen && <VoiceNotes jobId={job.id} />}
 
       <form onSubmit={handleUpdate} className="rounded-lg border p-4 flex flex-col gap-3">
         <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Description & notes</h2>
