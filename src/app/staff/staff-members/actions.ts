@@ -38,6 +38,7 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
     automations: formData.get("perm_automations") === "on",
     fleet:       formData.get("perm_fleet") === "on",
     invoices:    formData.get("perm_invoices") === "on",
+    products:    formData.get("perm_products") === "on",
   };
 
   const admin = createAdminClient();

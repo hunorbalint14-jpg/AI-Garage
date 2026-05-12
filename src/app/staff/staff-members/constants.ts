@@ -10,6 +10,7 @@ export type Permissions = {
   automations: boolean;
   fleet: boolean;
   invoices: boolean;
+  products: boolean;
 };
 
 export const DEFAULT_PERMISSIONS: Record<string, Permissions> = {
@@ -25,6 +26,7 @@ export const DEFAULT_PERMISSIONS: Record<string, Permissions> = {
     automations: true,
     fleet: true,
     invoices: true,
+    products: true,
   },
   staff: {
     bookings: true,
@@ -38,6 +40,7 @@ export const DEFAULT_PERMISSIONS: Record<string, Permissions> = {
     automations: false,
     fleet: true,
     invoices: false,
+    products: true,
   },
 };
 
