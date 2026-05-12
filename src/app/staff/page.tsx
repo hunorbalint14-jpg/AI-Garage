@@ -465,7 +465,9 @@ export default async function StaffDashboard() {
   const admin = createAdminClient();
 
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const localDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const todayStr = localDateStr(now);
 
   const dayOfWeek = now.getDay();
   const monday = new Date(now);
@@ -594,7 +596,7 @@ export default async function StaffDashboard() {
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    const dateStr = d.toISOString().split("T")[0];
+    const dateStr = localDateStr(d);
     return {
       label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i],
       revenue: revByDay[dateStr] ?? 0,
