@@ -62,7 +62,7 @@ function Plate({ reg }: { reg: string }) {
         fontWeight: 700,
         letterSpacing: "0.06em",
         background: "#f4d35e",
-        color: "#0e1014",
+        color: "var(--background)",
         padding: "2px 7px",
         borderRadius: 3,
         fontSize: 11,
@@ -83,10 +83,10 @@ function dueDaysLabel(days: number | null): string {
 }
 
 function dueDaysColor(days: number | null, accent: string): string {
-  if (days === null) return "#5a6170";
+  if (days === null) return "var(--muted-foreground)";
   if (days < 0) return "#ff5b5b";
   if (days <= 14) return accent;
-  return "#9aa1ad";
+  return "var(--muted-foreground)";
 }
 
 function ChannelDot({ status }: { status: "sent" | "failed" | null }) {
@@ -225,16 +225,16 @@ export function ReminderComposer({
         display: "grid",
         gridTemplateColumns: "260px 1fr 280px",
         minHeight: 680,
-        borderTop: "1px solid #2a2f37",
+        borderTop: "1px solid var(--border)",
         fontFamily: sans,
-        color: "#e6e8eb",
+        color: "var(--foreground)",
       }}
     >
       {/* ── LEFT: Queue ── */}
       <aside
         style={{
-          background: "#15181d",
-          borderRight: "1px solid #2a2f37",
+          background: "var(--card)",
+          borderRight: "1px solid var(--border)",
           display: "flex",
           flexDirection: "column",
           overflowY: "auto",
@@ -242,7 +242,7 @@ export function ReminderComposer({
         }}
       >
         {/* Mode tabs */}
-        <div style={{ display: "flex", borderBottom: "1px solid #2a2f37" }}>
+        <div style={{ display: "flex", borderBottom: "1px solid var(--border)" }}>
           {(["queue", "history"] as const).map((m) => (
             <button
               key={m}
@@ -256,7 +256,7 @@ export function ReminderComposer({
                 letterSpacing: "0.14em",
                 textTransform: "uppercase" as const,
                 background: mode === m ? accentBg : "transparent",
-                color: mode === m ? accent : "#5a6170",
+                color: mode === m ? accent : "var(--muted-foreground)",
                 borderBottom: `2px solid ${mode === m ? accent : "transparent"}`,
                 borderTop: "none",
                 borderLeft: "none",
@@ -273,22 +273,22 @@ export function ReminderComposer({
         {mode === "queue" && (
           <>
             {/* Queue header */}
-            <div style={{ padding: "16px 16px 10px", borderBottom: "1px solid #2a2f37" }}>
+            <div style={{ padding: "16px 16px 10px", borderBottom: "1px solid var(--border)" }}>
               <div
                 style={{
                   fontFamily: mono,
                   fontSize: 10,
-                  color: "#5a6170",
+                  color: "var(--muted-foreground)",
                   letterSpacing: "0.16em",
                   marginBottom: 4,
                 }}
               >
                 // QUEUE · {pendingQueue.length} PENDING
               </div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#e6e8eb" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)" }}>
                 Ready to send
               </div>
-              <div style={{ fontFamily: mono, fontSize: 11, color: "#9aa1ad", marginTop: 2 }}>
+              <div style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
                 MOT &amp; service reminders
               </div>
             </div>
@@ -300,7 +300,7 @@ export function ReminderComposer({
                   padding: "20px 16px",
                   fontFamily: mono,
                   fontSize: 11,
-                  color: "#5a6170",
+                  color: "var(--muted-foreground)",
                   textAlign: "center",
                 }}
               >
@@ -328,9 +328,9 @@ export function ReminderComposer({
                     style={{
                       width: "100%",
                       padding: "12px 16px",
-                      borderBottom: "1px solid #2a2f37",
+                      borderBottom: "1px solid var(--border)",
                       borderLeft: `3px solid ${isActive ? accent : "transparent"}`,
-                      background: isActive ? "#1c1810" : "transparent",
+                      background: isActive ? accentBg : "transparent",
                       textAlign: "left",
                       cursor: "pointer",
                       display: "grid",
@@ -344,7 +344,7 @@ export function ReminderComposer({
                         style={{
                           fontSize: 13,
                           fontWeight: 600,
-                          color: isActive ? "#e6e8eb" : "#c8cdd4",
+                          color: isActive ? "var(--foreground)" : "var(--foreground)",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
@@ -368,7 +368,7 @@ export function ReminderComposer({
                       </div>
                       {lastSentDays !== null && (
                         <div
-                          style={{ fontFamily: mono, fontSize: 10, color: "#5a6170", marginTop: 4 }}
+                          style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}
                         >
                           last sent {lastSentDays}d ago
                         </div>
@@ -380,9 +380,9 @@ export function ReminderComposer({
                           style={{
                             fontFamily: mono,
                             fontSize: 9,
-                            color: "#5a6170",
+                            color: "var(--muted-foreground)",
                             padding: "1px 5px",
-                            border: "1px solid #2a2f37",
+                            border: "1px solid var(--border)",
                             borderRadius: 2,
                           }}
                         >
@@ -394,9 +394,9 @@ export function ReminderComposer({
                           style={{
                             fontFamily: mono,
                             fontSize: 9,
-                            color: "#5a6170",
+                            color: "var(--muted-foreground)",
                             padding: "1px 5px",
-                            border: "1px solid #2a2f37",
+                            border: "1px solid var(--border)",
                             borderRadius: 2,
                           }}
                         >
@@ -415,7 +415,7 @@ export function ReminderComposer({
         {mode === "history" && (
           <>
             {history.length === 0 ? (
-              <div style={{ padding: "20px 16px", fontFamily: mono, fontSize: 11, color: "#5a6170", textAlign: "center" }}>
+              <div style={{ padding: "20px 16px", fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", textAlign: "center" }}>
                 // NO MESSAGES SENT YET
               </div>
             ) : (
@@ -429,9 +429,9 @@ export function ReminderComposer({
                     style={{
                       width: "100%",
                       padding: "12px 16px",
-                      borderBottom: "1px solid #2a2f37",
+                      borderBottom: "1px solid var(--border)",
                       borderLeft: `3px solid ${isActive ? accent : "transparent"}`,
-                      background: isActive ? "#1c1810" : "transparent",
+                      background: isActive ? accentBg : "transparent",
                       textAlign: "left",
                       cursor: "pointer",
                       display: "grid",
@@ -441,14 +441,14 @@ export function ReminderComposer({
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? "#e6e8eb" : "#c8cdd4", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? "var(--foreground)" : "var(--foreground)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {h.customerName ?? "Unknown"}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                         {h.registration && <Plate reg={h.registration} />}
-                        <span style={{ fontFamily: mono, fontSize: 10, color: "#5a6170", textTransform: "capitalize" as const }}>{h.type}</span>
+                        <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", textTransform: "capitalize" as const }}>{h.type}</span>
                       </div>
-                      <div style={{ fontFamily: mono, fontSize: 10, color: "#5a6170", marginTop: 3 }}>
+                      <div style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", marginTop: 3 }}>
                         {h.sentAt ? new Date(h.sentAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
                       </div>
                     </div>
@@ -468,7 +468,7 @@ export function ReminderComposer({
       {/* ── MIDDLE: Composer ── */}
       <section
         style={{
-          background: "#0e1014",
+          background: "var(--background)",
           display: "flex",
           flexDirection: "column",
           overflowY: "auto",
@@ -481,7 +481,7 @@ export function ReminderComposer({
               flex: 1,
               display: "grid",
               placeItems: "center",
-              color: "#5a6170",
+              color: "var(--muted-foreground)",
               fontFamily: mono,
               fontSize: 12,
               letterSpacing: "0.1em",
@@ -492,18 +492,18 @@ export function ReminderComposer({
         )}
         {mode === "history" && selectedHistory && (
           <div style={{ padding: "24px 32px", flex: 1 }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: "#5a6170", letterSpacing: "0.16em", marginBottom: 4 }}>
+            <div style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", letterSpacing: "0.16em", marginBottom: 4 }}>
               // SENT MESSAGE · READ ONLY
             </div>
-            <h2 style={{ fontSize: 22, fontWeight: 600, margin: "8px 0 4px", color: "#e6e8eb" }}>
+            <h2 style={{ fontSize: 22, fontWeight: 600, margin: "8px 0 4px", color: "var(--foreground)" }}>
               {selectedHistory.customerName ?? "Customer"}
             </h2>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24, fontSize: 12, alignItems: "center" }}>
               {selectedHistory.registration && <Plate reg={selectedHistory.registration} />}
-              <span style={{ color: "#5a6170", fontFamily: mono }}>·</span>
-              <span style={{ fontFamily: mono, fontSize: 11, color: "#9aa1ad", textTransform: "capitalize" as const }}>{selectedHistory.type}</span>
-              <span style={{ color: "#5a6170", fontFamily: mono }}>·</span>
-              <span style={{ fontFamily: mono, fontSize: 11, color: "#9aa1ad" }}>
+              <span style={{ color: "var(--muted-foreground)", fontFamily: mono }}>·</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", textTransform: "capitalize" as const }}>{selectedHistory.type}</span>
+              <span style={{ color: "var(--muted-foreground)", fontFamily: mono }}>·</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)" }}>
                 {selectedHistory.sentAt ? new Date(selectedHistory.sentAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
               </span>
             </div>
@@ -531,8 +531,8 @@ export function ReminderComposer({
 
             {selectedHistory.emailText && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontFamily: mono, fontSize: 10, color: "#5a6170", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 8 }}>Email</div>
-                <div style={{ fontFamily: sans, fontSize: 14, lineHeight: 1.6, color: "#9aa1ad", background: "#15181d", border: "1px solid #2a2f37", borderRadius: 4, padding: "12px 14px", whiteSpace: "pre-wrap" as const }}>
+                <div style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 8 }}>Email</div>
+                <div style={{ fontFamily: sans, fontSize: 14, lineHeight: 1.6, color: "var(--muted-foreground)", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, padding: "12px 14px", whiteSpace: "pre-wrap" as const }}>
                   {selectedHistory.emailText}
                 </div>
               </div>
@@ -540,17 +540,17 @@ export function ReminderComposer({
 
             {selectedHistory.smsText && (
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontFamily: mono, fontSize: 10, color: "#5a6170", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 8 }}>
+                <div style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", letterSpacing: "0.12em", textTransform: "uppercase" as const, marginBottom: 8 }}>
                   SMS{selectedHistory.whatsappText ? " / WhatsApp" : ""}
                 </div>
-                <div style={{ fontFamily: sans, fontSize: 14, lineHeight: 1.6, color: "#9aa1ad", background: "#15181d", border: "1px solid #2a2f37", borderRadius: 4, padding: "12px 14px", whiteSpace: "pre-wrap" as const }}>
+                <div style={{ fontFamily: sans, fontSize: 14, lineHeight: 1.6, color: "var(--muted-foreground)", background: "var(--card)", border: "1px solid var(--border)", borderRadius: 4, padding: "12px 14px", whiteSpace: "pre-wrap" as const }}>
                   {selectedHistory.smsText}
                 </div>
               </div>
             )}
 
             {!selectedHistory.emailText && !selectedHistory.smsText && (
-              <div style={{ fontFamily: mono, fontSize: 12, color: "#5a6170" }}>// MESSAGE TEXT NOT STORED</div>
+              <div style={{ fontFamily: mono, fontSize: 12, color: "var(--muted-foreground)" }}>// MESSAGE TEXT NOT STORED</div>
             )}
           </div>
         )}
@@ -560,7 +560,7 @@ export function ReminderComposer({
               flex: 1,
               display: "grid",
               placeItems: "center",
-              color: "#5a6170",
+              color: "var(--muted-foreground)",
               fontFamily: mono,
               fontSize: 12,
               letterSpacing: "0.1em",
@@ -576,24 +576,24 @@ export function ReminderComposer({
                 // DRAFT {String(draftIndex).padStart(2, "0")} OF {String(pendingQueue.length).padStart(2, "0")}
               </span>
               {" "}
-              <span style={{ fontFamily: mono, fontSize: 10, color: "#5a6170" }}>
+              <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)" }}>
                 {draft.type === "sent" ? "SENT" : "QUEUED · NOT SENT"}
               </span>
             </div>
-            <h2 style={{ fontSize: 22, fontWeight: 600, margin: "8px 0 4px", color: "#e6e8eb" }}>
+            <h2 style={{ fontSize: 22, fontWeight: 600, margin: "8px 0 4px", color: "var(--foreground)" }}>
               To {selected.customerName ?? "Customer"}
             </h2>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 24, fontSize: 12 }}>
               <Plate reg={selected.registration} />
-              <span style={{ color: "#5a6170", fontFamily: mono }}>·</span>
+              <span style={{ color: "var(--muted-foreground)", fontFamily: mono }}>·</span>
               <span style={{ fontFamily: mono, fontSize: 11, color: accent }}>
                 {selected.primaryReminderType.toUpperCase()}{" "}
                 {dueDaysLabel(
                   selected.primaryReminderType === "mot" ? selected.motDays : selected.svcDays,
                 )}
               </span>
-              <span style={{ color: "#5a6170", fontFamily: mono }}>·</span>
-              <span style={{ fontFamily: mono, fontSize: 11, color: "#9aa1ad" }}>
+              <span style={{ color: "var(--muted-foreground)", fontFamily: mono }}>·</span>
+              <span style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)" }}>
                 {[selected.customerEmail && "Email", selected.customerPhone && "SMS"]
                   .filter(Boolean)
                   .join(" + ")}
@@ -607,7 +607,7 @@ export function ReminderComposer({
                   style={{
                     fontFamily: mono,
                     fontSize: 10,
-                    color: "#5a6170",
+                    color: "var(--muted-foreground)",
                     letterSpacing: "0.14em",
                     marginBottom: 10,
                   }}
@@ -619,8 +619,8 @@ export function ReminderComposer({
                     display: "grid",
                     gridTemplateColumns: "repeat(3, 1fr)",
                     gap: 1,
-                    background: "#2a2f37",
-                    border: "1px solid #2a2f37",
+                    background: "var(--border)",
+                    border: "1px solid var(--border)",
                     borderRadius: 4,
                     overflow: "hidden",
                     marginBottom: 20,
@@ -635,7 +635,7 @@ export function ReminderComposer({
                         onClick={() => changeTone(t.id)}
                         disabled={isLoading || isSending}
                         style={{
-                          background: isActive ? "#1c1810" : "#15181d",
+                          background: isActive ? accentBg : "var(--card)",
                           borderTop: `2px solid ${isActive ? accent : "transparent"}`,
                           padding: "10px 12px",
                           cursor: "pointer",
@@ -651,7 +651,7 @@ export function ReminderComposer({
                             style={{
                               fontFamily: mono,
                               fontSize: 11,
-                              color: isActive ? "#e6e8eb" : "#9aa1ad",
+                              color: isActive ? "var(--foreground)" : "var(--muted-foreground)",
                               letterSpacing: "0.1em",
                             }}
                           >
@@ -662,7 +662,7 @@ export function ReminderComposer({
                               style={{
                                 fontFamily: mono,
                                 fontSize: 9,
-                                color: "#0e1014",
+                                color: "var(--background)",
                                 background: accent,
                                 padding: "1px 5px",
                                 borderRadius: 2,
@@ -720,7 +720,7 @@ export function ReminderComposer({
                   style={{
                     fontFamily: mono,
                     fontSize: 10,
-                    color: "#5a6170",
+                    color: "var(--muted-foreground)",
                     letterSpacing: "0.14em",
                     marginBottom: 10,
                   }}
@@ -749,9 +749,9 @@ export function ReminderComposer({
                           fontSize: 11,
                           padding: "4px 10px",
                           borderRadius: 2,
-                          border: `1px solid ${channels[c.key] ? accent : "#2a2f37"}`,
-                          background: channels[c.key] ? "#1c1810" : "transparent",
-                          color: channels[c.key] ? accent : "#5a6170",
+                          border: `1px solid ${channels[c.key] ? accent : "var(--border)"}`,
+                          background: channels[c.key] ? accentBg : "transparent",
+                          color: channels[c.key] ? accent : "var(--muted-foreground)",
                           cursor: "pointer",
                         }}
                       >
@@ -767,7 +767,7 @@ export function ReminderComposer({
                       style={{
                         fontFamily: mono,
                         fontSize: 10,
-                        color: "#5a6170",
+                        color: "var(--muted-foreground)",
                         letterSpacing: "0.12em",
                         textTransform: "uppercase",
                         marginBottom: 6,
@@ -785,9 +785,9 @@ export function ReminderComposer({
                         fontFamily: sans,
                         fontSize: 14,
                         lineHeight: 1.6,
-                        color: "#e6e8eb",
-                        background: "#15181d",
-                        border: "1px solid #2a2f37",
+                        color: "var(--foreground)",
+                        background: "var(--card)",
+                        border: "1px solid var(--border)",
                         borderRadius: 4,
                         padding: "12px 14px",
                         resize: "vertical",
@@ -813,14 +813,14 @@ export function ReminderComposer({
                         style={{
                           fontFamily: mono,
                           fontSize: 10,
-                          color: "#5a6170",
+                          color: "var(--muted-foreground)",
                           letterSpacing: "0.12em",
                           textTransform: "uppercase",
                         }}
                       >
                         SMS{channels.whatsapp ? " / WhatsApp" : ""}
                       </span>
-                      <span style={{ fontFamily: mono, fontSize: 10, color: "#5a6170" }}>
+                      <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)" }}>
                         {editSms.length} chars
                         {editSms.length > 160 && (
                           <span style={{ color: accent }}> · {Math.ceil(editSms.length / 160)} segments</span>
@@ -837,9 +837,9 @@ export function ReminderComposer({
                         fontFamily: sans,
                         fontSize: 14,
                         lineHeight: 1.6,
-                        color: "#e6e8eb",
-                        background: "#15181d",
-                        border: "1px solid #2a2f37",
+                        color: "var(--foreground)",
+                        background: "var(--card)",
+                        border: "1px solid var(--border)",
                         borderRadius: 4,
                         padding: "10px 14px",
                         resize: "vertical",
@@ -858,7 +858,7 @@ export function ReminderComposer({
                     alignItems: "center",
                   }}
                 >
-                  <span style={{ fontFamily: mono, fontSize: 11, color: "#5a6170" }}>
+                  <span style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)" }}>
                     {[
                       channels.email && selected.customerEmail && "email",
                       channels.sms && selected.customerPhone && "SMS",
@@ -877,9 +877,9 @@ export function ReminderComposer({
                         fontSize: 12,
                         padding: "7px 14px",
                         borderRadius: 2,
-                        border: "1px solid #2a2f37",
+                        border: "1px solid var(--border)",
                         background: "transparent",
-                        color: "#9aa1ad",
+                        color: "var(--muted-foreground)",
                         cursor: "pointer",
                         opacity: isSending ? 0.5 : 1,
                       }}
@@ -901,7 +901,7 @@ export function ReminderComposer({
                         borderRadius: 2,
                         border: "1px solid #c9a435",
                         background: "#f4d35e",
-                        color: "#0e1014",
+                        color: "var(--background)",
                         cursor: "pointer",
                         opacity: isSending ? 0.6 : 1,
                       }}
@@ -935,7 +935,7 @@ export function ReminderComposer({
                 >
                   // SENT ✓
                 </div>
-                <div style={{ fontSize: 14, color: "#e6e8eb" }}>
+                <div style={{ fontSize: 14, color: "var(--foreground)" }}>
                   Reminder sent via{" "}
                   {draft.channels.length > 0 ? draft.channels.join(" + ") : "selected channels"}.
                 </div>
@@ -951,7 +951,7 @@ export function ReminderComposer({
                       borderRadius: 2,
                       border: "1px solid #c9a435",
                       background: "#f4d35e",
-                      color: "#0e1014",
+                      color: "var(--background)",
                       cursor: "pointer",
                     }}
                   >
@@ -967,8 +967,8 @@ export function ReminderComposer({
       {/* ── RIGHT: Customer context ── */}
       <aside
         style={{
-          background: "#15181d",
-          borderLeft: "1px solid #2a2f37",
+          background: "var(--card)",
+          borderLeft: "1px solid var(--border)",
           padding: "20px 18px",
           overflowY: "auto",
           maxHeight: "calc(100vh - 64px)",
@@ -979,7 +979,7 @@ export function ReminderComposer({
             style={{
               fontFamily: mono,
               fontSize: 11,
-              color: "#5a6170",
+              color: "var(--muted-foreground)",
               letterSpacing: "0.14em",
             }}
           >
@@ -991,18 +991,18 @@ export function ReminderComposer({
               style={{
                 fontFamily: mono,
                 fontSize: 10,
-                color: "#5a6170",
+                color: "var(--muted-foreground)",
                 letterSpacing: "0.16em",
                 marginBottom: 6,
               }}
             >
               // CUSTOMER CARD
             </div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "#e6e8eb", marginBottom: 2 }}>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginBottom: 2 }}>
               {selected.customerName ?? "Unknown"}
             </div>
             {selected.customerPhone && (
-              <div style={{ fontFamily: mono, fontSize: 12, color: "#9aa1ad" }}>
+              <div style={{ fontFamily: mono, fontSize: 12, color: "var(--muted-foreground)" }}>
                 {selected.customerPhone}
               </div>
             )}
@@ -1011,7 +1011,7 @@ export function ReminderComposer({
                 style={{
                   fontFamily: mono,
                   fontSize: 11,
-                  color: "#9aa1ad",
+                  color: "var(--muted-foreground)",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
@@ -1033,7 +1033,7 @@ export function ReminderComposer({
                 padding: "3px 8px",
                 border: "1px solid #3a2c14",
                 borderRadius: 2,
-                background: "#1c1810",
+                background: accentBg,
               }}
             >
               View customer →
@@ -1044,14 +1044,14 @@ export function ReminderComposer({
               style={{
                 marginTop: 20,
                 paddingTop: 16,
-                borderTop: "1px dashed #2a2f37",
+                borderTop: "1px dashed var(--border)",
               }}
             >
               <div
                 style={{
                   fontFamily: mono,
                   fontSize: 10,
-                  color: "#5a6170",
+                  color: "var(--muted-foreground)",
                   letterSpacing: "0.12em",
                   marginBottom: 8,
                 }}
@@ -1061,7 +1061,7 @@ export function ReminderComposer({
               <div style={{ marginBottom: 6 }}>
                 <Plate reg={selected.registration} />
               </div>
-              <div style={{ fontSize: 13, color: "#e6e8eb", marginTop: 6 }}>
+              <div style={{ fontSize: 13, color: "var(--foreground)", marginTop: 6 }}>
                 {[selected.year, selected.make, selected.model].filter(Boolean).join(" ") || "—"}
               </div>
 
@@ -1088,7 +1088,7 @@ export function ReminderComposer({
                           gridTemplateColumns: "60px 1fr",
                           gap: 8,
                           padding: "8px 0",
-                          borderTop: "1px dashed #2a2f37",
+                          borderTop: "1px dashed var(--border)",
                           alignItems: "center",
                         }}
                       >
@@ -1096,7 +1096,7 @@ export function ReminderComposer({
                           style={{
                             fontFamily: mono,
                             fontSize: 10,
-                            color: "#5a6170",
+                            color: "var(--muted-foreground)",
                             letterSpacing: "0.1em",
                           }}
                         >
@@ -1113,7 +1113,7 @@ export function ReminderComposer({
                           >
                             {dueDaysLabel(r.days)}
                           </span>
-                          <span style={{ fontFamily: mono, fontSize: 11, color: "#5a6170", marginLeft: 6 }}>
+                          <span style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", marginLeft: 6 }}>
                             {r.date
                               ? new Date(r.date).toLocaleDateString("en-GB", {
                                   day: "numeric",
@@ -1135,28 +1135,28 @@ export function ReminderComposer({
                 style={{
                   marginTop: 16,
                   paddingTop: 16,
-                  borderTop: "1px dashed #2a2f37",
+                  borderTop: "1px dashed var(--border)",
                 }}
               >
                 <div
                   style={{
                     fontFamily: mono,
                     fontSize: 10,
-                    color: "#5a6170",
+                    color: "var(--muted-foreground)",
                     letterSpacing: "0.12em",
                     marginBottom: 6,
                   }}
                 >
                   LAST CONTACT
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 12, color: "#9aa1ad" }}>
+                <div style={{ fontFamily: mono, fontSize: 12, color: "var(--muted-foreground)" }}>
                   {new Date(selected.lastReminderAt).toLocaleDateString("en-GB", {
                     day: "numeric",
                     month: "long",
                     year: "numeric",
                   })}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: "#5a6170", marginTop: 2 }}>
+                <div style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
                   {Math.floor(
                     (Date.now() - new Date(selected.lastReminderAt).getTime()) /
                       (1000 * 60 * 60 * 24),
@@ -1171,14 +1171,14 @@ export function ReminderComposer({
               style={{
                 marginTop: 16,
                 paddingTop: 16,
-                borderTop: "1px dashed #2a2f37",
+                borderTop: "1px dashed var(--border)",
               }}
             >
               <div
                 style={{
                   fontFamily: mono,
                   fontSize: 10,
-                  color: "#5a6170",
+                  color: "var(--muted-foreground)",
                   letterSpacing: "0.12em",
                   marginBottom: 8,
                 }}
@@ -1210,7 +1210,7 @@ export function ReminderComposer({
                     alignItems: "center",
                     padding: "5px 0",
                     fontSize: 12,
-                    color: c.avail ? "#e6e8eb" : "#5a6170",
+                    color: c.avail ? "var(--foreground)" : "var(--muted-foreground)",
                   }}
                 >
                   <span style={{ fontFamily: mono, fontSize: 11 }}>{c.label}</span>
@@ -1220,9 +1220,9 @@ export function ReminderComposer({
                       fontSize: 9,
                       padding: "2px 6px",
                       borderRadius: 2,
-                      background: c.avail ? "#13301f" : "#1c2026",
-                      color: c.avail ? "#5fdd9d" : "#5a6170",
-                      border: `1px solid ${c.avail ? "#2a5a3a" : "#2a2f37"}`,
+                      background: c.avail ? "#13301f" : "var(--muted)",
+                      color: c.avail ? "#5fdd9d" : "var(--muted-foreground)",
+                      border: `1px solid ${c.avail ? "#2a5a3a" : "var(--border)"}`,
                     }}
                   >
                     {c.avail ? "AVAILABLE" : "NO DATA"}

@@ -28,7 +28,7 @@ type BookingSlot = {
 type BayRow = { id: string; name: string; description: string | null };
 
 const BOOKING_STATUS: Record<string, { bg: string; border: string; accent: string }> = {
-  scheduled:   { bg: "#1c2026", border: "#383e48", accent: "#9aa1ad" },
+  scheduled:   { bg: "var(--muted)", border: "var(--border)", accent: "var(--muted-foreground)" },
   in_progress: { bg: "#3a2c14", border: "#ffb020", accent: "#ffb020" },
   complete:    { bg: "#13301f", border: "#5fdd9d", accent: "#5fdd9d" },
   cancelled:   { bg: "#3a1a1a", border: "#ff5b5b", accent: "#ff5b5b" },
@@ -130,7 +130,7 @@ function TodaySchedule({
                 {b.registration}
               </div>
             )}
-            <div style={{ fontSize: 10, color: "#9aa1ad", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.2 }}>
+            <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.2 }}>
               {b.customerName ?? b.type}
             </div>
           </>
@@ -140,7 +140,7 @@ function TodaySchedule({
         <div className="booking-tooltip" style={tooltipSide}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
             {b.registration && (
-              <span style={{ fontFamily: mono, fontWeight: 700, letterSpacing: "0.06em", background: "#f4d35e", color: "#0e1014", padding: "1px 6px", borderRadius: 2, fontSize: 10 }}>
+              <span style={{ fontFamily: mono, fontWeight: 700, letterSpacing: "0.06em", background: "#f4d35e", color: "var(--background)", padding: "1px 6px", borderRadius: 2, fontSize: 10 }}>
                 {b.registration}
               </span>
             )}
@@ -149,12 +149,12 @@ function TodaySchedule({
             </span>
           </div>
           {b.customerName && (
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#e6e8eb", marginBottom: 2 }}>{b.customerName}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", marginBottom: 2 }}>{b.customerName}</div>
           )}
-          <div style={{ fontSize: 11, color: "#9aa1ad", textTransform: "capitalize", marginBottom: 8 }}>{b.type.replace(/_/g, " ")}</div>
+          <div style={{ fontSize: 11, color: "var(--muted-foreground)", textTransform: "capitalize", marginBottom: 8 }}>{b.type.replace(/_/g, " ")}</div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: "#e6e8eb" }}>{timeRange}</span>
-            <span style={{ fontFamily: mono, fontSize: 10, color: "#5a6170" }}>{durStr}</span>
+            <span style={{ fontFamily: mono, fontSize: 10, color: "var(--foreground)" }}>{timeRange}</span>
+            <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)" }}>{durStr}</span>
           </div>
         </div>
       </Link>
@@ -162,13 +162,13 @@ function TodaySchedule({
   }
 
   return (
-    <div style={{ background: "#15181d", border: "1px solid #2a2f37", borderRadius: 6 }}>
-      <div style={{ padding: "16px 22px", borderBottom: "1px solid #2a2f37", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}>
+      <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <div style={{ fontSize: 10, color: "#5a6170", fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          <div style={{ fontSize: 10, color: "var(--muted-foreground)", fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase" }}>
             Day schedule · {now.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {padStart}–{padEnd}
           </div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "#e6e8eb", marginTop: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginTop: 4 }}>
             {bookings.length === 0
               ? "No bookings today"
               : `${bookings.length} booking${bookings.length !== 1 ? "s" : ""} · ${rows.length} row${rows.length !== 1 ? "s" : ""}`}
@@ -176,7 +176,7 @@ function TodaySchedule({
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {bays.length === 0 && (
-            <Link href="/staff/bays" style={{ fontFamily: mono, fontSize: 11, color: "#9aa1ad", textDecoration: "none", padding: "6px 12px", border: "1px solid #2a2f37", borderRadius: 2 }}>
+            <Link href="/staff/bays" style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", textDecoration: "none", padding: "6px 12px", border: "1px solid var(--border)", borderRadius: 2 }}>
               Set up bays →
             </Link>
           )}
@@ -189,11 +189,11 @@ function TodaySchedule({
       {/* Schedule grid */}
       <div style={{ overflowX: "auto" }}>
         {/* Ruler */}
-        <div style={{ display: "flex", borderBottom: "1px solid #2a2f37", minWidth: LABEL_W + TIMELINE_W }}>
-          <div style={{ width: LABEL_W, flexShrink: 0, padding: "8px 12px", fontFamily: mono, fontSize: 9, color: "#5a6170", letterSpacing: "0.12em", position: "sticky", left: 0, background: "#15181d", zIndex: 2, borderRight: "1px solid #2a2f37" }}>BAY</div>
+        <div style={{ display: "flex", borderBottom: "1px solid var(--border)", minWidth: LABEL_W + TIMELINE_W }}>
+          <div style={{ width: LABEL_W, flexShrink: 0, padding: "8px 12px", fontFamily: mono, fontSize: 9, color: "var(--muted-foreground)", letterSpacing: "0.12em", position: "sticky", left: 0, background: "var(--card)", zIndex: 2, borderRight: "1px solid var(--border)" }}>BAY</div>
           <div style={{ position: "relative", width: TIMELINE_W, flexShrink: 0, height: 26 }}>
             {hours.map((h) => (
-              <div key={h} style={{ position: "absolute", left: (h - DAY_START) * PX_PER_HOUR, top: 8, transform: "translateX(-50%)", fontFamily: mono, fontSize: 9, color: "#5a6170" }}>
+              <div key={h} style={{ position: "absolute", left: (h - DAY_START) * PX_PER_HOUR, top: 8, transform: "translateX(-50%)", fontFamily: mono, fontSize: 9, color: "var(--muted-foreground)" }}>
                 {String(h).padStart(2, "0")}
               </div>
             ))}
@@ -206,22 +206,22 @@ function TodaySchedule({
             key={row.id ?? "unassigned"}
             style={{
               display: "flex",
-              borderBottom: ri < rows.length - 1 ? "1px solid #2a2f37" : "none",
+              borderBottom: ri < rows.length - 1 ? "1px solid var(--border)" : "none",
               minHeight: 54,
               minWidth: LABEL_W + TIMELINE_W,
             }}
           >
-            <div style={{ width: LABEL_W, flexShrink: 0, padding: "8px 12px", borderRight: "1px solid #2a2f37", display: "flex", flexDirection: "column", justifyContent: "center", position: "sticky", left: 0, background: "#15181d", zIndex: 1 }}>
+            <div style={{ width: LABEL_W, flexShrink: 0, padding: "8px 12px", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", justifyContent: "center", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>
               <div style={{ fontFamily: mono, fontSize: 11, color: "#ffb020", fontWeight: 600, letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {row.name}
               </div>
               {row.sub && (
-                <div style={{ fontSize: 10, color: "#5a6170", marginTop: 2 }}>{row.sub}</div>
+                <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>{row.sub}</div>
               )}
             </div>
             <div style={{ position: "relative", width: TIMELINE_W, flexShrink: 0, padding: "6px 0" }}>
               {hours.slice(1).map((h) => (
-                <div key={h} style={{ position: "absolute", left: (h - DAY_START) * PX_PER_HOUR, top: 0, bottom: 0, borderLeft: "1px dashed #2a2f37" }} />
+                <div key={h} style={{ position: "absolute", left: (h - DAY_START) * PX_PER_HOUR, top: 0, bottom: 0, borderLeft: "1px dashed var(--border)" }} />
               ))}
               {showNow && (
                 <div style={{ position: "absolute", left: nowPx, top: 0, bottom: 0, borderLeft: "1px dashed #ffb020", zIndex: 10 }} />
@@ -232,29 +232,29 @@ function TodaySchedule({
         ))}
 
         {bookings.length === 0 && (
-          <div style={{ width: "100%", padding: "32px 22px", textAlign: "center", color: "#5a6170", fontFamily: mono, fontSize: 12 }}>
+          <div style={{ width: "100%", padding: "32px 22px", textAlign: "center", color: "var(--muted-foreground)", fontFamily: mono, fontSize: 12 }}>
             // NO BOOKINGS TODAY
           </div>
         )}
       </div>
 
       {/* Legend */}
-      <div style={{ display: "flex", gap: 14, padding: "12px 22px", flexWrap: "wrap", borderTop: "1px solid #2a2f37" }}>
+      <div style={{ display: "flex", gap: 14, padding: "12px 22px", flexWrap: "wrap", borderTop: "1px solid var(--border)" }}>
         {[
-          { label: "Scheduled", color: "#9aa1ad" },
+          { label: "Scheduled", color: "var(--muted-foreground)" },
           { label: "In progress", color: "#ffb020" },
           { label: "Complete", color: "#5fdd9d" },
           { label: "Cancelled", color: "#ff5b5b" },
         ].map((l) => (
           <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 10, height: 10, background: l.color, borderRadius: 1 }} />
-            <span style={{ fontFamily: mono, fontSize: 9, color: "#5a6170" }}>{l.label}</span>
+            <span style={{ fontFamily: mono, fontSize: 9, color: "var(--muted-foreground)" }}>{l.label}</span>
           </div>
         ))}
         {showNow && (
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 14, borderTop: "1px dashed #ffb020" }} />
-            <span style={{ fontFamily: mono, fontSize: 9, color: "#5a6170" }}>Now</span>
+            <span style={{ fontFamily: mono, fontSize: 9, color: "var(--muted-foreground)" }}>Now</span>
           </div>
         )}
       </div>
@@ -307,17 +307,17 @@ function KpiTile({
   sparkValues?: number[];
 }) {
   const deltaColor =
-    positive === undefined ? "#9aa1ad" : positive ? "#5fdd9d" : "#ff5b5b";
+    positive === undefined ? "var(--muted-foreground)" : positive ? "#5fdd9d" : "#ff5b5b";
   const sparkColor =
-    positive === false ? "#ff5b5b" : positive === true ? "#5fdd9d" : "#9aa1ad";
+    positive === false ? "#ff5b5b" : positive === true ? "#5fdd9d" : "var(--muted-foreground)";
   return (
-    <div style={{ background: "#15181d", padding: "18px 20px" }}>
+    <div style={{ background: "var(--card)", padding: "18px 20px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <div
             style={{
               fontSize: 10,
-              color: "#5a6170",
+              color: "var(--muted-foreground)",
               fontFamily: "var(--font-geist-mono, monospace)",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
@@ -332,7 +332,7 @@ function KpiTile({
               marginTop: 6,
               letterSpacing: "-0.01em",
               fontWeight: 600,
-              color: "#e6e8eb",
+              color: "var(--foreground)",
               fontVariantNumeric: "tabular-nums",
             }}
           >
@@ -365,7 +365,7 @@ function Plate({ reg }: { reg: string }) {
         fontWeight: 700,
         letterSpacing: "0.06em",
         background: "#f4d35e",
-        color: "#0e1014",
+        color: "var(--background)",
         padding: "2px 7px",
         borderRadius: 3,
         fontSize: 11,
@@ -422,7 +422,7 @@ function WeeklyChart({
         const barH = Math.max(day.isFuture ? 2 : (day.revenue / maxRev) * chartH, day.revenue > 0 ? 4 : 2);
         const x = i * (barW + gap);
         const y = chartH - barH;
-        const fill = day.isToday ? "#f4d35e" : day.isFuture ? "#1c2026" : "#383e48";
+        const fill = day.isToday ? "#f4d35e" : day.isFuture ? "var(--muted)" : "var(--border)";
         return (
           <g key={day.label}>
             {!day.isFuture && day.revenue > 0 && (
@@ -433,7 +433,7 @@ function WeeklyChart({
                 style={{
                   fontFamily: "var(--font-geist-mono, monospace)",
                   fontSize: 8,
-                  fill: "#5a6170",
+                  fill: "var(--muted-foreground)",
                 }}
               >
                 {fmtGBP(day.revenue)}
@@ -447,7 +447,7 @@ function WeeklyChart({
               style={{
                 fontFamily: "var(--font-geist-mono, monospace)",
                 fontSize: 10,
-                fill: day.isToday ? "#e6e8eb" : "#5a6170",
+                fill: day.isToday ? "var(--foreground)" : "var(--muted-foreground)",
                 fontWeight: day.isToday ? "600" : "400",
               }}
             >
@@ -465,7 +465,9 @@ export default async function StaffDashboard() {
   const admin = createAdminClient();
 
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const localDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const todayStr = localDateStr(now);
 
   const dayOfWeek = now.getDay();
   const monday = new Date(now);
@@ -594,7 +596,7 @@ export default async function StaffDashboard() {
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    const dateStr = d.toISOString().split("T")[0];
+    const dateStr = localDateStr(d);
     return {
       label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i],
       revenue: revByDay[dateStr] ?? 0,
@@ -677,7 +679,7 @@ export default async function StaffDashboard() {
     [1, 0.9, 1.05, 0.95, 1.1, 1.0, 0.95, 1].map((x) => x * Math.max(v, 1));
 
   return (
-    <div style={{ color: "#e6e8eb" }}>
+    <div style={{ color: "var(--foreground)" }}>
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1
@@ -686,12 +688,12 @@ export default async function StaffDashboard() {
             fontWeight: 600,
             letterSpacing: "-0.02em",
             margin: 0,
-            color: "#e6e8eb",
+            color: "var(--foreground)",
             lineHeight: 1.2,
           }}
         >
           {greeting}, {firstName}.{" "}
-          <span style={{ color: "#5a6170", fontWeight: 400 }}>
+          <span style={{ color: "var(--muted-foreground)", fontWeight: 400 }}>
             {overdue.length > 0
               ? `${overdue.length} overdue — act now.`
               : "Everything looks good."}
@@ -700,7 +702,7 @@ export default async function StaffDashboard() {
         <p
           style={{
             fontSize: 12,
-            color: "#9aa1ad",
+            color: "var(--muted-foreground)",
             margin: "6px 0 0",
             fontFamily: "var(--font-geist-mono, monospace)",
             letterSpacing: "0.04em",
@@ -717,8 +719,8 @@ export default async function StaffDashboard() {
           display: "grid",
           gridTemplateColumns: "repeat(4, 1fr)",
           gap: 1,
-          background: "#2a2f37",
-          border: "1px solid #2a2f37",
+          background: "var(--border)",
+          border: "1px solid var(--border)",
           borderRadius: 6,
           overflow: "hidden",
           marginBottom: 20,
@@ -790,8 +792,8 @@ export default async function StaffDashboard() {
       >
         <div
           style={{
-            background: "#15181d",
-            border: "1px solid #2a2f37",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
             borderRadius: 6,
             padding: 22,
           }}
@@ -799,7 +801,7 @@ export default async function StaffDashboard() {
           <div
             style={{
               fontSize: 10,
-              color: "#5a6170",
+              color: "var(--muted-foreground)",
               fontFamily: "var(--font-geist-mono, monospace)",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
@@ -811,14 +813,14 @@ export default async function StaffDashboard() {
             style={{
               fontSize: 18,
               fontWeight: 600,
-              color: "#e6e8eb",
+              color: "var(--foreground)",
               marginTop: 4,
               marginBottom: 20,
             }}
           >
             {fmtGBP(weekRevenue)}
             <span
-              style={{ fontSize: 13, fontWeight: 400, color: "#9aa1ad", marginLeft: 8 }}
+              style={{ fontSize: 13, fontWeight: 400, color: "var(--muted-foreground)", marginLeft: 8 }}
             >
               paid Mon–Sun
             </span>
@@ -828,8 +830,8 @@ export default async function StaffDashboard() {
 
         <div
           style={{
-            background: "#15181d",
-            border: "1px solid #2a2f37",
+            background: "var(--card)",
+            border: "1px solid var(--border)",
             borderRadius: 6,
             padding: 22,
           }}
@@ -837,7 +839,7 @@ export default async function StaffDashboard() {
           <div
             style={{
               fontSize: 10,
-              color: "#5a6170",
+              color: "var(--muted-foreground)",
               fontFamily: "var(--font-geist-mono, monospace)",
               letterSpacing: "0.12em",
               textTransform: "uppercase",
@@ -847,7 +849,7 @@ export default async function StaffDashboard() {
             Priority actions
           </div>
           <div
-            style={{ fontSize: 16, fontWeight: 600, color: "#e6e8eb", marginBottom: 16 }}
+            style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginBottom: 16 }}
           >
             Where to focus now
           </div>
@@ -861,7 +863,7 @@ export default async function StaffDashboard() {
                 gridTemplateColumns: "auto 1fr auto",
                 gap: 12,
                 padding: "12px 0",
-                borderTop: i ? "1px solid #2a2f37" : "none",
+                borderTop: i ? "1px solid var(--border)" : "none",
                 alignItems: "flex-start",
               }}
             >
@@ -869,18 +871,18 @@ export default async function StaffDashboard() {
                 style={{
                   fontFamily: "var(--font-geist-mono, monospace)",
                   fontSize: 11,
-                  color: "#5a6170",
+                  color: "var(--muted-foreground)",
                   paddingTop: 2,
                 }}
               >
                 {p.n}
               </span>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#e6e8eb" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
                   {p.title}
                 </div>
                 <div
-                  style={{ fontSize: 12, color: "#9aa1ad", marginTop: 3, lineHeight: 1.5 }}
+                  style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 3, lineHeight: 1.5 }}
                 >
                   {p.body}
                 </div>
@@ -900,7 +902,7 @@ export default async function StaffDashboard() {
                   style={{
                     fontFamily: "var(--font-geist-mono, monospace)",
                     fontSize: 10,
-                    color: "#5a6170",
+                    color: "var(--muted-foreground)",
                     textTransform: "uppercase",
                     letterSpacing: "0.1em",
                   }}
@@ -916,15 +918,15 @@ export default async function StaffDashboard() {
       {/* Attention queue */}
       <div
         style={{
-          background: "#15181d",
-          border: "1px solid #2a2f37",
+          background: "var(--card)",
+          border: "1px solid var(--border)",
           borderRadius: 6,
         }}
       >
         <div
           style={{
             padding: "16px 22px",
-            borderBottom: "1px solid #2a2f37",
+            borderBottom: "1px solid var(--border)",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -936,7 +938,7 @@ export default async function StaffDashboard() {
             <div
               style={{
                 fontSize: 10,
-                color: "#5a6170",
+                color: "var(--muted-foreground)",
                 fontFamily: "var(--font-geist-mono, monospace)",
                 letterSpacing: "0.12em",
                 textTransform: "uppercase",
@@ -945,7 +947,7 @@ export default async function StaffDashboard() {
               Attention queue
             </div>
             <div
-              style={{ fontSize: 16, fontWeight: 600, color: "#e6e8eb", marginTop: 4 }}
+              style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginTop: 4 }}
             >
               {overdue.length} overdue · {urgent.length} within 14d ·{" "}
               {attentionVehicles.length - overdue.length - urgent.length} upcoming
@@ -973,7 +975,7 @@ export default async function StaffDashboard() {
             style={{
               padding: "32px 22px",
               textAlign: "center",
-              color: "#5a6170",
+              color: "var(--muted-foreground)",
               fontFamily: "var(--font-geist-mono, monospace)",
               fontSize: 12,
             }}
@@ -987,10 +989,10 @@ export default async function StaffDashboard() {
                 display: "grid",
                 gridTemplateColumns: "130px 1fr 1fr 100px 100px 90px",
                 padding: "10px 22px",
-                borderBottom: "1px solid #2a2f37",
+                borderBottom: "1px solid var(--border)",
                 fontFamily: "var(--font-geist-mono, monospace)",
                 fontSize: 10,
-                color: "#5a6170",
+                color: "var(--muted-foreground)",
                 letterSpacing: "0.12em",
               }}
             >
@@ -1020,13 +1022,13 @@ export default async function StaffDashboard() {
                   ? "#ff5b5b"
                   : motDays !== null && motDays <= 14
                   ? "#ffb020"
-                  : "#9aa1ad";
+                  : "var(--muted-foreground)";
               const svcColor =
                 svcDays !== null && svcDays < 0
                   ? "#ff5b5b"
                   : svcDays !== null && svcDays <= 14
                   ? "#ffb020"
-                  : "#9aa1ad";
+                  : "var(--muted-foreground)";
               return (
                 <div
                   key={v.id}
@@ -1035,7 +1037,7 @@ export default async function StaffDashboard() {
                     gridTemplateColumns: "130px 1fr 1fr 100px 100px 90px",
                     padding: "11px 22px",
                     borderBottom:
-                      i < attentionVehicles.length - 1 ? "1px solid #2a2f37" : "none",
+                      i < attentionVehicles.length - 1 ? "1px solid var(--border)" : "none",
                     alignItems: "center",
                     fontSize: 13,
                   }}
@@ -1047,15 +1049,15 @@ export default async function StaffDashboard() {
                     {v.customer ? (
                       <Link
                         href={`/staff/customers/${v.customer.id}`}
-                        style={{ color: "#e6e8eb", textDecoration: "none" }}
+                        style={{ color: "var(--foreground)", textDecoration: "none" }}
                       >
                         {v.customer.full_name ?? "Unnamed"}
                       </Link>
                     ) : (
-                      <span style={{ color: "#5a6170" }}>—</span>
+                      <span style={{ color: "var(--muted-foreground)" }}>—</span>
                     )}
                   </div>
-                  <div style={{ color: "#9aa1ad" }}>
+                  <div style={{ color: "var(--muted-foreground)" }}>
                     {[v.make, v.model].filter(Boolean).join(" ") || "—"}
                   </div>
                   <div
