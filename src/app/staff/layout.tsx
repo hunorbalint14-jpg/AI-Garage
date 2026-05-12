@@ -82,9 +82,6 @@ export default async function StaffLayout({
 
   return (
     <>
-      {/* Force dark color-scheme — the new shell is a single dark design,
-          so we stop branching on portal_theme. Reintroduce themed variants
-          later if you want light/glass shells back. */}
       <ColorSchemeSync dark={true} />
       <StaffShell
         brandColor={brandColor}
