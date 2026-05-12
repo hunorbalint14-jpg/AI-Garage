@@ -16,7 +16,7 @@ export default async function SettingsPage() {
   const [orgRes, locationsRes, currentLocRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, custom_domain, phone, portal_theme, google_review_url")
+      .select("name, primary_color, logo_url, slug, custom_domain, phone, portal_theme, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at")
       .eq("id", ctx.organization.id)
       .single(),
     admin
@@ -52,6 +52,7 @@ export default async function SettingsPage() {
         initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
         initialTheme={((org as { portal_theme?: string } | null)?.portal_theme ?? "dark") as "dark" | "light" | "glass" | "workshop"}
         initialGoogleReviewUrl={(org as { google_review_url?: string | null } | null)?.google_review_url ?? ""}
+        initialPrivacyPolicyUrl={(org as { privacy_policy_url?: string | null } | null)?.privacy_policy_url ?? ""}
         canEdit={isOwner}
       />
 
@@ -60,6 +61,26 @@ export default async function SettingsPage() {
         initialEnd={locHours?.business_hours_end ?? 18}
         canEdit={isOwner}
       />
+
+      <section className="rounded-lg border p-4">
+        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          Data Processing Agreement
+        </h2>
+        {(org as { dpa_version?: string; dpa_accepted_at?: string } | null)?.dpa_accepted_at ? (
+          <p className="text-sm text-muted-foreground">
+            Accepted version <span className="font-mono">{(org as { dpa_version?: string }).dpa_version}</span> on{" "}
+            {new Date((org as { dpa_accepted_at: string }).dpa_accepted_at).toLocaleString("en-GB")}.{" "}
+            <a href="/legal/dpa" target="_blank" rel="noopener noreferrer" className="underline">
+              View DPA
+            </a>
+          </p>
+        ) : (
+          <p className="text-sm text-amber-700 dark:text-amber-400">
+            DPA not yet accepted.{" "}
+            <a href="/staff/dpa-acceptance" className="underline">Accept now</a>
+          </p>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3 rounded-lg border p-4">
         <div>

@@ -6,6 +6,9 @@ import { StaffNav } from "@/components/staff/staff-nav";
 import { AnimatedBackground } from "@/components/animated-background";
 import { PORTAL_THEMES, type PortalTheme } from "@/lib/portal-themes";
 import { ColorSchemeSync } from "@/components/staff/color-scheme-sync";
+import { headers as nextHeaders } from "next/headers";
+import { redirect } from "next/navigation";
+import { isDpaAccepted } from "@/lib/dpa";
 
 function OrgAvatar({ name, color }: { name: string; color: string }) {
   const initials = name
@@ -64,9 +67,17 @@ export default async function StaffLayout({
 
   const { data: org } = await admin
     .from("organizations")
-    .select("primary_color, portal_theme")
+    .select("primary_color, portal_theme, dpa_version")
     .eq("id", ctx.organization.id)
     .single();
+
+  // DPA acceptance gate — skip check on the acceptance page itself + login
+  const reqHeaders = await nextHeaders();
+  const pathname = reqHeaders.get("x-pathname") ?? "";
+  const onAcceptancePage = pathname.startsWith("/staff/dpa-acceptance") || pathname.startsWith("/staff/login");
+  if (!onAcceptancePage && !isDpaAccepted((org as { dpa_version?: string } | null)?.dpa_version)) {
+    redirect("/staff/dpa-acceptance");
+  }
 
   const brandColor =
     (org as { primary_color: string } | null)?.primary_color ?? "#6366f1";

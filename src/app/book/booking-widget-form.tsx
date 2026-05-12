@@ -9,6 +9,7 @@ type Props = {
   orgColor: string;
   garageName: string;
   services: Service[];
+  privacyPolicyUrl?: string | null;
 };
 
 function defaultDateTime() {
@@ -20,7 +21,7 @@ function defaultDateTime() {
 
 const INPUT = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors disabled:opacity-50";
 
-export function BookingWidgetForm({ orgColor, garageName, services }: Props) {
+export function BookingWidgetForm({ orgColor, garageName, services, privacyPolicyUrl }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -125,6 +126,31 @@ export function BookingWidgetForm({ orgColor, garageName, services }: Props) {
           className={INPUT + " resize-none"}
         />
       </div>
+
+      <label className="flex items-start gap-2 text-xs text-gray-600">
+        <input
+          type="checkbox"
+          name="marketingConsent"
+          className="mt-0.5 h-4 w-4 rounded border-gray-300"
+        />
+        <span>
+          I agree to receive marketing communications from {garageName} (offers, news). You can opt out anytime.
+          We&apos;ll always send transactional updates about your booking.
+        </span>
+      </label>
+
+      <p className="text-xs text-gray-500">
+        By submitting, you agree to our{" "}
+        <a
+          href={privacyPolicyUrl || "/privacy"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          privacy policy
+        </a>
+        .
+      </p>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 

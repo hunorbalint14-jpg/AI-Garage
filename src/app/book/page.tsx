@@ -12,10 +12,10 @@ export default async function BookingWidgetPage() {
 
   const { data: location } = await admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name, primary_color, logo_url)")
+    .select("id, name, organization:organizations(id, name, primary_color, logo_url, privacy_policy_url)")
     .eq("slug", slug)
     .maybeSingle() as {
-    data: { id: string; name: string; organization: { id: string; name: string; primary_color: string; logo_url: string | null } | null } | null;
+    data: { id: string; name: string; organization: { id: string; name: string; primary_color: string; logo_url: string | null; privacy_policy_url: string | null } | null } | null;
   };
 
   if (!location?.organization) redirect("/");
@@ -54,7 +54,7 @@ export default async function BookingWidgetPage() {
           </div>
         </div>
 
-        <BookingWidgetForm orgColor={org.primary_color} garageName={org.name} services={services} />
+        <BookingWidgetForm orgColor={org.primary_color} garageName={org.name} services={services} privacyPolicyUrl={org.privacy_policy_url} />
       </div>
     </div>
   );

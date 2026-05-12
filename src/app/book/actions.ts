@@ -36,6 +36,7 @@ export async function submitWidgetBooking(
   const type = (formData.get("type") as string | null)?.trim() || "service";
   const scheduledAt = (formData.get("scheduledAt") as string | null)?.trim();
   const notes = (formData.get("notes") as string | null)?.trim() || null;
+  const marketingConsent = formData.get("marketingConsent") === "on";
 
   if (!fullName) return { error: "Name is required." };
   if (!email || !EMAIL_RE.test(email)) return { error: "A valid email is required." };
@@ -68,7 +69,15 @@ export async function submitWidgetBooking(
   } else {
     const { data: newCustomer, error: custErr } = await admin
       .from("customers")
-      .insert({ location_id: location.id, full_name: fullName, email, phone })
+      .insert({
+        location_id: location.id,
+        full_name: fullName,
+        email,
+        phone,
+        marketing_email_consent: marketingConsent,
+        marketing_sms_consent: marketingConsent,
+        consent_updated_at: marketingConsent ? new Date().toISOString() : null,
+      })
       .select("id")
       .single();
     if (custErr) return { error: "Failed to create customer record." };

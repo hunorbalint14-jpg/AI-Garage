@@ -179,7 +179,9 @@ function buildInvoiceHtml(args: {
     </div>
   </div>
 
-  <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0">Sent via AI Garage</p>
+  <p style="text-align:center;font-size:11px;color:#9ca3af;margin:16px 0 0">
+    Sent via AI Garage · <a href="https://ai-garage.co.uk/privacy" style="color:#9ca3af;text-decoration:underline">Privacy</a>
+  </p>
 </div>
 </body>
 </html>`;

@@ -65,7 +65,12 @@ export async function sendBroadcast(
   const admin = createAdminClient();
 
   const [customersRes, orgRes] = await Promise.all([
-    admin.from("customers").select("id, email, phone").eq("location_id", ctx.location.id).limit(MAX_CUSTOMERS),
+    admin
+      .from("customers")
+      .select("id, email, phone, marketing_email_consent, marketing_sms_consent, anonymized_at")
+      .eq("location_id", ctx.location.id)
+      .is("anonymized_at", null)
+      .limit(MAX_CUSTOMERS),
     admin.from("organizations").select("name").eq("id", ctx.organization.id).maybeSingle(),
   ]);
 
@@ -78,7 +83,7 @@ export async function sendBroadcast(
   let emailSent = 0, emailFailed = 0, smsSent = 0, smsFailed = 0, whatsappSent = 0, whatsappFailed = 0;
 
   for (const customer of customers) {
-    if (emailText && customer.email) {
+    if (emailText && customer.email && customer.marketing_email_consent) {
       const result = await sendEmail({ to: customer.email, subject, text: emailText });
       await admin.from("reminders").insert({
         location_id: ctx.location.id,
@@ -97,7 +102,7 @@ export async function sendBroadcast(
       result.success ? emailSent++ : emailFailed++;
     }
 
-    if (smsText && customer.phone) {
+    if (smsText && customer.phone && customer.marketing_sms_consent) {
       const result = await sendSms({ to: customer.phone, body: smsText });
       await admin.from("reminders").insert({
         location_id: ctx.location.id,
@@ -115,7 +120,7 @@ export async function sendBroadcast(
       result.success ? smsSent++ : smsFailed++;
     }
 
-    if (whatsappText && customer.phone) {
+    if (whatsappText && customer.phone && customer.marketing_sms_consent) {
       const result = await sendWhatsApp({ to: customer.phone, body: whatsappText });
       await admin.from("reminders").insert({
         location_id: ctx.location.id,
