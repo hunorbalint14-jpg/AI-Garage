@@ -139,14 +139,18 @@ export function BookingWidgetForm({ orgColor, garageName, services, privacyPolic
         </span>
       </label>
 
-      {privacyPolicyUrl && (
-        <p className="text-xs text-gray-500">
-          By submitting, you agree to our{" "}
-          <a href={privacyPolicyUrl} target="_blank" rel="noopener noreferrer" className="underline">
-            privacy policy
-          </a>.
-        </p>
-      )}
+      <p className="text-xs text-gray-500">
+        By submitting, you agree to our{" "}
+        <a
+          href={privacyPolicyUrl || "/privacy"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline"
+        >
+          privacy policy
+        </a>
+        .
+      </p>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
