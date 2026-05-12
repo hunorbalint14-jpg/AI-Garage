@@ -14,7 +14,7 @@ type SpeechRecognitionInstance = {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
-  onresult: ((event: { results: { isFinal: boolean; [index: number]: { transcript: string } }[] & { length: number } }) => void) | null;
+  onresult: ((event: { resultIndex: number; results: { isFinal: boolean; [index: number]: { transcript: string } }[] & { length: number } }) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
   start: () => void;
@@ -56,14 +56,14 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
     recognition.lang = "en-GB";
 
     recognition.onresult = (event) => {
-      let finalText = "";
+      let newFinalText = "";
       let interimText = "";
-      for (let i = 0; i < event.results.length; i++) {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
-        if (result.isFinal) finalText += result[0].transcript + " ";
+        if (result.isFinal) newFinalText += result[0].transcript + " ";
         else interimText += result[0].transcript;
       }
-      if (finalText) setTranscript((prev) => prev + finalText);
+      if (newFinalText) setTranscript((prev) => prev + newFinalText);
       setInterim(interimText);
     };
     recognition.onerror = (event) => {
