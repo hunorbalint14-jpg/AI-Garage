@@ -128,24 +128,24 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
 
   function savePrice(next: number) {
     if (next === product.unit_price) return;
-    startTransition(() => updateProduct(product.id, { unit_price: next }));
+    startTransition(async () => { await updateProduct(product.id, { unit_price: next }); });
   }
   function saveCost(next: number) {
     if (next === (product.cost_price ?? 0)) return;
-    startTransition(() => updateProduct(product.id, { cost_price: next }));
+    startTransition(async () => { await updateProduct(product.id, { cost_price: next }); });
   }
   function saveSku(next: string) {
     if (next === (product.sku ?? "")) return;
-    startTransition(() => updateProduct(product.id, { sku: next || null }));
+    startTransition(async () => { await updateProduct(product.id, { sku: next || null }); });
   }
 
   function handleDelete() {
     if (!confirm(`Delete "${product.name}"?`)) return;
-    startTransition(() => deleteProduct(product.id));
+    startTransition(async () => { await deleteProduct(product.id); });
   }
 
   function handleStock(delta: number) {
-    startTransition(() => adjustStock(product.id, delta));
+    startTransition(async () => { await adjustStock(product.id, delta); });
   }
 
   const stockClass = product.stock_qty === 0 ? "text-red-600" : product.stock_qty < 3 ? "text-amber-600" : "";
