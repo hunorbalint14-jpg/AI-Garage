@@ -5,7 +5,9 @@ import { resolveTenantFromHost } from "@/lib/tenant";
 export async function proxy(request: NextRequest) {
   const tenant = resolveTenantFromHost(request.headers.get("host"));
 
-  const extraHeaders: Record<string, string> = {};
+  const extraHeaders: Record<string, string> = {
+    "x-pathname": request.nextUrl.pathname,
+  };
   if (tenant.slug) {
     extraHeaders["x-tenant-slug"] = tenant.slug;
   }
