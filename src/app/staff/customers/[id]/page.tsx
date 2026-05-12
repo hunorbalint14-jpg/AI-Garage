@@ -7,6 +7,7 @@ import { ReminderButton } from "./reminder-button";
 import { DeleteCustomerButton, DeleteVehicleButton } from "./delete-buttons";
 import { DraftMessagePanel } from "./draft-message-panel";
 import { StaffDiagnostic } from "./staff-diagnostic";
+import { GdprPanel } from "./gdpr-panel";
 
 type Customer = {
   id: string;
@@ -14,6 +15,10 @@ type Customer = {
   email: string | null;
   phone: string | null;
   created_at: string;
+  marketing_email_consent: boolean;
+  marketing_sms_consent: boolean;
+  consent_updated_at: string | null;
+  anonymized_at: string | null;
 };
 
 type Vehicle = {
@@ -62,7 +67,7 @@ export default async function CustomerDetailPage({
   const [customerRes, vehiclesRes, remindersRes] = await Promise.all([
     admin
       .from("customers")
-      .select("id, full_name, email, phone, created_at")
+      .select("id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
       .eq("id", id)
       .maybeSingle(),
     admin
@@ -225,6 +230,17 @@ export default async function CustomerDetailPage({
         customerId={customer.id}
         hasEmail={!!customer.email}
         hasPhone={!!customer.phone}
+      />
+
+      <GdprPanel
+        customerId={customer.id}
+        customerName={customer.full_name ?? "this customer"}
+        emailConsent={customer.marketing_email_consent}
+        smsConsent={customer.marketing_sms_consent}
+        consentUpdatedAt={customer.consent_updated_at}
+        anonymizedAt={customer.anonymized_at}
+        canErase={ctx.orgRole === "owner" || ctx.orgRole === "admin"}
+        isOwner={ctx.orgRole === "owner"}
       />
 
       {vehicles.length > 0 && (

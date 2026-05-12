@@ -42,6 +42,7 @@ type Props = {
   initialPhone: string;
   initialTheme: Theme;
   initialGoogleReviewUrl: string;
+  initialPrivacyPolicyUrl: string;
   canEdit: boolean;
 };
 
@@ -52,6 +53,7 @@ export function SettingsForm({
   initialPhone,
   initialTheme,
   initialGoogleReviewUrl,
+  initialPrivacyPolicyUrl,
   canEdit,
 }: Props) {
   const [pending, startTransition] = useTransition();
@@ -148,6 +150,21 @@ export function SettingsForm({
           />
           <p className="text-xs text-muted-foreground">
             Used when sending post-service review requests to customers.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="privacyPolicyUrl">Privacy policy URL (GDPR)</Label>
+          <Input
+            id="privacyPolicyUrl"
+            name="privacyPolicyUrl"
+            type="url"
+            defaultValue={initialPrivacyPolicyUrl}
+            placeholder="https://yourgarage.co.uk/privacy"
+            disabled={!canEdit}
+          />
+          <p className="text-xs text-muted-foreground">
+            Linked from customer-facing emails and booking pages. Required for GDPR compliance.
           </p>
         </div>
 
