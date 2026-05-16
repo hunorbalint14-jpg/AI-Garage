@@ -34,11 +34,12 @@ async function sendBookingConfirmation(args: {
   customerPhone: string | null;
   garageName: string;
   garagePhone: string | null;
+  garageLogoUrl: string | null;
   type: string;
   scheduledAt: string;
   registration: string | null;
 }): Promise<{ email: boolean; sms: boolean }> {
-  const { customerName, customerEmail, customerPhone, garageName, garagePhone, type, scheduledAt, registration } = args;
+  const { customerName, customerEmail, customerPhone, garageName, garagePhone, garageLogoUrl, type, scheduledAt, registration } = args;
   const firstName = customerName.split(" ")[0] || "there";
   const dateStr = formatBookingDateTime(scheduledAt);
   const typeLabel = bookingTypeLabel(type);
@@ -56,6 +57,17 @@ ${contactLine}
 Thank you,
 ${garageName}`;
 
+  const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:#111827;max-width:600px;margin:0 auto;padding:32px 24px">
+${garageLogoUrl ? `<div style="margin-bottom:24px"><img src="${garageLogoUrl}" alt="${garageName}" style="max-height:48px;max-width:180px;object-fit:contain;display:block"></div>` : ""}
+<p style="margin:0 0 16px 0">Hi ${firstName},</p>
+<p style="margin:0 0 16px 0">Your <strong>${typeLabel}</strong> appointment${regSuffix} at <strong>${garageName}</strong> is confirmed for <strong>${dateStr}</strong>.</p>
+<p style="margin:0 0 16px 0">${contactLine}</p>
+<p style="margin:0 0 16px 0">Thank you,<br>${garageName}</p>
+<hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0">
+<p style="font-size:12px;color:#9ca3af;margin:0">Sent via AI Garage</p>
+</body></html>`;
+
   const smsText = `Hi ${firstName}, your ${typeLabel} appointment${regSuffix} at ${garageName} is confirmed for ${dateStr}.${garagePhone ? ` Call ${garagePhone} to reschedule.` : ""}`;
 
   const result = { email: false, sms: false };
@@ -65,6 +77,7 @@ ${garageName}`;
       to: customerEmail,
       subject: `Booking confirmed — ${typeLabel} at ${garageName}`,
       text: emailText,
+      html: emailHtml,
     });
     result.email = emailResult.success;
   }
@@ -106,7 +119,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     vehicleId
       ? admin.from("vehicles").select("id, registration, customer_id, location_id").eq("id", vehicleId).maybeSingle()
       : Promise.resolve({ data: null }),
-    admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
+    admin.from("organizations").select("name, phone, logo_url").eq("id", ctx.organization.id).maybeSingle(),
   ]);
 
   const customer = customerRes.data as { id: string; full_name: string | null; email: string | null; phone: string | null; location_id: string } | null;
@@ -143,6 +156,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       customerPhone: customer.phone,
       garageName: orgRes.data?.name ?? ctx.organization.name,
       garagePhone: orgRes.data?.phone ?? null,
+      garageLogoUrl: (orgRes.data as { logo_url?: string | null } | null)?.logo_url ?? null,
       type,
       scheduledAt: isoScheduled,
       registration: vehicle?.registration ?? null,

@@ -39,7 +39,7 @@ type VehicleRow = {
 type LocationRow = {
   id: string;
   name: string;
-  organization: { id: string; name: string } | null;
+  organization: { id: string; name: string; logo_url: string | null } | null;
 };
 
 function daysUntil(dateStr: string): number {
@@ -52,7 +52,7 @@ function rowColor(days: number): string {
   return "#374151";
 }
 
-function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle: string; registration: string; type: string; dueDate: string; days: number }[], windowDays: number): string {
+function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle: string; registration: string; type: string; dueDate: string; days: number }[], windowDays: number, logoUrl: string | null): string {
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   const tableRows = rows
@@ -87,6 +87,7 @@ function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle:
 </style>
 </head><body>
 <div class="wrap">
+${logoUrl ? `<div style="margin:0 0 12px"><img src="${logoUrl}" alt="${orgName}" style="max-height:48px;max-width:180px;object-fit:contain;display:block"></div>` : ""}
 <h2 style="margin:0 0 4px">${orgName} — Weekly Due Report</h2>
 <p style="margin:0 0 24px;color:#6b7280">${today}</p>
 <table>
@@ -125,7 +126,7 @@ export async function GET(request: NextRequest) {
 
   let locQuery = admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name)");
+    .select("id, name, organization:organizations(id, name, logo_url)");
   if (filterLocationId) locQuery = locQuery.eq("id", filterLocationId);
 
   const { data: locations } = (await locQuery) as { data: LocationRow[] | null };
@@ -133,7 +134,7 @@ export async function GET(request: NextRequest) {
   const results = { digests: 0, errors: [] as string[] };
 
   // Group locations by org to send one digest per org
-  type OrgEntry = { org: { id: string; name: string }; locationIds: string[]; locationNames: string[]; locationConfigs: { enabled: boolean; window_days: number }[] };
+  type OrgEntry = { org: { id: string; name: string; logo_url: string | null }; locationIds: string[]; locationNames: string[]; locationConfigs: { enabled: boolean; window_days: number }[] };
   const orgMap = new Map<string, OrgEntry>();
 
   for (const location of locations ?? []) {
@@ -207,7 +208,7 @@ export async function GET(request: NextRequest) {
     if (!rows.length) continue;
 
     const subject = `${org.name} — ${rows.length} vehicle${rows.length !== 1 ? "s" : ""} due in the next ${WINDOW_DAYS} days`;
-    const html = buildDigestHtml(org.name, rows, WINDOW_DAYS);
+    const html = buildDigestHtml(org.name, rows, WINDOW_DAYS, org.logo_url);
     const text = `Weekly due report for ${org.name}. ${rows.length} vehicles due within ${WINDOW_DAYS} days.`;
 
     for (const email of staffEmails) {
