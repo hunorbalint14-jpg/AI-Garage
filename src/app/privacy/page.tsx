@@ -107,10 +107,12 @@ export default function PrivacyPolicyPage() {
 
           <section>
             <h2 className="text-lg font-semibold text-gray-900">8. Security</h2>
-            <p>
-              Data is encrypted in transit (HTTPS) and at rest. Access to the platform requires authentication.
-              Staff access to your records is restricted to the garage you booked with.
-            </p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Data is encrypted in transit (HTTPS) and at rest</li>
+              <li>Access to the platform requires authentication; staff access to your records is restricted to the garage you booked with</li>
+              <li>Passkey (WebAuthn) and email magic-link sign-in supported; passwords are stored hashed</li>
+              <li>Staff sessions automatically expire 12 hours after sign-in, requiring re-authentication. This protects shared garage devices.</li>
+            </ul>
           </section>
 
           <section>
