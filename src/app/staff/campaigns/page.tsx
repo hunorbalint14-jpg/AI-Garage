@@ -82,8 +82,8 @@ export default async function CampaignsPage() {
       {campaigns.length > 0 && (
         <section>
           <h2 className="mb-3 text-lg font-semibold">Campaign history</h2>
-          <div className="overflow-hidden rounded-lg border">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[600px] text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
                   <th className="px-4 py-2 font-medium">Date</th>

@@ -118,8 +118,8 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
         {vehicles.length === 0 ? (
           <p className="text-sm text-muted-foreground">No vehicles — add customers to the fleet first.</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
                   <th className="px-4 py-2 font-medium">Reg</th>
@@ -186,8 +186,8 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
         {customers.length === 0 ? (
           <p className="text-sm text-muted-foreground">No customers assigned. Add existing customers above.</p>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
                   <th className="px-4 py-2 font-medium">Name</th>
