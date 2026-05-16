@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { startAuthentication } from "@simplewebauthn/browser";
 import { createClient } from "@/lib/supabase/client";
 import { getStaffTenantUrl } from "./actions";
 
@@ -27,6 +28,44 @@ export function StaffLoginForm({
   const [error, setError] = useState<string | null>(null);
 
   const btnColor = accentColor ?? "#6366f1";
+
+  async function handlePasskey() {
+    setError(null);
+    setPending(true);
+    try {
+      if (typeof window === "undefined" || !window.PublicKeyCredential) {
+        setError("This browser doesn't support passkeys.");
+        setPending(false);
+        return;
+      }
+      const beginRes = await fetch("/api/auth/passkey/login/begin", { method: "POST" });
+      if (!beginRes.ok) throw new Error(`Begin failed: ${beginRes.status}`);
+      const options = await beginRes.json();
+
+      const assertion = await startAuthentication({ optionsJSON: options });
+
+      const completeRes = await fetch("/api/auth/passkey/login/complete", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ assertion }),
+      });
+      const result = await completeRes.json();
+      if (!completeRes.ok) {
+        setError(result.error ?? `Failed: ${completeRes.status}`);
+        setPending(false);
+        return;
+      }
+      window.location.href = result.redirect ?? "/staff";
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (msg.includes("NotAllowed") || msg.includes("cancel")) {
+        setError("Passkey sign-in cancelled.");
+      } else {
+        setError(msg);
+      }
+      setPending(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -109,6 +148,21 @@ export function StaffLoginForm({
           style={{ backgroundColor: btnColor, boxShadow: `0 8px 16px -8px ${btnColor}60` }}
         >
           {pending ? "Signing in…" : "Sign in"}
+        </button>
+
+        <div className="flex items-center gap-2 my-1">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-xs text-gray-500">or</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+
+        <button
+          type="button"
+          onClick={handlePasskey}
+          disabled={pending}
+          className="rounded-lg border border-white/20 bg-white/5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-60"
+        >
+          Sign in with passkey
         </button>
       </form>
     </div>
