@@ -38,7 +38,7 @@ const FEATURES = [
 
 function MarketingPage() {
   return (
-    <div className="min-h-screen bg-[#050c1a] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#0b0d11] text-white overflow-x-hidden">
       <AnimatedBackground />
 
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
@@ -53,7 +53,7 @@ function MarketingPage() {
           </Link>
           <Link
             href="/signup"
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium hover:bg-indigo-500 transition-colors"
+            className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium hover:bg-green-500 transition-colors"
           >
             Get started free
           </Link>
@@ -61,14 +61,14 @@ function MarketingPage() {
       </nav>
 
       <section className="relative z-10 flex flex-col items-center text-center px-6 pt-20 pb-32">
-        <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-sm text-indigo-300 mb-8">
-          <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+        <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-1.5 text-sm text-green-300 mb-8">
+          <span className="h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
           AI-powered garage management for UK businesses
         </div>
 
         <h1 className="animate-fade-in-up max-w-4xl text-5xl font-extrabold leading-[1.1] tracking-tight sm:text-7xl" style={{ animationDelay: "0.1s", animationFillMode: "both" }}>
           The smarter way to{" "}
-          <span className="animate-gradient-x bg-gradient-to-r from-indigo-400 via-blue-300 to-violet-400 bg-clip-text text-transparent">
+          <span className="animate-gradient-x bg-gradient-to-r from-green-300 via-emerald-300 to-lime-400 bg-clip-text text-transparent">
             run your garage.
           </span>
         </h1>
@@ -78,7 +78,7 @@ function MarketingPage() {
         </p>
 
         <div className="animate-fade-in-up mt-10 flex flex-wrap justify-center gap-4" style={{ animationDelay: "0.3s", animationFillMode: "both" }}>
-          <Link href="/signup" className="rounded-xl bg-indigo-600 px-8 py-3.5 text-base font-semibold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-900/50">
+          <Link href="/signup" className="rounded-xl bg-green-600 px-8 py-3.5 text-base font-semibold hover:bg-green-500 transition-colors shadow-lg shadow-green-900/50">
             Start free trial
           </Link>
           <Link href="/staff/login" className="rounded-xl border border-white/10 bg-white/5 px-8 py-3.5 text-base font-semibold hover:bg-white/10 transition-colors backdrop-blur-sm">
@@ -108,8 +108,8 @@ function MarketingPage() {
           </div>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="group relative rounded-2xl border border-white/5 bg-white/[0.03] p-6 backdrop-blur-sm transition-all hover:border-indigo-500/30 hover:bg-white/[0.06]">
-                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400">
+              <div key={title} className="group relative rounded-2xl border border-white/5 bg-white/[0.03] p-6 backdrop-blur-sm transition-all hover:border-green-500/30 hover:bg-white/[0.06]">
+                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-green-600/20 text-green-400">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="mb-2 font-semibold">{title}</h3>
@@ -121,10 +121,10 @@ function MarketingPage() {
       </section>
 
       <section className="relative z-10 px-6 py-24">
-        <div className="mx-auto max-w-3xl rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-900/40 to-blue-900/20 px-8 py-16 text-center backdrop-blur-sm">
+        <div className="mx-auto max-w-3xl rounded-3xl border border-green-500/20 bg-gradient-to-br from-green-900/40 to-emerald-900/20 px-8 py-16 text-center backdrop-blur-sm">
           <h2 className="text-3xl font-bold sm:text-4xl">Ready to modernise your garage?</h2>
           <p className="mx-auto mt-4 max-w-md text-gray-300">Set up in minutes. No credit card required.</p>
-          <Link href="/signup" className="mt-8 inline-block rounded-xl bg-indigo-600 px-10 py-4 text-base font-semibold hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-900/50">
+          <Link href="/signup" className="mt-8 inline-block rounded-xl bg-green-600 px-10 py-4 text-base font-semibold hover:bg-green-500 transition-colors shadow-lg shadow-green-900/50">
             Start free trial
           </Link>
         </div>
@@ -147,7 +147,7 @@ function TenantPage({
   logoUrl: string | null;
 }) {
   return (
-    <div className="min-h-screen bg-[#050c1a] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#0b0d11] text-white overflow-x-hidden">
       <AnimatedBackground brandColor={primaryColor} />
 
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
