@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { impersonateStaff, impersonateCustomer } from "./actions";
 import type { DevCustomer, DevStaff } from "./page";
 
 function StaffRow({ member }: { member: DevStaff }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -18,8 +16,7 @@ function StaffRow({ member }: { member: DevStaff }) {
         setError(result.error);
         return;
       }
-      router.push(result.redirect);
-      router.refresh();
+      window.location.assign(result.redirect);
     });
   }
 
@@ -55,7 +52,6 @@ function StaffRow({ member }: { member: DevStaff }) {
 }
 
 function CustomerRow({ customer }: { customer: DevCustomer }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -67,8 +63,7 @@ function CustomerRow({ customer }: { customer: DevCustomer }) {
         setError(result.error);
         return;
       }
-      router.push(result.redirect);
-      router.refresh();
+      window.location.assign(result.redirect);
     });
   }
 

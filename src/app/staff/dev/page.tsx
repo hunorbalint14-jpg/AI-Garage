@@ -32,7 +32,7 @@ export default async function DevPage() {
   const in60 = new Date();
   in60.setDate(in60.getDate() + 60);
 
-  const [customersRes, locationsRes, orgUsersRes] = await Promise.all([
+  const [customersRes, orgUsersRes] = await Promise.all([
     admin
       .from("customers")
       .select("id, full_name, email, user_id")
@@ -40,22 +40,17 @@ export default async function DevPage() {
       .order("full_name", { ascending: true })
       .limit(200),
     admin
-      .from("locations")
-      .select("id")
-      .eq("organization_id", ctx.organization.id),
-    admin
       .from("org_users")
       .select("user_id, role")
       .eq("organization_id", ctx.organization.id),
   ]);
 
-  const locationIds = (locationsRes.data ?? []).map((l: { id: string }) => l.id);
-  const locationUsersRes = locationIds.length
-    ? await admin
-        .from("location_users")
-        .select("user_id, role")
-        .in("location_id", locationIds)
-    : { data: [] };
+  // Only location_users for the CURRENT location — staff at other locations
+  // can't be impersonated from here because cookies are subdomain-scoped.
+  const locationUsersRes = await admin
+    .from("location_users")
+    .select("user_id, role")
+    .eq("location_id", ctx.location.id);
 
   const orgUsers = (orgUsersRes.data ?? []) as { user_id: string; role: string }[];
   const locationUsers = (locationUsersRes.data ?? []) as { user_id: string; role: string }[];
