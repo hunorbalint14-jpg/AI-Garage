@@ -221,6 +221,8 @@ export function StaffShell({
           onBrand={onBrand}
           orgName={orgName}
           role={role}
+          userName={userName}
+          userEmail={userEmail}
           onClose={() => setSheetOpen(false)}
         />
       )}
@@ -424,6 +426,8 @@ function ModuleSheet({
   onBrand,
   orgName,
   role,
+  userName,
+  userEmail,
   onClose,
 }: {
   modules: NavModule[];
@@ -433,6 +437,8 @@ function ModuleSheet({
   onBrand: string;
   orgName: string;
   role: string;
+  userName: string;
+  userEmail: string | null;
   onClose: () => void;
 }) {
   return (
@@ -488,6 +494,16 @@ function ModuleSheet({
             </div>
           );
         })}
+
+        <div className="mt-5 border-t border-[#2a2f37] pt-4">
+          <div className="mb-3">
+            <p className="truncate text-[13px] font-semibold text-[#e6e8eb]">{userName}</p>
+            {userEmail && (
+              <p className="truncate font-mono text-[10px] text-[#5a6170]">{userEmail}</p>
+            )}
+          </div>
+          <SignOutButton dark={true} />
+        </div>
       </div>
     </div>
   );

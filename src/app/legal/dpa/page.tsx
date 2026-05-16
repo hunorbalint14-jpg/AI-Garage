@@ -125,6 +125,8 @@ export function DpaBody() {
           <li>Multi-tenant data isolation via row-level security</li>
           <li>Daily automated backups with point-in-time recovery</li>
           <li>Audit logs of administrative actions including data deletions</li>
+          <li>Phishing-resistant authentication via WebAuthn passkeys, alongside email magic-link sign-in</li>
+          <li>Absolute session lifetime of 12 hours; users must re-authenticate at least daily</li>
         </ul>
       </section>
 
