@@ -154,8 +154,8 @@ export default async function CustomerDetailPage({
             No vehicles on file for this customer yet.
           </div>
         ) : (
-          <div className="overflow-hidden rounded-lg border">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
                   <th className="px-4 py-2 font-medium">Registration</th>
@@ -250,8 +250,8 @@ export default async function CustomerDetailPage({
       {reminders.length > 0 && (
         <section>
           <h2 className="mb-3 text-lg font-semibold">Reminder history</h2>
-          <div className="overflow-hidden rounded-lg border">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[700px] text-sm">
               <thead className="bg-muted/50 text-left">
                 <tr>
                   <th className="px-4 py-2 font-medium">Type</th>
