@@ -16,17 +16,25 @@ export default async function CustomerLoginPage() {
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         <Link href="/" className="flex items-center gap-3">
           {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt={orgName} className="h-8 w-auto object-contain" />
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt={orgName} className="h-8 w-auto object-contain" />
+              <span className="text-base font-semibold">{orgName}</span>
+            </>
+          ) : tenant ? (
+            <>
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white"
+                style={{ backgroundColor: primaryColor }}
+              >
+                {orgName.split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
+              </div>
+              <span className="text-base font-semibold">{orgName}</span>
+            </>
           ) : (
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-bold text-white"
-              style={{ backgroundColor: primaryColor }}
-            >
-              {orgName.split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2)}
-            </div>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/brand/logo/aigarage-logo-horizontal-on-dark.svg" alt="AI Garage" className="h-8 w-auto" />
           )}
-          <span className="text-base font-semibold">{orgName}</span>
         </Link>
       </nav>
 

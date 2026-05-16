@@ -42,9 +42,8 @@ function MarketingPage() {
       <AnimatedBackground />
 
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
-        <span className="text-xl font-bold tracking-tight">
-          AI<span className="text-indigo-400">Garage</span>
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo/aigarage-logo-horizontal-on-dark.svg" alt="AI Garage" className="h-8 w-auto" />
         <div className="flex items-center gap-3">
           <Link
             href="/staff/login"

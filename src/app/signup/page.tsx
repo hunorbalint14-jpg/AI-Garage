@@ -8,8 +8,9 @@ export default function SignupPage() {
       <AnimatedBackground />
 
       <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
-        <Link href="/" className="text-xl font-bold tracking-tight">
-          Garage<span className="text-indigo-400">AI</span>
+        <Link href="/" aria-label="AI Garage">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/logo/aigarage-logo-horizontal-on-dark.svg" alt="AI Garage" className="h-8 w-auto" />
         </Link>
         <Link href="/staff/login" className="text-sm text-gray-400 hover:text-white transition-colors">
           Already have an account? Sign in →

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://aigarage.io/brand/manifest.schema.json",
+  "brand": "AIGarage",
+  "version": "1.0.0",
+  "concept": "FrameG — industrial square G with 'AI' nested inside.",
+  "default": "brand/logo/aigarage-logo-horizontal-on-dark.svg",
+  "tokens": {
+    "color": {
+      "green":  "#22c55e",
+      "ink":    "#0b0d11",
+      "paper":  "#f5f4f0",
+      "white":  "#ffffff"
+    },
+    "font": {
+      "display": "\"Space Grotesk\", \"Inter\", system-ui, -apple-system, sans-serif",
+      "mono":    "\"JetBrains Mono\", ui-monospace, \"SF Mono\", Menlo, monospace"
+    },
+    "wordmark": { "weight": 600, "letterSpacing": "-0.02em" },
+    "mark":     { "strokeWidth": 12, "viewBox": "0 0 100 100" },
+    "clearSpace": "1x of the mark's width on every side",
+    "minSize":   { "px": 16, "mm": 8 }
+  },
+  "useCases": [
+    { "id": "website-header-dark",     "label": "Website header — dark theme",        "file": "brand/logo/aigarage-logo-horizontal-on-dark.svg" },
+    { "id": "website-header-light",    "label": "Website header — light theme",       "file": "brand/logo/aigarage-logo-horizontal-on-light.svg" },
+    { "id": "splash-dark",             "label": "Splash / standalone — dark",         "file": "brand/logo/aigarage-logo-stacked-on-dark.svg" },
+    { "id": "splash-light",            "label": "Splash / standalone — light",        "file": "brand/logo/aigarage-logo-stacked-on-light.svg" },
+    { "id": "email-marketing",         "label": "Marketing email banner",             "file": "brand/logo/aigarage-logo-horizontal-on-dark.svg" },
+    { "id": "email-transactional",     "label": "Transactional email header",         "file": "brand/logo/aigarage-logo-horizontal-on-light.svg" },
+    { "id": "invoice-header",          "label": "Invoice header (print + screen)",    "file": "brand/logo/aigarage-logo-horizontal-on-light.svg" },
+    { "id": "booking-confirmation",    "label": "Booking confirmation header",        "file": "brand/logo/aigarage-logo-horizontal-on-light.svg" },
+    { "id": "over-photo",              "label": "Over a photo or colored bg",         "file": "brand/logo/aigarage-logo-mono-white.svg" },
+    { "id": "mono-print",              "label": "Single-color print",                 "file": "brand/logo/aigarage-logo-mono-black.svg" },
+    { "id": "favicon",                 "label": "Favicon (browser tab)",              "file": "brand/icon/aigarage-favicon.svg" },
+    { "id": "favicon-light",           "label": "Favicon — light-mode tabs",          "file": "brand/icon/aigarage-favicon-light.svg" },
+    { "id": "ios-app-icon",            "label": "iOS app icon",                       "file": "brand/icon/aigarage-app-icon-rounded-brand.svg" },
+    { "id": "android-app-icon",        "label": "Android adaptive / app icon",        "file": "brand/icon/aigarage-app-icon-square-brand.svg" },
+    { "id": "ios-app-icon-dark",       "label": "iOS dark-mode app icon variant",     "file": "brand/icon/aigarage-app-icon-rounded-dark.svg" },
+    { "id": "sms-avatar",              "label": "SMS sender avatar (round)",          "file": "brand/icon/aigarage-sms-avatar.svg" },
+    { "id": "sms-avatar-brand",        "label": "Avatar on brand green",              "file": "brand/icon/aigarage-sms-avatar-brand.svg" },
+    { "id": "navbar-icon-dark",        "label": "In-product navbar / chip — dark UI", "file": "brand/mark/aigarage-mark-on-dark.svg" },
+    { "id": "navbar-icon-brand",       "label": "Navbar icon on green pill",          "file": "brand/mark/aigarage-mark-on-brand.svg" },
+    { "id": "footer-wordmark-dark",    "label": "Wordmark-only (footer) — dark",      "file": "brand/wordmark/aigarage-wordmark-on-dark.svg" },
+    { "id": "footer-wordmark-light",   "label": "Wordmark-only (footer) — light",     "file": "brand/wordmark/aigarage-wordmark-on-light.svg" }
+  ],
+  "assets": {
+    "logo": {
+      "horizontal-on-dark":  { "file": "brand/logo/aigarage-logo-horizontal-on-dark.svg",  "bg": "dark",  "viewBox": "0 0 260 80" },
+      "horizontal-on-light": { "file": "brand/logo/aigarage-logo-horizontal-on-light.svg", "bg": "light", "viewBox": "0 0 260 80" },
+      "stacked-on-dark":     { "file": "brand/logo/aigarage-logo-stacked-on-dark.svg",     "bg": "dark",  "viewBox": "0 0 200 156" },
+      "stacked-on-light":    { "file": "brand/logo/aigarage-logo-stacked-on-light.svg",    "bg": "light", "viewBox": "0 0 200 156" },
+      "mono-white":          { "file": "brand/logo/aigarage-logo-mono-white.svg",          "bg": "any",   "viewBox": "0 0 260 80" },
+      "mono-black":          { "file": "brand/logo/aigarage-logo-mono-black.svg",          "bg": "light", "viewBox": "0 0 260 80" }
+    },
+    "mark": {
+      "on-dark":             { "file": "brand/mark/aigarage-mark-on-dark.svg",             "bg": "dark",  "viewBox": "0 0 100 100" },
+      "on-light":            { "file": "brand/mark/aigarage-mark-on-light.svg",            "bg": "light", "viewBox": "0 0 100 100" },
+      "on-brand":            { "file": "brand/mark/aigarage-mark-on-brand.svg",            "bg": "brand", "viewBox": "0 0 100 100" },
+      "mono-white":          { "file": "brand/mark/aigarage-mark-mono-white.svg",          "bg": "any",   "viewBox": "0 0 100 100" },
+      "mono-black":          { "file": "brand/mark/aigarage-mark-mono-black.svg",          "bg": "light", "viewBox": "0 0 100 100" }
+    },
+    "wordmark": {
+      "on-dark":             { "file": "brand/wordmark/aigarage-wordmark-on-dark.svg",     "bg": "dark",  "viewBox": "0 0 200 48" },
+      "on-light":            { "file": "brand/wordmark/aigarage-wordmark-on-light.svg",    "bg": "light", "viewBox": "0 0 200 48" },
+      "mono-white":          { "file": "brand/wordmark/aigarage-wordmark-mono-white.svg",  "bg": "any",   "viewBox": "0 0 200 48" },
+      "mono-black":          { "file": "brand/wordmark/aigarage-wordmark-mono-black.svg",  "bg": "light", "viewBox": "0 0 200 48" }
+    },
+    "icon": {
+      "favicon":             { "file": "brand/icon/aigarage-favicon.svg",                  "bg": "any",   "viewBox": "0 0 100 100",   "rasterize": [16, 32, 48, 64, 192, 512] },
+      "favicon-light":       { "file": "brand/icon/aigarage-favicon-light.svg",            "bg": "light", "viewBox": "0 0 100 100",   "rasterize": [16, 32, 48] },
+      "app-icon-square":     { "file": "brand/icon/aigarage-app-icon-square-brand.svg",    "bg": "brand", "viewBox": "0 0 1024 1024", "rasterize": [48, 72, 96, 144, 192, 512, 1024] },
+      "app-icon-rounded":    { "file": "brand/icon/aigarage-app-icon-rounded-brand.svg",   "bg": "brand", "viewBox": "0 0 1024 1024", "rasterize": [180, 1024] },
+      "app-icon-rounded-dark": { "file": "brand/icon/aigarage-app-icon-rounded-dark.svg",  "bg": "dark",  "viewBox": "0 0 1024 1024", "rasterize": [180, 1024] },
+      "sms-avatar":          { "file": "brand/icon/aigarage-sms-avatar.svg",               "bg": "dark",  "viewBox": "0 0 512 512",   "rasterize": [256, 512] },
+      "sms-avatar-brand":    { "file": "brand/icon/aigarage-sms-avatar-brand.svg",         "bg": "brand", "viewBox": "0 0 512 512",   "rasterize": [256, 512] }
+    }
+  },
+  "do": [
+    "Use the supplied colorways as-is.",
+    "Leave 1x of the mark width as clear space on every side.",
+    "Use 'mono-white' over photos or non-brand colored backgrounds.",
+    "Use 'on-brand' when placing the mark inside a brand-green tile."
+  ],
+  "dont": [
+    "Recolor the mark or wordmark.",
+    "Place the standard mark on a green or red background.",
+    "Render the mark below 16px on screen.",
+    "Add a stroke, shadow, or gradient.",
+    "Stretch, skew, or rotate the lockup."
+  ]
+}
