@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useRef } from "react";
 import Link from "next/link";
 import { draftReminderPreview, sendReminderDraft } from "./actions";
 
@@ -130,6 +130,16 @@ export function ReminderComposer({
   const [sentVehicleIds, setSentVehicleIds] = useState<Set<string>>(new Set());
   const [draftPending, startDraft] = useTransition();
   const [sendPending, startSend] = useTransition();
+
+  const composerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Only on mobile (single-column stack)
+    if (window.matchMedia("(min-width: 768px)").matches) return;
+    if (selected || selectedHistory) {
+      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [selected, selectedHistory]);
 
   function selectVehicle(v: QueueVehicle) {
     setSelected(v);
@@ -465,12 +475,14 @@ export function ReminderComposer({
 
       {/* ── MIDDLE: Composer ── */}
       <section
+        ref={composerRef}
         style={{
           background: "var(--background)",
           display: "flex",
           flexDirection: "column",
           overflowY: "auto",
           maxHeight: "calc(100vh - 64px)",
+          scrollMarginTop: 8,
         }}
       >
         {mode === "history" && !selectedHistory && (
