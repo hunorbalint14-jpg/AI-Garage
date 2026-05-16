@@ -1,10 +1,15 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
-export type TestLoginResult = { error: string } | { success: true; link: string };
+export type ImpersonateResult = { error: string } | { success: true; redirect: string };
+
+const STASH_COOKIE = "ai_impersonator_stash";
 
 async function guardOwner() {
   const ctx = await requireStaffContext();
@@ -14,7 +19,72 @@ async function guardOwner() {
   return ctx;
 }
 
-export async function generateStaffTestLink(email: string): Promise<TestLoginResult> {
+type StashedCookie = { name: string; value: string };
+
+async function snapshotAuthCookies(): Promise<StashedCookie[]> {
+  const store = await cookies();
+  return store
+    .getAll()
+    .filter((c) => c.name.startsWith("sb-"))
+    .map((c) => ({ name: c.name, value: c.value }));
+}
+
+async function clearAuthCookies() {
+  const store = await cookies();
+  for (const c of store.getAll()) {
+    if (c.name.startsWith("sb-")) {
+      store.delete(c.name);
+    }
+  }
+}
+
+async function setStash(stashed: StashedCookie[]) {
+  const store = await cookies();
+  store.set(STASH_COOKIE, JSON.stringify(stashed), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 2,
+  });
+}
+
+async function readStash(): Promise<StashedCookie[] | null> {
+  const store = await cookies();
+  const raw = store.get(STASH_COOKIE)?.value;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as StashedCookie[];
+  } catch {
+    return null;
+  }
+}
+
+async function clearStash() {
+  const store = await cookies();
+  store.delete(STASH_COOKIE);
+}
+
+async function mintSessionForEmail(email: string): Promise<{ error: string } | { success: true }> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  if (error) return { error: error.message };
+  const tokenHash = data.properties?.hashed_token;
+  if (!tokenHash) return { error: "No token returned by generateLink." };
+
+  const supabase = await createClient();
+  const { error: verifyErr } = await supabase.auth.verifyOtp({
+    token_hash: tokenHash,
+    type: "magiclink",
+  });
+  if (verifyErr) return { error: verifyErr.message };
+  return { success: true };
+}
+
+export async function impersonateStaff(email: string): Promise<ImpersonateResult> {
   try {
     await guardOwner();
   } catch (e) {
@@ -22,8 +92,6 @@ export async function generateStaffTestLink(email: string): Promise<TestLoginRes
   }
 
   const admin = createAdminClient();
-
-  // Ensure email is confirmed before generating magic link
   const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const user = users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
   if (!user) return { error: "No auth account found for this staff member." };
@@ -32,17 +100,23 @@ export async function generateStaffTestLink(email: string): Promise<TestLoginRes
     await admin.auth.admin.updateUserById(user.id, { email_confirm: true });
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `http://${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000"}`;
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email,
-    options: { redirectTo: `${siteUrl}/auth/callback?next=/staff` },
-  });
-  if (error) return { error: error.message };
-  return { success: true, link: data.properties.action_link };
+  const stash = await snapshotAuthCookies();
+  await clearAuthCookies();
+
+  const result = await mintSessionForEmail(email);
+  if ("error" in result) {
+    // Restore on failure
+    const store = await cookies();
+    for (const c of stash) store.set(c.name, c.value, { path: "/" });
+    return { error: result.error };
+  }
+
+  await setStash(stash);
+  revalidatePath("/", "layout");
+  return { success: true, redirect: "/staff" };
 }
 
-export async function generateCustomerTestLink(customerId: string): Promise<TestLoginResult> {
+export async function impersonateCustomer(customerId: string): Promise<ImpersonateResult> {
   let ctx;
   try {
     ctx = await guardOwner();
@@ -61,7 +135,6 @@ export async function generateCustomerTestLink(customerId: string): Promise<Test
   if (!customer) return { error: "Customer not found." };
   if (!customer.email) return { error: "Customer has no email address." };
 
-  // Verify customer belongs to this org
   const { data: loc } = await admin
     .from("locations")
     .select("organization_id")
@@ -71,7 +144,6 @@ export async function generateCustomerTestLink(customerId: string): Promise<Test
     return { error: "Customer not in this organisation." };
   }
 
-  // If customer has no auth account, create one
   if (!customer.user_id) {
     const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
       email: customer.email,
@@ -80,25 +152,48 @@ export async function generateCustomerTestLink(customerId: string): Promise<Test
     });
 
     if (createErr) {
-      // User may already exist in auth but not linked
       const { data: { users } } = await admin.auth.admin.listUsers({ perPage: 1000 });
       const existing = users.find((u) => u.email?.toLowerCase() === customer.email!.toLowerCase());
       if (!existing) return { error: `Could not create auth account: ${createErr.message}` };
-
       await admin.from("customers").update({ user_id: existing.id }).eq("id", customerId);
     } else {
       await admin.from("customers").update({ user_id: newUser.user.id }).eq("id", customerId);
     }
-
-    revalidatePath(`/staff/customers/${customerId}`);
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `http://${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000"}`;
-  const { data, error: linkErr } = await admin.auth.admin.generateLink({
-    type: "magiclink",
-    email: customer.email,
-    options: { redirectTo: `${siteUrl}/auth/callback?next=/dashboard` },
-  });
-  if (linkErr) return { error: linkErr.message };
-  return { success: true, link: data.properties.action_link };
+  const stash = await snapshotAuthCookies();
+  await clearAuthCookies();
+
+  const result = await mintSessionForEmail(customer.email);
+  if ("error" in result) {
+    const store = await cookies();
+    for (const c of stash) store.set(c.name, c.value, { path: "/" });
+    return { error: result.error };
+  }
+
+  await setStash(stash);
+  revalidatePath("/", "layout");
+  return { success: true, redirect: "/dashboard" };
+}
+
+export async function exitImpersonation(): Promise<void> {
+  const stash = await readStash();
+  if (!stash) {
+    redirect("/staff/dev");
+  }
+
+  await clearAuthCookies();
+  const store = await cookies();
+  for (const c of stash) {
+    store.set(c.name, c.value, { path: "/" });
+  }
+  await clearStash();
+
+  revalidatePath("/", "layout");
+  redirect("/staff/dev");
+}
+
+export async function isImpersonating(): Promise<boolean> {
+  const stash = await readStash();
+  return !!stash && stash.length > 0;
 }
