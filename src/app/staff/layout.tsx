@@ -46,7 +46,7 @@ export default async function StaffLayout({
 
   const { data: org } = await admin
     .from("organizations")
-    .select("primary_color, dpa_version")
+    .select("primary_color, logo_url, dpa_version")
     .eq("id", ctx.organization.id)
     .single();
 
@@ -65,6 +65,8 @@ export default async function StaffLayout({
 
   const brandColor =
     (org as { primary_color: string } | null)?.primary_color ?? "#6366f1";
+  const orgLogoUrl =
+    (org as { logo_url?: string | null } | null)?.logo_url ?? null;
 
   const orgInitials = ctx.organization.name
     .split(/\s+/)
@@ -88,6 +90,7 @@ export default async function StaffLayout({
         orgRole={ctx.orgRole}
         orgName={ctx.organization.name}
         orgInitials={orgInitials}
+        orgLogoUrl={orgLogoUrl}
         userName={fullName}
         userEmail={ctx.user.email ?? null}
         userInitials={userInitials}

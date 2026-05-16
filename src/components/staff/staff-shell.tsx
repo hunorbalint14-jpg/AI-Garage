@@ -20,6 +20,7 @@ export function StaffShell({
   orgRole,
   orgName,
   orgInitials,
+  orgLogoUrl,
   userName,
   userEmail,
   userInitials,
@@ -32,6 +33,7 @@ export function StaffShell({
   orgRole?: "owner" | "admin" | null;
   orgName: string;
   orgInitials: string;
+  orgLogoUrl: string | null;
   userName: string;
   userEmail: string | null;
   userInitials: string;
@@ -60,7 +62,7 @@ export function StaffShell({
     <div className="flex h-screen overflow-hidden bg-[#0e1014] text-[#e6e8eb] dark">
       {/* ─────────────────────────── RAIL ─────────────────────────── */}
       <aside className="hidden sm:flex w-[64px] shrink-0 flex-col items-center border-r border-[#2a2f37] bg-[#0a0c0f] py-3 z-20">
-        <OrgChip initials={orgInitials} brandColor={brandColor} onBrand={onBrand} />
+        <OrgChip initials={orgInitials} brandColor={brandColor} onBrand={onBrand} logoUrl={orgLogoUrl} />
         <div className="my-3 h-px w-6 bg-[#2a2f37]" />
 
         <nav className="flex flex-1 flex-col items-center gap-1 w-full">
@@ -131,7 +133,7 @@ export function StaffShell({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile header (sm and below) */}
         <header className="sm:hidden flex items-center gap-2 border-b border-[#2a2f37] bg-[#15181d] px-3 py-2.5">
-          <OrgChip initials={orgInitials} brandColor={brandColor} onBrand={onBrand} size={28} />
+          <OrgChip initials={orgInitials} brandColor={brandColor} onBrand={onBrand} logoUrl={orgLogoUrl} size={28} />
           <button
             onClick={() => setSheetOpen(true)}
             className="flex flex-1 min-w-0 items-center gap-1.5 text-left"
@@ -358,13 +360,30 @@ function OrgChip({
   initials,
   brandColor,
   onBrand,
+  logoUrl,
   size = 30,
 }: {
   initials: string;
   brandColor: string;
   onBrand: string;
+  logoUrl?: string | null;
   size?: number;
 }) {
+  if (logoUrl) {
+    return (
+      <div
+        style={{ width: size, height: size, background: "#fff" }}
+        className="grid shrink-0 place-items-center overflow-hidden rounded"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={logoUrl}
+          alt={initials}
+          style={{ width: size, height: size, objectFit: "contain" }}
+        />
+      </div>
+    );
+  }
   return (
     <div
       style={{
