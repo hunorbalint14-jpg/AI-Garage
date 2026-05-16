@@ -1,93 +1,25 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { generateStaffTestLink, generateCustomerTestLink } from "./actions";
+import { useRouter } from "next/navigation";
+import { impersonateStaff, impersonateCustomer } from "./actions";
 import type { DevCustomer, DevStaff } from "./page";
 
-function copyText(text: string) {
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
-  } else {
-    fallbackCopy(text);
-  }
-}
-
-function fallbackCopy(text: string) {
-  const el = document.createElement("textarea");
-  el.value = text;
-  el.style.cssText = "position:fixed;opacity:0;top:0;left:0";
-  document.body.appendChild(el);
-  el.focus();
-  el.select();
-  document.execCommand("copy");
-  document.body.removeChild(el);
-}
-
-function LinkPanel({
-  link,
-  label,
-  onClose,
-}: {
-  link: string;
-  label: string;
-  onClose: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  function handleCopy() {
-    copyText(link);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  return (
-    <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-3 flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">
-          Test link for {label} — expires in 1 hour
-        </p>
-        <button onClick={onClose} className="text-xs text-amber-600 dark:text-amber-400 underline shrink-0">
-          Dismiss
-        </button>
-      </div>
-      <div className="flex items-center gap-2">
-        <code className="flex-1 rounded bg-amber-100 dark:bg-amber-900/40 px-2 py-1.5 text-xs break-all font-mono text-amber-900 dark:text-amber-200 select-all">
-          {link}
-        </code>
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={() => window.open(link, "_blank")}
-          className="rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
-        >
-          Open in new tab
-        </button>
-        <button
-          onClick={handleCopy}
-          className="rounded border border-amber-300 dark:border-amber-700 px-3 py-1.5 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40"
-        >
-          {copied ? "Copied!" : "Copy link"}
-        </button>
-      </div>
-      <p className="text-[10px] text-amber-600 dark:text-amber-500">
-        Open in an incognito window to test without logging out of your own session.
-      </p>
-    </div>
-  );
-}
-
 function StaffRow({ member }: { member: DevStaff }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
-  const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function handleTest() {
+  function handleImpersonate() {
     setError(null);
-    setLink(null);
     start(async () => {
-      const result = await generateStaffTestLink(member.email);
-      if ("error" in result) setError(result.error);
-      else setLink(result.link);
+      const result = await impersonateStaff(member.email);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      router.push(result.redirect);
+      router.refresh();
     });
   }
 
@@ -110,31 +42,33 @@ function StaffRow({ member }: { member: DevStaff }) {
           {member.role}
         </span>
         <button
-          onClick={handleTest}
+          onClick={handleImpersonate}
           disabled={pending}
           className="shrink-0 rounded border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
         >
-          {pending ? "Generating…" : "Log in as"}
+          {pending ? "Switching…" : "Log in as"}
         </button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
-      {link && <LinkPanel link={link} label={displayName} onClose={() => setLink(null)} />}
     </div>
   );
 }
 
 function CustomerRow({ customer }: { customer: DevCustomer }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
-  const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function handleTest() {
+  function handleImpersonate() {
     setError(null);
-    setLink(null);
     start(async () => {
-      const result = await generateCustomerTestLink(customer.id);
-      if ("error" in result) setError(result.error);
-      else setLink(result.link);
+      const result = await impersonateCustomer(customer.id);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      router.push(result.redirect);
+      router.refresh();
     });
   }
 
@@ -156,16 +90,15 @@ function CustomerRow({ customer }: { customer: DevCustomer }) {
           <span className="text-xs text-muted-foreground">No email — cannot test</span>
         ) : (
           <button
-            onClick={handleTest}
+            onClick={handleImpersonate}
             disabled={pending}
             className="shrink-0 rounded border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
           >
-            {pending ? "Generating…" : customer.hasAuth ? "Log in as" : "Set up & log in"}
+            {pending ? "Switching…" : customer.hasAuth ? "Log in as" : "Set up & log in"}
           </button>
         )}
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
-      {link && <LinkPanel link={link} label={displayName} onClose={() => setLink(null)} />}
     </div>
   );
 }
@@ -194,9 +127,9 @@ export function DevTools({
     <div className="flex flex-col gap-6">
       {/* Warning banner */}
       <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-4 py-3">
-        <p className="text-sm font-semibold text-red-800 dark:text-red-300">Owner-only test feature</p>
+        <p className="text-sm font-semibold text-red-800 dark:text-red-300">Owner-only impersonation</p>
         <p className="text-xs text-red-700 dark:text-red-400 mt-1">
-          Generates one-time login links that expire in 1 hour. Open in an incognito window to test without losing your own session. Never share these links.
+          Click <strong>Log in as</strong> to switch session immediately. Your original session is preserved in a stash cookie; an <strong>Exit</strong> button appears at the bottom of the screen to restore it.
         </p>
       </div>
 
