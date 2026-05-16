@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./settings-form";
 import { AddLocationForm } from "./add-location-form";
 import { BusinessHoursForm } from "./business-hours-form";
+import { PasskeysSection, type PasskeyRow } from "./passkeys-section";
 
 type LocationRow = { id: string; slug: string; name: string; created_at: string };
 
@@ -13,7 +14,7 @@ export default async function SettingsPage() {
   const ctx = await requireStaffContext();
 
   const admin = createAdminClient();
-  const [orgRes, locationsRes, currentLocRes] = await Promise.all([
+  const [orgRes, locationsRes, currentLocRes, passkeysRes] = await Promise.all([
     admin
       .from("organizations")
       .select("name, primary_color, logo_url, slug, custom_domain, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at")
@@ -29,12 +30,18 @@ export default async function SettingsPage() {
       .select("business_hours_start, business_hours_end")
       .eq("id", ctx.location.id)
       .single(),
+    admin
+      .from("webauthn_credentials")
+      .select("credential_id, device_name, created_at, last_used_at")
+      .eq("user_id", ctx.user.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const org = orgRes.data;
   const locations = (locationsRes.data ?? []) as LocationRow[];
   const isOwner = ctx.orgRole === "owner" || ctx.orgRole === "admin";
   const locHours = currentLocRes.data as { business_hours_start?: number; business_hours_end?: number } | null;
+  const passkeys = (passkeysRes.data ?? []) as PasskeyRow[];
 
   return (
     <div className="flex flex-col gap-6 max-w-xl">
@@ -60,6 +67,8 @@ export default async function SettingsPage() {
         initialEnd={locHours?.business_hours_end ?? 18}
         canEdit={isOwner}
       />
+
+      <PasskeysSection initialPasskeys={passkeys} />
 
       <section className="rounded-lg border p-4">
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
