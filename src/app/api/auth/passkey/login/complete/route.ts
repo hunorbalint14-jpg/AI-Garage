@@ -5,6 +5,21 @@ import { createClient } from "@/lib/supabase/server";
 import { getChallenge, clearChallenge } from "@/lib/webauthn/challenge";
 import { getRpId, isOriginAllowed } from "@/lib/webauthn/config";
 
+function byteaToUint8(input: unknown): Uint8Array {
+  if (input instanceof Uint8Array) return input;
+  if (typeof input === "string") {
+    // Supabase returns bytea as "\x" + hex
+    const hex = input.startsWith("\\x") ? input.slice(2) : input;
+    const out = new Uint8Array(hex.length / 2);
+    for (let i = 0; i < out.length; i++) {
+      out[i] = parseInt(hex.substring(i * 2, i * 2 + 2), 16);
+    }
+    return out;
+  }
+  if (Array.isArray(input)) return Uint8Array.from(input as number[]);
+  return new Uint8Array(0);
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const assertion = body.assertion;
@@ -43,7 +58,7 @@ export async function POST(req: NextRequest) {
       expectedRPID: getRpId(),
       credential: {
         id: credential.credential_id,
-        publicKey: new Uint8Array(credential.public_key),
+        publicKey: byteaToUint8(credential.public_key) as Uint8Array<ArrayBuffer>,
         counter: Number(credential.counter),
         transports: (credential.transports ?? []) as AuthenticatorTransport[],
       },
