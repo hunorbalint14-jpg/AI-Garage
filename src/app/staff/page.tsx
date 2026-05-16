@@ -715,9 +715,8 @@ export default async function StaffDashboard() {
 
       {/* 8-tile KPI grid */}
       <div
+        className="grid grid-cols-2 md:grid-cols-4"
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
           gap: 1,
           background: "var(--border)",
           border: "1px solid var(--border)",
@@ -782,9 +781,8 @@ export default async function StaffDashboard() {
 
       {/* Two-column: revenue chart + priority list */}
       <div
+        className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr]"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1.5fr 1fr",
           gap: 16,
           marginTop: 20,
           marginBottom: 20,
@@ -983,7 +981,7 @@ export default async function StaffDashboard() {
             // NO VEHICLES DUE WITHIN 60 DAYS
           </div>
         ) : (
-          <>
+          <div style={{ overflowX: "auto" }}>
             <div
               style={{
                 display: "grid",
@@ -994,6 +992,7 @@ export default async function StaffDashboard() {
                 fontSize: 10,
                 color: "var(--muted-foreground)",
                 letterSpacing: "0.12em",
+                minWidth: 720,
               }}
             >
               {["REG", "CUSTOMER", "VEHICLE", "MOT", "SERVICE", "STATUS"].map((col) => (
@@ -1040,6 +1039,7 @@ export default async function StaffDashboard() {
                       i < attentionVehicles.length - 1 ? "1px solid var(--border)" : "none",
                     alignItems: "center",
                     fontSize: 13,
+                    minWidth: 720,
                   }}
                 >
                   <div>
@@ -1084,7 +1084,7 @@ export default async function StaffDashboard() {
                 </div>
               );
             })}
-          </>
+          </div>
         )}
       </div>
 
