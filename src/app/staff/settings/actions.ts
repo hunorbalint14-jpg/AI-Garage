@@ -18,7 +18,6 @@ export async function updateOrganization(
 
   const name = (formData.get("name") as string | null)?.trim();
   const primaryColor = (formData.get("primaryColor") as string | null)?.trim();
-  const logoUrl = (formData.get("logoUrl") as string | null)?.trim() || null;
   const phone = (formData.get("phone") as string | null)?.trim() || null;
   const googleReviewUrl = (formData.get("googleReviewUrl") as string | null)?.trim() || null;
   const privacyPolicyUrl = (formData.get("privacyPolicyUrl") as string | null)?.trim() || null;
@@ -34,7 +33,6 @@ export async function updateOrganization(
     .update({
       name,
       ...(primaryColor ? { primary_color: primaryColor } : {}),
-      logo_url: logoUrl,
       phone,
       google_review_url: googleReviewUrl,
       privacy_policy_url: privacyPolicyUrl,

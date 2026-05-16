@@ -5,6 +5,7 @@ import { updateOrganization } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LogoUploader } from "./logo-uploader";
 
 type Props = {
   initialName: string;
@@ -94,15 +95,8 @@ export function SettingsForm({
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="logoUrl">Logo URL (optional)</Label>
-          <Input
-            id="logoUrl"
-            name="logoUrl"
-            type="url"
-            defaultValue={initialLogoUrl}
-            placeholder="https://example.com/logo.png"
-            disabled={!canEdit}
-          />
+          <Label>Logo</Label>
+          <LogoUploader initialUrl={initialLogoUrl || null} canEdit={canEdit} />
         </div>
 
         <div className="flex flex-col gap-2">
