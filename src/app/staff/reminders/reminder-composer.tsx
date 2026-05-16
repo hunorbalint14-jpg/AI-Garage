@@ -220,10 +220,8 @@ export function ReminderComposer({
 
   return (
     <div
-      className="-mx-6 -mb-6 lg:-mx-8 lg:-mb-8"
+      className="-mx-6 -mb-6 lg:-mx-8 lg:-mb-8 grid grid-cols-1 md:grid-cols-[200px_1fr_220px] lg:grid-cols-[260px_1fr_280px] xl:grid-cols-[280px_1fr_320px]"
       style={{
-        display: "grid",
-        gridTemplateColumns: "260px 1fr 280px",
         minHeight: 680,
         borderTop: "1px solid var(--border)",
         fontFamily: sans,
@@ -974,7 +972,33 @@ export function ReminderComposer({
           maxHeight: "calc(100vh - 64px)",
         }}
       >
-        {!selected ? (
+        {mode === "history" && selectedHistory ? (
+          <>
+            <div style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", letterSpacing: "0.16em", marginBottom: 6 }}>
+              // SENT REMINDER
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginBottom: 2 }}>
+              {selectedHistory.customerName ?? "Unknown"}
+            </div>
+            {selectedHistory.registration && (
+              <div style={{ marginTop: 8 }}>
+                <Plate reg={selectedHistory.registration} />
+              </div>
+            )}
+            <div style={{ marginTop: 12, fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)" }}>
+              <div>Type · <span style={{ color: "var(--foreground)", textTransform: "capitalize" as const }}>{selectedHistory.type}</span></div>
+              <div style={{ marginTop: 4 }}>Sent · <span style={{ color: "var(--foreground)" }}>{selectedHistory.sentAt ? new Date(selectedHistory.sentAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</span></div>
+            </div>
+            {selectedHistory.customerId && (
+              <Link
+                href={`/staff/customers/${selectedHistory.customerId}`}
+                style={{ display: "inline-block", marginTop: 16, fontFamily: mono, fontSize: 10, color: accent, textDecoration: "none", padding: "3px 8px", border: "1px solid var(--border)", borderRadius: 2, background: accentBg }}
+              >
+                View customer →
+              </Link>
+            )}
+          </>
+        ) : !selected ? (
           <div
             style={{
               fontFamily: mono,
