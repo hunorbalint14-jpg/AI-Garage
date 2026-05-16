@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   const { error } = await admin.from("webauthn_credentials").insert({
     user_id: ctx.user.id,
     credential_id: credential.id,
-    public_key: Buffer.from(credential.publicKey),
+    public_key: Buffer.from(credential.publicKey).toString("base64"),
     counter: credential.counter,
     transports: credential.transports ?? null,
     device_name: deviceName,
