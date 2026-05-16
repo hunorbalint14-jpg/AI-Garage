@@ -9,10 +9,16 @@ export const metadata = {
 export default function DpaPage() {
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <Link href="/" className="text-sm text-gray-500 hover:text-gray-900">← Back</Link>
+      <div className="mx-auto max-w-3xl px-6 py-12">
+        <div className="flex items-center justify-between">
+          <Link href="/" aria-label="AI Garage">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/logo/aigarage-logo-horizontal-on-light.svg" alt="AI Garage" className="h-8 w-auto" />
+          </Link>
+          <Link href="/" className="text-sm text-gray-500 hover:text-gray-900">← Back</Link>
+        </div>
 
-        <h1 className="mt-6 text-3xl font-bold tracking-tight">Data Processing Agreement</h1>
+        <h1 className="mt-10 text-3xl font-bold tracking-tight">Data Processing Agreement</h1>
         <p className="mt-2 text-sm text-gray-500">Version {CURRENT_DPA_VERSION} · Effective {CURRENT_DPA_EFFECTIVE_DATE}</p>
 
         <div className="prose prose-sm mt-8 max-w-none text-gray-700 space-y-6">

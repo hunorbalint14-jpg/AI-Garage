@@ -1,0 +1,17 @@
+{
+  "name": "AIGarage",
+  "short_name": "AIGarage",
+  "description": "Operating system for service shops.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0d11",
+  "theme_color": "#22c55e",
+  "icons": [
+    { "src": "/brand/icon/png/android-chrome-48.png",  "sizes": "48x48",   "type": "image/png" },
+    { "src": "/brand/icon/png/android-chrome-72.png",  "sizes": "72x72",   "type": "image/png" },
+    { "src": "/brand/icon/png/android-chrome-96.png",  "sizes": "96x96",   "type": "image/png" },
+    { "src": "/brand/icon/png/android-chrome-144.png", "sizes": "144x144", "type": "image/png" },
+    { "src": "/brand/icon/png/android-chrome-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/brand/icon/png/android-chrome-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -21,7 +21,8 @@ export default async function StaffLoginPage({ searchParams }: Props) {
           {tenant ? (
             <span style={{ color: primaryColor ?? "#fff" }}>{tenant.organization.name}</span>
           ) : (
-            <>Garage<span className="text-indigo-400">AI</span></>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src="/brand/logo/aigarage-logo-horizontal-on-dark.svg" alt="AI Garage" className="h-8 w-auto" />
           )}
         </Link>
       </nav>

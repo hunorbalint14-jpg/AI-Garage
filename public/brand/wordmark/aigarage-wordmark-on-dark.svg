@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" role="img" aria-label="AIGarage">
+  <title>AIGarage</title>
+  <defs></defs>
+  <text x="0" y="24" font-family="Space Grotesk, Inter, system-ui, -apple-system, sans-serif" font-weight="600" font-size="34" dominant-baseline="central" letter-spacing="-0.8">
+    <tspan fill="#22c55e">AI</tspan><tspan fill="#FFFFFF">Garage</tspan>
+  </text>
+</svg>
