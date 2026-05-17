@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.2" baseProfile="tiny-ps" viewBox="0 0 512 512">
+  <title>AI Garage</title>
+  <circle cx="256" cy="256" r="256" fill="#22c55e"/>
+  <g transform="translate(96 96) scale(3.2)">
+    <path d="M 86 32 L 86 14 L 14 14 L 14 86 L 86 86 L 86 68" stroke="#0b0d11" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+    <rect x="58" y="44" width="28" height="12" rx="2" fill="#0b0d11"/>
+    <text x="40" y="50" font-family="sans-serif" font-weight="bold" font-size="32" text-anchor="middle" dominant-baseline="central" fill="#FFFFFF">AI</text>
+  </g>
+</svg>
