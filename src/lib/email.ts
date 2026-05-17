@@ -8,12 +8,18 @@ const RAW_FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
 // email address, wrap it; otherwise trust the caller's "Name <addr>" format.
 const FROM = RAW_FROM.includes("<") ? RAW_FROM : `${SENDER_NAME} <${RAW_FROM}>`;
 
+const PUBLIC_ORIGIN =
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN && !process.env.NEXT_PUBLIC_ROOT_DOMAIN.includes("localtest")
+    ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
+    : "https://ai-garage.co.uk";
+const LOGO_URL = `${PUBLIC_ORIGIN}/brand/icon/png/sms-avatar-brand-512.png`;
+
 function textToHtml(text: string): string {
   const paragraphs = text
     .split("\n\n")
     .map((p) => `<p style="margin:0 0 16px 0">${p.replace(/\n/g, "<br>")}</p>`)
     .join("");
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#111827;max-width:600px;margin:0 auto;padding:32px 24px">${paragraphs}<hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0"><p style="font-size:12px;color:#9ca3af;margin:0">Sent via AI Garage</p></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#111827;max-width:600px;margin:0 auto;padding:32px 24px"><div style="text-align:left;margin-bottom:24px"><img src="${LOGO_URL}" width="56" height="56" alt="AI Garage" style="display:block;border-radius:12px;border:0;outline:0;text-decoration:none"></div>${paragraphs}<hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0"><p style="font-size:12px;color:#9ca3af;margin:0">Sent via AI Garage · <a href="${PUBLIC_ORIGIN}" style="color:#9ca3af;text-decoration:underline">ai-garage.co.uk</a></p></body></html>`;
 }
 
 export type SendEmailResult =
