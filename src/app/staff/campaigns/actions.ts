@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { draftBroadcastMessage } from "@/lib/ai-messages";
@@ -83,23 +83,23 @@ export async function sendBroadcast(
 
   const admin = createAdminClient();
 
-  const [customersRes, orgRes] = await Promise.all([
-    admin
-      .from("customers")
-      .select("id, email, phone, marketing_email_consent, marketing_sms_consent, anonymized_at")
-      .eq("location_id", ctx.location.id)
-      .is("anonymized_at", null)
-      .limit(MAX_CUSTOMERS),
-    admin.from("organizations").select("name").eq("id", ctx.organization.id).maybeSingle(),
-  ]);
+  const { data: customersData } = await admin
+    .from("customers")
+    .select("id, email, phone, marketing_email_consent, marketing_sms_consent, anonymized_at")
+    .eq("location_id", ctx.location.id)
+    .is("anonymized_at", null)
+    .limit(MAX_CUSTOMERS);
 
-  const customers = customersRes.data ?? [];
+  const customers = customersData ?? [];
   if (!customers.length) return { error: "No customers found at this location." };
 
-  const garageName = orgRes.data?.name ?? ctx.organization.name;
   const cleanSubject = subjectInput.trim().slice(0, 120);
   if (!cleanSubject) return { error: "Subject is required." };
   const subject = cleanSubject;
+
+  const bookingUrl = tenantBookingUrl(ctx.location.slug);
+  const bookingCta = { url: bookingUrl, label: "Visit our garage" };
+  const smsWithLink = (body: string) => `${body}\n${bookingUrl}`;
 
   let emailSent = 0, emailFailed = 0, smsSent = 0, smsFailed = 0, whatsappSent = 0, whatsappFailed = 0;
   let skippedNoEmail = 0, skippedNoPhone = 0, skippedNoEmailConsent = 0, skippedNoSmsConsent = 0;
@@ -113,7 +113,7 @@ export async function sendBroadcast(
       if (!customer.email) skippedNoEmail++;
       else if (!customer.marketing_email_consent) skippedNoEmailConsent++;
       else {
-        const result = await sendEmail({ to: customer.email, subject, text: emailText });
+        const result = await sendEmail({ to: customer.email, subject, text: emailText, cta: bookingCta });
         await admin.from("reminders").insert({
           location_id: ctx.location.id,
           customer_id: customer.id,
@@ -140,7 +140,7 @@ export async function sendBroadcast(
       if (!customer.phone) skippedNoPhone++;
       else if (!customer.marketing_sms_consent) skippedNoSmsConsent++;
       else {
-        const result = await sendSms({ to: customer.phone, body: smsText });
+        const result = await sendSms({ to: customer.phone, body: smsWithLink(smsText) });
         await admin.from("reminders").insert({
           location_id: ctx.location.id,
           customer_id: customer.id,
@@ -169,7 +169,7 @@ export async function sendBroadcast(
       } else if (!customer.marketing_sms_consent) {
         if (!smsText) skippedNoSmsConsent++;
       } else {
-        const result = await sendWhatsApp({ to: customer.phone, body: whatsappText });
+        const result = await sendWhatsApp({ to: customer.phone, body: smsWithLink(whatsappText) });
         await admin.from("reminders").insert({
           location_id: ctx.location.id,
           customer_id: customer.id,

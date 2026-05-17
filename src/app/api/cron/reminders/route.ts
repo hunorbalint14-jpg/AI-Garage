@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import {
@@ -55,6 +55,7 @@ type VehicleRow = {
 
 type LocationRow = {
   id: string;
+  slug: string;
   name: string;
   organization: {
     id: string;
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name, phone)");
+    .select("id, slug, name, organization:organizations(id, name, phone)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
 
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
@@ -114,6 +115,9 @@ export async function GET(request: NextRequest) {
 
   for (const location of locations ?? []) {
     const org = location.organization;
+    const bookingUrl = tenantBookingUrl(location.slug);
+    const bookingCta = { url: bookingUrl, label: "Book your appointment" };
+    const smsWithLink = (body: string) => `${body}\nBook: ${bookingUrl}`;
 
     const [motConfig, serviceConfig, taxConfig] = await Promise.all([
       getTaskConfig(admin, location.id, "mot_reminders"),
@@ -196,7 +200,7 @@ export async function GET(request: NextRequest) {
               messageText = fallbackReminderMessage(draftInput);
             }
 
-            const emailResult = await sendEmail({ to: customer.email, subject, text: messageText });
+            const emailResult = await sendEmail({ to: customer.email, subject, text: messageText, cta: bookingCta });
 
             await admin.from("reminders").insert({
               location_id: location.id,
@@ -235,7 +239,7 @@ export async function GET(request: NextRequest) {
               waText = fallbackSmsReminderMessage(draftInput);
             }
 
-            const waResult = await sendWhatsApp({ to: customer.phone, body: waText });
+            const waResult = await sendWhatsApp({ to: customer.phone, body: smsWithLink(waText) });
 
             await admin.from("reminders").insert({
               location_id: location.id,
@@ -272,7 +276,7 @@ export async function GET(request: NextRequest) {
               smsText = fallbackSmsReminderMessage(draftInput);
             }
 
-            const smsResult = await sendSms({ to: customer.phone, body: smsText });
+            const smsResult = await sendSms({ to: customer.phone, body: smsWithLink(smsText) });
 
             await admin.from("reminders").insert({
               location_id: location.id,
@@ -306,6 +310,8 @@ export async function GET(request: NextRequest) {
   }
   for (const location of locations ?? []) {
     const org = location.organization;
+    const bookingUrl = tenantBookingUrl(location.slug);
+    const bookingCta = { url: bookingUrl, label: "Book your appointment" };
     const taxConfig = await getTaskConfig(admin, location.id, "tax_reminders");
     if (!taxConfig.enabled) continue;
     const taxDays = (taxConfig.settings.remind_days_before as number) ?? REMIND_DAYS_BEFORE_DEFAULT;
@@ -339,13 +345,13 @@ export async function GET(request: NextRequest) {
       if (customer.email && taxChannels.includes("email")) {
         const alreadySent = await wasRecentlySent(admin, v.id, "tax", "email", dedupCutoff);
         if (!alreadySent) {
-          const emailResult = await sendEmail({ to: customer.email, subject, text: body });
+          const emailResult = await sendEmail({ to: customer.email, subject, text: body, cta: bookingCta });
           await admin.from("reminders").insert({ location_id: location.id, customer_id: customer.id, vehicle_id: v.id, type: "tax", channel: "email", recipient_email: customer.email, recipient_phone: null, subject, message_text: body, status: emailResult.success ? "sent" : "failed", error_message: emailResult.success ? null : emailResult.error });
           emailResult.success ? results.sent++ : results.failed++;
         }
       }
       if (customer.phone && taxChannels.includes("sms")) {
-        const smsBody = `Hi ${firstName}, your road tax for ${v.registration} is due ${formattedDate}. Renew at gov.uk/renew-vehicle-tax.`;
+        const smsBody = `Hi ${firstName}, your road tax for ${v.registration} is due ${formattedDate}. Renew at gov.uk/renew-vehicle-tax.\nGarage: ${bookingUrl}`;
         const alreadySent = await wasRecentlySent(admin, v.id, "tax", "sms", dedupCutoff);
         if (!alreadySent) {
           const smsResult = await sendSms({ to: customer.phone, body: smsBody });
