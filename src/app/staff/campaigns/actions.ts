@@ -10,7 +10,7 @@ import { draftBroadcastMessage } from "@/lib/ai-messages";
 
 export type DraftBroadcastPreviewResult =
   | { error: string }
-  | { email: string; sms: string; emailCount: number; smsCount: number; whatsappCount: number };
+  | { subject: string; email: string; sms: string; emailCount: number; smsCount: number; whatsappCount: number };
 
 export async function draftBroadcastPreview(
   topic: string,
@@ -54,7 +54,7 @@ export type SendBroadcastResult =
 const MAX_CUSTOMERS = 500;
 
 export async function sendBroadcast(
-  topic: string,
+  subjectInput: string,
   emailText: string | null,
   smsText: string | null,
   whatsappText: string | null,
@@ -78,7 +78,9 @@ export async function sendBroadcast(
   if (!customers.length) return { error: "No customers found at this location." };
 
   const garageName = orgRes.data?.name ?? ctx.organization.name;
-  const subject = `${garageName} — ${topic.slice(0, 60)}`;
+  const cleanSubject = subjectInput.trim().slice(0, 120);
+  if (!cleanSubject) return { error: "Subject is required." };
+  const subject = cleanSubject;
 
   let emailSent = 0, emailFailed = 0, smsSent = 0, smsFailed = 0, whatsappSent = 0, whatsappFailed = 0;
 

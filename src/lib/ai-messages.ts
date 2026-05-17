@@ -125,7 +125,7 @@ export type DraftBroadcastInput = {
 
 export async function draftBroadcastMessage(
   input: DraftBroadcastInput,
-): Promise<{ email: string; sms: string }> {
+): Promise<{ subject: string; email: string; sms: string }> {
   const { garageName, garagePhone, topic } = input;
   const contactLine = garagePhone
     ? `Call us on ${garagePhone} or reply to this email.`
@@ -134,10 +134,18 @@ export async function draftBroadcastMessage(
   const [emailRes, smsRes] = await Promise.all([
     anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 300,
+      max_tokens: 400,
       system: [{
         type: "text",
-        text: `You draft short broadcast marketing emails for UK garages to send to all their customers. British English. Under 120 words. Start with "Dear customer," — warm but professional. End with a clear call to action. No subject line, no sign-off placeholder. Do not use a specific customer name.`,
+        text: `You draft short broadcast marketing emails for UK garages to send to all their customers. British English. Under 120 words. Start with "Dear customer," — warm but professional. End with a clear call to action.
+
+Output format — exactly two parts separated by a single line containing "---":
+
+SUBJECT: <a short, compelling email subject line, max 60 chars, no quotes, no emoji, no "subject:" prefix in the value>
+---
+<email body, starting with "Dear customer,">
+
+Do not use the user's raw prompt as the subject — write a fresh, customer-facing subject. Do not include a sign-off placeholder. Do not name a specific customer.`,
         cache_control: { type: "ephemeral" },
       }],
       messages: [{
@@ -162,9 +170,36 @@ export async function draftBroadcastMessage(
 
   const emailBlock = emailRes.content[0];
   const smsBlock = smsRes.content[0];
+  const raw = emailBlock.type === "text" ? emailBlock.text.trim() : "";
+
+  const fallbackSubject = `News from ${garageName}`;
+  const fallbackBody = `Dear customer,\n\n${topic}\n\nRegards, ${garageName}`;
+  let subject = fallbackSubject;
+  let email = fallbackBody;
+
+  if (raw) {
+    const parts = raw.split(/\n---\n|\n---\s*$|^---\n/m);
+    if (parts.length >= 2) {
+      const head = parts[0].trim();
+      const body = parts.slice(1).join("\n---\n").trim();
+      const subjMatch = head.match(/^subject\s*:\s*(.+)$/im);
+      subject = subjMatch ? subjMatch[1].trim().replace(/^["']|["']$/g, "").slice(0, 100) : fallbackSubject;
+      email = body || fallbackBody;
+    } else {
+      // No separator — try inline "Subject: …" on first line
+      const m = raw.match(/^subject\s*:\s*(.+?)\n+([\s\S]+)$/i);
+      if (m) {
+        subject = m[1].trim().replace(/^["']|["']$/g, "").slice(0, 100);
+        email = m[2].trim();
+      } else {
+        email = raw;
+      }
+    }
+  }
 
   return {
-    email: emailBlock.type === "text" ? emailBlock.text.trim() : `Dear customer,\n\n${topic}\n\nRegards, ${garageName}`,
+    subject,
+    email,
     sms: smsBlock.type === "text" ? smsBlock.text.trim() : `${topic}. Contact ${garageName}.${garagePhone ? ` Tel: ${garagePhone}` : ""}`,
   };
 }
