@@ -2,7 +2,11 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM = process.env.RESEND_FROM_EMAIL ?? "AI Garage <onboarding@resend.dev>";
+const SENDER_NAME = process.env.RESEND_SENDER_NAME ?? "AI Garage";
+const RAW_FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
+// Ensure the sender display name is always set. If the env value is a bare
+// email address, wrap it; otherwise trust the caller's "Name <addr>" format.
+const FROM = RAW_FROM.includes("<") ? RAW_FROM : `${SENDER_NAME} <${RAW_FROM}>`;
 
 function textToHtml(text: string): string {
   const paragraphs = text

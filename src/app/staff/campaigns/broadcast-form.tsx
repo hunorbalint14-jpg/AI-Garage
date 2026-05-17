@@ -21,6 +21,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
   const [step, setStep] = useState<Step>({ type: "idle" });
   const [topic, setTopic] = useState("");
   const [channels, setChannels] = useState<Set<"email" | "sms" | "whatsapp">>(new Set(["email"]));
+  const [subject, setSubject] = useState("");
   const [emailText, setEmailText] = useState("");
   const [smsText, setSmsText] = useState("");
   const [pending, startTransition] = useTransition();
@@ -41,6 +42,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
       if ("error" in result) {
         setStep({ type: "error", message: result.error });
       } else {
+        setSubject(result.subject);
         setEmailText(result.email);
         setSmsText(result.sms);
         setStep({ type: "preview", emailCount: result.emailCount, smsCount: result.smsCount, whatsappCount: result.whatsappCount });
@@ -49,10 +51,11 @@ export function BroadcastForm({ hasCustomers }: Props) {
   }
 
   function handleSend() {
+    if (!subject.trim()) return;
     setStep({ type: "sending" });
     startTransition(async () => {
       const result = await sendBroadcast(
-        topic,
+        subject,
         emailText || null,
         smsText || null,
         channels.has("whatsapp") ? (emailText || null) : null,
@@ -77,6 +80,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
     setStep({ type: "idle" });
     setTopic("");
     setChannels(new Set(["email"]));
+    setSubject("");
     setEmailText("");
     setSmsText("");
   }
@@ -173,9 +177,29 @@ export function BroadcastForm({ hasCustomers }: Props) {
             Review and edit before sending.
           </div>
 
+          {channels.has("email") && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Email subject
+              </label>
+              <input
+                type="text"
+                className={TEXTAREA_CLASS + " py-2"}
+                value={subject}
+                maxLength={120}
+                onChange={(e) => setSubject(e.target.value)}
+                disabled={isSending}
+                placeholder="Subject line your customers will see"
+              />
+              <p className="text-xs text-muted-foreground">
+                {subject.length}/120 — appears in the inbox preview.
+              </p>
+            </div>
+          )}
+
           {emailText && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</label>
+              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email body</label>
               <textarea
                 className={TEXTAREA_CLASS + " min-h-[160px]"}
                 value={emailText}
@@ -202,7 +226,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
           <div className="flex items-center gap-3">
             <Button
               type="button"
-              disabled={isSending}
+              disabled={isSending || (channels.has("email") && !subject.trim())}
               onClick={handleSend}
             >
               {isSending ? "Sending…" : `Send campaign`}
