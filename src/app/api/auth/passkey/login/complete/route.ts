@@ -87,13 +87,33 @@ export async function POST(req: NextRequest) {
     })
     .eq("credential_id", credential.credential_id);
 
-  // Mint Supabase session: generateLink → verifyOtp pattern
+  // Look up auth user
   const { data: authUser } = await admin.auth.admin.getUserById(credential.user_id);
   if (!authUser?.user?.email) {
     await clearChallenge();
     return NextResponse.json({ error: "Auth user has no email." }, { status: 500 });
   }
 
+  // Detect if we're on the root marketing domain (no subdomain) — if so, route
+  // the user to their tenant via a cross-subdomain magic link. Otherwise mint
+  // the session inline on the current host.
+  const rootDomain = process.env.ROOT_DOMAIN ?? process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "";
+  const host = req.headers.get("host") ?? "";
+  const hostname = host.split(":")[0];
+  const rootHost = rootDomain.split(":")[0];
+  const isRootDomain = hostname === rootHost || hostname === `www.${rootHost}`;
+
+  if (isRootDomain) {
+    const { getStaffTenantMagicLink } = await import("@/app/staff/login/actions");
+    const result = await getStaffTenantMagicLink(credential.user_id, authUser.user.email);
+    await clearChallenge();
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+    return NextResponse.json({ success: true, redirect: result.url });
+  }
+
+  // Same-subdomain flow: mint session inline
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email: authUser.user.email,

@@ -13,28 +13,18 @@ const PROTOCOL =
     ? "http"
     : "https";
 
-function tenantUrl(slug: string) {
-  return `${PROTOCOL}://${slug}.${ROOT_HOST}${PORT}/staff`;
+function tenantOrigin(slug: string) {
+  return `${PROTOCOL}://${slug}.${ROOT_HOST}${PORT}`;
 }
 
-// After a successful signInWithPassword on the root domain, call this to
-// find which tenant subdomain the staff member belongs to and get the URL.
-export async function getStaffTenantUrl(): Promise<
-  { url: string } | { error: string }
-> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Not signed in." };
-
+async function findTenantSlugForUser(userId: string): Promise<string | null> {
   const admin = createAdminClient();
 
   // Org-level membership (owners / admins) — find first location in their org
   const { data: orgMembership } = await admin
     .from("org_users")
     .select("organization_id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (orgMembership) {
@@ -45,25 +35,73 @@ export async function getStaffTenantUrl(): Promise<
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
-
-    if (location) return { url: tenantUrl(location.slug) };
+    if (location) return location.slug;
   }
 
   // Location-level staff membership
   const { data: locMembership } = (await admin
     .from("location_users")
     .select("location:locations(slug)")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle()) as {
     data: { location: { slug: string } | null } | null;
   };
+  if (locMembership?.location) return locMembership.location.slug;
 
-  if (locMembership?.location) {
-    return { url: tenantUrl(locMembership.location.slug) };
+  return null;
+}
+
+// After a successful root-domain sign-in, build a magic-link URL that lands
+// on the user's tenant subdomain via /auth/callback — sets the session cookies
+// on the subdomain. Plain /staff redirect doesn't work because cookies are
+// scoped to the current host.
+export async function getStaffTenantUrl(): Promise<
+  { url: string } | { error: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { error: "Not signed in." };
+
+  const slug = await findTenantSlugForUser(user.id);
+  if (!slug) {
+    return {
+      error: "No garage membership found for this account. Contact your administrator.",
+    };
   }
 
-  return {
-    error:
-      "No garage membership found for this account. Contact your administrator.",
-  };
+  const redirectTo = `${tenantOrigin(slug)}/auth/callback?next=/staff`;
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email: user.email,
+    options: { redirectTo },
+  });
+  if (error || !data.properties?.action_link) {
+    return { error: error?.message ?? "Failed to generate cross-domain link." };
+  }
+  return { url: data.properties.action_link };
+}
+
+// Used by passkey login on root domain — same trick.
+export async function getStaffTenantMagicLink(
+  userId: string,
+  email: string,
+): Promise<{ url: string } | { error: string }> {
+  const slug = await findTenantSlugForUser(userId);
+  if (!slug) {
+    return { error: "No garage membership found for this account." };
+  }
+  const redirectTo = `${tenantOrigin(slug)}/auth/callback?next=/staff`;
+  const admin = createAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: { redirectTo },
+  });
+  if (error || !data.properties?.action_link) {
+    return { error: error?.message ?? "Failed to generate cross-domain link." };
+  }
+  return { url: data.properties.action_link };
 }
