@@ -51,10 +51,13 @@ async function findTenantSlugForUser(userId: string): Promise<string | null> {
   return null;
 }
 
-// After a successful root-domain sign-in, build a magic-link URL that lands
-// on the user's tenant subdomain via /auth/callback — sets the session cookies
-// on the subdomain. Plain /staff redirect doesn't work because cookies are
-// scoped to the current host.
+function handoffUrl(slug: string, tokenHash: string, next: string): string {
+  return `${tenantOrigin(slug)}/auth/handoff?token_hash=${encodeURIComponent(tokenHash)}&next=${encodeURIComponent(next)}`;
+}
+
+// After a successful root-domain sign-in, build a handoff URL on the user's
+// tenant subdomain. The handoff route runs server-side verifyOtp which sets
+// the auth cookies on the tenant subdomain (cookies are host-scoped).
 export async function getStaffTenantUrl(): Promise<
   { url: string } | { error: string }
 > {
@@ -71,37 +74,35 @@ export async function getStaffTenantUrl(): Promise<
     };
   }
 
-  const redirectTo = `${tenantOrigin(slug)}/auth/callback?next=/staff`;
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email: user.email,
-    options: { redirectTo },
   });
-  if (error || !data.properties?.action_link) {
-    return { error: error?.message ?? "Failed to generate cross-domain link." };
+  const tokenHash = data?.properties?.hashed_token;
+  if (error || !tokenHash) {
+    return { error: error?.message ?? "Failed to generate handoff token." };
   }
-  return { url: data.properties.action_link };
+  return { url: handoffUrl(slug, tokenHash, "/staff") };
 }
 
 // Used by passkey login on root domain — same trick.
 export async function getStaffTenantMagicLink(
-  userId: string,
+  _userId: string,
   email: string,
 ): Promise<{ url: string } | { error: string }> {
-  const slug = await findTenantSlugForUser(userId);
+  const slug = await findTenantSlugForUser(_userId);
   if (!slug) {
     return { error: "No garage membership found for this account." };
   }
-  const redirectTo = `${tenantOrigin(slug)}/auth/callback?next=/staff`;
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { redirectTo },
   });
-  if (error || !data.properties?.action_link) {
-    return { error: error?.message ?? "Failed to generate cross-domain link." };
+  const tokenHash = data?.properties?.hashed_token;
+  if (error || !tokenHash) {
+    return { error: error?.message ?? "Failed to generate handoff token." };
   }
-  return { url: data.properties.action_link };
+  return { url: handoffUrl(slug, tokenHash, "/staff") };
 }
