@@ -18,7 +18,7 @@ export default async function PayDonePage({
           <span className="font-mono text-gray-200">{id.slice(0, 8)}</span> is paid.
         </p>
         <p className="mt-6 text-xs text-gray-500">
-          A receipt has been emailed to you by Stripe.
+          If a receipt was requested, Stripe will email it to you shortly.
         </p>
         <Link
           href="/"

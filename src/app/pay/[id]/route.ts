@@ -86,6 +86,7 @@ export async function GET(
         payment_intent_data: {
           application_fee_amount: platformFeePence(amountPence),
           metadata: { invoice_id: inv.id },
+          receipt_email: inv.customer?.email ?? undefined,
         },
         metadata: { invoice_id: inv.id },
         success_url: successUrl,
