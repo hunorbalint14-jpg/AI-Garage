@@ -39,7 +39,13 @@ export async function draftBroadcastPreview(
   const garagePhone = orgRes.data?.phone ?? null;
 
   try {
-    const drafted = await draftBroadcastMessage({ garageName, garagePhone, topic });
+    const drafted = await draftBroadcastMessage({
+      garageName,
+      garagePhone,
+      topic,
+      needEmail: channels.includes("email"),
+      needSms: channels.includes("sms"),
+    });
     return { ...drafted, emailCount, smsCount, whatsappCount };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
