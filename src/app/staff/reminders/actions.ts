@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import Anthropic from "@anthropic-ai/sdk";
@@ -183,8 +183,11 @@ export async function sendReminderDraft(
   const garageName = org?.name ?? ctx.organization.name;
   const sentChannels: string[] = [];
 
+  const bookingUrl = tenantBookingUrl(ctx.location.slug);
+  const bookingCta = { url: bookingUrl, label: "Book your appointment" };
+
   if (sendChannels.email && emailText && customer.email) {
-    const result = await sendEmail({ to: customer.email, subject, text: emailText });
+    const result = await sendEmail({ to: customer.email, subject, text: emailText, cta: bookingCta });
     await admin.from("reminders").insert({
       location_id: ctx.location.id,
       customer_id: customer.id,
@@ -202,8 +205,10 @@ export async function sendReminderDraft(
     sentChannels.push(result.success ? "email" : `email failed: ${result.error}`);
   }
 
+  const smsWithLink = (body: string) => `${body}\nBook: ${bookingUrl}`;
+
   if (sendChannels.sms && smsText && customer.phone) {
-    const result = await sendSms({ to: customer.phone, body: smsText });
+    const result = await sendSms({ to: customer.phone, body: smsWithLink(smsText) });
     await admin.from("reminders").insert({
       location_id: ctx.location.id,
       customer_id: customer.id,
@@ -221,7 +226,7 @@ export async function sendReminderDraft(
   }
 
   if (sendChannels.whatsapp && smsText && customer.phone) {
-    const result = await sendWhatsApp({ to: customer.phone, body: smsText });
+    const result = await sendWhatsApp({ to: customer.phone, body: smsWithLink(smsText) });
     await admin.from("reminders").insert({
       location_id: ctx.location.id,
       customer_id: customer.id,

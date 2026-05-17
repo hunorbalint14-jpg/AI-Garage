@@ -12,14 +12,42 @@ const PUBLIC_ORIGIN =
   process.env.NEXT_PUBLIC_ROOT_DOMAIN && !process.env.NEXT_PUBLIC_ROOT_DOMAIN.includes("localtest")
     ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
     : "https://ai-garage.co.uk";
+const ROOT_HOST = PUBLIC_ORIGIN.replace(/^https?:\/\//, "");
 const LOGO_URL = `${PUBLIC_ORIGIN}/brand/icon/png/sms-avatar-brand-512.png`;
 
-function textToHtml(text: string): string {
+export type EmailCta = { url: string; label: string };
+
+// Build a tenant-aware booking URL: https://{slug}.ai-garage.co.uk/book
+export function tenantBookingUrl(slug: string, path = "/book"): string {
+  return `https://${slug}.${ROOT_HOST}${path}`;
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function escapeText(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function ctaButtonHtml(cta: EmailCta): string {
+  const url = escapeAttr(cta.url);
+  const label = escapeText(cta.label);
+  return `<div style="text-align:left;margin:28px 0"><a href="${url}" style="display:inline-block;background:#22c55e;color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;padding:12px 24px;border-radius:8px;border:0">${label} →</a></div>`;
+}
+
+function textToHtml(text: string, cta?: EmailCta): string {
   const paragraphs = text
     .split("\n\n")
     .map((p) => `<p style="margin:0 0 16px 0">${p.replace(/\n/g, "<br>")}</p>`)
     .join("");
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#111827;max-width:600px;margin:0 auto;padding:32px 24px"><div style="text-align:left;margin-bottom:24px"><img src="${LOGO_URL}" width="56" height="56" alt="AI Garage" style="display:block;border-radius:12px;border:0;outline:0;text-decoration:none"></div>${paragraphs}<hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0"><p style="font-size:12px;color:#9ca3af;margin:0">Sent via AI Garage · <a href="${PUBLIC_ORIGIN}" style="color:#9ca3af;text-decoration:underline">ai-garage.co.uk</a></p></body></html>`;
+  const ctaHtml = cta ? ctaButtonHtml(cta) : "";
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#111827;max-width:600px;margin:0 auto;padding:32px 24px"><div style="text-align:left;margin-bottom:24px"><img src="${LOGO_URL}" width="56" height="56" alt="AI Garage" style="display:block;border-radius:12px;border:0;outline:0;text-decoration:none"></div>${paragraphs}${ctaHtml}<hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0"><p style="font-size:12px;color:#9ca3af;margin:0">Sent via AI Garage · <a href="${PUBLIC_ORIGIN}" style="color:#9ca3af;text-decoration:underline">ai-garage.co.uk</a></p></body></html>`;
+}
+
+function appendCtaToText(text: string, cta?: EmailCta): string {
+  if (!cta) return text;
+  return `${text}\n\n${cta.label}: ${cta.url}`;
 }
 
 export type SendEmailResult =
@@ -31,19 +59,21 @@ export async function sendEmail({
   subject,
   text,
   html,
+  cta,
 }: {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  cta?: EmailCta;
 }): Promise<SendEmailResult> {
   try {
     const { data, error } = await resend.emails.send({
       from: FROM,
       to: [to],
       subject,
-      text,
-      html: html ?? textToHtml(text),
+      text: appendCtaToText(text, cta),
+      html: html ?? textToHtml(text, cta),
     });
 
     if (error) return { success: false, error: error.message };
