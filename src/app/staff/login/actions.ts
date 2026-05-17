@@ -3,7 +3,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
+const ROOT =
+  process.env.ROOT_DOMAIN ??
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN ??
+  "localtest.me:3000";
 const ROOT_HOST = ROOT.split(":")[0];
 const PORT = ROOT.includes(":") ? `:${ROOT.split(":")[1]}` : "";
 const PROTOCOL =
