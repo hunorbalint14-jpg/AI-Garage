@@ -1,4 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Payment cancelled · AI Garage",
+  icons: {
+    icon: [
+      { url: "/brand/icon/aigarage-favicon.svg", type: "image/svg+xml" },
+      { url: "/brand/icon/png/favicon-32.png", sizes: "32x32", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+  },
+};
 
 export default async function PayCancelledPage({
   params,
