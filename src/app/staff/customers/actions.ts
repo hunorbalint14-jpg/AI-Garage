@@ -7,7 +7,7 @@ import { normalizeRegistration, validateRegistration } from "@/lib/registration"
 import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
 import { lookupVehicleVes } from "@/lib/dvla-ves";
 import { checkVehicleRecalls } from "@/lib/dvsa-recalls";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import {
@@ -203,6 +203,9 @@ export async function sendReminder(
   };
 
   const sentChannels: string[] = [];
+  const bookingUrl = tenantBookingUrl(ctx.location.slug);
+  const bookingCta = { url: bookingUrl, label: "Book your appointment" };
+  const withLink = (body: string) => `${body}\nBook: ${bookingUrl}`;
 
   // Email channel
   if (customer.email) {
@@ -214,7 +217,7 @@ export async function sendReminder(
     }
 
     const subject = `${label.toUpperCase()} reminder — ${vehicle.registration} due ${formattedDate}`;
-    const emailResult = await sendEmail({ to: customer.email, subject, text: messageText });
+    const emailResult = await sendEmail({ to: customer.email, subject, text: messageText, cta: bookingCta });
 
     await admin.from("reminders").insert({
       location_id: ctx.location.id,
@@ -243,7 +246,7 @@ export async function sendReminder(
       smsText = fallbackSmsReminderMessage(draftInput);
     }
 
-    const smsResult = await sendSms({ to: customer.phone, body: smsText });
+    const smsResult = await sendSms({ to: customer.phone, body: withLink(smsText) });
 
     await admin.from("reminders").insert({
       location_id: ctx.location.id,
@@ -271,7 +274,7 @@ export async function sendReminder(
       waText = fallbackSmsReminderMessage(draftInput);
     }
 
-    const waResult = await sendWhatsApp({ to: customer.phone, body: waText });
+    const waResult = await sendWhatsApp({ to: customer.phone, body: withLink(waText) });
 
     await admin.from("reminders").insert({
       location_id: ctx.location.id,
