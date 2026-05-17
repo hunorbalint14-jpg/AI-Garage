@@ -1,0 +1,144 @@
+import { NextResponse, type NextRequest } from "next/server";
+import type Stripe from "stripe";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { stripe } from "@/lib/stripe";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// Stripe Connect + invoice pay webhook handler. Verifies the signature
+// against STRIPE_WEBHOOK_SECRET, then routes the event:
+//
+// - account.updated → keep our charges/payouts/details flags in sync
+// - checkout.session.completed → mark the invoice paid (Checkout success)
+// - payment_intent.succeeded → fallback for non-Checkout flows + the
+//   destination charge of a Checkout session
+// - charge.refunded → flip invoice back to "sent" if a refund happens
+export async function POST(request: NextRequest) {
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    console.error("[stripe-webhook] STRIPE_WEBHOOK_SECRET not configured");
+    return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
+  }
+
+  const sig = request.headers.get("stripe-signature");
+  if (!sig) {
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+  }
+
+  const body = await request.text();
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(body, sig, secret);
+  } catch (err) {
+    console.error("[stripe-webhook] signature verification failed", {
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  console.log("[stripe-webhook] event", { type: event.type, id: event.id });
+
+  switch (event.type) {
+    case "account.updated": {
+      const account = event.data.object as Stripe.Account;
+      const { error, count } = await admin
+        .from("organizations")
+        .update(
+          {
+            stripe_charges_enabled: !!account.charges_enabled,
+            stripe_payouts_enabled: !!account.payouts_enabled,
+            stripe_details_submitted: !!account.details_submitted,
+          },
+          { count: "exact" },
+        )
+        .eq("stripe_account_id", account.id);
+      console.log("[stripe-webhook] account.updated", {
+        accountId: account.id,
+        rowsUpdated: count,
+        error: error?.message,
+      });
+      break;
+    }
+
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const invoiceId = session.metadata?.invoice_id;
+      if (!invoiceId) break;
+      const paid = session.payment_status === "paid";
+      if (!paid) break;
+      const paymentIntentId =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : session.payment_intent?.id ?? null;
+      const { error, count } = await admin
+        .from("invoices")
+        .update(
+          {
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            stripe_paid_at: new Date().toISOString(),
+            stripe_paid_amount_pence: session.amount_total ?? null,
+            stripe_payment_intent_id: paymentIntentId,
+            stripe_checkout_session_id: session.id,
+          },
+          { count: "exact" },
+        )
+        .eq("id", invoiceId);
+      console.log("[stripe-webhook] checkout.session.completed", {
+        invoiceId,
+        rowsUpdated: count,
+        error: error?.message,
+      });
+      break;
+    }
+
+    case "payment_intent.succeeded": {
+      const pi = event.data.object as Stripe.PaymentIntent;
+      const invoiceId = pi.metadata?.invoice_id;
+      if (!invoiceId) break;
+      const { count } = await admin
+        .from("invoices")
+        .update(
+          {
+            status: "paid",
+            paid_at: new Date().toISOString(),
+            stripe_paid_at: new Date().toISOString(),
+            stripe_paid_amount_pence: pi.amount_received ?? pi.amount ?? null,
+            stripe_payment_intent_id: pi.id,
+          },
+          { count: "exact" },
+        )
+        .eq("id", invoiceId)
+        .neq("status", "paid");
+      console.log("[stripe-webhook] payment_intent.succeeded", {
+        invoiceId,
+        rowsUpdated: count,
+      });
+      break;
+    }
+
+    case "charge.refunded": {
+      const charge = event.data.object as Stripe.Charge;
+      const pi = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
+      if (!pi) break;
+      const { count } = await admin
+        .from("invoices")
+        .update(
+          {
+            status: "sent",
+            paid_at: null,
+            stripe_paid_at: null,
+            stripe_paid_amount_pence: null,
+          },
+          { count: "exact" },
+        )
+        .eq("stripe_payment_intent_id", pi);
+      console.log("[stripe-webhook] charge.refunded", { pi, rowsUpdated: count });
+      break;
+    }
+  }
+
+  return NextResponse.json({ received: true });
+}
