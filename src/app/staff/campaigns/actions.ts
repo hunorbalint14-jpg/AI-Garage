@@ -49,7 +49,20 @@ export async function draftBroadcastPreview(
 
 export type SendBroadcastResult =
   | { error: string }
-  | { success: true; emailSent: number; smsSent: number; whatsappSent: number; emailFailed: number; smsFailed: number; whatsappFailed: number };
+  | {
+      success: true;
+      emailSent: number;
+      smsSent: number;
+      whatsappSent: number;
+      emailFailed: number;
+      smsFailed: number;
+      whatsappFailed: number;
+      skippedNoEmail: number;
+      skippedNoPhone: number;
+      skippedNoEmailConsent: number;
+      skippedNoSmsConsent: number;
+      failureSamples: { recipient: string; channel: string; reason: string }[];
+    };
 
 const MAX_CUSTOMERS = 500;
 
@@ -83,65 +96,110 @@ export async function sendBroadcast(
   const subject = cleanSubject;
 
   let emailSent = 0, emailFailed = 0, smsSent = 0, smsFailed = 0, whatsappSent = 0, whatsappFailed = 0;
+  let skippedNoEmail = 0, skippedNoPhone = 0, skippedNoEmailConsent = 0, skippedNoSmsConsent = 0;
+  const failureSamples: { recipient: string; channel: string; reason: string }[] = [];
+  const pushFailure = (recipient: string, channel: string, reason: string) => {
+    if (failureSamples.length < 10) failureSamples.push({ recipient, channel, reason });
+  };
 
   for (const customer of customers) {
-    if (emailText && customer.email && customer.marketing_email_consent) {
-      const result = await sendEmail({ to: customer.email, subject, text: emailText });
-      await admin.from("reminders").insert({
-        location_id: ctx.location.id,
-        customer_id: customer.id,
-        vehicle_id: null,
-        type: "campaign",
-        channel: "email",
-        recipient_email: customer.email,
-        recipient_phone: null,
-        subject,
-        message_text: emailText,
-        status: result.success ? "sent" : "failed",
-        error_message: result.success ? null : result.error,
-        resend_email_id: result.success ? result.messageId : null,
-      });
-      result.success ? emailSent++ : emailFailed++;
+    if (emailText) {
+      if (!customer.email) skippedNoEmail++;
+      else if (!customer.marketing_email_consent) skippedNoEmailConsent++;
+      else {
+        const result = await sendEmail({ to: customer.email, subject, text: emailText });
+        await admin.from("reminders").insert({
+          location_id: ctx.location.id,
+          customer_id: customer.id,
+          vehicle_id: null,
+          type: "campaign",
+          channel: "email",
+          recipient_email: customer.email,
+          recipient_phone: null,
+          subject,
+          message_text: emailText,
+          status: result.success ? "sent" : "failed",
+          error_message: result.success ? null : result.error,
+          resend_email_id: result.success ? result.messageId : null,
+        });
+        if (result.success) emailSent++;
+        else {
+          emailFailed++;
+          pushFailure(customer.email, "email", result.error);
+        }
+      }
     }
 
-    if (smsText && customer.phone && customer.marketing_sms_consent) {
-      const result = await sendSms({ to: customer.phone, body: smsText });
-      await admin.from("reminders").insert({
-        location_id: ctx.location.id,
-        customer_id: customer.id,
-        vehicle_id: null,
-        type: "campaign",
-        channel: "sms",
-        recipient_email: null,
-        recipient_phone: customer.phone,
-        subject,
-        message_text: smsText,
-        status: result.success ? "sent" : "failed",
-        error_message: result.success ? null : result.error,
-      });
-      result.success ? smsSent++ : smsFailed++;
+    if (smsText) {
+      if (!customer.phone) skippedNoPhone++;
+      else if (!customer.marketing_sms_consent) skippedNoSmsConsent++;
+      else {
+        const result = await sendSms({ to: customer.phone, body: smsText });
+        await admin.from("reminders").insert({
+          location_id: ctx.location.id,
+          customer_id: customer.id,
+          vehicle_id: null,
+          type: "campaign",
+          channel: "sms",
+          recipient_email: null,
+          recipient_phone: customer.phone,
+          subject,
+          message_text: smsText,
+          status: result.success ? "sent" : "failed",
+          error_message: result.success ? null : result.error,
+        });
+        if (result.success) smsSent++;
+        else {
+          smsFailed++;
+          pushFailure(customer.phone, "sms", result.error);
+        }
+      }
     }
 
-    if (whatsappText && customer.phone && customer.marketing_sms_consent) {
-      const result = await sendWhatsApp({ to: customer.phone, body: whatsappText });
-      await admin.from("reminders").insert({
-        location_id: ctx.location.id,
-        customer_id: customer.id,
-        vehicle_id: null,
-        type: "campaign",
-        channel: "whatsapp",
-        recipient_email: null,
-        recipient_phone: customer.phone,
-        subject,
-        message_text: whatsappText,
-        status: result.success ? "sent" : "failed",
-        error_message: result.success ? null : result.error,
-      });
-      result.success ? whatsappSent++ : whatsappFailed++;
+    if (whatsappText) {
+      if (!customer.phone) {
+        // already counted under skippedNoPhone if smsText also empty; only add when not double-counted
+        if (!smsText) skippedNoPhone++;
+      } else if (!customer.marketing_sms_consent) {
+        if (!smsText) skippedNoSmsConsent++;
+      } else {
+        const result = await sendWhatsApp({ to: customer.phone, body: whatsappText });
+        await admin.from("reminders").insert({
+          location_id: ctx.location.id,
+          customer_id: customer.id,
+          vehicle_id: null,
+          type: "campaign",
+          channel: "whatsapp",
+          recipient_email: null,
+          recipient_phone: customer.phone,
+          subject,
+          message_text: whatsappText,
+          status: result.success ? "sent" : "failed",
+          error_message: result.success ? null : result.error,
+        });
+        if (result.success) whatsappSent++;
+        else {
+          whatsappFailed++;
+          pushFailure(customer.phone, "whatsapp", result.error);
+        }
+      }
     }
   }
 
   revalidatePath("/staff/campaigns");
   revalidatePath("/staff/reminders");
-  return { success: true, emailSent, smsSent, whatsappSent, emailFailed, smsFailed, whatsappFailed };
+  return {
+    success: true,
+    emailSent,
+    smsSent,
+    whatsappSent,
+    emailFailed,
+    smsFailed,
+    whatsappFailed,
+    skippedNoEmail,
+    skippedNoPhone,
+    skippedNoEmailConsent,
+    skippedNoSmsConsent,
+    failureSamples,
+  };
 }
