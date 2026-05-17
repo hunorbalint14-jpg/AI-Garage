@@ -8,6 +8,7 @@ import { DeleteCustomerButton, DeleteVehicleButton } from "./delete-buttons";
 import { DraftMessagePanel } from "./draft-message-panel";
 import { StaffDiagnostic } from "./staff-diagnostic";
 import { GdprPanel } from "./gdpr-panel";
+import { ReminderHistory, type ReminderHistoryItem } from "./reminder-history";
 
 type Customer = {
   id: string;
@@ -34,10 +35,19 @@ type Vehicle = {
 
 type Reminder = {
   id: string;
+  vehicle_id: string | null;
   type: string;
+  channel: string;
   subject: string;
   status: string;
   sent_at: string;
+  delivered_at: string | null;
+  opened_at: string | null;
+  clicked_at: string | null;
+  message_text: string | null;
+  error_message: string | null;
+  recipient_email: string | null;
+  recipient_phone: string | null;
 };
 
 function formatDate(d: string | null) {
@@ -77,10 +87,12 @@ export default async function CustomerDetailPage({
       .order("created_at", { ascending: false }),
     admin
       .from("reminders")
-      .select("id, type, subject, status, sent_at")
+      .select(
+        "id, vehicle_id, type, channel, subject, status, sent_at, delivered_at, opened_at, clicked_at, message_text, error_message, recipient_email, recipient_phone",
+      )
       .eq("customer_id", id)
       .order("sent_at", { ascending: false })
-      .limit(10),
+      .limit(200),
   ]);
 
   // Verify customer belongs to this location
@@ -96,6 +108,49 @@ export default async function CustomerDetailPage({
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];
+
+  // Group reminder rows by vehicle + type + 5-minute bucket so all channels
+  // sent in one "Send reminder" action collapse into a single row.
+  const regByVehicleId = new Map(vehicles.map((v) => [v.id, v.registration]));
+  const reminderGroups = new Map<string, ReminderHistoryItem>();
+  for (const r of reminders) {
+    const bucket = Math.floor(new Date(r.sent_at).getTime() / (5 * 60 * 1000));
+    const key = `${r.vehicle_id ?? "_"}|${r.type}|${bucket}`;
+    let group = reminderGroups.get(key);
+    if (!group) {
+      group = {
+        groupKey: key,
+        type: r.type,
+        subject: r.subject,
+        sentAt: r.sent_at,
+        vehicleRegistration: r.vehicle_id ? regByVehicleId.get(r.vehicle_id) ?? null : null,
+        channels: [],
+      };
+      reminderGroups.set(key, group);
+    }
+    if (new Date(r.sent_at).getTime() > new Date(group.sentAt).getTime()) {
+      group.sentAt = r.sent_at;
+    }
+    const channel = (r.channel === "sms" || r.channel === "whatsapp" ? r.channel : "email") as
+      | "email"
+      | "sms"
+      | "whatsapp";
+    if (!group.channels.find((c) => c.channel === channel)) {
+      group.channels.push({
+        channel,
+        status: r.status === "bounced" ? "bounced" : r.status === "failed" ? "failed" : "sent",
+        recipient: r.recipient_email ?? r.recipient_phone ?? null,
+        body: r.message_text,
+        error: r.error_message,
+        deliveredAt: r.delivered_at,
+        openedAt: r.opened_at,
+        clickedAt: r.clicked_at,
+      });
+    }
+  }
+  const reminderItems = [...reminderGroups.values()].sort(
+    (a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime(),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -247,45 +302,15 @@ export default async function CustomerDetailPage({
         <StaffDiagnostic vehicles={vehicles.map((v) => ({ id: v.id, registration: v.registration, make: v.make, model: v.model }))} />
       )}
 
-      {reminders.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-lg font-semibold">Reminder history</h2>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[700px] text-sm">
-              <thead className="bg-muted/50 text-left">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Type</th>
-                  <th className="px-4 py-2 font-medium">Subject</th>
-                  <th className="px-4 py-2 font-medium">Sent</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reminders.map((r) => (
-                  <tr key={r.id} className="border-t">
-                    <td className="px-4 py-2 capitalize">{r.type}</td>
-                    <td className="px-4 py-2 max-w-xs truncate" title={r.subject}>
-                      {r.subject}
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {new Date(r.sent_at).toLocaleDateString("en-GB")}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={
-                          r.status === "sent"
-                            ? "text-green-700"
-                            : "text-red-600"
-                        }
-                      >
-                        {r.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {reminderItems.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="text-lg font-semibold">Reminder history</h2>
+          <p className="text-xs text-muted-foreground">
+            Each row is one reminder send. Click to expand and see the message
+            body for each channel. Channel icons are green when sent
+            successfully, red on failure.
+          </p>
+          <ReminderHistory items={reminderItems} />
         </section>
       )}
     </div>
