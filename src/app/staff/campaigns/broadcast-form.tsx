@@ -7,12 +7,27 @@ import { Button } from "@/components/ui/button";
 const TEXTAREA_CLASS =
   "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm resize-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
+type DoneStep = {
+  type: "done";
+  emailSent: number;
+  smsSent: number;
+  whatsappSent: number;
+  emailFailed: number;
+  smsFailed: number;
+  whatsappFailed: number;
+  skippedNoEmail: number;
+  skippedNoPhone: number;
+  skippedNoEmailConsent: number;
+  skippedNoSmsConsent: number;
+  failureSamples: { recipient: string; channel: string; reason: string }[];
+};
+
 type Step =
   | { type: "idle" }
   | { type: "drafting" }
   | { type: "preview"; emailCount: number; smsCount: number; whatsappCount: number }
   | { type: "sending" }
-  | { type: "done"; emailSent: number; smsSent: number; whatsappSent: number; emailFailed: number; smsFailed: number; whatsappFailed: number }
+  | DoneStep
   | { type: "error"; message: string };
 
 type Props = { hasCustomers: boolean };
@@ -71,6 +86,11 @@ export function BroadcastForm({ hasCustomers }: Props) {
           emailFailed: result.emailFailed,
           smsFailed: result.smsFailed,
           whatsappFailed: result.whatsappFailed,
+          skippedNoEmail: result.skippedNoEmail,
+          skippedNoPhone: result.skippedNoPhone,
+          skippedNoEmailConsent: result.skippedNoEmailConsent,
+          skippedNoSmsConsent: result.skippedNoSmsConsent,
+          failureSamples: result.failureSamples,
         });
       }
     });
@@ -90,24 +110,81 @@ export function BroadcastForm({ hasCustomers }: Props) {
   const isSending = step.type === "sending";
 
   if (step.type === "done") {
-    const { emailSent, smsSent, whatsappSent, emailFailed, smsFailed, whatsappFailed } = step;
-    const parts = [];
-    if (emailSent > 0) parts.push(`${emailSent} email${emailSent !== 1 ? "s" : ""}`);
-    if (smsSent > 0) parts.push(`${smsSent} SMS`);
-    if (whatsappSent > 0) parts.push(`${whatsappSent} WhatsApp`);
-    const failParts = [];
-    if (emailFailed > 0) failParts.push(`${emailFailed} email${emailFailed !== 1 ? "s" : ""} failed`);
-    if (smsFailed > 0) failParts.push(`${smsFailed} SMS failed`);
-    if (whatsappFailed > 0) failParts.push(`${whatsappFailed} WhatsApp failed`);
+    const {
+      emailSent, smsSent, whatsappSent,
+      emailFailed, smsFailed, whatsappFailed,
+      skippedNoEmail, skippedNoPhone, skippedNoEmailConsent, skippedNoSmsConsent,
+      failureSamples,
+    } = step;
+    const totalSent = emailSent + smsSent + whatsappSent;
+    const totalFailed = emailFailed + smsFailed + whatsappFailed;
+    const totalSkipped =
+      skippedNoEmail + skippedNoPhone + skippedNoEmailConsent + skippedNoSmsConsent;
+
+    const sentParts: string[] = [];
+    if (emailSent > 0) sentParts.push(`${emailSent} email${emailSent !== 1 ? "s" : ""}`);
+    if (smsSent > 0) sentParts.push(`${smsSent} SMS`);
+    if (whatsappSent > 0) sentParts.push(`${whatsappSent} WhatsApp`);
+
+    const skipReasons: string[] = [];
+    if (skippedNoEmailConsent > 0)
+      skipReasons.push(`${skippedNoEmailConsent} not opted in to email marketing`);
+    if (skippedNoSmsConsent > 0)
+      skipReasons.push(`${skippedNoSmsConsent} not opted in to SMS marketing`);
+    if (skippedNoEmail > 0) skipReasons.push(`${skippedNoEmail} no email on file`);
+    if (skippedNoPhone > 0) skipReasons.push(`${skippedNoPhone} no phone on file`);
 
     return (
       <div className="rounded-lg border p-6 flex flex-col gap-4">
-        <p className="text-green-700 font-medium">
-          Campaign sent — {parts.join(" + ")} delivered.
-          {failParts.length > 0 && (
-            <span className="text-red-600 font-normal"> ({failParts.join(", ")})</span>
-          )}
-        </p>
+        {totalSent > 0 ? (
+          <p className="text-green-700 font-medium">
+            Campaign sent — {sentParts.join(" + ")} delivered to provider.
+          </p>
+        ) : (
+          <p className="text-amber-600 font-medium">
+            Campaign processed — 0 messages sent.
+          </p>
+        )}
+
+        {totalFailed > 0 && (
+          <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm">
+            <p className="font-medium text-red-700">
+              {totalFailed} failed at send time.
+            </p>
+            {failureSamples.length > 0 && (
+              <ul className="mt-2 space-y-1 text-xs text-red-700/90 list-disc pl-5">
+                {failureSamples.map((f, i) => (
+                  <li key={i}>
+                    <span className="font-mono">{f.recipient}</span>{" "}
+                    <span className="uppercase">({f.channel})</span> — {f.reason}
+                  </li>
+                ))}
+                {totalFailed > failureSamples.length && (
+                  <li className="list-none italic">
+                    …and {totalFailed - failureSamples.length} more (see Campaign history below).
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {totalSkipped > 0 && (
+          <div className="rounded-md border bg-muted/40 p-3 text-sm">
+            <p className="font-medium">
+              {totalSkipped} customer{totalSkipped !== 1 ? "s" : ""} skipped:
+            </p>
+            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground list-disc pl-5">
+              {skipReasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-muted-foreground">
+              Marketing consent is collected per customer — update consent flags on the customer record to include them next time.
+            </p>
+          </div>
+        )}
+
         <Button type="button" size="sm" variant="outline" onClick={reset}>
           Send another campaign
         </Button>
