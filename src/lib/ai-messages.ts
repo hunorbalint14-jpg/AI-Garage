@@ -4,18 +4,45 @@ const anthropic = new Anthropic();
 
 const EMAIL_REMINDER_SYSTEM = `You draft short, friendly vehicle reminder emails for UK garages.
 Write in British English. Keep messages under 120 words — warm but professional.
-Include all key vehicle and date details. End with a clear call to action (call to book in or reply to this email).
+Include all key vehicle and date details.
+
+Call to action rules — STRICT:
+- Direct the customer to click the booking button to book their appointment.
+- Do NOT ask the customer to call, phone, ring, or telephone the garage.
+- Do NOT ask the customer to reply to the email, respond, or get in touch by message.
+- Do NOT include any phone number, email address, or contact details in the body.
+- A "Book your appointment" button is automatically appended after your message — do not include any link, URL, or button text yourself.
+
 Return only the email body. Start with "Hi [first name]," — no subject line, no sign-off placeholder.`;
 
-const SMS_REMINDER_SYSTEM = `You draft short SMS reminders for UK garages. Max 160 characters. British English.
-Include: customer first name, vehicle registration, reminder type, due date, garage name. No sign-off or subject line.`;
+const SMS_REMINDER_SYSTEM = `You draft short SMS reminders for UK garages. Max 130 characters (a booking link is appended after).
+British English. Include: customer first name, vehicle registration, reminder type, due date, garage name.
+
+Call to action rules — STRICT:
+- Direct the customer to use the link below to book.
+- Do NOT ask them to call, phone, or reply.
+- Do NOT include a phone number or URL — the booking URL is appended automatically.
+- No sign-off or subject line.`;
 
 const EMAIL_CUSTOM_SYSTEM = `You draft short, friendly emails for UK garages communicating with customers.
 Write in British English. Under 120 words — warm but professional.
-Start with "Hi [first name]," — no subject line, no sign-off placeholder. End with a clear call to action.`;
 
-const SMS_CUSTOM_SYSTEM = `You draft short SMS messages for UK garages. Max 160 characters. British English.
-Include customer name, garage name, and key information. No sign-off.`;
+Call to action rules — STRICT:
+- Direct the customer to click the button to book their appointment or find out more on the website.
+- Do NOT ask the customer to call, phone, or reply to the email.
+- Do NOT include any phone number, email address, or contact details.
+- A button is automatically appended after your message — do not include any link or URL yourself.
+
+Start with "Hi [first name]," — no subject line, no sign-off placeholder.`;
+
+const SMS_CUSTOM_SYSTEM = `You draft short SMS messages for UK garages. Max 130 characters (a link is appended after).
+British English. Include customer name, garage name, and key information.
+
+Call to action rules — STRICT:
+- Direct the customer to use the link below.
+- Do NOT ask them to call, phone, or reply.
+- Do NOT include a phone number or URL — the link is appended automatically.
+- No sign-off.`;
 
 export type DraftReminderInput = {
   garageName: string;
@@ -37,11 +64,8 @@ export type DraftCustomMessageInput = {
 export async function draftReminderMessage(
   input: DraftReminderInput,
 ): Promise<string> {
-  const { garageName, garagePhone, customerFirstName, registration, vehicleDescription, reminderType, dueDate } = input;
+  const { garageName, customerFirstName, registration, vehicleDescription, reminderType, dueDate } = input;
   const label = reminderType === "mot" ? "MOT" : "service";
-  const contactLine = garagePhone
-    ? `Give us a call on ${garagePhone} or reply to this email to book in.`
-    : `Reply to this email or get in touch to book in.`;
 
   const response = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
@@ -49,7 +73,7 @@ export async function draftReminderMessage(
     system: [{ type: "text", text: EMAIL_REMINDER_SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",
-      content: `Draft a ${label} reminder for:\n\nGarage: ${garageName}\nCustomer first name: ${customerFirstName}\nVehicle: ${vehicleDescription} (${registration})\n${label} due: ${dueDate}\nContact instruction: ${contactLine}\n\nStart with "Hi ${customerFirstName},"`,
+      content: `Draft a ${label} reminder for:\n\nGarage: ${garageName}\nCustomer first name: ${customerFirstName}\nVehicle: ${vehicleDescription} (${registration})\n${label} due: ${dueDate}\n\nStart with "Hi ${customerFirstName},". End by inviting them to book using the button below — do not write a URL or phone number yourself.`,
     }],
   });
 
@@ -61,7 +85,7 @@ export async function draftReminderMessage(
 export async function draftSmsReminderMessage(
   input: DraftReminderInput,
 ): Promise<string> {
-  const { garageName, garagePhone, customerFirstName, registration, reminderType, dueDate } = input;
+  const { garageName, customerFirstName, registration, reminderType, dueDate } = input;
   const label = reminderType === "mot" ? "MOT" : "service";
 
   const response = await anthropic.messages.create({
@@ -70,7 +94,7 @@ export async function draftSmsReminderMessage(
     system: [{ type: "text", text: SMS_REMINDER_SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",
-      content: `SMS ${label} reminder: customer ${customerFirstName}, vehicle ${registration}, due ${dueDate}, from ${garageName}${garagePhone ? `, tel ${garagePhone}` : ""}.`,
+      content: `SMS ${label} reminder: customer ${customerFirstName}, vehicle ${registration}, due ${dueDate}, from ${garageName}. End by pointing them to the booking link below — do not include a phone number or URL.`,
     }],
   });
 
@@ -82,10 +106,7 @@ export async function draftSmsReminderMessage(
 export async function draftCustomMessage(
   input: DraftCustomMessageInput,
 ): Promise<{ email: string; sms: string }> {
-  const { garageName, garagePhone, customerFirstName, topic } = input;
-  const contactLine = garagePhone
-    ? `Call us on ${garagePhone} or reply to this email.`
-    : `Reply to this email to get in touch.`;
+  const { garageName, customerFirstName, topic } = input;
 
   const [emailRes, smsRes] = await Promise.all([
     anthropic.messages.create({
@@ -94,7 +115,7 @@ export async function draftCustomMessage(
       system: [{ type: "text", text: EMAIL_CUSTOM_SYSTEM, cache_control: { type: "ephemeral" } }],
       messages: [{
         role: "user",
-        content: `Email from ${garageName} to customer ${customerFirstName}. Topic: ${topic}. Contact: ${contactLine}`,
+        content: `Email from ${garageName} to customer ${customerFirstName}. Topic: ${topic}. End by inviting them to click the button below to book or find out more — do not include a phone number or URL.`,
       }],
     }),
     anthropic.messages.create({
@@ -103,7 +124,7 @@ export async function draftCustomMessage(
       system: [{ type: "text", text: SMS_CUSTOM_SYSTEM, cache_control: { type: "ephemeral" } }],
       messages: [{
         role: "user",
-        content: `SMS from ${garageName} to ${customerFirstName}. Topic: ${topic}.${garagePhone ? ` Tel: ${garagePhone}.` : ""}`,
+        content: `SMS from ${garageName} to ${customerFirstName}. Topic: ${topic}. End by pointing to the link below — do not include a phone number or URL.`,
       }],
     }),
   ]);
@@ -128,10 +149,7 @@ export type DraftBroadcastInput = {
 export async function draftBroadcastMessage(
   input: DraftBroadcastInput,
 ): Promise<{ subject: string; email: string; sms: string }> {
-  const { garageName, garagePhone, topic, needEmail, needSms } = input;
-  const contactLine = garagePhone
-    ? `Call us on ${garagePhone} or reply to this email.`
-    : `Reply to this email to get in touch.`;
+  const { garageName, topic, needEmail, needSms } = input;
 
   const emailPromise = needEmail
     ? anthropic.messages.create({
@@ -139,7 +157,14 @@ export async function draftBroadcastMessage(
         max_tokens: 400,
         system: [{
           type: "text",
-          text: `You draft short broadcast marketing emails for UK garages to send to all their customers. British English. Under 120 words. Start with "Dear customer," — warm but professional. End with a clear call to action.
+          text: `You draft short broadcast marketing emails for UK garages to send to all their customers. British English. Under 120 words. Start with "Dear customer," — warm but professional.
+
+Call to action rules — STRICT:
+- Direct readers to click the button to book an appointment or find out more on the website.
+- Do NOT ask them to call, phone, ring, or telephone the garage.
+- Do NOT ask them to reply to the email or get in touch by message.
+- Do NOT include any phone number, email address, or contact details in the body.
+- A button is automatically appended after your message — do not include any link or URL yourself.
 
 Output format — exactly two parts separated by a single line containing "---":
 
@@ -152,7 +177,7 @@ Do not use the user's raw prompt as the subject — write a fresh, customer-faci
         }],
         messages: [{
           role: "user",
-          content: `Broadcast email from ${garageName}. Topic: ${topic}. Contact: ${contactLine}`,
+          content: `Broadcast email from ${garageName}. Topic: ${topic}. End by inviting the reader to click the button below to book or find out more on the website. Do not include any phone number or URL.`,
         }],
       })
     : Promise.resolve(null);
@@ -163,12 +188,17 @@ Do not use the user's raw prompt as the subject — write a fresh, customer-faci
         max_tokens: 80,
         system: [{
           type: "text",
-          text: `Draft a broadcast SMS for a UK garage to send to all customers. Max 160 characters. British English. Include garage name and key info. No customer name, no sign-off.`,
+          text: `Draft a broadcast SMS for a UK garage to send to all customers. Max 130 characters (a link is appended after). British English. Include garage name and key info. No customer name, no sign-off.
+
+Call to action rules — STRICT:
+- Direct readers to the link below to book or find out more.
+- Do NOT ask them to call, phone, or reply.
+- Do NOT include a phone number or URL — the link is appended automatically.`,
           cache_control: { type: "ephemeral" },
         }],
         messages: [{
           role: "user",
-          content: `Broadcast SMS from ${garageName}. Topic: ${topic}.${garagePhone ? ` Tel: ${garagePhone}.` : ""}`,
+          content: `Broadcast SMS from ${garageName}. Topic: ${topic}. End by pointing to the link below — do not include a phone number or URL.`,
         }],
       })
     : Promise.resolve(null);
@@ -208,21 +238,20 @@ Do not use the user's raw prompt as the subject — write a fresh, customer-faci
     const smsBlock = smsRes.content[0];
     sms = smsBlock.type === "text"
       ? smsBlock.text.trim()
-      : `${topic}. Contact ${garageName}.${garagePhone ? ` Tel: ${garagePhone}` : ""}`;
+      : `${topic}. — ${garageName}`;
   }
 
   return { subject, email, sms };
 }
 
 export function fallbackReminderMessage(input: DraftReminderInput): string {
-  const { customerFirstName, vehicleDescription, registration, reminderType, dueDate, garageName, garagePhone } = input;
+  const { customerFirstName, vehicleDescription, registration, reminderType, dueDate, garageName } = input;
   const label = reminderType === "mot" ? "MOT" : "service";
-  const contact = garagePhone ? `Call us on ${garagePhone}` : "Get in touch";
-  return `Hi ${customerFirstName},\n\nThis is a friendly reminder that your ${vehicleDescription} (${registration}) is due for its ${label} on ${dueDate}.\n\n${contact} to book your appointment with ${garageName}.\n\nThank you for your custom.`;
+  return `Hi ${customerFirstName},\n\nThis is a friendly reminder that your ${vehicleDescription} (${registration}) is due for its ${label} on ${dueDate}.\n\nClick the button below to book your appointment with ${garageName}.\n\nThank you for your custom.`;
 }
 
 export function fallbackSmsReminderMessage(input: DraftReminderInput): string {
   const { customerFirstName, registration, reminderType, dueDate, garageName } = input;
   const label = reminderType === "mot" ? "MOT" : "service";
-  return `Hi ${customerFirstName}, your ${registration} ${label} is due ${dueDate}. Please contact ${garageName} to book. Thank you.`;
+  return `Hi ${customerFirstName}, your ${registration} ${label} is due ${dueDate}. Tap the link to book with ${garageName}.`;
 }
