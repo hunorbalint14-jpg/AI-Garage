@@ -3,6 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { BroadcastForm } from "./broadcast-form";
+import { CampaignHistory, type CampaignDetail } from "./campaign-history";
 
 type CampaignRow = {
   subject: string;
@@ -12,17 +13,10 @@ type CampaignRow = {
   delivered_at: string | null;
   opened_at: string | null;
   clicked_at: string | null;
-};
-
-type CampaignSummary = {
-  subject: string;
-  sentAt: string;
-  emailSent: number;
-  smsSent: number;
-  failed: number;
-  delivered: number;
-  opened: number;
-  clicked: number;
+  message_text: string | null;
+  error_message: string | null;
+  recipient_email: string | null;
+  recipient_phone: string | null;
 };
 
 function pct(num: number, denom: number) {
@@ -58,7 +52,9 @@ export default async function CampaignsPage() {
     admin.from("customers").select("id", { count: "exact", head: true }).eq("location_id", ctx.location.id),
     admin
       .from("reminders")
-      .select("subject, channel, status, sent_at, delivered_at, opened_at, clicked_at")
+      .select(
+        "subject, channel, status, sent_at, delivered_at, opened_at, clicked_at, message_text, error_message, recipient_email, recipient_phone",
+      )
       .eq("location_id", ctx.location.id)
       .eq("type", "campaign")
       .order("sent_at", { ascending: false })
@@ -68,29 +64,56 @@ export default async function CampaignsPage() {
   const hasCustomers = (customersRes.count ?? 0) > 0;
   const rows = (campaignsRes.data ?? []) as CampaignRow[];
 
-  const map = new Map<string, CampaignSummary>();
+  const map = new Map<string, CampaignDetail>();
   for (const row of rows) {
-    if (!map.has(row.subject)) {
-      map.set(row.subject, {
+    let entry = map.get(row.subject);
+    if (!entry) {
+      entry = {
         subject: row.subject,
-        sentAt: row.sent_at,
+        firstSentAt: row.sent_at,
+        lastSentAt: row.sent_at,
         emailSent: 0,
         smsSent: 0,
         failed: 0,
         delivered: 0,
         opened: 0,
         clicked: 0,
-      });
+        emailBody: null,
+        smsBody: null,
+        failures: [],
+      };
+      map.set(row.subject, entry);
     }
-    const c = map.get(row.subject)!;
-    if (row.status === "sent" && row.channel === "email") c.emailSent++;
-    else if (row.status === "sent" && row.channel === "sms") c.smsSent++;
-    else if (row.status !== "sent") c.failed++;
-    if (row.delivered_at) c.delivered++;
-    if (row.opened_at) c.opened++;
-    if (row.clicked_at) c.clicked++;
+    // sent_at extremes — rows arrive in DESC order, so first row seen is the latest.
+    if (row.sent_at > entry.lastSentAt) entry.lastSentAt = row.sent_at;
+    if (row.sent_at < entry.firstSentAt) entry.firstSentAt = row.sent_at;
+
+    if (row.status === "sent" && row.channel === "email") entry.emailSent++;
+    else if (row.status === "sent" && row.channel === "sms") entry.smsSent++;
+    else if (row.status !== "sent") {
+      entry.failed++;
+      if (row.error_message) {
+        entry.failures.push({
+          recipient: row.recipient_email ?? row.recipient_phone ?? "(unknown)",
+          channel: row.channel,
+          reason: row.error_message,
+        });
+      }
+    }
+    if (row.delivered_at) entry.delivered++;
+    if (row.opened_at) entry.opened++;
+    if (row.clicked_at) entry.clicked++;
+
+    if (!entry.emailBody && row.channel === "email" && row.message_text) {
+      entry.emailBody = row.message_text;
+    }
+    if (!entry.smsBody && row.channel === "sms" && row.message_text) {
+      entry.smsBody = row.message_text;
+    }
   }
-  const campaigns = [...map.values()];
+  const campaigns = [...map.values()].sort(
+    (a, b) => b.lastSentAt.localeCompare(a.lastSentAt),
+  );
 
   // Roll-up KPIs across all campaigns at this location.
   const totals = campaigns.reduce(
@@ -106,7 +129,7 @@ export default async function CampaignsPage() {
     { emailSent: 0, smsSent: 0, delivered: 0, opened: 0, clicked: 0, failed: 0 },
   );
   const totalSent = totals.emailSent + totals.smsSent;
-  const deliveryDenom = totals.emailSent; // delivery webhooks only fire for email
+  const deliveryDenom = totals.emailSent;
   const openDenom = totals.delivered || totals.emailSent;
 
   return (
@@ -150,84 +173,11 @@ export default async function CampaignsPage() {
           </div>
 
           <h2 className="mt-2 text-lg font-semibold">Campaign history</h2>
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[760px] text-sm">
-              <thead className="bg-muted/50 text-left">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Date</th>
-                  <th className="px-4 py-2 font-medium">Subject</th>
-                  <th className="px-4 py-2 font-medium text-right">Sent</th>
-                  <th className="px-4 py-2 font-medium text-right">Delivered</th>
-                  <th className="px-4 py-2 font-medium text-right">Opened</th>
-                  <th className="px-4 py-2 font-medium text-right">Clicked</th>
-                  <th className="px-4 py-2 font-medium text-right">Failed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {campaigns.map((c) => {
-                  const sent = c.emailSent + c.smsSent;
-                  const openBase = c.delivered || c.emailSent;
-                  return (
-                    <tr key={c.subject} className="border-t">
-                      <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">
-                        {new Date(c.sentAt).toLocaleDateString("en-GB")}
-                      </td>
-                      <td className="px-4 py-2 max-w-[260px] truncate" title={c.subject}>
-                        {c.subject}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums" title={`${c.emailSent} email · ${c.smsSent} SMS`}>
-                        {sent || "—"}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {c.emailSent > 0 ? (
-                          <span title={`${c.delivered}/${c.emailSent} confirmed delivered`}>
-                            {c.delivered}{" "}
-                            <span className="text-xs text-muted-foreground">
-                              ({pct(c.delivered, c.emailSent)})
-                            </span>
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {c.opened > 0 ? (
-                          <span title={`${c.opened} opens of ${openBase}`}>
-                            {c.opened}{" "}
-                            <span className="text-xs text-muted-foreground">
-                              ({pct(c.opened, openBase)})
-                            </span>
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {c.clicked > 0 ? (
-                          <span title={`${c.clicked} clicks of ${openBase}`}>
-                            {c.clicked}{" "}
-                            <span className="text-xs text-muted-foreground">
-                              ({pct(c.clicked, openBase)})
-                            </span>
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {c.failed > 0 ? (
-                          <span className="text-red-600">{c.failed}</span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
+            Click any row to expand and see the message that was sent, send time, and individual failure reasons.
+          </p>
+          <CampaignHistory campaigns={campaigns} />
+          <p className="text-xs text-muted-foreground">
             Delivery, open, and click tracking are email-only and require Resend webhooks (delivered/opened/clicked) configured on your domain.
           </p>
         </section>

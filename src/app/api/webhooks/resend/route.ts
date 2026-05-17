@@ -12,6 +12,7 @@ type ResendEvent = {
 export async function POST(request: NextRequest) {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
   if (!secret) {
+    console.error("[resend-webhook] RESEND_WEBHOOK_SECRET not configured");
     return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 });
   }
 
@@ -26,44 +27,56 @@ export async function POST(request: NextRequest) {
   try {
     const wh = new Webhook(secret);
     event = wh.verify(body, svixHeaders) as ResendEvent;
-  } catch {
+  } catch (err) {
+    console.error("[resend-webhook] signature verification failed", {
+      message: err instanceof Error ? err.message : String(err),
+      hasSvixId: !!svixHeaders["svix-id"],
+      hasSignature: !!svixHeaders["svix-signature"],
+    });
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
   const emailId = event.data.email_id;
+  console.log("[resend-webhook] event", { type: event.type, emailId });
   if (!emailId) return NextResponse.json({ received: true });
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
+  let updated: { count: number | null } = { count: null };
   switch (event.type) {
     case "email.opened":
-      await admin
+      updated = await admin
         .from("reminders")
-        .update({ opened_at: now })
+        .update({ opened_at: now }, { count: "exact" })
         .eq("resend_email_id", emailId)
         .is("opened_at", null);
       break;
     case "email.clicked":
-      await admin
+      updated = await admin
         .from("reminders")
-        .update({ clicked_at: now })
+        .update({ clicked_at: now }, { count: "exact" })
         .eq("resend_email_id", emailId)
         .is("clicked_at", null);
       break;
     case "email.delivered":
-      await admin
+      updated = await admin
         .from("reminders")
-        .update({ delivered_at: now })
+        .update({ delivered_at: now }, { count: "exact" })
         .eq("resend_email_id", emailId);
       break;
     case "email.bounced":
-      await admin
+      updated = await admin
         .from("reminders")
-        .update({ status: "bounced" })
+        .update({ status: "bounced" }, { count: "exact" })
         .eq("resend_email_id", emailId);
       break;
   }
+  console.log("[resend-webhook] update result", {
+    type: event.type,
+    emailId,
+    rowsUpdated: updated.count,
+  });
 
   return NextResponse.json({ received: true });
 }
