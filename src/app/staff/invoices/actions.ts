@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { tenantPayUrl } from "@/lib/stripe";
 
 export type CreateInvoiceResult = { error: string } | { success: true; invoiceId: string };
 
@@ -24,8 +25,9 @@ function buildInvoiceHtml(args: {
   vatAmount: number;
   total: number;
   notes: string | null;
+  payUrl: string | null;
 }): string {
-  const { invoiceNumber, issuedAt, dueAt, garageName, garagePhone, garageEmail, logoUrl, brandColor, customerName, items, subtotal, vatRate, vatAmount, total, notes } = args;
+  const { invoiceNumber, issuedAt, dueAt, garageName, garagePhone, garageEmail, logoUrl, brandColor, customerName, items, subtotal, vatRate, vatAmount, total, notes, payUrl } = args;
   const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
@@ -166,6 +168,12 @@ function buildInvoiceHtml(args: {
       </table>
     </div>
 
+    ${payUrl ? `
+    <div style="padding:24px 32px;background:#ffffff;border-top:1px solid #f1f5f9;text-align:center">
+      <a href="${payUrl}" style="display:inline-block;background:${brandColor};color:${onBrand};font-weight:600;font-size:15px;text-decoration:none;padding:14px 28px;border-radius:8px;border:0">Pay ${fmt(total)} now →</a>
+      <p style="font-size:11px;color:#9ca3af;margin:10px 0 0">Secure card payment via Stripe.</p>
+    </div>` : ""}
+
     ${notes ? `
     <div style="padding:20px 32px;background:#fafafa;border-top:1px solid #f1f5f9;font-size:13px;color:#4b5563;line-height:1.6">
       <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;font-weight:600;margin-bottom:6px">Notes</div>
@@ -265,7 +273,11 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
       .select("id, location_id, invoice_number, subtotal, vat_rate, vat_amount, total, issued_at, due_at, notes, customer:customers(full_name, email), job:jobs(id)")
       .eq("id", invoiceId)
       .maybeSingle(),
-    admin.from("organizations").select("name, phone, logo_url, primary_color").eq("id", ctx.organization.id).maybeSingle(),
+    admin
+      .from("organizations")
+      .select("name, phone, logo_url, primary_color, stripe_account_id, stripe_charges_enabled")
+      .eq("id", ctx.organization.id)
+      .maybeSingle(),
   ]);
 
   type InvoiceRow = {
@@ -284,8 +296,17 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     ? await admin.from("job_items").select("description, type, quantity, unit_price").eq("job_id", invoice.job.id)
     : { data: [] };
 
-  const org = orgRes.data as { name: string; phone: string | null; logo_url: string | null; primary_color: string | null } | null;
+  const org = orgRes.data as {
+    name: string;
+    phone: string | null;
+    logo_url: string | null;
+    primary_color: string | null;
+    stripe_account_id: string | null;
+    stripe_charges_enabled: boolean | null;
+  } | null;
   const garageName = org?.name ?? ctx.organization.name;
+  const canPayOnline = !!org?.stripe_account_id && !!org?.stripe_charges_enabled;
+  const payUrl = canPayOnline ? tenantPayUrl(invoice.id) : null;
 
   const html = buildInvoiceHtml({
     invoiceNumber: invoice.invoice_number,
@@ -303,14 +324,16 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     vatAmount: invoice.vat_amount,
     total: invoice.total,
     notes: invoice.notes,
+    payUrl,
   });
 
   const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 
+  const payLine = payUrl ? `\nPay online: ${payUrl}\n` : "";
   const emailResult = await sendEmail({
     to: invoice.customer.email,
     subject: `Invoice ${invoice.invoice_number} from ${garageName} — ${fmt(invoice.total)} due ${new Date(invoice.due_at).toLocaleDateString("en-GB")}`,
-    text: `Invoice ${invoice.invoice_number} from ${garageName}. Total: ${fmt(invoice.total)}. Due: ${new Date(invoice.due_at).toLocaleDateString("en-GB")}. Please view this email in an HTML client for the full invoice.`,
+    text: `Invoice ${invoice.invoice_number} from ${garageName}. Total: ${fmt(invoice.total)}. Due: ${new Date(invoice.due_at).toLocaleDateString("en-GB")}.${payLine}Please view this email in an HTML client for the full invoice.`,
     html,
   });
 

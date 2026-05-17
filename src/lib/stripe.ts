@@ -1,0 +1,31 @@
+import Stripe from "stripe";
+
+if (!process.env.STRIPE_SECRET_KEY && process.env.NODE_ENV === "production") {
+  console.warn("[stripe] STRIPE_SECRET_KEY missing — payments features will fail at runtime.");
+}
+
+export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder", {
+  apiVersion: "2026-04-22.dahlia",
+  typescript: true,
+});
+
+// Platform fee skimmed from every customer-to-garage payment.
+// Default 2% — override with STRIPE_PLATFORM_FEE_PERCENT in env.
+const PLATFORM_FEE_PERCENT = Number(process.env.STRIPE_PLATFORM_FEE_PERCENT ?? "2");
+
+export function platformFeePence(totalPence: number): number {
+  return Math.round((totalPence * PLATFORM_FEE_PERCENT) / 100);
+}
+
+const PUBLIC_ORIGIN =
+  process.env.NEXT_PUBLIC_ROOT_DOMAIN && !process.env.NEXT_PUBLIC_ROOT_DOMAIN.includes("localtest")
+    ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
+    : "https://ai-garage.co.uk";
+
+export function publicOrigin(): string {
+  return PUBLIC_ORIGIN;
+}
+
+export function tenantPayUrl(invoiceId: string): string {
+  return `${PUBLIC_ORIGIN}/pay/${invoiceId}`;
+}
