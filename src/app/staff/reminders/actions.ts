@@ -12,10 +12,21 @@ import { fallbackReminderMessage, fallbackSmsReminderMessage } from "@/lib/ai-me
 const anthropic = new Anthropic();
 
 const EMAIL_SYSTEM = `You draft short vehicle reminder emails for UK garages. British English. Under 120 words.
-Start with "Hi [first name]," — no subject line, no sign-off placeholder. End with a clear call to action (call to book in or reply).`;
+Start with "Hi [first name]," — no subject line, no sign-off placeholder.
 
-const SMS_SYSTEM = `You draft short SMS reminders for UK garages. Max 160 characters. British English.
-Include: customer first name, vehicle registration, reminder type, due date, garage name.`;
+Call to action rules — STRICT:
+- Direct the customer to click the button below to book.
+- Do NOT ask them to call, phone, ring, or reply to the email.
+- Do NOT include a phone number, email address, or any other contact detail.
+- A "Book your appointment" button is appended automatically — do not include a link or URL yourself.`;
+
+const SMS_SYSTEM = `You draft short SMS reminders for UK garages. Max 130 characters (a booking link is appended after).
+British English. Include: customer first name, vehicle registration, reminder type, due date, garage name.
+
+Call to action rules — STRICT:
+- Point the customer to the link below to book.
+- Do NOT ask them to call, phone, or reply.
+- Do NOT include a phone number or URL — the booking link is appended automatically.`;
 
 const TONE_NOTES: Record<string, string> = {
   friendly: "Friendly and approachable — warm, like talking to a regular customer.",
@@ -76,9 +87,6 @@ export async function draftReminderPreview(
   });
   const garageName = org?.name ?? ctx.organization.name;
   const garagePhone = org?.phone ?? null;
-  const contactLine = garagePhone
-    ? `Give us a call on ${garagePhone} or reply to this email to book in.`
-    : `Reply to this email or get in touch to book in.`;
   const subject = `${label.toUpperCase()} reminder — ${vehicle.registration} due ${formattedDate}`;
   const toneNote = TONE_NOTES[tone];
 
@@ -101,7 +109,7 @@ export async function draftReminderPreview(
         messages: [
           {
             role: "user",
-            content: `Tone: ${toneNote}\n\nDraft a ${label} reminder for:\nGarage: ${garageName}\nCustomer: ${firstName}\nVehicle: ${vehicleDescription} (${vehicle.registration})\n${label} due: ${formattedDate}\nContact instruction: ${contactLine}\n\nStart with "Hi ${firstName},"`,
+            content: `Tone: ${toneNote}\n\nDraft a ${label} reminder for:\nGarage: ${garageName}\nCustomer: ${firstName}\nVehicle: ${vehicleDescription} (${vehicle.registration})\n${label} due: ${formattedDate}\n\nStart with "Hi ${firstName},". End by inviting them to book using the button below — no phone number, no URL.`,
           },
         ],
       }),
@@ -112,7 +120,7 @@ export async function draftReminderPreview(
         messages: [
           {
             role: "user",
-            content: `Tone: ${toneNote}\n\nSMS ${label} reminder: customer ${firstName}, vehicle ${vehicle.registration}, due ${formattedDate}, from ${garageName}${garagePhone ? `, tel ${garagePhone}` : ""}.`,
+            content: `Tone: ${toneNote}\n\nSMS ${label} reminder: customer ${firstName}, vehicle ${vehicle.registration}, due ${formattedDate}, from ${garageName}. Point them to the link below to book — no phone number, no URL.`,
           },
         ],
       }),
