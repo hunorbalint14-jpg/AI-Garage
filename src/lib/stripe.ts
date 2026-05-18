@@ -21,9 +21,17 @@ const PUBLIC_ORIGIN =
   process.env.NEXT_PUBLIC_ROOT_DOMAIN && !process.env.NEXT_PUBLIC_ROOT_DOMAIN.includes("localtest")
     ? `https://${process.env.NEXT_PUBLIC_ROOT_DOMAIN}`
     : "https://ai-garage.co.uk";
+const ROOT_HOST = PUBLIC_ORIGIN.replace(/^https?:\/\//, "");
 
 export function publicOrigin(): string {
   return PUBLIC_ORIGIN;
+}
+
+// Origin for a specific tenant subdomain: https://{slug}.{rootHost}.
+// Used for booking-flow Checkout success/cancel URLs so the user returns
+// to their tenant context instead of landing on the apex domain.
+export function tenantOrigin(slug: string): string {
+  return `https://${slug}.${ROOT_HOST}`;
 }
 
 export function tenantPayUrl(invoiceId: string): string {

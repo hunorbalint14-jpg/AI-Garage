@@ -1,6 +1,6 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { tenantOrigin } from "@/lib/stripe";
 
 export const metadata: Metadata = {
   title: "Booking confirmed · AI Garage",
@@ -8,6 +8,10 @@ export const metadata: Metadata = {
     icon: [
       { url: "/brand/icon/aigarage-favicon.svg", type: "image/svg+xml" },
       { url: "/brand/icon/png/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/icon/png/favicon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/brand/icon/png/apple-touch-icon.png", sizes: "180x180" },
     ],
     shortcut: "/favicon.ico",
   },
@@ -52,6 +56,14 @@ export default async function BookingPaidPage({
       )
     : null;
 
+  // Booking always lives on a tenant subdomain. Build the link to that
+  // tenant's dashboard so the user lands back in their portal (with the
+  // right auth cookies), not on the apex /dashboard where they'd be
+  // bounced to /login because there's no tenant context.
+  const dashboardUrl = b?.location?.slug
+    ? `${tenantOrigin(b.location.slug)}/dashboard`
+    : "/dashboard";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0b0d11] text-white px-6">
       <div className="max-w-md w-full text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-10">
@@ -78,12 +90,12 @@ export default async function BookingPaidPage({
         <p className="mt-6 text-xs text-gray-500">
           A receipt has been emailed to you by Stripe if receipts are enabled on the garage&apos;s account.
         </p>
-        <Link
-          href="/dashboard"
+        <a
+          href={dashboardUrl}
           className="mt-6 inline-block text-sm font-semibold text-green-300 underline"
         >
           View my bookings →
-        </Link>
+        </a>
       </div>
     </div>
   );
