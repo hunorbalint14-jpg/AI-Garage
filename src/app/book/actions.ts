@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
-import { stripe, platformFeePence, publicOrigin } from "@/lib/stripe";
+import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -211,8 +211,8 @@ export async function submitWidgetBooking(
             receipt_email: email,
           },
           metadata: { booking_id: booking.id },
-          success_url: `${publicOrigin()}/book/${booking.id}/paid?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${publicOrigin()}/book/${booking.id}/cancelled`,
+          success_url: `${tenantOrigin(slug)}/book/${booking.id}/paid?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${tenantOrigin(slug)}/book/${booking.id}/cancelled`,
         },
         { stripeAccount: location.organization.stripe_account_id! },
       );
