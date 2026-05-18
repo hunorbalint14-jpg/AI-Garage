@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
+import { generateInvoiceForPaidBooking } from "@/lib/booking-invoice";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -114,6 +115,20 @@ export async function POST(request: NextRequest) {
           rowsUpdated: count,
           error: error?.message,
         });
+
+        // Generate + email the branded paid invoice for the booking.
+        if (count && count > 0) {
+          try {
+            await generateInvoiceForPaidBooking({
+              bookingId,
+              amountPence: session.amount_total ?? 0,
+              stripePaymentIntentId: paymentIntentId,
+              stripeCheckoutSessionId: session.id,
+            });
+          } catch (err) {
+            console.error("[stripe-webhook] booking invoice generation failed", err);
+          }
+        }
       }
       break;
     }
