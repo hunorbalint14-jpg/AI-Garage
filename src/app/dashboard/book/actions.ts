@@ -5,12 +5,17 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { stripe, platformFeePence, publicOrigin } from "@/lib/stripe";
 
-export type BookingRequestResult = { error: string } | { success: true };
+export type BookingRequestResult =
+  | { error: string }
+  | { success: true; paymentUrl?: string };
 
 export async function requestBooking(formData: FormData): Promise<BookingRequestResult> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated." };
 
   const headersList = await headers();
@@ -19,22 +24,28 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
 
   const admin = createAdminClient();
 
-  const [locationRes] = await Promise.all([
-    admin
-      .from("locations")
-      .select("id, name, organization:organizations(id, name, phone)")
-      .eq("slug", slug)
-      .maybeSingle(),
-  ]);
+  const { data: locationRow } = await admin
+    .from("locations")
+    .select(
+      "id, name, organization:organizations(id, name, phone, stripe_account_id, stripe_charges_enabled)",
+    )
+    .eq("slug", slug)
+    .maybeSingle();
 
-  const location = locationRes.data as {
+  const location = locationRow as {
     id: string;
     name: string;
-    organization: { id: string; name: string; phone: string | null } | null;
+    organization: {
+      id: string;
+      name: string;
+      phone: string | null;
+      stripe_account_id: string | null;
+      stripe_charges_enabled: boolean | null;
+    } | null;
   } | null;
   if (!location) return { error: "Location not found." };
 
-  const { data: customer } = await admin
+  let { data: customer } = await admin
     .from("customers")
     .select("id, full_name, email, phone")
     .eq("location_id", location.id)
@@ -42,7 +53,7 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
     .maybeSingle();
 
   if (!customer) {
-    // Fallback: match by email
+    // Fallback: match by email and link the user_id.
     const { data: byEmail } = await admin
       .from("customers")
       .select("id, full_name, email, phone")
@@ -51,37 +62,111 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
       .maybeSingle();
     if (!byEmail) return { error: "Customer record not found." };
     await admin.from("customers").update({ user_id: user.id }).eq("id", byEmail.id);
-    Object.assign(customer ?? {}, byEmail);
+    customer = byEmail;
   }
 
   const cust = customer as { id: string; full_name: string | null; email: string | null; phone: string | null };
 
   const vehicleId = (formData.get("vehicleId") as string | null)?.trim() || null;
-  const type = (formData.get("type") as string | null)?.trim() || "service";
+  const serviceIdInput = (formData.get("serviceId") as string | null)?.trim() || null;
   const scheduledAt = (formData.get("scheduledAt") as string | null)?.trim();
   const notes = (formData.get("notes") as string | null)?.trim() || null;
 
   if (!scheduledAt) return { error: "Preferred date and time is required." };
+  if (!serviceIdInput) return { error: "Please choose an appointment type." };
 
-  const { error } = await admin.from("bookings").insert({
-    location_id: location.id,
-    customer_id: cust.id,
-    vehicle_id: vehicleId || null,
-    scheduled_at: new Date(scheduledAt).toISOString(),
-    duration_minutes: 60,
-    type,
-    notes,
-    status: "scheduled",
-  });
+  const { data: service } = await admin
+    .from("services")
+    .select("id, name, category, price")
+    .eq("id", serviceIdInput)
+    .eq("location_id", location.id)
+    .maybeSingle();
+  if (!service) return { error: "Selected service is no longer available." };
 
-  if (error) return { error: error.message };
+  const type = service.category || "service";
+  const willPayNow =
+    !!location.organization?.stripe_account_id &&
+    !!location.organization?.stripe_charges_enabled &&
+    !!service.price &&
+    Number(service.price) > 0;
+
+  const { data: booking, error } = await admin
+    .from("bookings")
+    .insert({
+      location_id: location.id,
+      customer_id: cust.id,
+      vehicle_id: vehicleId || null,
+      service_id: service.id,
+      scheduled_at: new Date(scheduledAt).toISOString(),
+      duration_minutes: 60,
+      type,
+      notes,
+      status: willPayNow ? "payment_pending" : "scheduled",
+    })
+    .select("id")
+    .single();
+
+  if (error || !booking) return { error: error?.message ?? "Failed to create booking." };
 
   const orgName = location.organization?.name ?? location.name;
   const firstName = cust.full_name?.split(" ")[0] ?? "there";
-  const typeLabel = type === "mot" ? "MOT" : type.charAt(0).toUpperCase() + type.slice(1);
+  const typeLabel = service.name;
   const dateStr = new Date(scheduledAt).toLocaleString("en-GB", {
-    weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
   });
+
+  if (willPayNow) {
+    const amountPence = Math.round(Number(service.price) * 100);
+    try {
+      const session = await stripe.checkout.sessions.create(
+        {
+          mode: "payment",
+          customer_email: cust.email ?? undefined,
+          line_items: [
+            {
+              quantity: 1,
+              price_data: {
+                currency: "gbp",
+                unit_amount: amountPence,
+                product_data: {
+                  name: `${service.name} — ${orgName}`,
+                  description: `Appointment on ${dateStr}`,
+                },
+              },
+            },
+          ],
+          payment_intent_data: {
+            application_fee_amount: platformFeePence(amountPence),
+            metadata: { booking_id: booking.id },
+            receipt_email: cust.email ?? undefined,
+          },
+          metadata: { booking_id: booking.id },
+          success_url: `${publicOrigin()}/book/${booking.id}/paid?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${publicOrigin()}/book/${booking.id}/cancelled`,
+        },
+        { stripeAccount: location.organization!.stripe_account_id! },
+      );
+
+      await admin
+        .from("bookings")
+        .update({ stripe_checkout_session_id: session.id })
+        .eq("id", booking.id);
+
+      if (!session.url) return { error: "Stripe did not return a checkout URL." };
+      return { success: true, paymentUrl: session.url };
+    } catch (err) {
+      console.error("[dashboard/book] checkout session create failed", err);
+      await admin.from("bookings").update({ status: "scheduled" }).eq("id", booking.id);
+      return {
+        error:
+          "Couldn't start the payment session. Your appointment is requested but not yet paid — please contact the garage.",
+      };
+    }
+  }
 
   if (cust.email) {
     await sendEmail({
