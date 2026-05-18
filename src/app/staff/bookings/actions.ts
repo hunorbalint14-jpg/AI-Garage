@@ -6,6 +6,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { isBayFreeAt } from "@/lib/bay-availability";
 
 export type BookingType = "mot" | "service" | "repair" | "diagnostic" | "other";
 export type BookingStatus = "scheduled" | "in_progress" | "complete" | "cancelled" | "no_show";
@@ -113,6 +114,19 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
   }
 
   const isoScheduled = new Date(scheduledAt).toISOString();
+
+  // Reject double-booking on the same bay.
+  if (bayId) {
+    const free = await isBayFreeAt({
+      locationId: ctx.location.id,
+      bayId,
+      scheduledAt: isoScheduled,
+      durationMinutes: duration,
+    });
+    if (!free) {
+      return { error: "That bay is already booked for an overlapping time. Pick a different bay or time." };
+    }
+  }
 
   const [customerRes, vehicleRes, orgRes] = await Promise.all([
     admin.from("customers").select("id, full_name, email, phone, location_id").eq("id", customerId).maybeSingle(),
@@ -263,6 +277,26 @@ export async function assignBay(bookingId: string, bayId: string | null): Promis
       .eq("location_id", ctx.location.id)
       .maybeSingle();
     if (!bay) return { error: "Bay not found at this location." };
+
+    // Load this booking's window to check overlap on the chosen bay.
+    const { data: thisBooking } = await admin
+      .from("bookings")
+      .select("scheduled_at, duration_minutes")
+      .eq("id", bookingId)
+      .eq("location_id", ctx.location.id)
+      .maybeSingle();
+    if (!thisBooking) return { error: "Booking not found." };
+
+    const free = await isBayFreeAt({
+      locationId: ctx.location.id,
+      bayId,
+      scheduledAt: thisBooking.scheduled_at,
+      durationMinutes: thisBooking.duration_minutes ?? 60,
+      excludeBookingId: bookingId,
+    });
+    if (!free) {
+      return { error: "That bay is already booked for an overlapping time." };
+    }
   }
 
   const { error } = await admin
