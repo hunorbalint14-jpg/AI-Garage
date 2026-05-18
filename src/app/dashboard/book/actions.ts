@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
+import { bayCapacityAt } from "@/lib/bay-availability";
 
 export type BookingRequestResult =
   | { error: string }
@@ -82,6 +83,17 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
     .eq("location_id", location.id)
     .maybeSingle();
   if (!service) return { error: "Selected service is no longer available." };
+
+  const capacity = await bayCapacityAt({
+    locationId: location.id,
+    scheduledAt: new Date(scheduledAt).toISOString(),
+    durationMinutes: 60,
+  });
+  if (!capacity.available) {
+    return {
+      error: `That time slot is fully booked (${capacity.occupiedBays}/${capacity.totalBays} bays busy). Please pick another time.`,
+    };
+  }
 
   const type = service.category || "service";
   const willPayNow =

@@ -7,6 +7,7 @@ import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
+import { bayCapacityAt } from "@/lib/bay-availability";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -68,6 +69,20 @@ export async function submitWidgetBooking(
     .eq("location_id", location.id)
     .maybeSingle();
   if (!service) return { error: "Selected service is no longer available." };
+
+  // Capacity guard — refuse if all bays at this location are already
+  // occupied for the requested window. Locations with zero bays defined
+  // pass through (they're not using bay-based capacity).
+  const capacity = await bayCapacityAt({
+    locationId: location.id,
+    scheduledAt: new Date(scheduledAt).toISOString(),
+    durationMinutes: 60,
+  });
+  if (!capacity.available) {
+    return {
+      error: `That time slot is fully booked (${capacity.occupiedBays}/${capacity.totalBays} bays busy). Please pick another time.`,
+    };
+  }
 
   // Validate registration if provided
   let registration: string | null = null;
