@@ -1,15 +1,30 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { submitWidgetBooking } from "./actions";
 
-type Service = { id: string; name: string; category: string; duration_minutes: number; price: number | null };
+type Service = {
+  id: string;
+  name: string;
+  category: string;
+  duration_minutes: number;
+  price: number | null;
+};
+
+type Prefill = {
+  customerId: string | null;
+  fullName: string;
+  email: string;
+  phone: string;
+} | null;
 
 type Props = {
   orgColor: string;
   garageName: string;
   services: Service[];
   privacyPolicyUrl?: string | null;
+  prefill: Prefill;
+  paymentsEnabled: boolean;
 };
 
 function defaultDateTime() {
@@ -19,12 +34,32 @@ function defaultDateTime() {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-const INPUT = "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors disabled:opacity-50";
+const INPUT =
+  "w-full rounded-lg border border-black/15 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-0 transition-colors disabled:opacity-50";
 
-export function BookingWidgetForm({ orgColor, garageName, services, privacyPolicyUrl }: Props) {
+function fmtGbp(n: number) {
+  return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+}
+
+export function BookingWidgetForm({
+  orgColor,
+  garageName,
+  services,
+  privacyPolicyUrl,
+  prefill,
+  paymentsEnabled,
+}: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<{ paid: boolean } | null>(null);
+  const [serviceId, setServiceId] = useState<string>(services[0]?.id ?? "");
+
+  const selectedService = useMemo(
+    () => services.find((s) => s.id === serviceId) ?? null,
+    [services, serviceId],
+  );
+  const willPayNow =
+    paymentsEnabled && !!selectedService?.price && selectedService.price > 0;
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,8 +67,14 @@ export function BookingWidgetForm({ orgColor, garageName, services, privacyPolic
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await submitWidgetBooking(formData);
-      if ("error" in result) setError(result.error);
-      else setSuccess(true);
+      if ("error" in result) {
+        setError(result.error);
+      } else if ("paymentUrl" in result && result.paymentUrl) {
+        // Redirect to Stripe Checkout for prepayment.
+        window.location.href = result.paymentUrl;
+      } else {
+        setSuccess({ paid: false });
+      }
     });
   }
 
@@ -50,56 +91,118 @@ export function BookingWidgetForm({ orgColor, garageName, services, privacyPolic
         <p className="text-sm text-gray-500 max-w-xs">
           Your appointment is confirmed. Check your email for details. We look forward to seeing you!
         </p>
+        {!prefill && (
+          <a
+            href="/register"
+            className="text-sm font-semibold underline"
+            style={{ color: orgColor }}
+          >
+            Create an account to track this booking →
+          </a>
+        )}
       </div>
     );
   }
 
+  const lockContact = !!prefill;
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {prefill ? (
+        <div
+          className="rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-xs text-gray-600"
+        >
+          Booking as{" "}
+          <span className="font-semibold text-gray-900">{prefill.fullName || prefill.email}</span>
+          {prefill.email && (
+            <span className="text-gray-500"> · {prefill.email}</span>
+          )}
+        </div>
+      ) : (
+        <p className="rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+          Already a customer?{" "}
+          <a href="/login?next=/book" className="font-semibold underline">
+            Sign in
+          </a>{" "}
+          to skip filling these in.
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-gray-600">Full name *</label>
-          <input name="fullName" required placeholder="John Smith" disabled={pending} className={INPUT} />
+          <input
+            name="fullName"
+            required
+            placeholder="John Smith"
+            disabled={pending || lockContact}
+            defaultValue={prefill?.fullName ?? ""}
+            className={INPUT}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-gray-600">Email *</label>
-          <input name="email" type="email" required placeholder="john@example.com" disabled={pending} className={INPUT} />
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="john@example.com"
+            disabled={pending || lockContact}
+            defaultValue={prefill?.email ?? ""}
+            className={INPUT}
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-gray-600">Phone</label>
-          <input name="phone" type="tel" placeholder="07700 900000" disabled={pending} className={INPUT} />
+          <input
+            name="phone"
+            type="tel"
+            placeholder="07700 900000"
+            disabled={pending}
+            defaultValue={prefill?.phone ?? ""}
+            className={INPUT}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-gray-600">Vehicle reg</label>
-          <input name="registration" placeholder="AB12 CDE" disabled={pending} className={INPUT + " font-mono uppercase"} />
+          <input
+            name="registration"
+            placeholder="AB12 CDE"
+            disabled={pending}
+            className={INPUT + " font-mono uppercase"}
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-gray-600">Appointment type *</label>
-          <select name="type" required disabled={pending} className={INPUT}>
+          <select
+            name="serviceId"
+            required
+            disabled={pending}
+            value={serviceId}
+            onChange={(e) => setServiceId(e.target.value)}
+            className={INPUT}
+          >
             {services.length > 0 ? (
               [...new Set(services.map((s) => s.category))].map((cat) => (
                 <optgroup key={cat} label={cat.charAt(0).toUpperCase() + cat.slice(1)}>
-                  {services.filter((s) => s.category === cat).map((s) => (
-                    <option key={s.id} value={s.name}>
-                      {s.name}{s.price ? ` — £${s.price.toFixed(2)}` : ""}
-                    </option>
-                  ))}
+                  {services
+                    .filter((s) => s.category === cat)
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.price ? ` — ${fmtGbp(s.price)}` : ""}
+                      </option>
+                    ))}
                 </optgroup>
               ))
             ) : (
-              <>
-                <option value="mot">MOT</option>
-                <option value="service">Service</option>
-                <option value="repair">Repair</option>
-                <option value="diagnostic">Diagnostic</option>
-                <option value="other">Other</option>
-              </>
+              <option value="">No services available</option>
             )}
           </select>
         </div>
@@ -127,17 +230,33 @@ export function BookingWidgetForm({ orgColor, garageName, services, privacyPolic
         />
       </div>
 
-      <label className="flex items-start gap-2 text-xs text-gray-600">
-        <input
-          type="checkbox"
-          name="marketingConsent"
-          className="mt-0.5 h-4 w-4 rounded border-gray-300"
-        />
-        <span>
-          I agree to receive marketing communications from {garageName} (offers, news). You can opt out anytime.
-          We&apos;ll always send transactional updates about your booking.
-        </span>
-      </label>
+      {willPayNow && selectedService && (
+        <div
+          className="rounded-lg border px-3 py-2 text-sm"
+          style={{ borderColor: `${orgColor}40`, backgroundColor: `${orgColor}10` }}
+        >
+          <p className="font-semibold" style={{ color: orgColor }}>
+            Pay {fmtGbp(selectedService.price ?? 0)} now to confirm
+          </p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            Secure card payment via Stripe. Your booking is held once payment succeeds.
+          </p>
+        </div>
+      )}
+
+      {!prefill && (
+        <label className="flex items-start gap-2 text-xs text-gray-600">
+          <input
+            type="checkbox"
+            name="marketingConsent"
+            className="mt-0.5 h-4 w-4 rounded border-gray-300"
+          />
+          <span>
+            I agree to receive marketing communications from {garageName} (offers, news). You can opt out anytime.
+            We&apos;ll always send transactional updates about your booking.
+          </span>
+        </label>
+      )}
 
       <p className="text-xs text-gray-500">
         By submitting, you agree to our{" "}
@@ -156,16 +275,21 @@ export function BookingWidgetForm({ orgColor, garageName, services, privacyPolic
 
       <button
         type="submit"
-        disabled={pending}
+        disabled={pending || services.length === 0}
         className="mt-1 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: orgColor }}
       >
-        {pending ? "Sending request…" : "Request appointment"}
+        {pending
+          ? willPayNow
+            ? "Redirecting to payment…"
+            : "Sending request…"
+          : willPayNow
+          ? `Pay ${fmtGbp(selectedService?.price ?? 0)} and book`
+          : "Request appointment"}
       </button>
 
       <p className="text-center text-xs text-gray-400">
-        Powered by{" "}
-        <span className="font-medium text-gray-500">AI Garage</span>
+        Powered by <span className="font-medium text-gray-500">AI Garage</span>
       </p>
     </form>
   );

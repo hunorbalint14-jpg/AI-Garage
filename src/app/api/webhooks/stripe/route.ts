@@ -65,57 +65,102 @@ export async function POST(request: NextRequest) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       const invoiceId = session.metadata?.invoice_id;
-      if (!invoiceId) break;
+      const bookingId = session.metadata?.booking_id;
       const paid = session.payment_status === "paid";
       if (!paid) break;
       const paymentIntentId =
         typeof session.payment_intent === "string"
           ? session.payment_intent
           : session.payment_intent?.id ?? null;
-      const { error, count } = await admin
-        .from("invoices")
-        .update(
-          {
-            status: "paid",
-            paid_at: new Date().toISOString(),
-            stripe_paid_at: new Date().toISOString(),
-            stripe_paid_amount_pence: session.amount_total ?? null,
-            stripe_payment_intent_id: paymentIntentId,
-            stripe_checkout_session_id: session.id,
-          },
-          { count: "exact" },
-        )
-        .eq("id", invoiceId);
-      console.log("[stripe-webhook] checkout.session.completed", {
-        invoiceId,
-        rowsUpdated: count,
-        error: error?.message,
-      });
+
+      if (invoiceId) {
+        const { error, count } = await admin
+          .from("invoices")
+          .update(
+            {
+              status: "paid",
+              paid_at: new Date().toISOString(),
+              stripe_paid_at: new Date().toISOString(),
+              stripe_paid_amount_pence: session.amount_total ?? null,
+              stripe_payment_intent_id: paymentIntentId,
+              stripe_checkout_session_id: session.id,
+            },
+            { count: "exact" },
+          )
+          .eq("id", invoiceId);
+        console.log("[stripe-webhook] checkout.session.completed invoice", {
+          invoiceId,
+          rowsUpdated: count,
+          error: error?.message,
+        });
+      }
+
+      if (bookingId) {
+        const { error, count } = await admin
+          .from("bookings")
+          .update(
+            {
+              status: "scheduled",
+              paid_at: new Date().toISOString(),
+              paid_amount_pence: session.amount_total ?? null,
+              stripe_payment_intent_id: paymentIntentId,
+              stripe_checkout_session_id: session.id,
+            },
+            { count: "exact" },
+          )
+          .eq("id", bookingId);
+        console.log("[stripe-webhook] checkout.session.completed booking", {
+          bookingId,
+          rowsUpdated: count,
+          error: error?.message,
+        });
+      }
       break;
     }
 
     case "payment_intent.succeeded": {
       const pi = event.data.object as Stripe.PaymentIntent;
       const invoiceId = pi.metadata?.invoice_id;
-      if (!invoiceId) break;
-      const { count } = await admin
-        .from("invoices")
-        .update(
-          {
-            status: "paid",
-            paid_at: new Date().toISOString(),
-            stripe_paid_at: new Date().toISOString(),
-            stripe_paid_amount_pence: pi.amount_received ?? pi.amount ?? null,
-            stripe_payment_intent_id: pi.id,
-          },
-          { count: "exact" },
-        )
-        .eq("id", invoiceId)
-        .neq("status", "paid");
-      console.log("[stripe-webhook] payment_intent.succeeded", {
-        invoiceId,
-        rowsUpdated: count,
-      });
+      const bookingId = pi.metadata?.booking_id;
+      if (invoiceId) {
+        const { count } = await admin
+          .from("invoices")
+          .update(
+            {
+              status: "paid",
+              paid_at: new Date().toISOString(),
+              stripe_paid_at: new Date().toISOString(),
+              stripe_paid_amount_pence: pi.amount_received ?? pi.amount ?? null,
+              stripe_payment_intent_id: pi.id,
+            },
+            { count: "exact" },
+          )
+          .eq("id", invoiceId)
+          .neq("status", "paid");
+        console.log("[stripe-webhook] payment_intent.succeeded invoice", {
+          invoiceId,
+          rowsUpdated: count,
+        });
+      }
+      if (bookingId) {
+        const { count } = await admin
+          .from("bookings")
+          .update(
+            {
+              status: "scheduled",
+              paid_at: new Date().toISOString(),
+              paid_amount_pence: pi.amount_received ?? pi.amount ?? null,
+              stripe_payment_intent_id: pi.id,
+            },
+            { count: "exact" },
+          )
+          .eq("id", bookingId)
+          .is("paid_at", null);
+        console.log("[stripe-webhook] payment_intent.succeeded booking", {
+          bookingId,
+          rowsUpdated: count,
+        });
+      }
       break;
     }
 
