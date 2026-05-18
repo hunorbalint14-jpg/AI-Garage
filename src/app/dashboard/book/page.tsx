@@ -19,13 +19,27 @@ export default async function BookPage() {
 
   const { data: location } = await admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name, primary_color, logo_url)")
+    .select("id, name, organization:organizations(id, name, primary_color, logo_url, stripe_account_id, stripe_charges_enabled)")
     .eq("slug", slug)
     .maybeSingle() as {
-    data: { id: string; name: string; organization: { id: string; name: string; primary_color: string; logo_url: string | null } | null } | null;
+    data: {
+      id: string;
+      name: string;
+      organization: {
+        id: string;
+        name: string;
+        primary_color: string;
+        logo_url: string | null;
+        stripe_account_id: string | null;
+        stripe_charges_enabled: boolean | null;
+      } | null;
+    } | null;
   };
 
   if (!location?.organization) redirect("/");
+  const paymentsEnabled =
+    !!location.organization.stripe_account_id &&
+    !!location.organization.stripe_charges_enabled;
 
   const { data: customer } = await admin
     .from("customers")
@@ -81,7 +95,12 @@ export default async function BookPage() {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
-          <BookingRequestForm vehicles={vehicles as { id: string; registration: string; make: string | null; model: string | null }[]} services={services} orgColor={orgColor} />
+          <BookingRequestForm
+            vehicles={vehicles as { id: string; registration: string; make: string | null; model: string | null }[]}
+            services={services}
+            orgColor={orgColor}
+            paymentsEnabled={paymentsEnabled}
+          />
         </div>
       </main>
     </div>
