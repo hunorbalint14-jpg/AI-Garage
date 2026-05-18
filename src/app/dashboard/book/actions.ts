@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
-import { stripe, platformFeePence, publicOrigin } from "@/lib/stripe";
+import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
 
 export type BookingRequestResult =
   | { error: string }
@@ -145,8 +145,8 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
             receipt_email: cust.email ?? undefined,
           },
           metadata: { booking_id: booking.id },
-          success_url: `${publicOrigin()}/book/${booking.id}/paid?session_id={CHECKOUT_SESSION_ID}`,
-          cancel_url: `${publicOrigin()}/book/${booking.id}/cancelled`,
+          success_url: `${tenantOrigin(slug)}/book/${booking.id}/paid?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${tenantOrigin(slug)}/book/${booking.id}/cancelled`,
         },
         { stripeAccount: location.organization!.stripe_account_id! },
       );
