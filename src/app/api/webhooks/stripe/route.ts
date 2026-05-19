@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { generateInvoiceForPaidBooking } from "@/lib/booking-invoice";
-import { pushPaymentToXero } from "@/lib/xero-sync";
+import { pushPaymentToXero, pushPayoutToXero } from "@/lib/xero-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -211,6 +211,32 @@ export async function POST(request: NextRequest) {
         )
         .eq("stripe_payment_intent_id", pi);
       console.log("[stripe-webhook] charge.refunded", { pi, rowsUpdated: count });
+      break;
+    }
+
+    case "payout.paid": {
+      // Fires on the connected account when Stripe pays the garage's
+      // balance out to their real bank. We post a matching Receive Money
+      // bank transaction to their Xero so their accountant can reconcile.
+      const payout = event.data.object as Stripe.Payout;
+      const stripeAccountId = event.account;
+      if (!stripeAccountId) {
+        console.log("[stripe-webhook] payout.paid missing account", { id: payout.id });
+        break;
+      }
+      const arrivalDate = new Date(payout.arrival_date * 1000)
+        .toISOString()
+        .split("T")[0];
+      try {
+        await pushPayoutToXero({
+          stripePayoutId: payout.id,
+          stripeAccountId,
+          amountPence: payout.amount,
+          arrivalDate,
+        });
+      } catch (err) {
+        console.error("[stripe-webhook] payout.paid xero push failed", err);
+      }
       break;
     }
   }
