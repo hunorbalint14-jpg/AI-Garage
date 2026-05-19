@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="AIGarage">
+  <title>AIGarage</title>
+  <defs></defs>
+  
+  <path d="M 86 32 L 86 14 L 14 14 L 14 86 L 86 86 L 86 68" stroke="#0b0d11" stroke-width="12" fill="none" stroke-linejoin="round" stroke-linecap="round"></path>
+  <rect x="58" y="44" width="28" height="12" rx="2" fill="#0b0d11"></rect>
+  <text x="40" y="50" font-family="Space Grotesk, Inter, system-ui, -apple-system, sans-serif" font-weight="700" font-size="32" text-anchor="middle" dominant-baseline="central" fill="#FFFFFF" letter-spacing="-2.5">AI</text>
+</svg>
