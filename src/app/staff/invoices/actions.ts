@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { tenantPayUrl } from "@/lib/stripe";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
+import { pushInvoiceToXero, pushPaymentToXero } from "@/lib/xero-sync";
 
 export type CreateInvoiceResult = { error: string } | { success: true; invoiceId: string };
 
@@ -69,6 +70,12 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   if (error) return { error: error.message };
 
   await admin.from("jobs").update({ status: "invoiced" }).eq("id", jobId);
+
+  // Fire-and-forget: push to Xero. Logs internally, never blocks the
+  // staff response.
+  pushInvoiceToXero(invoice.id).catch((err) =>
+    console.error("[invoices/createInvoiceFromJob] xero push failed", err),
+  );
 
   revalidatePath(`/staff/jobs/${jobId}`);
   revalidatePath("/staff/invoices");
@@ -166,13 +173,32 @@ export async function markInvoicePaid(invoiceId: string): Promise<InvoiceActionR
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
+  const { data: invoice } = await admin
+    .from("invoices")
+    .select("id, total, location_id")
+    .eq("id", invoiceId)
+    .eq("location_id", ctx.location.id)
+    .maybeSingle();
+  if (!invoice) return { error: "Invoice not found." };
+
+  const paidAt = new Date().toISOString();
   const { error } = await admin
     .from("invoices")
-    .update({ status: "paid", paid_at: new Date().toISOString() })
+    .update({ status: "paid", paid_at: paidAt })
     .eq("id", invoiceId)
     .eq("location_id", ctx.location.id);
 
   if (error) return { error: error.message };
+
+  // Sync the payment to Xero, fire-and-forget.
+  pushPaymentToXero({
+    invoiceId,
+    amountPence: Math.round(Number(invoice.total) * 100),
+    paymentDate: paidAt,
+    reference: "Manual mark-as-paid",
+  }).catch((err) =>
+    console.error("[invoices/markInvoicePaid] xero push failed", err),
+  );
 
   revalidatePath(`/staff/invoices/${invoiceId}`);
   revalidatePath("/staff/invoices");
