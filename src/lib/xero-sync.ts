@@ -1,4 +1,12 @@
-import { Contact, Invoice, LineAmountTypes, LineItem, Payment, Phone } from "xero-node";
+import {
+  BankTransaction,
+  Contact,
+  Invoice,
+  LineAmountTypes,
+  LineItem,
+  Payment,
+  Phone,
+} from "xero-node";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getXeroClientForOrg } from "@/lib/xero";
 
@@ -267,6 +275,131 @@ export async function pushPaymentToXero(args: {
     return created.paymentID;
   } catch (err) {
     console.error("[xero-sync] createPayment failed", err);
+    return null;
+  }
+}
+
+// Push a Stripe payout to Xero as a Receive Money bank transaction.
+// Idempotent on (organization_id, stripe_payout_id) so webhook retries
+// or replays don't create duplicate bank transactions.
+//
+// Reconciliation flow on the garage side:
+// - Customer pays invoice via Stripe → we already posted Payment in Xero
+// - Stripe pays out net to garage's real bank → this function posts a
+//   Receive Money bank transaction in Xero with the net amount and the
+//   payout id as the reference, so the accountant can match it against
+//   the bank feed line for the same amount + date.
+// - Fees (gross payments minus payout net) accumulate as imbalance the
+//   accountant resolves as a quarterly "Stripe fees" Spend Money — out
+//   of scope for v1.
+export async function pushPayoutToXero(args: {
+  stripePayoutId: string;
+  stripeAccountId: string;
+  amountPence: number;
+  arrivalDate: string; // YYYY-MM-DD
+}): Promise<string | null> {
+  const admin = createAdminClient();
+
+  const { data: org } = await admin
+    .from("organizations")
+    .select("id")
+    .eq("stripe_account_id", args.stripeAccountId)
+    .maybeSingle();
+  if (!org) {
+    console.log("[xero-sync] payout for unknown stripe account", args.stripeAccountId);
+    return null;
+  }
+
+  // Idempotency check.
+  const { data: existing } = await admin
+    .from("xero_payouts")
+    .select("xero_bank_transaction_id")
+    .eq("organization_id", org.id)
+    .eq("stripe_payout_id", args.stripePayoutId)
+    .maybeSingle();
+  if (existing) {
+    console.log("[xero-sync] payout already pushed", {
+      stripePayoutId: args.stripePayoutId,
+      xeroBankTransactionId: existing.xero_bank_transaction_id,
+    });
+    return existing.xero_bank_transaction_id;
+  }
+
+  const conn = await getXeroClientForOrg(org.id);
+  if (!conn) return null;
+
+  // Pick the first BANK account on the connected org (same fallback as
+  // pushPaymentToXero). A future setting can let the garage pick which
+  // bank account receives payouts vs. clearing payments.
+  let bankAccountId: string | null = null;
+  let bankAccountCode: string | null = null;
+  try {
+    const accountsRes = await conn.client.accountingApi.getAccounts(
+      conn.tenantId,
+      undefined,
+      'Type=="BANK"',
+    );
+    const account = accountsRes.body.accounts?.[0];
+    bankAccountId = account?.accountID ?? null;
+    bankAccountCode = account?.code ?? null;
+  } catch (err) {
+    console.error("[xero-sync] getAccounts failed", err);
+  }
+  if (!bankAccountId) {
+    console.error("[xero-sync] no BANK account found for payout");
+    return null;
+  }
+
+  // Receive Money bank transaction. Allocates to a generic "Sales" line
+  // — accountant can recategorise later if they want a separate Stripe
+  // payout account. We don't link line item to a specific revenue
+  // account because the underlying Payment records already hit Sales.
+  // Using a NOTAX line item keeps this transaction from double-counting
+  // VAT (VAT was already accounted for on the original invoice).
+  const txn: BankTransaction = {
+    type: BankTransaction.TypeEnum.RECEIVE,
+    contact: { name: "Stripe Payouts" },
+    bankAccount: bankAccountCode
+      ? { accountID: bankAccountId, code: bankAccountCode }
+      : { accountID: bankAccountId },
+    date: args.arrivalDate,
+    reference: args.stripePayoutId,
+    lineAmountTypes: LineAmountTypes.NoTax,
+    lineItems: [
+      {
+        description: `Stripe payout ${args.stripePayoutId}`,
+        quantity: 1,
+        unitAmount: args.amountPence / 100,
+        accountCode: "200", // Sales — Xero default chart of accounts code
+        taxType: "NONE",
+      },
+    ],
+  };
+
+  try {
+    const res = await conn.client.accountingApi.createBankTransactions(
+      conn.tenantId,
+      { bankTransactions: [txn] },
+    );
+    const created = res.body.bankTransactions?.[0];
+    if (!created?.bankTransactionID) return null;
+
+    await admin.from("xero_payouts").insert({
+      organization_id: org.id,
+      stripe_payout_id: args.stripePayoutId,
+      stripe_account_id: args.stripeAccountId,
+      xero_bank_transaction_id: created.bankTransactionID,
+      amount_pence: args.amountPence,
+      arrival_date: args.arrivalDate,
+    });
+
+    console.log("[xero-sync] payout pushed", {
+      stripePayoutId: args.stripePayoutId,
+      xeroBankTransactionId: created.bankTransactionID,
+    });
+    return created.bankTransactionID;
+  } catch (err) {
+    console.error("[xero-sync] createBankTransactions failed", err);
     return null;
   }
 }
