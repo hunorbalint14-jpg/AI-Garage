@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>AIGarage — Technical Documentation</title>
+<title>AI Garage — Technical Documentation</title>
 <link rel="icon" href="/brand/aigarage-mark-on-brand.svg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -233,7 +233,7 @@
   <!-- ===================== SIDEBAR TOC ===================== -->
   <aside class="toc">
     <div class="brand">
-      <img src="/brand/aigarage-logo-horizontal-on-light.svg" alt="AIGarage" />
+      <img src="/brand/aigarage-logo-horizontal-on-light.svg" alt="AI Garage" />
     </div>
     <h4>Technical Doc</h4>
     <ol>
@@ -264,18 +264,18 @@
     <!-- ============== COVER ============== -->
     <header class="cover">
       <div class="cover-head">
-        <img src="/brand/aigarage-logo-horizontal-on-light.svg" alt="AIGarage" />
+        <img src="/brand/aigarage-logo-horizontal-on-light.svg" alt="AI Garage" />
         <div class="stamp">internal / technical</div>
       </div>
 
       <div class="cover-title">
         <div class="eyebrow">Engineering reference · Rev 01</div>
         <h1>End&#8209;to&#8209;end<br /><span class="accent">technical</span> documentation</h1>
-        <p class="lede">A blueprint of the AIGarage SaaS — multi-tenant Next.js on Supabase, with AI-drafted customer communications, scheduled reminder pipelines and Stripe / Xero / DVSA integrations. Written for developers and the CTO.</p>
+        <p class="lede">A blueprint of the AI Garage SaaS — multi-tenant Next.js on Supabase, with AI-drafted customer communications, scheduled reminder pipelines and Stripe / Xero / DVSA integrations. Written for developers and the CTO.</p>
       </div>
 
       <dl class="cover-meta">
-        <div><dt>Product</dt><dd>AIGarage Manu Bar</dd></div>
+        <div><dt>Product</dt><dd>AI Garage</dd></div>
         <div><dt>Codebase</dt><dd>Garage-AI · Next.js 16</dd></div>
         <div><dt>Audience</dt><dd>Engineering · CTO</dd></div>
         <div><dt>Status</dt><dd>Living document</dd></div>
@@ -290,7 +290,7 @@
         <div class="tag">scope · whole app</div>
       </div>
 
-      <p class="lede2">AIGarage is an AI&#8209;powered, white-label SaaS for UK garages. It tracks MOT / service / VED dates, drafts and sends automated customer reminders across email / SMS / WhatsApp, captures bookings and payments, and pushes accounting data into Xero.</p>
+      <p class="lede2">AI Garage is an AI&#8209;powered, white-label SaaS for UK garages. It tracks MOT / service / VED dates, drafts and sends automated customer reminders across email / SMS / WhatsApp, captures bookings and payments, and pushes accounting data into Xero.</p>
 
       <div class="kpis">
         <div class="kpi"><div class="v">2&nbsp;<span class="accent">portals</span></div><div class="l">staff · customer</div></div>
@@ -345,7 +345,7 @@
         <div class="tile scoped">
           <div class="corner">platform</div>
           <div class="name">Platform operator</div>
-          <div class="desc">AIGarage itself. Owns the root domain, the Stripe platform account, the Claude/Resend/Twilio keys, the cron secret.</div>
+          <div class="desc">AI Garage itself. Owns the root domain, the Stripe platform account, the Claude/Resend/Twilio keys, the cron secret.</div>
         </div>
       </div>
     </section>
@@ -975,9 +975,10 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <tr><td><code>GET /api/cron/digest</code></td><td><code>CRON_SECRET</code></td><td>Weekly staff digest email.</td></tr>
         <tr><td><code>GET /api/invoice/[id]/print</code></td><td>signed link</td><td>Server-rendered HTML/PDF invoice.</td></tr>
         <tr><td><code>GET /api/stripe/connect/refresh · return</code></td><td>session</td><td>Stripe Connect onboarding callback URLs.</td></tr>
-        <tr><td><code>POST /api/webhooks/stripe</code></td><td>signature</td><td>Account, checkout, payment_intent, charge.refunded events.</td></tr>
+        <tr><td><code>POST /api/webhooks/stripe</code></td><td>signature</td><td>Account, checkout, payment_intent, charge.refunded and <code>payout.paid</code> events. Last triggers Xero bank-reconciliation push.</td></tr>
         <tr><td><code>POST /api/webhooks/resend</code></td><td>svix</td><td>Email delivery / open / click tracking → updates <code>reminders</code>.</td></tr>
         <tr><td><code>GET /api/xero/connect/begin · callback</code></td><td>session</td><td>OAuth handshake to attach a Xero tenant to an org.</td></tr>
+        <tr><td><code>GET /docs/[slug]?t=&lt;token&gt;</code></td><td>signed token</td><td>Public token-gated read of internal HTML docs (technical reference, runbooks). Constant-time SHA-256 hash compare; styled 401 / 410 gate pages per failure reason.</td></tr>
       </table>
     </section>
 
@@ -1353,10 +1354,14 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
       <table class="tbl">
         <tr><th>Stripe event</th><th>Action</th><th>Side effect</th></tr>
         <tr><td><code>account.updated</code></td><td>Update org flags</td><td>UI gates "send pay link" on <code>stripe_charges_enabled</code>.</td></tr>
-        <tr><td><code>checkout.session.completed</code> (paid)</td><td>Mark invoice / booking paid</td><td>Triggers <code>pushPaymentToXero()</code> if invoice path; generates invoice for booking path.</td></tr>
+        <tr><td><code>checkout.session.completed</code> (paid)</td><td>Mark invoice / booking paid</td><td>Triggers <code>pushPaymentToXero()</code> if invoice path; generates branded invoice for booking path (<code>generateInvoiceForPaidBooking()</code>) and pushes both invoice + payment to Xero.</td></tr>
         <tr><td><code>payment_intent.succeeded</code></td><td>Fallback for non-Checkout flows</td><td>Same paid bookkeeping.</td></tr>
         <tr><td><code>charge.refunded</code></td><td>Flip invoice back to <code>sent</code></td><td>Operator handles Xero refund manually for now.</td></tr>
+        <tr><td><code>payout.paid</code></td><td>Push Stripe payout to Xero as RECEIVE bank transaction</td><td><code>pushPayoutToXero()</code> — Receive Money line in connected Xero with payout id as reference. Idempotent via <code>xero_payouts</code> tracking table.</td></tr>
       </table>
+
+      <h3>Bank reconciliation (Xero Phase 2)</h3>
+      <p>Once a garage's Stripe balance pays out to their real bank, <code>payout.paid</code> fires on the connected account. The handler posts a matching <strong>Receive Money</strong> bank transaction in their Xero so the accountant gets a ready-to-match line against the actual bank feed — reconciliation becomes one click. The payout id is the reference; the date is <code>payout.arrival_date</code>; the line is NoTax (VAT was already settled on the underlying invoices). Fees gap (gross customer payments minus net payout) accumulates as imbalance the accountant resolves as a periodic "Stripe fees" Spend Money. A dedicated Stripe clearing account is the natural Phase 3.</p>
 
       <div class="note">
         <span class="label">Idempotency contract</span>
@@ -1385,7 +1390,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <tr><td>DVLA VES</td><td><code>lib/dvla-ves.ts</code></td><td>platform</td><td>Road tax (VED) due date enrichment.</td></tr>
         <tr><td>DVSA Recalls</td><td><code>lib/dvsa-recalls.ts</code></td><td>platform</td><td>Recall lookup; populates <code>vehicles.recall_status · recall_detail · recall_checked_at</code>.</td></tr>
         <tr><td>Stripe</td><td><code>lib/stripe.ts</code> · <code>lib/booking-invoice.ts</code></td><td>platform + per-org</td><td>Connect Express onboarding; Checkout pay-links on invoices &amp; bookings; webhooks.</td></tr>
-        <tr><td>Xero</td><td><code>lib/xero.ts</code> · <code>lib/xero-sync.ts</code></td><td>per-org OAuth</td><td>Contacts, invoices, payments. Idempotent push from AIGarage; one-way only.</td></tr>
+        <tr><td>Xero</td><td><code>lib/xero.ts</code> · <code>lib/xero-sync.ts</code></td><td>per-org OAuth</td><td>Contacts, invoices, payments. Idempotent push from AI Garage; one-way only.</td></tr>
       </table>
     </section>
 
@@ -1531,6 +1536,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
             <li><strong>CRON_SECRET bearer</strong> on every cron handler.</li>
             <li><strong>Stripe + Resend signature verification</strong> on every webhook; signature failures return 400 with no DB side effect.</li>
             <li><strong>Stripe-hosted Checkout</strong> — card data never touches our infrastructure. PCI scope is SAQ A.</li>
+            <li><strong>Doc share links</strong> — internal HTML docs gated by signed tokens at <code>/docs/[slug]?t=&lt;token&gt;</code>. Tokens are 32 random bytes; database stores only the SHA-256 hash. Constant-time compare via <code>crypto.timingSafeEqual</code>. Files live outside <code>public/</code> so the gated route is the only way in. Owner-managed at <code>/staff/docs</code>; revoke / expire / view-cap built in.</li>
           </ul>
         </div>
         <div>
@@ -1568,7 +1574,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
     <footer style="margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--aig-rule); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3);">
       <div>
         <img src="/brand/aigarage-mark-on-brand.svg" alt="" style="height: 18px; vertical-align: middle; margin-right: 8px;" />
-        AIGarage · technical reference · revision 01
+        AI Garage · technical reference · revision 02
       </div>
       <div>end of document</div>
     </footer>

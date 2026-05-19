@@ -92,8 +92,11 @@ function gatePage(reason: VerifyReason): NextResponse {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${title} — AIGarage</title>
+  <title>${title} — AI Garage</title>
   <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="/brand/icon/aigarage-favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/brand/icon/png/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="/brand/icon/png/apple-touch-icon.png" sizes="180x180" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -122,10 +125,11 @@ function gatePage(reason: VerifyReason): NextResponse {
 </head>
 <body>
   <div class="card">
+    <img src="/brand/aigarage-logo-horizontal-on-light.svg" alt="AI Garage" style="display:block;height:28px;margin-bottom:24px" />
     <div class="eyebrow">Error · <span class="code">${code}</span></div>
     <h1>${title}</h1>
     <p>${lede}</p>
-    <div class="brand"><span class="dot"></span> AIGarage · internal documentation</div>
+    <div class="brand"><span class="dot"></span> AI Garage · internal documentation</div>
   </div>
 </body>
 </html>`;

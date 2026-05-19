@@ -105,6 +105,9 @@ export async function GET(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Invoice ${invoice.invoice_number} — ${garageName}</title>
+<link rel="icon" href="/brand/icon/aigarage-favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/brand/icon/png/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/brand/icon/png/apple-touch-icon.png" sizes="180x180">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size: 13px; color: #111827; background: #fff; padding: 40px 48px; max-width: 800px; margin: 0 auto; }
