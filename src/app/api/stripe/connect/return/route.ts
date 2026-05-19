@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
+import { logAudit } from "@/lib/audit";
 
 // Stripe redirects here once the garage finishes (or pauses) Express
 // onboarding. We pull the live account status and persist the flags before
@@ -44,6 +45,19 @@ export async function GET(request: NextRequest) {
           stripe_details_submitted: !!account.details_submitted,
         })
         .eq("id", orgId);
+      await logAudit({
+        organizationId: orgId,
+        actorUserId: user.id,
+        actorEmail: user.email ?? null,
+        action: "stripe.connect_complete",
+        entityType: "stripe_account",
+        entityId: account.id,
+        metadata: {
+          charges_enabled: !!account.charges_enabled,
+          payouts_enabled: !!account.payouts_enabled,
+          details_submitted: !!account.details_submitted,
+        },
+      });
     } catch (err) {
       console.error("[stripe/connect/return] account fetch failed", err);
     }

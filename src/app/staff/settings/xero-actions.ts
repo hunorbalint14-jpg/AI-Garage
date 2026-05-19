@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit";
 
 export async function disconnectXero(): Promise<{ error: string } | { success: true }> {
   const ctx = await requireStaffContext();
@@ -22,6 +23,13 @@ export async function disconnectXero(): Promise<{ error: string } | { success: t
     })
     .eq("id", ctx.organization.id);
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "xero.disconnect",
+  });
 
   revalidatePath("/staff/settings");
   return { success: true };
