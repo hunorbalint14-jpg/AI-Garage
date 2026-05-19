@@ -6,19 +6,21 @@ import { publicOrigin } from "@/lib/stripe";
 // March 2026; apps created after that date only have granular access).
 // "offline_access" required for refresh tokens.
 //
-// What each granular scope unlocks for us:
+// What each scope unlocks for us:
 //   accounting.contacts          → create Xero Contact for a customer
 //   accounting.invoices          → create ACCREC invoices
 //   accounting.payments          → record payments against invoices
 //   accounting.banktransactions  → post Stripe payouts as bank transactions
-//   accounting.accounts.read     → read BANK account to attach payments to
+//   accounting.settings.read     → read Accounts (find BANK account) — this
+//                                  scope is NOT deprecated and survives the
+//                                  March 2026 granular migration unchanged.
 export const XERO_SCOPES = [
   "offline_access",
   "accounting.contacts",
   "accounting.invoices",
   "accounting.payments",
   "accounting.banktransactions",
-  "accounting.accounts.read",
+  "accounting.settings.read",
 ];
 
 function clientId(): string {
