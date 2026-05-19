@@ -1,23 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { makeXeroClient } from "@/lib/xero";
+import { verifyOAuthState } from "@/lib/oauth-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Step 2 of Xero OAuth — Xero redirects here with ?code=... &state=<orgId>.
-// We exchange the code for a token set, pull the connected tenant id, and
-// persist both on organizations.
+// Step 2 of Xero OAuth. Xero redirects here on the apex domain with
+// ?code=...&state=<signed-token>. The state token carries the orgId +
+// userId that started the flow on a tenant subdomain — we don't have
+// the user's session cookie here because cookies are host-scoped, so
+// the signed state is the trust anchor instead.
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.redirect(new URL("/staff/login", request.url));
-  }
-
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
   const errParam = url.searchParams.get("error");
@@ -30,13 +24,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/staff/settings?xero=no-state", request.url));
   }
 
+  const verified = verifyOAuthState(state);
+  if (!verified.ok) {
+    console.error("[xero/callback] invalid state", { reason: verified.reason });
+    return NextResponse.redirect(
+      new URL(`/staff/settings?xero=bad-state&reason=${verified.reason}`, request.url),
+    );
+  }
+
   const admin = createAdminClient();
-  // Make sure the user owns/admins this org before persisting tokens.
+
+  // Re-verify owner/admin membership against the org from the signed state.
   const { data: orgUser } = await admin
     .from("org_users")
     .select("organization_id, role")
-    .eq("user_id", user.id)
-    .eq("organization_id", state)
+    .eq("user_id", verified.userId)
+    .eq("organization_id", verified.orgId)
     .maybeSingle();
   if (!orgUser || (orgUser.role !== "owner" && orgUser.role !== "admin")) {
     return NextResponse.redirect(new URL("/staff/settings?xero=forbidden", request.url));
@@ -67,7 +70,7 @@ export async function GET(request: NextRequest) {
         xero_token_expires_at: expiresAt,
         xero_connected_at: new Date().toISOString(),
       })
-      .eq("id", state);
+      .eq("id", verified.orgId);
   } catch (err) {
     console.error("[xero/callback] exchange failed", err);
     return NextResponse.redirect(
@@ -75,5 +78,23 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.redirect(new URL("/staff/settings?xero=connected", request.url));
+  // Send the user back to their tenant settings page, not the apex.
+  // Look up the org's first location slug so we can land them back where
+  // they started.
+  const { data: location } = await admin
+    .from("locations")
+    .select("slug")
+    .eq("organization_id", verified.orgId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const rootDomain =
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN ??
+    request.headers.get("host") ??
+    "ai-garage.co.uk";
+  const protocol = rootDomain.includes("localtest") ? "http" : "https";
+  const target = location?.slug
+    ? `${protocol}://${location.slug}.${rootDomain}/staff/settings?xero=connected`
+    : new URL("/staff/settings?xero=connected", request.url).toString();
+  return NextResponse.redirect(target);
 }

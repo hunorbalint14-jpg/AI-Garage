@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { makeXeroClient } from "@/lib/xero";
+import { signOAuthState } from "@/lib/oauth-state";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,11 +31,17 @@ export async function GET(request: NextRequest) {
   }
 
   const client = makeXeroClient();
-  // Pass org_id through the state param so the callback can map back.
+  // Build a signed state token carrying the orgId + userId. The callback
+  // lands on the apex domain where the session cookie is invisible — the
+  // state token replaces the session check there.
+  const stateToken = signOAuthState({
+    orgId: orgUser.organization_id as string,
+    userId: user.id,
+  });
   const consentUrl = await client.buildConsentUrl();
   const withState = consentUrl.includes("state=")
-    ? consentUrl.replace(/state=[^&]*/, `state=${orgUser.organization_id}`)
-    : `${consentUrl}&state=${orgUser.organization_id}`;
+    ? consentUrl.replace(/state=[^&]*/, `state=${encodeURIComponent(stateToken)}`)
+    : `${consentUrl}&state=${encodeURIComponent(stateToken)}`;
 
   return NextResponse.redirect(withState);
 }
