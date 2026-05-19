@@ -36,14 +36,17 @@ export function xeroRedirectUri(): string {
 }
 
 // New XeroClient per call — the SDK is stateful, so we don't share an
-// instance across requests.
-export function makeXeroClient(): XeroClient {
+// instance across requests. The `state` arg is the value xero-node will
+// expect to see echoed back on the OAuth callback. Begin uses the default;
+// the callback must pass the actual state from the URL so xero-node's
+// internal state-mismatch check passes (it compares URL state ↔ this).
+export function makeXeroClient(state: string = "ai-garage"): XeroClient {
   return new XeroClient({
     clientId: clientId(),
     clientSecret: clientSecret(),
     redirectUris: [xeroRedirectUri()],
     scopes: XERO_SCOPES,
-    state: "ai-garage",
+    state,
     httpTimeout: 30_000,
   });
 }

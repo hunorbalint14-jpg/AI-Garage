@@ -30,7 +30,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/staff/settings?xero=forbidden", request.url));
   }
 
-  const client = makeXeroClient();
   // Build a signed state token carrying the orgId + userId. The callback
   // lands on the apex domain where the session cookie is invisible — the
   // state token replaces the session check there.
@@ -38,10 +37,11 @@ export async function GET(request: NextRequest) {
     orgId: orgUser.organization_id as string,
     userId: user.id,
   });
+  // Construct the XeroClient with our signed token as `state`. xero-node
+  // uses it verbatim when it builds the consent URL and later checks the
+  // returned state matches on apiCallback().
+  const client = makeXeroClient(stateToken);
   const consentUrl = await client.buildConsentUrl();
-  const withState = consentUrl.includes("state=")
-    ? consentUrl.replace(/state=[^&]*/, `state=${encodeURIComponent(stateToken)}`)
-    : `${consentUrl}&state=${encodeURIComponent(stateToken)}`;
 
-  return NextResponse.redirect(withState);
+  return NextResponse.redirect(consentUrl);
 }

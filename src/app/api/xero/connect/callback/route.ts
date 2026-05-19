@@ -57,7 +57,10 @@ export async function GET(request: NextRequest) {
     console.error("[xero/callback] getUserById failed", err);
   }
 
-  const client = makeXeroClient();
+  // Pass the URL state to the SDK so its internal state-mismatch check
+  // sees the same value we sent — otherwise xero-node throws RPError
+  // "state mismatch" before we even read the verified payload.
+  const client = makeXeroClient(state);
   try {
     const tokenSet = await client.apiCallback(request.url);
     await client.updateTenants();
