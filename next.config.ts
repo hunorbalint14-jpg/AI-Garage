@@ -11,6 +11,13 @@ const nextConfig: NextConfig = {
   devIndicators: {
     position: "bottom-right",
   },
+
+  // Ensure docs/internal/*.html files ship with the deployed build —
+  // they're read at runtime by /docs/[slug] but live outside Next's
+  // default tracing roots.
+  outputFileTracingIncludes: {
+    "/docs/[slug]": ["./docs/internal/**"],
+  },
 };
 
 export default nextConfig;

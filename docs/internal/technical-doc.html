@@ -1,0 +1,1579 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AIGarage — Technical Documentation</title>
+<link rel="icon" href="/brand/aigarage-mark-on-brand.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --aig-green: #22c55e;
+    --aig-green-deep: #16a34a;
+    --aig-ink: #0b0d11;
+    --aig-ink-2: #2a2f38;
+    --aig-ink-3: #5b6270;
+    --aig-rule: #cfd1c8;
+    --aig-rule-soft: #e6e5dd;
+    --aig-paper: #f5f4f0;
+    --aig-paper-2: #ecebe4;
+    --aig-white: #ffffff;
+    --aig-warn: #b45309;
+    --aig-blue: #1d4ed8;
+
+    --font-display: "Space Grotesk", "Inter", system-ui, -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--aig-paper); color: var(--aig-ink); font-family: var(--font-display); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a { color: var(--aig-ink); text-decoration: none; border-bottom: 1px solid var(--aig-rule); }
+  a:hover { color: var(--aig-green-deep); border-color: var(--aig-green); }
+  code, kbd, samp { font-family: var(--font-mono); font-size: 0.86em; }
+
+  /* Layout */
+  .doc {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+  .toc {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 32px 24px 32px 32px;
+    border-right: 1px solid var(--aig-rule);
+    font-size: 13px;
+  }
+  .toc .brand { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
+  .toc .brand img { height: 22px; }
+  .toc h4 { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--aig-ink-3); margin: 16px 0 6px; }
+  .toc ol { list-style: none; padding: 0; margin: 0; counter-reset: tocn; }
+  .toc ol li { counter-increment: tocn; padding: 4px 0; border: 0; }
+  .toc ol li a { display: block; border: 0; color: var(--aig-ink-2); padding: 4px 8px 4px 28px; position: relative; border-radius: 4px; }
+  .toc ol li a::before { content: counter(tocn, decimal-leading-zero); position: absolute; left: 0; top: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3); }
+  .toc ol li a:hover { background: var(--aig-paper-2); color: var(--aig-ink); }
+  .toc .meta { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--aig-rule); font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3); line-height: 1.7; }
+
+  main { padding: 56px 64px 96px; min-width: 0; }
+
+  /* Cover */
+  .cover {
+    min-height: calc(100vh - 112px);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    margin-bottom: 96px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--aig-rule);
+  }
+  .cover-head { display: flex; align-items: center; justify-content: space-between; }
+  .cover-head img { height: 28px; }
+  .cover-head .stamp {
+    font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3);
+    padding: 6px 10px; border: 1px solid var(--aig-rule); border-radius: 999px;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .cover-title { padding: 24px 0 0; }
+  .cover-title .eyebrow { font-family: var(--font-mono); font-size: 12px; color: var(--aig-ink-3); letter-spacing: 0.18em; text-transform: uppercase; }
+  .cover-title h1 { font-size: 88px; line-height: 0.95; letter-spacing: -0.035em; font-weight: 600; margin: 16px 0 24px; max-width: 14ch; }
+  .cover-title h1 .accent { color: var(--aig-green); }
+  .cover-title .lede { font-size: 22px; max-width: 56ch; color: var(--aig-ink-2); font-weight: 400; line-height: 1.4; text-wrap: pretty; }
+  .cover-meta {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; padding-top: 24px;
+    border-top: 1px dashed var(--aig-rule);
+    font-family: var(--font-mono); font-size: 12px;
+  }
+  .cover-meta dt { color: var(--aig-ink-3); letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; margin-bottom: 4px; }
+  .cover-meta dd { margin: 0; color: var(--aig-ink); font-size: 13px; }
+
+  /* Sections */
+  section { margin-top: 96px; scroll-margin-top: 24px; }
+  section.first { margin-top: 0; }
+  .sec-head { display: flex; align-items: baseline; gap: 16px; border-bottom: 1px solid var(--aig-rule); padding-bottom: 12px; margin-bottom: 28px; }
+  .sec-head .num { font-family: var(--font-mono); font-size: 14px; color: var(--aig-ink-3); }
+  .sec-head h2 { font-size: 34px; line-height: 1.1; letter-spacing: -0.025em; font-weight: 600; margin: 0; }
+  .sec-head .tag { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--aig-ink-3); }
+
+  h3 { font-size: 20px; margin: 28px 0 12px; letter-spacing: -0.012em; font-weight: 600; }
+  h4 { font-size: 14px; margin: 20px 0 8px; font-weight: 600; letter-spacing: 0.02em; }
+  p { margin: 0 0 12px; max-width: 72ch; text-wrap: pretty; }
+  ul, ol { padding-left: 20px; margin: 0 0 16px; max-width: 72ch; }
+  li { margin-bottom: 4px; }
+  strong { font-weight: 600; }
+
+  .lede2 { font-size: 17px; color: var(--aig-ink-2); max-width: 70ch; margin-bottom: 24px; }
+
+  /* Two-column body */
+  .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+
+  /* Callouts */
+  .note {
+    border-left: 3px solid var(--aig-green);
+    padding: 10px 16px; background: rgba(34,197,94,0.06);
+    margin: 16px 0; font-size: 14px; max-width: 72ch;
+  }
+  .note .label { font-family: var(--font-mono); font-size: 11px; color: var(--aig-green-deep); letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-bottom: 4px; }
+  .note.warn { border-color: var(--aig-warn); background: rgba(180,83,9,0.05); }
+  .note.warn .label { color: var(--aig-warn); }
+
+  /* Code block */
+  pre.code { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6; background: var(--aig-ink); color: #e6e6e2; padding: 16px 20px; border-radius: 6px; overflow-x: auto; margin: 12px 0 20px; }
+  pre.code .c { color: #6b7281; }
+  pre.code .k { color: #86efac; }
+  pre.code .s { color: #fde68a; }
+  code.inline { background: var(--aig-paper-2); padding: 1px 6px; border-radius: 3px; border: 1px solid var(--aig-rule-soft); }
+
+  /* Tables */
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 12px 0 20px; }
+  table.tbl th, table.tbl td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--aig-rule-soft); vertical-align: top; }
+  table.tbl th { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--aig-ink-3); font-weight: 600; border-bottom: 1px solid var(--aig-rule); }
+  table.tbl td code { font-family: var(--font-mono); font-size: 12px; }
+  table.tbl tr:last-child td { border-bottom: 0; }
+  table.tbl.dense th, table.tbl.dense td { padding: 6px 10px; font-size: 12.5px; }
+
+  /* Blueprint diagram primitives */
+  .bp {
+    position: relative;
+    background: var(--aig-paper);
+    background-image:
+      linear-gradient(rgba(11,13,17,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(11,13,17,0.06) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: -1px -1px;
+    border: 1px solid var(--aig-rule);
+    border-radius: 4px;
+    padding: 24px;
+    margin: 16px 0 24px;
+  }
+  .bp::before, .bp::after {
+    content: ""; position: absolute; width: 10px; height: 10px;
+    border: 1px solid var(--aig-ink-3);
+  }
+  .bp::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+  .bp::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+  .bp .caption { font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 16px; display: flex; gap: 16px; }
+  .bp .caption .ref { color: var(--aig-ink); }
+  .bp svg { display: block; width: 100%; height: auto; }
+  .bp .legend { display: flex; gap: 18px; flex-wrap: wrap; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3); margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--aig-rule); }
+  .bp .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .bp .legend .sw { display: inline-block; width: 18px; height: 2px; background: var(--aig-ink); }
+  .bp .legend .sw.dash { background: transparent; border-top: 2px dashed var(--aig-ink); height: 0; }
+  .bp .legend .sw.green { background: var(--aig-green); }
+  .bp .legend .sw.blue { background: var(--aig-blue); }
+  .bp .legend .sw.dot { width: 8px; height: 8px; border-radius: 999px; background: var(--aig-green); }
+
+  /* SVG diagram styling helpers (referenced from inline svg) */
+  .d-stroke { stroke: var(--aig-ink); stroke-width: 1.25; fill: none; }
+  .d-stroke-thin { stroke: var(--aig-ink); stroke-width: 1; fill: none; }
+  .d-stroke-dash { stroke: var(--aig-ink); stroke-width: 1.25; fill: none; stroke-dasharray: 4 3; }
+  .d-stroke-green { stroke: var(--aig-green-deep); stroke-width: 1.5; fill: none; }
+  .d-stroke-blue { stroke: var(--aig-blue); stroke-width: 1.25; fill: none; }
+  .d-fill-paper { fill: var(--aig-paper); }
+  .d-fill-white { fill: var(--aig-white); }
+  .d-fill-ink { fill: var(--aig-ink); }
+  .d-fill-green { fill: var(--aig-green); }
+  .d-label { font-family: var(--font-mono); font-size: 11px; fill: var(--aig-ink); }
+  .d-label-sm { font-family: var(--font-mono); font-size: 10px; fill: var(--aig-ink); }
+  .d-label-mute { font-family: var(--font-mono); font-size: 10px; fill: var(--aig-ink-3); }
+  .d-title { font-family: var(--font-display); font-size: 13px; font-weight: 600; fill: var(--aig-ink); }
+  .d-eyebrow { font-family: var(--font-mono); font-size: 9px; fill: var(--aig-ink-3); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  /* Tile grid (route map) */
+  .tilegrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 12px 0 20px; }
+  .tile { border: 1px solid var(--aig-rule); background: var(--aig-white); padding: 14px 16px; border-radius: 4px; position: relative; }
+  .tile .name { font-family: var(--font-mono); font-size: 12px; color: var(--aig-ink); font-weight: 600; margin-bottom: 6px; }
+  .tile .desc { font-size: 12.5px; color: var(--aig-ink-2); line-height: 1.45; }
+  .tile .corner { position: absolute; top: 8px; right: 10px; font-family: var(--font-mono); font-size: 9px; color: var(--aig-ink-3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .tile.scoped { border-color: var(--aig-green); }
+  .tile.scoped .corner { color: var(--aig-green-deep); }
+
+  /* Field map for env vars */
+  .fields { border: 1px solid var(--aig-rule); border-radius: 4px; overflow: hidden; margin: 12px 0 20px; }
+  .field-row { display: grid; grid-template-columns: 240px 80px 1fr; gap: 16px; padding: 10px 16px; border-bottom: 1px solid var(--aig-rule-soft); align-items: baseline; }
+  .field-row:last-child { border-bottom: 0; }
+  .field-row .k { font-family: var(--font-mono); font-size: 12px; color: var(--aig-ink); font-weight: 500; }
+  .field-row .scope { font-family: var(--font-mono); font-size: 10px; color: var(--aig-ink-3); letter-spacing: 0.1em; text-transform: uppercase; }
+  .field-row .scope.client { color: var(--aig-blue); }
+  .field-row .scope.server { color: var(--aig-ink-3); }
+  .field-row .scope.cron { color: var(--aig-green-deep); }
+  .field-row .desc { font-size: 13px; color: var(--aig-ink-2); }
+
+  /* Bullet KPI strip */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0 28px; }
+  .kpi { border: 1px solid var(--aig-rule); padding: 14px 16px; border-radius: 4px; background: var(--aig-white); }
+  .kpi .v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+  .kpi .v .accent { color: var(--aig-green); }
+  .kpi .l { font-family: var(--font-mono); font-size: 10px; color: var(--aig-ink-3); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 4px; }
+
+  /* Page-break controls for PDF export */
+  @media print {
+    .toc { display: none; }
+    .doc { display: block; max-width: none; }
+    main { padding: 0; }
+    .cover { min-height: auto; page-break-after: always; }
+    section { page-break-before: always; margin-top: 0; }
+    .bp, pre.code, table.tbl, .tilegrid { break-inside: avoid; }
+    body { background: white; font-size: 11pt; }
+    a { color: inherit; }
+  }
+
+  @page { size: A4; margin: 18mm; }
+</style>
+</head>
+<body>
+
+<div class="doc">
+
+  <!-- ===================== SIDEBAR TOC ===================== -->
+  <aside class="toc">
+    <div class="brand">
+      <img src="/brand/aigarage-logo-horizontal-on-light.svg" alt="AIGarage" />
+    </div>
+    <h4>Technical Doc</h4>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#architecture">System architecture</a></li>
+      <li><a href="#tenancy">Multi-tenancy model</a></li>
+      <li><a href="#auth">Authentication &amp; sessions</a></li>
+      <li><a href="#data">Data model &amp; ERD</a></li>
+      <li><a href="#surfaces">Application surfaces</a></li>
+      <li><a href="#ai">AI module (Claude)</a></li>
+      <li><a href="#cron">Cron &amp; reminder pipeline</a></li>
+      <li><a href="#payments">Payments &amp; accounting</a></li>
+      <li><a href="#integrations">External integrations</a></li>
+      <li><a href="#config">Environment &amp; config</a></li>
+      <li><a href="#deploy">Deployment topology</a></li>
+      <li><a href="#security">Security &amp; compliance</a></li>
+    </ol>
+    <div class="meta">
+      rev. 2026.05.19<br />
+      revision&nbsp;01<br />
+      classification:<br />internal
+    </div>
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main>
+
+    <!-- ============== COVER ============== -->
+    <header class="cover">
+      <div class="cover-head">
+        <img src="/brand/aigarage-logo-horizontal-on-light.svg" alt="AIGarage" />
+        <div class="stamp">internal / technical</div>
+      </div>
+
+      <div class="cover-title">
+        <div class="eyebrow">Engineering reference · Rev 01</div>
+        <h1>End&#8209;to&#8209;end<br /><span class="accent">technical</span> documentation</h1>
+        <p class="lede">A blueprint of the AIGarage SaaS — multi-tenant Next.js on Supabase, with AI-drafted customer communications, scheduled reminder pipelines and Stripe / Xero / DVSA integrations. Written for developers and the CTO.</p>
+      </div>
+
+      <dl class="cover-meta">
+        <div><dt>Product</dt><dd>AIGarage Manu Bar</dd></div>
+        <div><dt>Codebase</dt><dd>Garage-AI · Next.js 16</dd></div>
+        <div><dt>Audience</dt><dd>Engineering · CTO</dd></div>
+        <div><dt>Status</dt><dd>Living document</dd></div>
+      </dl>
+    </header>
+
+    <!-- ============== 1. OVERVIEW ============== -->
+    <section id="overview" class="first">
+      <div class="sec-head">
+        <div class="num">01</div>
+        <h2>Overview</h2>
+        <div class="tag">scope · whole app</div>
+      </div>
+
+      <p class="lede2">AIGarage is an AI&#8209;powered, white-label SaaS for UK garages. It tracks MOT / service / VED dates, drafts and sends automated customer reminders across email / SMS / WhatsApp, captures bookings and payments, and pushes accounting data into Xero.</p>
+
+      <div class="kpis">
+        <div class="kpi"><div class="v">2&nbsp;<span class="accent">portals</span></div><div class="l">staff · customer</div></div>
+        <div class="kpi"><div class="v">17&nbsp;<span class="accent">tables</span></div><div class="l">tenant-scoped</div></div>
+        <div class="kpi"><div class="v">8&nbsp;<span class="accent">externals</span></div><div class="l">3rd-party APIs</div></div>
+        <div class="kpi"><div class="v">3&nbsp;<span class="accent">channels</span></div><div class="l">email · sms · whatsapp</div></div>
+      </div>
+
+      <div class="cols-2">
+        <div>
+          <h3>What it does</h3>
+          <ul>
+            <li><strong>Vehicle &amp; customer CRM</strong> — registration-keyed records, DVSA-enriched.</li>
+            <li><strong>Reminder engine</strong> — MOT, service and road-tax reminders drafted by Claude and sent on a per-location schedule.</li>
+            <li><strong>Bookings &amp; jobs</strong> — bay-aware scheduling with Stripe Checkout pay-links.</li>
+            <li><strong>Invoicing</strong> — issued in-app, optional Stripe pay-link, mirrored to Xero.</li>
+            <li><strong>Campaigns</strong> — AI-drafted broadcast email / SMS to the whole customer list.</li>
+            <li><strong>Multi-location orgs</strong> — owners manage many garages under one organisation.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Stack at a glance</h3>
+          <table class="tbl dense">
+            <tr><td>Runtime</td><td><code>Next.js 16</code> (App Router) · <code>React 19</code> · TypeScript</td></tr>
+            <tr><td>UI</td><td>Tailwind v4 · shadcn/ui · Base UI · Recharts</td></tr>
+            <tr><td>Data</td><td>Supabase Postgres · RLS · <code>@supabase/ssr</code></td></tr>
+            <tr><td>Auth</td><td>Supabase Auth · WebAuthn / passkeys</td></tr>
+            <tr><td>AI</td><td><code>@anthropic-ai/sdk</code> · Claude Haiku 4.5</td></tr>
+            <tr><td>Email</td><td>Resend</td></tr>
+            <tr><td>SMS / WhatsApp</td><td>Twilio</td></tr>
+            <tr><td>Vehicle data</td><td>DVSA MOT History API</td></tr>
+            <tr><td>Payments</td><td>Stripe Connect (Express) · Checkout</td></tr>
+            <tr><td>Accounting</td><td>Xero (per-org OAuth)</td></tr>
+            <tr><td>Hosting</td><td>Vercel · Vercel Cron</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <h3>Audiences served</h3>
+      <p>The product is multi-tenant white-label and serves two distinct audiences. Each has its own portal and its own RLS posture:</p>
+      <div class="tilegrid">
+        <div class="tile">
+          <div class="corner">/staff/*</div>
+          <div class="name">Garage staff</div>
+          <div class="desc">Owners, managers, mechanics. Manage customers, vehicles, jobs, invoices, bookings, reminders. Reached on a tenant subdomain after login.</div>
+        </div>
+        <div class="tile">
+          <div class="corner">/dashboard · /book</div>
+          <div class="name">Vehicle owners</div>
+          <div class="desc">End customers of a garage. View their vehicles &amp; reminders, request bookings, pay invoices. Self-serve on the garage's branded subdomain.</div>
+        </div>
+        <div class="tile scoped">
+          <div class="corner">platform</div>
+          <div class="name">Platform operator</div>
+          <div class="desc">AIGarage itself. Owns the root domain, the Stripe platform account, the Claude/Resend/Twilio keys, the cron secret.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 2. ARCHITECTURE ============== -->
+    <section id="architecture">
+      <div class="sec-head">
+        <div class="num">02</div>
+        <h2>System architecture</h2>
+        <div class="tag">request flow</div>
+      </div>
+
+      <p class="lede2">Every request enters through Vercel's edge, hits the Next.js proxy (which resolves the tenant from the host and refreshes the Supabase session cookie), then runs as a server action or route handler against Supabase &mdash; with calls out to Claude, Stripe, Xero, DVSA, Resend and Twilio as needed.</p>
+
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;02·A</span><span>request lifecycle, one tenant subdomain</span></div>
+        <svg viewBox="0 0 1000 480" preserveAspectRatio="xMidYMid meet" role="img" aria-label="System architecture diagram">
+          <!-- columns headers -->
+          <text x="20" y="22" class="d-eyebrow">CLIENT</text>
+          <text x="220" y="22" class="d-eyebrow">EDGE · VERCEL</text>
+          <text x="460" y="22" class="d-eyebrow">NEXT.JS APP · NODE</text>
+          <text x="740" y="22" class="d-eyebrow">DATA &amp; EXTERNALS</text>
+
+          <!-- column dividers -->
+          <line x1="200" y1="32" x2="200" y2="460" class="d-stroke-thin" stroke-dasharray="2 4" />
+          <line x1="440" y1="32" x2="440" y2="460" class="d-stroke-thin" stroke-dasharray="2 4" />
+          <line x1="720" y1="32" x2="720" y2="460" class="d-stroke-thin" stroke-dasharray="2 4" />
+
+          <!-- Client boxes -->
+          <rect x="20" y="50" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="72" class="d-title">Staff browser</text>
+          <text x="32" y="92" class="d-label-mute">slug.aig.co.uk</text>
+
+          <rect x="20" y="130" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="152" class="d-title">Customer browser</text>
+          <text x="32" y="172" class="d-label-mute">slug.aig.co.uk</text>
+
+          <rect x="20" y="210" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="232" class="d-title">Vercel Cron</text>
+          <text x="32" y="252" class="d-label-mute">hourly · /api/cron/tick</text>
+
+          <rect x="20" y="290" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="312" class="d-title">Stripe webhooks</text>
+          <text x="32" y="332" class="d-label-mute">checkout · account</text>
+
+          <rect x="20" y="370" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="392" class="d-title">Resend webhooks</text>
+          <text x="32" y="412" class="d-label-mute">opened · clicked</text>
+
+          <!-- Edge -->
+          <rect x="220" y="120" width="200" height="120" class="d-fill-paper d-stroke" />
+          <text x="232" y="142" class="d-title">proxy.ts</text>
+          <text x="232" y="162" class="d-label">resolveTenantFromHost()</text>
+          <text x="232" y="178" class="d-label">updateSession()</text>
+          <text x="232" y="196" class="d-label-mute">sets x-tenant-slug,</text>
+          <text x="232" y="210" class="d-label-mute">refreshes sb-* cookies,</text>
+          <text x="232" y="224" class="d-label-mute">enforces 12h timeout</text>
+
+          <!-- App -->
+          <rect x="460" y="50" width="240" height="80" class="d-fill-white d-stroke" />
+          <text x="472" y="72" class="d-title">App Router pages</text>
+          <text x="472" y="92" class="d-label-mute">/staff · /dashboard · /book</text>
+          <text x="472" y="108" class="d-label-mute">RSC + Server Actions</text>
+
+          <rect x="460" y="146" width="240" height="80" class="d-fill-white d-stroke" />
+          <text x="472" y="168" class="d-title">Route handlers (api/*)</text>
+          <text x="472" y="188" class="d-label-mute">webhooks · cron · oauth</text>
+          <text x="472" y="204" class="d-label-mute">passkey ceremonies</text>
+
+          <rect x="460" y="242" width="240" height="80" class="d-fill-white d-stroke" />
+          <text x="472" y="264" class="d-title">lib/* services</text>
+          <text x="472" y="284" class="d-label-mute">ai-messages · email · sms</text>
+          <text x="472" y="300" class="d-label-mute">dvla · stripe · xero-sync</text>
+
+          <rect x="460" y="338" width="240" height="50" class="d-fill-white d-stroke" />
+          <text x="472" y="358" class="d-title">staff-context.ts</text>
+          <text x="472" y="376" class="d-label-mute">cached per-request auth + tenant</text>
+
+          <!-- Externals -->
+          <rect x="740" y="50" width="220" height="44" class="d-fill-white d-stroke-green" />
+          <text x="752" y="72" class="d-title">Supabase</text>
+          <text x="752" y="86" class="d-label-mute">postgres · auth · RLS</text>
+
+          <rect x="740" y="106" width="220" height="36" class="d-fill-white d-stroke" />
+          <text x="752" y="128" class="d-label">Anthropic · Claude Haiku 4.5</text>
+
+          <rect x="740" y="154" width="220" height="36" class="d-fill-white d-stroke" />
+          <text x="752" y="176" class="d-label">Resend · transactional email</text>
+
+          <rect x="740" y="202" width="220" height="36" class="d-fill-white d-stroke" />
+          <text x="752" y="224" class="d-label">Twilio · SMS + WhatsApp</text>
+
+          <rect x="740" y="250" width="220" height="36" class="d-fill-white d-stroke" />
+          <text x="752" y="272" class="d-label">DVSA MOT history</text>
+
+          <rect x="740" y="298" width="220" height="36" class="d-fill-white d-stroke" />
+          <text x="752" y="320" class="d-label">Stripe Connect (Express)</text>
+
+          <rect x="740" y="346" width="220" height="36" class="d-fill-white d-stroke" />
+          <text x="752" y="368" class="d-label">Xero · per-org OAuth</text>
+
+          <rect x="740" y="394" width="220" height="36" class="d-fill-white d-stroke" />
+          <text x="752" y="416" class="d-label">DVLA VES · road tax</text>
+
+          <!-- arrows: client → edge -->
+          <path d="M 180 80 L 220 140" class="d-stroke" />
+          <path d="M 180 160 L 220 175" class="d-stroke" />
+          <path d="M 180 240 L 220 200" class="d-stroke-green" />
+          <path d="M 180 320 L 220 220" class="d-stroke-green" />
+          <path d="M 180 400 L 220 230" class="d-stroke-green" />
+
+          <!-- arrows: edge → app -->
+          <path d="M 420 170 L 460 90" class="d-stroke" />
+          <path d="M 420 180 L 460 186" class="d-stroke" />
+          <path d="M 420 220 L 460 280" class="d-stroke" />
+
+          <!-- arrows: app → externals -->
+          <path d="M 700 90 L 740 72" class="d-stroke-green" />
+          <path d="M 700 186 L 740 124" class="d-stroke" />
+          <path d="M 700 282 L 740 172" class="d-stroke" />
+          <path d="M 700 282 L 740 220" class="d-stroke" />
+          <path d="M 700 282 L 740 268" class="d-stroke" />
+          <path d="M 700 282 L 740 316" class="d-stroke" />
+          <path d="M 700 282 L 740 364" class="d-stroke" />
+          <path d="M 700 282 L 740 412" class="d-stroke-blue" />
+
+          <!-- Arrow heads (small) -->
+          <g fill="#0b0d11">
+            <polygon points="220,140 213,138 215,143" />
+            <polygon points="220,175 213,173 215,178" />
+            <polygon points="460,90 453,88 455,93" />
+            <polygon points="460,186 453,184 455,189" />
+            <polygon points="460,280 453,278 455,283" />
+            <polygon points="740,72 733,70 735,75" />
+            <polygon points="740,124 733,122 735,127" />
+            <polygon points="740,172 733,170 735,175" />
+            <polygon points="740,220 733,218 735,223" />
+            <polygon points="740,268 733,266 735,271" />
+            <polygon points="740,316 733,314 735,319" />
+            <polygon points="740,364 733,362 735,367" />
+          </g>
+        </svg>
+        <div class="legend">
+          <span><span class="sw"></span>synchronous</span>
+          <span><span class="sw green"></span>privileged · service role</span>
+          <span><span class="sw blue"></span>future · road tax</span>
+        </div>
+      </div>
+
+      <h3>Layered responsibilities</h3>
+      <table class="tbl">
+        <tr><th style="width: 22%">Layer</th><th style="width: 38%">Implementation</th><th>Responsibility</th></tr>
+        <tr><td><code>src/proxy.ts</code></td><td>Next.js middleware (matcher excludes static + image assets)</td><td>Resolve the tenant slug from <code>Host</code>, attach it as a request header, refresh the Supabase session cookie, enforce the 12&nbsp;h absolute session timeout.</td></tr>
+        <tr><td><code>src/app/(routes)</code></td><td>RSC pages + Server Actions</td><td>UI for staff and customer portals. Server actions perform writes via the user-scoped Supabase client (so RLS applies).</td></tr>
+        <tr><td><code>src/app/api/*</code></td><td>Route handlers (Node runtime)</td><td>Webhooks (Stripe, Resend), cron entrypoints, OAuth callbacks (Xero), passkey ceremonies. Authenticated by signature or shared secret, not session.</td></tr>
+        <tr><td><code>src/lib/*</code></td><td>Plain TypeScript modules</td><td>Cross-cutting domain services: AI drafting, email, SMS, WhatsApp, DVSA lookup, Stripe helpers, Xero sync.</td></tr>
+        <tr><td><code>src/lib/supabase/*</code></td><td>SSR + admin clients</td><td>Three clients: <code>client.ts</code> (browser), <code>server.ts</code> (request-scoped, RLS on), <code>admin.ts</code> (service-role, RLS bypass — only in webhooks and cron).</td></tr>
+        <tr><td><code>supabase/migrations</code></td><td>Plain SQL</td><td>Authoritative schema and RLS policies. Tenant isolation lives here.</td></tr>
+      </table>
+
+      <div class="note">
+        <span class="label">Design principle</span>
+        Two trust boundaries: <em>user-scoped</em> (RLS-enforced, used by pages and actions) vs. <em>service-role</em> (RLS-bypassing, used only inside webhooks and cron after the request is independently authenticated). The service-role client must never be reachable from a user-authenticated path.
+      </div>
+    </section>
+
+    <!-- ============== 3. TENANCY ============== -->
+    <section id="tenancy">
+      <div class="sec-head">
+        <div class="num">03</div>
+        <h2>Multi-tenancy model</h2>
+        <div class="tag">subdomain · slug · RLS</div>
+      </div>
+
+      <p class="lede2">Every garage gets a subdomain on the root domain. The proxy parses the host, attaches the slug to the request, and every page resolves the tenant from that slug before talking to the database. Tenant isolation is enforced by Postgres RLS, not by application code.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Naming &amp; routing</h3>
+          <p>The root domain comes from <code>NEXT_PUBLIC_ROOT_DOMAIN</code>. In development it's <code>localtest.me:3000</code> (which resolves any subdomain to <code>127.0.0.1</code> without DNS changes); in production it's the real apex.</p>
+          <ul>
+            <li><code>apex</code> &mdash; marketing site, sign-up</li>
+            <li><code>&lt;slug&gt;.apex</code> &mdash; tenant portals (staff + customer)</li>
+            <li><code>custom.example.com</code> &mdash; optional white-label custom domain stored on <code>organizations.custom_domain</code></li>
+          </ul>
+        </div>
+        <div>
+          <h3>Hierarchy</h3>
+          <p>An <strong>organisation</strong> owns one or more <strong>locations</strong>. Almost every other row carries <code>location_id</code> &mdash; the location is the tenant boundary for data, the organisation is the tenant boundary for branding, billing and Xero / Stripe Connect.</p>
+          <pre class="code"><span class="c">// hierarchy</span>
+organization (slug, name, primary_color, stripe_account_id, xero_*)
+ └── location  (slug, name, business_hours_*)
+      ├── customers · vehicles · jobs · invoices
+      ├── bookings · services · products · bays
+      ├── reminders · campaigns · scheduled_tasks
+      └── location_users (staff with location-scoped roles)</pre>
+        </div>
+      </div>
+
+      <h3>How a request finds its tenant</h3>
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;03·A</span><span>tenant resolution sequence</span></div>
+        <svg viewBox="0 0 1000 360" role="img" aria-label="Tenant resolution sequence">
+          <!-- swimlanes -->
+          <g class="d-label-mute">
+            <text x="60" y="22" class="d-eyebrow">BROWSER</text>
+            <text x="260" y="22" class="d-eyebrow">PROXY</text>
+            <text x="460" y="22" class="d-eyebrow">STAFF-CONTEXT</text>
+            <text x="700" y="22" class="d-eyebrow">SUPABASE</text>
+            <text x="900" y="22" class="d-eyebrow">PAGE</text>
+          </g>
+          <!-- vertical lines -->
+          <g>
+            <line x1="100" y1="40" x2="100" y2="340" class="d-stroke-thin" stroke-dasharray="2 4" />
+            <line x1="300" y1="40" x2="300" y2="340" class="d-stroke-thin" stroke-dasharray="2 4" />
+            <line x1="520" y1="40" x2="520" y2="340" class="d-stroke-thin" stroke-dasharray="2 4" />
+            <line x1="740" y1="40" x2="740" y2="340" class="d-stroke-thin" stroke-dasharray="2 4" />
+            <line x1="930" y1="40" x2="930" y2="340" class="d-stroke-thin" stroke-dasharray="2 4" />
+          </g>
+
+          <!-- step 1 -->
+          <path d="M 100 70 L 295 70" class="d-stroke" />
+          <polygon points="295,70 288,68 290,73" fill="#0b0d11" />
+          <text x="110" y="62" class="d-label">GET /staff/customers · Host: smith.aig.co.uk</text>
+
+          <!-- step 2 -->
+          <path d="M 300 105 C 240 105 240 130 300 130" class="d-stroke" />
+          <text x="120" y="120" class="d-label">resolveTenantFromHost("smith.aig.co.uk")</text>
+          <text x="120" y="134" class="d-label-mute">→ { slug: "smith", isRootDomain: false }</text>
+
+          <!-- step 3 -->
+          <path d="M 300 165 L 515 165" class="d-stroke" />
+          <polygon points="515,165 508,163 510,168" fill="#0b0d11" />
+          <text x="310" y="157" class="d-label">x-tenant-slug: smith</text>
+          <text x="310" y="172" class="d-label-mute">+ refreshed sb-* cookies</text>
+
+          <!-- step 4 -->
+          <path d="M 520 200 L 735 200" class="d-stroke" />
+          <polygon points="735,200 728,198 730,203" fill="#0b0d11" />
+          <text x="530" y="193" class="d-label">auth.getUser()</text>
+
+          <!-- step 5 -->
+          <path d="M 740 225 L 525 225" class="d-stroke" />
+          <polygon points="525,225 532,223 530,228" fill="#0b0d11" />
+          <text x="530" y="240" class="d-label">user { id }</text>
+
+          <!-- step 6 -->
+          <path d="M 520 260 L 735 260" class="d-stroke-green" />
+          <polygon points="735,260 728,258 730,263" fill="#0b0d11" />
+          <text x="530" y="254" class="d-label">admin.from(locations).eq(slug, "smith")</text>
+          <text x="530" y="268" class="d-label-mute">+ org_users / location_users membership check</text>
+
+          <!-- step 7 -->
+          <path d="M 520 305 L 925 305" class="d-stroke" />
+          <polygon points="925,305 918,303 920,308" fill="#0b0d11" />
+          <text x="530" y="297" class="d-label">StaffContext { user, organization, location, role, supabase }</text>
+
+          <text x="60" y="330" class="d-label-mute">If no slug, no user, or no membership → redirect /staff/login</text>
+        </svg>
+        <div class="legend">
+          <span><span class="sw"></span>request flow</span>
+          <span><span class="sw green"></span>service-role read (membership not yet verified)</span>
+        </div>
+      </div>
+
+      <h3>Tenant-scoped data access</h3>
+      <p>Two clients are used inside the same request:</p>
+      <ul>
+        <li><strong>User-scoped</strong> (<code>createClient()</code> from <code>lib/supabase/server.ts</code>) — used for all reads / writes after context is established. RLS does the isolation.</li>
+        <li><strong>Service-role</strong> (<code>createAdminClient()</code>) — used only for the initial location lookup in <code>staff-context.ts</code> (the slug is not sensitive and membership is independently verified afterwards), and inside webhooks / cron.</li>
+      </ul>
+      <p>RLS policies key off the <code>is_garage_staff(location_id)</code> helper function, which is <code>security definer</code> and stable, so the planner can hoist it. Customer-facing rows additionally allow <code>auth.uid()</code>-matched self reads.</p>
+    </section>
+
+    <!-- ============== 4. AUTH ============== -->
+    <section id="auth">
+      <div class="sec-head">
+        <div class="num">04</div>
+        <h2>Authentication &amp; sessions</h2>
+        <div class="tag">supabase auth · webauthn</div>
+      </div>
+
+      <p class="lede2">Authentication uses Supabase Auth (email + password) with optional WebAuthn passkeys for re-authentication. Sessions are cookie-based and have a hard 12-hour absolute timeout on top of Supabase's own refresh window.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Identity model</h3>
+          <ul>
+            <li><strong><code>auth.users</code></strong> — Supabase-managed. One per real human.</li>
+            <li><strong><code>org_users</code></strong> — joins a user to an organisation with role <code>owner</code> or <code>admin</code>. Org-level access cascades to all locations under it.</li>
+            <li><strong><code>location_users</code></strong> — joins a user to a single location with a role + permissions JSON. Used for per-location staff (e.g. a mechanic at one branch).</li>
+            <li><strong><code>customers</code></strong> — non-staff users. Carry an optional <code>user_id</code> so a customer can sign in and use the customer portal.</li>
+            <li><strong><code>webauthn_credentials</code></strong> — registered passkeys per user.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Session lifecycle</h3>
+          <ol>
+            <li>Login server action calls Supabase Auth → cookies <code>sb-*</code> set.</li>
+            <li>Proxy stamps an <code>ai_session_started_at</code> cookie on the first request after sign-in.</li>
+            <li>On every subsequent request, proxy reads the stamp; if now − started &gt; 12 h, calls <code>signOut()</code>, deletes <code>sb-*</code> cookies, redirects to <code>/staff/login?expired=1</code> (or returns 401 for <code>/api/*</code>).</li>
+            <li>Sign-out is a server action that calls <code>signOut()</code> and clears the stamp.</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Passkey ceremonies</h3>
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;04·A</span><span>webauthn registration · 2&#8209;hop</span></div>
+        <svg viewBox="0 0 1000 220" role="img" aria-label="Passkey registration sequence">
+          <text x="40" y="22" class="d-eyebrow">BROWSER</text>
+          <text x="370" y="22" class="d-eyebrow">/api/auth/passkey/register/begin</text>
+          <text x="740" y="22" class="d-eyebrow">/…/register/complete</text>
+
+          <rect x="20" y="40" width="180" height="150" class="d-fill-white d-stroke" />
+          <text x="32" y="62" class="d-title">@simplewebauthn/<br /><tspan x="32" dy="14">browser</tspan></text>
+          <text x="32" y="100" class="d-label-mute">startRegistration()</text>
+          <text x="32" y="120" class="d-label-mute">→ platform authenticator</text>
+          <text x="32" y="140" class="d-label-mute">  prompts user</text>
+
+          <rect x="320" y="40" width="280" height="150" class="d-fill-white d-stroke" />
+          <text x="332" y="62" class="d-title">generateRegistrationOptions()</text>
+          <text x="332" y="82" class="d-label-mute">store challenge in cookie</text>
+          <text x="332" y="100" class="d-label-mute">exclude existing creds</text>
+          <text x="332" y="120" class="d-label-mute">rpID = root hostname</text>
+          <text x="332" y="140" class="d-label-mute">userID = auth.uid()</text>
+
+          <rect x="720" y="40" width="260" height="150" class="d-fill-white d-stroke-green" />
+          <text x="732" y="62" class="d-title">verifyRegistrationResponse()</text>
+          <text x="732" y="82" class="d-label-mute">match challenge</text>
+          <text x="732" y="100" class="d-label-mute">insert webauthn_credentials</text>
+          <text x="732" y="120" class="d-label-mute">  (id, public_key, counter,</text>
+          <text x="732" y="134" class="d-label-mute">   transports, device_name)</text>
+          <text x="732" y="160" class="d-label-mute">→ success</text>
+
+          <path d="M 200 100 L 315 100" class="d-stroke" />
+          <polygon points="315,100 308,98 310,103" fill="#0b0d11" />
+          <path d="M 600 100 L 715 100" class="d-stroke" />
+          <polygon points="715,100 708,98 710,103" fill="#0b0d11" />
+          <path d="M 715 140 L 205 140" class="d-stroke-dash" />
+          <polygon points="205,140 212,138 210,143" fill="#0b0d11" />
+        </svg>
+        <div class="legend">
+          <span><span class="sw"></span>HTTP</span>
+          <span><span class="sw dash"></span>response</span>
+          <span><span class="sw green"></span>privileged write</span>
+        </div>
+      </div>
+
+      <h3>Roles &amp; access matrix</h3>
+      <table class="tbl">
+        <tr><th>Role</th><th>Source</th><th>Read</th><th>Write</th><th>Notes</th></tr>
+        <tr><td><code>org · owner</code></td><td><code>org_users</code></td><td>All locations in org</td><td>All, incl. add locations, billing</td><td>Stripe Connect onboarding, Xero connect.</td></tr>
+        <tr><td><code>org · admin</code></td><td><code>org_users</code></td><td>All locations in org</td><td>All except destructive org-level ops</td><td></td></tr>
+        <tr><td><code>location · admin</code></td><td><code>location_users</code></td><td>One location</td><td>Most</td><td>Per-location permissions JSON</td></tr>
+        <tr><td><code>location · staff</code></td><td><code>location_users</code></td><td>One location</td><td>Customers, vehicles, jobs, bookings</td><td></td></tr>
+        <tr><td><code>customer</code></td><td><code>customers.user_id</code></td><td>Own customer + vehicles</td><td>Booking requests, profile</td><td>Cannot reach <code>/staff</code>.</td></tr>
+      </table>
+
+      <div class="note warn">
+        <span class="label">Operational note</span>
+        Impersonation: there is an <code>impersonation-banner.tsx</code> + <code>exit-impersonation-button.tsx</code> pattern for platform-operator support. The banner must remain visible whenever an admin is acting as a tenant — do not suppress with CSS overrides.
+      </div>
+    </section>
+
+    <!-- ============== 5. DATA MODEL ============== -->
+    <section id="data">
+      <div class="sec-head">
+        <div class="num">05</div>
+        <h2>Data model &amp; ERD</h2>
+        <div class="tag">postgres · rls</div>
+      </div>
+
+      <p class="lede2">17 tables, all tenant-scoped via <code>location_id</code> (except <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>). The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
+
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;05·A</span><span>entity relationship diagram</span></div>
+        <svg viewBox="0 0 1100 720" role="img" aria-label="Entity relationship diagram">
+          <!-- groups -->
+          <g class="d-label-mute">
+            <text x="20" y="22" class="d-eyebrow">TENANCY</text>
+            <text x="300" y="22" class="d-eyebrow">PEOPLE</text>
+            <text x="580" y="22" class="d-eyebrow">VEHICLE OPS</text>
+            <text x="860" y="22" class="d-eyebrow">COMMERCE</text>
+          </g>
+
+          <!-- TENANCY column -->
+          <g>
+            <rect x="20" y="40" width="240" height="90" class="d-fill-white d-stroke-green" />
+            <text x="32" y="60" class="d-title">organizations</text>
+            <text x="32" y="78" class="d-label-mute">id · slug · name · primary_color</text>
+            <text x="32" y="92" class="d-label-mute">custom_domain · portal_theme</text>
+            <text x="32" y="106" class="d-label-mute">stripe_account_id · xero_*</text>
+            <text x="32" y="120" class="d-label-mute">dpa_accepted_*</text>
+
+            <rect x="20" y="148" width="240" height="74" class="d-fill-white d-stroke" />
+            <text x="32" y="168" class="d-title">locations</text>
+            <text x="32" y="186" class="d-label-mute">id · slug · name</text>
+            <text x="32" y="200" class="d-label-mute">organization_id ⟶</text>
+            <text x="32" y="214" class="d-label-mute">business_hours_start/end</text>
+
+            <rect x="20" y="240" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="32" y="260" class="d-title">org_users</text>
+            <text x="32" y="278" class="d-label-mute">user_id · organization_id</text>
+            <text x="32" y="292" class="d-label-mute">role: owner | admin</text>
+
+            <rect x="20" y="318" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="32" y="338" class="d-title">location_users</text>
+            <text x="32" y="356" class="d-label-mute">user_id · location_id · role</text>
+            <text x="32" y="370" class="d-label-mute">permissions (jsonb)</text>
+
+            <rect x="20" y="396" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="32" y="416" class="d-title">scheduled_tasks</text>
+            <text x="32" y="434" class="d-label-mute">task_type · frequency · hour</text>
+            <text x="32" y="448" class="d-label-mute">enabled · settings (jsonb)</text>
+
+            <rect x="20" y="474" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="32" y="494" class="d-title">bays</text>
+            <text x="32" y="512" class="d-label-mute">location_id · name · sort_order</text>
+
+            <rect x="20" y="552" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="32" y="572" class="d-title">webauthn_credentials</text>
+            <text x="32" y="590" class="d-label-mute">user_id · credential_id · public_key</text>
+            <text x="32" y="604" class="d-label-mute">counter · transports · device_name</text>
+          </g>
+
+          <!-- PEOPLE column -->
+          <g>
+            <rect x="300" y="40" width="240" height="100" class="d-fill-white d-stroke" />
+            <text x="312" y="60" class="d-title">customers</text>
+            <text x="312" y="78" class="d-label-mute">location_id · user_id (nullable)</text>
+            <text x="312" y="92" class="d-label-mute">full_name · email · phone</text>
+            <text x="312" y="106" class="d-label-mute">fleet_company_id</text>
+            <text x="312" y="120" class="d-label-mute">marketing_*_consent</text>
+            <text x="312" y="134" class="d-label-mute">anonymized_at · xero_contact_id</text>
+
+            <rect x="300" y="158" width="240" height="74" class="d-fill-white d-stroke" />
+            <text x="312" y="178" class="d-title">vehicles</text>
+            <text x="312" y="196" class="d-label-mute">customer_id · location_id</text>
+            <text x="312" y="210" class="d-label-mute">registration · make · model · year</text>
+            <text x="312" y="224" class="d-label-mute">mot_expiry · service_due · tax_due_date</text>
+
+            <rect x="300" y="248" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="312" y="268" class="d-title">fleet_companies</text>
+            <text x="312" y="286" class="d-label-mute">location_id · name · contact_*</text>
+
+            <rect x="300" y="324" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="312" y="344" class="d-title">tyre_checks</text>
+            <text x="312" y="362" class="d-label-mute">vehicle_id · nsf/osf/nsr/osr_depth</text>
+            <text x="312" y="376" class="d-label-mute">…_replaced (bool)</text>
+
+            <rect x="300" y="400" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="312" y="420" class="d-title">reminders</text>
+            <text x="312" y="438" class="d-label-mute">vehicle_id · customer_id · type</text>
+            <text x="312" y="452" class="d-label-mute">channel · status · sent_at · opened_at</text>
+
+            <rect x="300" y="476" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="312" y="496" class="d-title">data_deletion_log</text>
+            <text x="312" y="514" class="d-label-mute">customer_id · reason · deleted_at</text>
+            <text x="312" y="528" class="d-label-mute">customer_email_hash · requested_by</text>
+          </g>
+
+          <!-- VEHICLE OPS column -->
+          <g>
+            <rect x="580" y="40" width="240" height="80" class="d-fill-white d-stroke" />
+            <text x="592" y="60" class="d-title">bookings</text>
+            <text x="592" y="78" class="d-label-mute">scheduled_at · duration_minutes</text>
+            <text x="592" y="92" class="d-label-mute">customer_id · vehicle_id · bay_id · service_id</text>
+            <text x="592" y="106" class="d-label-mute">status · stripe_payment_intent_id · paid_at</text>
+
+            <rect x="580" y="138" width="240" height="74" class="d-fill-white d-stroke" />
+            <text x="592" y="158" class="d-title">jobs</text>
+            <text x="592" y="176" class="d-label-mute">customer_id · vehicle_id · booking_id</text>
+            <text x="592" y="190" class="d-label-mute">status · description · notes</text>
+            <text x="592" y="204" class="d-label-mute">completed_at</text>
+
+            <rect x="580" y="228" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="592" y="248" class="d-title">job_items</text>
+            <text x="592" y="266" class="d-label-mute">job_id · description · quantity</text>
+            <text x="592" y="280" class="d-label-mute">unit_price · type (labour | part)</text>
+
+            <rect x="580" y="304" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="592" y="324" class="d-title">services</text>
+            <text x="592" y="342" class="d-label-mute">name · category · price · duration_minutes</text>
+            <text x="592" y="356" class="d-label-mute">vat_included · active</text>
+
+            <rect x="580" y="380" width="240" height="60" class="d-fill-white d-stroke" />
+            <text x="592" y="400" class="d-title">products</text>
+            <text x="592" y="418" class="d-label-mute">name · sku · supplier · category</text>
+            <text x="592" y="432" class="d-label-mute">unit_price · cost_price · stock_qty</text>
+          </g>
+
+          <!-- COMMERCE column -->
+          <g>
+            <rect x="860" y="40" width="220" height="120" class="d-fill-white d-stroke" />
+            <text x="872" y="60" class="d-title">invoices</text>
+            <text x="872" y="78" class="d-label-mute">customer_id · job_id · booking_id</text>
+            <text x="872" y="92" class="d-label-mute">invoice_number · status</text>
+            <text x="872" y="106" class="d-label-mute">subtotal · vat_rate · vat_amount · total</text>
+            <text x="872" y="120" class="d-label-mute">issued_at · due_at · paid_at</text>
+            <text x="872" y="134" class="d-label-mute">stripe_checkout_session_id</text>
+            <text x="872" y="148" class="d-label-mute">stripe_payment_intent_id</text>
+          </g>
+
+          <!-- joins -->
+          <g>
+            <!-- org → locations -->
+            <path d="M 140 130 L 140 148" class="d-stroke" />
+            <!-- locations ← location_users -->
+            <path d="M 140 222 L 140 318" class="d-stroke" />
+            <!-- locations ← scheduled_tasks -->
+            <path d="M 140 222 L 140 396" class="d-stroke" />
+            <!-- locations → bays -->
+            <path d="M 140 222 L 140 474" class="d-stroke" />
+
+            <!-- org → org_users -->
+            <path d="M 240 130 C 280 130 280 270 270 270" class="d-stroke" />
+
+            <!-- customers ← vehicles -->
+            <path d="M 420 140 L 420 158" class="d-stroke" />
+            <!-- customers ← reminders -->
+            <path d="M 420 140 L 420 400" class="d-stroke-thin" stroke-dasharray="3 3" />
+            <!-- vehicles ← tyre_checks -->
+            <path d="M 420 232 L 420 324" class="d-stroke" />
+            <!-- vehicles ← reminders -->
+            <path d="M 460 232 L 460 400" class="d-stroke-thin" stroke-dasharray="3 3" />
+            <!-- fleet_companies ← customers (back-edge) -->
+            <path d="M 540 280 C 580 280 580 100 540 100" class="d-stroke-thin" />
+
+            <!-- bookings → vehicles -->
+            <path d="M 580 80 L 540 195" class="d-stroke" />
+            <!-- bookings → customers -->
+            <path d="M 580 80 L 540 90" class="d-stroke" />
+            <!-- bookings → bay -->
+            <path d="M 580 110 C 380 110 280 504 260 504" class="d-stroke-thin" stroke-dasharray="3 3" />
+            <!-- bookings → services -->
+            <path d="M 700 120 L 700 304" class="d-stroke" />
+            <!-- bookings ↔ jobs -->
+            <path d="M 700 120 L 700 138" class="d-stroke" />
+            <!-- jobs ↔ job_items -->
+            <path d="M 700 212 L 700 228" class="d-stroke" />
+
+            <!-- invoices ← jobs -->
+            <path d="M 860 100 L 820 175" class="d-stroke" />
+            <!-- invoices ← bookings -->
+            <path d="M 860 70 L 820 80" class="d-stroke" />
+            <!-- invoices ← customers -->
+            <path d="M 970 160 C 970 320 540 90 540 90" class="d-stroke-thin" stroke-dasharray="3 3" />
+          </g>
+
+          <!-- legend area annotations -->
+          <text x="20" y="640" class="d-label-mute">Tenant scope: every table outside `tenancy` carries <tspan class="d-label">location_id</tspan>; rls policies enforce equality with the caller's location membership.</text>
+          <text x="20" y="660" class="d-label-mute">FK direction is "child → parent"; dashed lines denote optional / nullable relationships.</text>
+          <text x="20" y="680" class="d-label-mute">Auth: <tspan class="d-label">auth.users</tspan> is Supabase-managed; <tspan class="d-label">org_users</tspan>, <tspan class="d-label">location_users</tspan> and <tspan class="d-label">customers.user_id</tspan> all point to it.</text>
+        </svg>
+        <div class="legend">
+          <span><span class="sw green"></span>shared (org-scoped)</span>
+          <span><span class="sw"></span>required FK</span>
+          <span><span class="sw dash"></span>nullable FK</span>
+        </div>
+      </div>
+
+      <h3>Notable column groupings</h3>
+      <table class="tbl">
+        <tr><th style="width: 22%">Concern</th><th style="width: 30%">Where</th><th>Columns</th></tr>
+        <tr><td>Branding</td><td><code>organizations</code></td><td><code>slug · name · primary_color · logo_url · custom_domain · portal_theme</code></td></tr>
+        <tr><td>Compliance</td><td><code>organizations</code> · <code>customers</code></td><td><code>dpa_accepted_at · dpa_version · data_retention_years</code> · <code>marketing_*_consent · anonymized_at</code></td></tr>
+        <tr><td>Stripe</td><td><code>organizations</code> · <code>invoices</code> · <code>bookings</code></td><td><code>stripe_account_id · *_charges_enabled · *_payouts_enabled · *_details_submitted</code> · <code>stripe_checkout_session_id · stripe_payment_intent_id · paid_amount_pence</code></td></tr>
+        <tr><td>Xero</td><td><code>organizations</code> · <code>customers</code> · <code>invoices</code></td><td><code>xero_tenant_id · xero_access_token · xero_refresh_token · xero_token_expires_at</code> · <code>xero_contact_id</code> · <code>xero_invoice_id · xero_payment_id · xero_synced_at</code></td></tr>
+        <tr><td>Email tracking</td><td><code>reminders</code></td><td><code>resend_email_id · delivered_at · opened_at · clicked_at</code></td></tr>
+      </table>
+    </section>
+
+    <!-- ============== 6. APPLICATION SURFACES ============== -->
+    <section id="surfaces">
+      <div class="sec-head">
+        <div class="num">06</div>
+        <h2>Application surfaces</h2>
+        <div class="tag">route map · src/app</div>
+      </div>
+
+      <p class="lede2">The App Router tree, grouped by audience. Pages are RSC by default; mutations happen through co-located server actions (<code>actions.ts</code>). Files marked <code>scoped</code> require staff context; everything else is publicly reachable.</p>
+
+      <h3>Staff portal · <code>/staff/*</code></h3>
+      <div class="tilegrid">
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff</div><div class="desc">Dashboard home — at-a-glance counts of due MOTs, today's bookings, open jobs.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/customers</div><div class="desc">Customer search, profile pages, vehicle list, fleet links, import.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/bookings</div><div class="desc">Calendar of bookings with bay assignment; new + edit + cancel.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/jobs</div><div class="desc">Workshop job sheets — line items (labour + parts), status, completion.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/invoices</div><div class="desc">Issue, send Stripe pay-link, mark paid, push to Xero.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/services</div><div class="desc">Service catalogue with price, duration and VAT flag.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/products</div><div class="desc">Parts inventory with cost / stock / reorder thresholds.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/bays</div><div class="desc">Per-location workshop bays — drives booking capacity.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/reminders</div><div class="desc">Manual reminder composer + history; AI draft on demand.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/campaigns</div><div class="desc">Broadcast email + SMS to whole customer list, AI-drafted.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/automations</div><div class="desc">Toggle &amp; schedule scheduled_tasks (MOT / service / tax / digest).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/fleet</div><div class="desc">Fleet customer accounts — many vehicles, one paying contact.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/revenue</div><div class="desc">Recharts revenue dashboard from invoices.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/settings</div><div class="desc">Branding, business hours, passkeys, Stripe Connect, Xero, locations.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/staff-members</div><div class="desc">Invite / manage location_users with roles &amp; permissions.</div></div>
+      </div>
+
+      <h3>Customer portal &amp; public</h3>
+      <div class="tilegrid">
+        <div class="tile"><div class="corner">public</div><div class="name">/</div><div class="desc">Marketing landing on the root domain.</div></div>
+        <div class="tile"><div class="corner">public</div><div class="name">/login · /register · /signup</div><div class="desc">Customer credential flows.</div></div>
+        <div class="tile"><div class="corner">public</div><div class="name">/forgot-password · /reset-password</div><div class="desc">Password recovery.</div></div>
+        <div class="tile"><div class="corner">public</div><div class="name">/auth/callback</div><div class="desc">Supabase OAuth / magic link callback.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/book</div><div class="desc">Public booking widget on tenant subdomain — no login required.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/book/[id]/paid · /cancelled</div><div class="desc">Stripe Checkout return URLs for paid / cancelled bookings.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/dashboard</div><div class="desc">Logged-in customer dashboard — vehicles, MOT countdown, AI diagnostic chat.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/dashboard/book</div><div class="desc">Authenticated booking request form.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/invoice/[id]</div><div class="desc">Public invoice view, share by link.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/pay/[id]</div><div class="desc">Stripe Checkout pay-link redirect.</div></div>
+        <div class="tile"><div class="corner">public</div><div class="name">/legal · /privacy</div><div class="desc">Generated legal documents.</div></div>
+      </div>
+
+      <h3>API surface · <code>/api/*</code></h3>
+      <table class="tbl">
+        <tr><th style="width: 30%">Route</th><th style="width: 14%">Auth</th><th>Purpose</th></tr>
+        <tr><td><code>POST /api/auth/passkey/register/begin</code></td><td>session</td><td>Generate WebAuthn registration options.</td></tr>
+        <tr><td><code>POST /api/auth/passkey/register/complete</code></td><td>session</td><td>Verify response &amp; store credential.</td></tr>
+        <tr><td><code>POST /api/auth/passkey/login/begin</code></td><td>public</td><td>Issue authentication options for sign-in.</td></tr>
+        <tr><td><code>POST /api/auth/passkey/login/complete</code></td><td>public</td><td>Verify response &amp; establish session.</td></tr>
+        <tr><td><code>GET /api/cron/tick</code></td><td><code>CRON_SECRET</code></td><td>Hourly orchestrator — finds due scheduled tasks and dispatches.</td></tr>
+        <tr><td><code>GET /api/cron/reminders</code></td><td><code>CRON_SECRET</code></td><td>Sends MOT, service &amp; road-tax reminders for one location.</td></tr>
+        <tr><td><code>GET /api/cron/digest</code></td><td><code>CRON_SECRET</code></td><td>Weekly staff digest email.</td></tr>
+        <tr><td><code>GET /api/invoice/[id]/print</code></td><td>signed link</td><td>Server-rendered HTML/PDF invoice.</td></tr>
+        <tr><td><code>GET /api/stripe/connect/refresh · return</code></td><td>session</td><td>Stripe Connect onboarding callback URLs.</td></tr>
+        <tr><td><code>POST /api/webhooks/stripe</code></td><td>signature</td><td>Account, checkout, payment_intent, charge.refunded events.</td></tr>
+        <tr><td><code>POST /api/webhooks/resend</code></td><td>svix</td><td>Email delivery / open / click tracking → updates <code>reminders</code>.</td></tr>
+        <tr><td><code>GET /api/xero/connect/begin · callback</code></td><td>session</td><td>OAuth handshake to attach a Xero tenant to an org.</td></tr>
+      </table>
+    </section>
+
+    <!-- ============== 7. AI MODULE ============== -->
+    <section id="ai">
+      <div class="sec-head">
+        <div class="num">07</div>
+        <h2>AI module · Claude</h2>
+        <div class="tag">@anthropic-ai/sdk · haiku 4.5</div>
+      </div>
+
+      <p class="lede2">Claude is used for all customer-facing copy. The integration is small and deliberately opinionated: one model (<code>claude-haiku-4-5-20251001</code>), tight system prompts, deterministic fallbacks if the API fails. There is no streaming; calls are synchronous inside server actions or cron handlers.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Surfaces</h3>
+          <table class="tbl dense">
+            <tr><th>Use case</th><th>File</th></tr>
+            <tr><td>Reminder email draft</td><td><code>lib/ai-messages.ts</code> · <code>draftReminderMessage()</code></td></tr>
+            <tr><td>Reminder SMS draft</td><td><code>lib/ai-messages.ts</code> · <code>draftSmsReminderMessage()</code></td></tr>
+            <tr><td>Custom 1-off message</td><td><code>lib/ai-messages.ts</code> · <code>draftCustomMessage()</code></td></tr>
+            <tr><td>Broadcast campaign</td><td><code>lib/ai-messages.ts</code> · <code>draftBroadcastMessage()</code></td></tr>
+            <tr><td>Customer diagnostic chat</td><td><code>lib/ai-diagnostic.ts</code></td></tr>
+            <tr><td>Voice → job sheet</td><td><code>lib/ai-job-from-voice.ts</code></td></tr>
+            <tr><td>Labour estimation</td><td><code>lib/ai-labour.ts</code></td></tr>
+          </table>
+        </div>
+        <div>
+          <h3>Prompt invariants</h3>
+          <ul>
+            <li>British English, &lt;120 words for email, &lt;130 chars for SMS.</li>
+            <li>Never include a phone number or URL — the booking link is appended programmatically.</li>
+            <li>Never ask the customer to call, reply, or get in touch off-channel.</li>
+            <li>Always start with "Hi <em>FirstName</em>," for reminders; "Dear customer," for broadcasts.</li>
+            <li>System prompts are <code>cache_control: ephemeral</code> for prompt-cache discount on the cron path.</li>
+          </ul>
+          <p>If a call throws, the caller falls back to <code>fallbackReminderMessage()</code> — a deterministic template that hits the same compliance rules, so customers always get a coherent reminder.</p>
+        </div>
+      </div>
+
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;07·A</span><span>draft → send pipeline</span></div>
+        <svg viewBox="0 0 1000 240" role="img" aria-label="AI message pipeline">
+          <!-- step boxes -->
+          <rect x="20" y="60" width="160" height="80" class="d-fill-white d-stroke" />
+          <text x="32" y="80" class="d-title">cron / staff action</text>
+          <text x="32" y="100" class="d-label-mute">draftInput {</text>
+          <text x="32" y="114" class="d-label-mute">  garageName, firstName,</text>
+          <text x="32" y="128" class="d-label-mute">  registration, dueDate }</text>
+
+          <rect x="220" y="60" width="160" height="80" class="d-fill-white d-stroke" />
+          <text x="232" y="80" class="d-title">ai-messages.ts</text>
+          <text x="232" y="100" class="d-label-mute">try {</text>
+          <text x="232" y="114" class="d-label-mute">  draftReminder…() }</text>
+          <text x="232" y="128" class="d-label-mute">catch { fallback }</text>
+
+          <rect x="420" y="60" width="160" height="80" class="d-fill-white d-stroke-green" />
+          <text x="432" y="80" class="d-title">Claude Haiku</text>
+          <text x="432" y="100" class="d-label-mute">system: cached</text>
+          <text x="432" y="114" class="d-label-mute">max_tokens: 80–400</text>
+          <text x="432" y="128" class="d-label-mute">temperature: default</text>
+
+          <rect x="620" y="20" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="632" y="40" class="d-title">Resend</text>
+          <text x="632" y="60" class="d-label-mute">+ CTA button appended</text>
+
+          <rect x="620" y="100" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="632" y="120" class="d-title">Twilio SMS</text>
+          <text x="632" y="140" class="d-label-mute">+ booking URL appended</text>
+
+          <rect x="620" y="180" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="632" y="200" class="d-title">Twilio WhatsApp</text>
+          <text x="632" y="220" class="d-label-mute">+ booking URL appended</text>
+
+          <rect x="820" y="60" width="160" height="80" class="d-fill-white d-stroke" />
+          <text x="832" y="80" class="d-title">reminders row</text>
+          <text x="832" y="100" class="d-label-mute">status: sent | failed</text>
+          <text x="832" y="114" class="d-label-mute">message_text · sent_at</text>
+          <text x="832" y="128" class="d-label-mute">+ resend_email_id</text>
+
+          <!-- arrows -->
+          <path d="M 180 100 L 215 100" class="d-stroke" />
+          <polygon points="215,100 208,98 210,103" fill="#0b0d11" />
+          <path d="M 380 100 L 415 100" class="d-stroke" />
+          <polygon points="415,100 408,98 410,103" fill="#0b0d11" />
+          <path d="M 580 90 L 615 50" class="d-stroke" />
+          <polygon points="615,50 608,52 612,56" fill="#0b0d11" />
+          <path d="M 580 100 L 615 130" class="d-stroke" />
+          <polygon points="615,130 608,128 610,133" fill="#0b0d11" />
+          <path d="M 580 110 L 615 210" class="d-stroke" />
+          <polygon points="615,210 608,208 610,213" fill="#0b0d11" />
+
+          <path d="M 780 50 L 820 90" class="d-stroke-green" />
+          <path d="M 780 130 L 820 100" class="d-stroke-green" />
+          <path d="M 780 210 L 820 110" class="d-stroke-green" />
+        </svg>
+        <div class="legend">
+          <span><span class="sw"></span>draft</span>
+          <span><span class="sw green"></span>persist receipt</span>
+        </div>
+      </div>
+
+      <pre class="code"><span class="c">// lib/ai-messages.ts — typical call shape</span>
+<span class="k">await</span> anthropic.messages.create({
+  model: <span class="s">"claude-haiku-4-5-20251001"</span>,
+  max_tokens: 300,
+  system: [{ type: <span class="s">"text"</span>, text: EMAIL_REMINDER_SYSTEM,
+            cache_control: { type: <span class="s">"ephemeral"</span> } }],
+  messages: [{ role: <span class="s">"user"</span>, content: <span class="s">`Draft a ${label} reminder for…`</span> }],
+});</pre>
+
+      <div class="note">
+        <span class="label">Cost shape</span>
+        Most calls are ≤300 output tokens with a ~400-token cached system prompt. At Haiku rates this is a small fraction of a penny per reminder; for a 1000-customer garage doing a monthly MOT sweep, AI cost is dominated by Resend / Twilio per-message fees, not Claude.
+      </div>
+    </section>
+
+    <!-- ============== 8. CRON ============== -->
+    <section id="cron">
+      <div class="sec-head">
+        <div class="num">08</div>
+        <h2>Cron &amp; reminder pipeline</h2>
+        <div class="tag">vercel cron · hourly</div>
+      </div>
+
+      <p class="lede2">A single Vercel cron pings <code>/api/cron/tick</code> every hour. That orchestrator finds enabled <code>scheduled_tasks</code> rows whose <code>next_run_at</code> is due, dispatches each to the right route handler with the task's <code>location_id</code>, then advances <code>next_run_at</code> using <code>computeNextRunAt()</code>.</p>
+
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;08·A</span><span>reminder pipeline · per location</span></div>
+        <svg viewBox="0 0 1100 460" role="img" aria-label="Cron and reminder pipeline">
+          <!-- timeline -->
+          <text x="20" y="22" class="d-eyebrow">VERCEL</text>
+          <text x="200" y="22" class="d-eyebrow">/api/cron/tick</text>
+          <text x="440" y="22" class="d-eyebrow">/api/cron/reminders?location_id=…</text>
+          <text x="800" y="22" class="d-eyebrow">CHANNELS</text>
+
+          <line x1="180" y1="32" x2="180" y2="440" class="d-stroke-thin" stroke-dasharray="2 4" />
+          <line x1="420" y1="32" x2="420" y2="440" class="d-stroke-thin" stroke-dasharray="2 4" />
+          <line x1="780" y1="32" x2="780" y2="440" class="d-stroke-thin" stroke-dasharray="2 4" />
+
+          <!-- vercel -->
+          <rect x="20" y="50" width="150" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="70" class="d-title">Vercel Cron</text>
+          <text x="32" y="88" class="d-label-mute">0 * * * *</text>
+          <text x="32" y="102" class="d-label-mute">Authorization: Bearer …</text>
+
+          <!-- tick -->
+          <rect x="200" y="50" width="200" height="160" class="d-fill-white d-stroke" />
+          <text x="212" y="70" class="d-title">cron/tick</text>
+          <text x="212" y="90" class="d-label-mute">SELECT scheduled_tasks</text>
+          <text x="212" y="104" class="d-label-mute"> WHERE enabled = true</text>
+          <text x="212" y="118" class="d-label-mute">   AND next_run_at &lt;= now</text>
+          <text x="212" y="138" class="d-label">routes ↓</text>
+          <text x="212" y="156" class="d-label-mute">mot_reminders →</text>
+          <text x="212" y="170" class="d-label-mute">service_reminders →</text>
+          <text x="212" y="184" class="d-label-mute">tax_reminders →</text>
+          <text x="212" y="198" class="d-label-mute">weekly_digest →</text>
+
+          <!-- reminders -->
+          <rect x="440" y="50" width="320" height="380" class="d-fill-white d-stroke" />
+          <text x="452" y="70" class="d-title">cron/reminders</text>
+          <text x="452" y="86" class="d-label-mute">for each location:</text>
+
+          <rect x="460" y="100" width="290" height="60" class="d-fill-paper d-stroke" />
+          <text x="472" y="118" class="d-label">1 · load task configs</text>
+          <text x="472" y="134" class="d-label-mute">mot · service · tax</text>
+          <text x="472" y="148" class="d-label-mute">remind_days_before · channels[]</text>
+
+          <rect x="460" y="172" width="290" height="60" class="d-fill-paper d-stroke" />
+          <text x="472" y="190" class="d-label">2 · query due vehicles</text>
+          <text x="472" y="206" class="d-label-mute">mot_expiry &lt;= now + N days</text>
+          <text x="472" y="220" class="d-label-mute">OR service_due &lt;= now + N days</text>
+
+          <rect x="460" y="244" width="290" height="60" class="d-fill-paper d-stroke" />
+          <text x="472" y="262" class="d-label">3 · dedupe per channel</text>
+          <text x="472" y="278" class="d-label-mute">reminders WHERE sent_at &gt;= now − 30d</text>
+          <text x="472" y="292" class="d-label-mute">same vehicle · type · channel → skip</text>
+
+          <rect x="460" y="316" width="290" height="60" class="d-fill-paper d-stroke-green" />
+          <text x="472" y="334" class="d-label">4 · AI draft (per channel)</text>
+          <text x="472" y="350" class="d-label-mute">draftReminderMessage / SMS</text>
+          <text x="472" y="364" class="d-label-mute">fallback on throw</text>
+
+          <rect x="460" y="376" width="290" height="44" class="d-fill-paper d-stroke" />
+          <text x="472" y="394" class="d-label">5 · send + log</text>
+          <text x="472" y="410" class="d-label-mute">insert into reminders (status, ids)</text>
+
+          <!-- channels -->
+          <rect x="800" y="90" width="280" height="60" class="d-fill-white d-stroke" />
+          <text x="812" y="110" class="d-title">Email · Resend</text>
+          <text x="812" y="128" class="d-label-mute">subject + body + CTA button</text>
+          <text x="812" y="142" class="d-label-mute">resend_email_id stored</text>
+
+          <rect x="800" y="170" width="280" height="60" class="d-fill-white d-stroke" />
+          <text x="812" y="190" class="d-title">SMS · Twilio</text>
+          <text x="812" y="208" class="d-label-mute">body + booking URL</text>
+          <text x="812" y="222" class="d-label-mute">delivery_status logged</text>
+
+          <rect x="800" y="250" width="280" height="60" class="d-fill-white d-stroke" />
+          <text x="812" y="270" class="d-title">WhatsApp · Twilio</text>
+          <text x="812" y="288" class="d-label-mute">body + booking URL</text>
+
+          <rect x="800" y="330" width="280" height="60" class="d-fill-white d-stroke-green" />
+          <text x="812" y="350" class="d-title">Resend webhook</text>
+          <text x="812" y="368" class="d-label-mute">opened_at · clicked_at · delivered_at</text>
+          <text x="812" y="382" class="d-label-mute">updates reminders row</text>
+
+          <!-- arrows -->
+          <path d="M 170 80 L 195 80" class="d-stroke" />
+          <polygon points="195,80 188,78 190,83" fill="#0b0d11" />
+
+          <path d="M 400 165 L 440 90" class="d-stroke" />
+          <polygon points="440,90 433,88 435,93" fill="#0b0d11" />
+
+          <path d="M 760 395 L 800 120" class="d-stroke" />
+          <polygon points="800,120 793,118 795,123" fill="#0b0d11" />
+          <path d="M 760 395 L 800 200" class="d-stroke" />
+          <polygon points="800,200 793,198 795,203" fill="#0b0d11" />
+          <path d="M 760 395 L 800 280" class="d-stroke" />
+          <polygon points="800,280 793,278 795,283" fill="#0b0d11" />
+
+          <path d="M 800 360 L 770 410" class="d-stroke-green" />
+          <polygon points="770,410 768,403 774,406" fill="#16a34a" />
+        </svg>
+        <div class="legend">
+          <span><span class="sw"></span>request</span>
+          <span><span class="sw green"></span>async telemetry → DB</span>
+          <span><span class="sw dot"></span>per-location loop</span>
+        </div>
+      </div>
+
+      <h3>Schedule storage</h3>
+      <pre class="code"><span class="c">// scheduled_tasks row example</span>
+{
+  task_type: <span class="s">"mot_reminders"</span>,
+  enabled: <span class="k">true</span>,
+  frequency: <span class="s">"daily"</span>,
+  hour: 9,
+  day_of_week: <span class="k">null</span>,
+  next_run_at: <span class="s">"2026-05-20T09:00:00Z"</span>,
+  settings: {
+    remind_days_before: 30,
+    channels: [<span class="s">"email"</span>, <span class="s">"sms"</span>, <span class="s">"whatsapp"</span>]
+  }
+}</pre>
+
+      <h3>Dedupe &amp; safety</h3>
+      <ul>
+        <li><strong>30-day dedupe</strong> per <code>(vehicle, reminder_type, channel)</code> — prevents accidental repeat sends.</li>
+        <li><strong>Per-location channels</strong> — settings JSON controls which channels run for which reminder type.</li>
+        <li><strong>Hard 100-row limit</strong> per location per tick — cron stays well under the 60s Vercel hobby budget.</li>
+        <li><strong>Bearer auth</strong> — every cron handler requires <code>Authorization: Bearer ${CRON_SECRET}</code>; Vercel injects this from the project env when calling the configured cron path.</li>
+      </ul>
+
+      <div class="note warn">
+        <span class="label">Failure mode</span>
+        If <code>cron/tick</code> partially fails (a single task's HTTP call errors), the orchestrator still advances <code>next_run_at</code> so we don't loop on the same failure. The error is recorded in the response payload and shows in Vercel cron logs. Channel-level failures (e.g. Twilio rejects a number) <em>are</em> written to <code>reminders.status='failed'</code> with the error message.
+      </div>
+    </section>
+
+    <!-- ============== 9. PAYMENTS ============== -->
+    <section id="payments">
+      <div class="sec-head">
+        <div class="num">09</div>
+        <h2>Payments &amp; accounting</h2>
+        <div class="tag">stripe connect · xero</div>
+      </div>
+
+      <p class="lede2">Garages onboard their own Stripe Connect Express account through the platform. Every customer payment is a direct charge to that connected account with a platform fee skimmed (default 2%). Paid invoices and the corresponding payments are then synced to the garage's Xero tenant.</p>
+
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;09·A</span><span>invoice · pay · sync</span></div>
+        <svg viewBox="0 0 1100 480" role="img" aria-label="Payment and Xero sync flow">
+          <text x="20" y="22" class="d-eyebrow">CUSTOMER</text>
+          <text x="260" y="22" class="d-eyebrow">AIGARAGE</text>
+          <text x="640" y="22" class="d-eyebrow">STRIPE</text>
+          <text x="920" y="22" class="d-eyebrow">XERO</text>
+
+          <line x1="240" y1="32" x2="240" y2="460" class="d-stroke-thin" stroke-dasharray="2 4" />
+          <line x1="620" y1="32" x2="620" y2="460" class="d-stroke-thin" stroke-dasharray="2 4" />
+          <line x1="900" y1="32" x2="900" y2="460" class="d-stroke-thin" stroke-dasharray="2 4" />
+
+          <rect x="20" y="60" width="200" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="80" class="d-title">/invoice/[id]</text>
+          <text x="32" y="100" class="d-label-mute">customer opens link</text>
+
+          <rect x="260" y="60" width="340" height="60" class="d-fill-white d-stroke" />
+          <text x="272" y="80" class="d-title">create Checkout session</text>
+          <text x="272" y="100" class="d-label-mute">stripe.checkout.sessions.create({ stripeAccount })</text>
+
+          <rect x="640" y="60" width="240" height="60" class="d-fill-white d-stroke" />
+          <text x="652" y="80" class="d-title">hosted Checkout</text>
+          <text x="652" y="100" class="d-label-mute">on garage's Connect account</text>
+
+          <rect x="20" y="150" width="200" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="170" class="d-title">payment captured</text>
+          <text x="32" y="190" class="d-label-mute">success → return URL</text>
+
+          <rect x="640" y="150" width="240" height="60" class="d-fill-white d-stroke" />
+          <text x="652" y="170" class="d-title">webhook event</text>
+          <text x="652" y="190" class="d-label-mute">checkout.session.completed</text>
+
+          <rect x="260" y="220" width="340" height="80" class="d-fill-paper d-stroke" />
+          <text x="272" y="240" class="d-title">/api/webhooks/stripe</text>
+          <text x="272" y="258" class="d-label-mute">verify signature (STRIPE_WEBHOOK_SECRET)</text>
+          <text x="272" y="272" class="d-label-mute">invoices.status = "paid"</text>
+          <text x="272" y="286" class="d-label-mute">stripe_payment_intent_id · paid_amount_pence</text>
+
+          <rect x="260" y="320" width="340" height="60" class="d-fill-paper d-stroke-green" />
+          <text x="272" y="340" class="d-title">pushPaymentToXero()</text>
+          <text x="272" y="356" class="d-label-mute">if !xero_invoice_id → pushInvoiceToXero() first</text>
+          <text x="272" y="370" class="d-label-mute">create Payment against BANK account</text>
+
+          <rect x="920" y="220" width="160" height="80" class="d-fill-white d-stroke" />
+          <text x="932" y="240" class="d-title">Invoices</text>
+          <text x="932" y="258" class="d-label-mute">ACCREC · AUTHORISED</text>
+          <text x="932" y="272" class="d-label-mute">lineItems · TaxExclusive</text>
+          <text x="932" y="286" class="d-label-mute">xero_invoice_id ↩</text>
+
+          <rect x="920" y="320" width="160" height="60" class="d-fill-white d-stroke" />
+          <text x="932" y="340" class="d-title">Payments</text>
+          <text x="932" y="358" class="d-label-mute">+ Contact reused</text>
+          <text x="932" y="372" class="d-label-mute">xero_payment_id ↩</text>
+
+          <rect x="640" y="380" width="240" height="60" class="d-fill-white d-stroke" />
+          <text x="652" y="400" class="d-title">charge.refunded</text>
+          <text x="652" y="418" class="d-label-mute">→ invoice.status reset to "sent"</text>
+
+          <!-- arrows -->
+          <path d="M 220 90 L 255 90" class="d-stroke" />
+          <polygon points="255,90 248,88 250,93" fill="#0b0d11" />
+          <path d="M 600 90 L 635 90" class="d-stroke" />
+          <polygon points="635,90 628,88 630,93" fill="#0b0d11" />
+          <path d="M 880 90 L 220 175" class="d-stroke-dash" />
+          <polygon points="220,175 226,170 228,176" fill="#0b0d11" />
+          <path d="M 640 180 L 605 250" class="d-stroke" />
+          <polygon points="605,250 605,243 612,246" fill="#0b0d11" />
+          <path d="M 600 350 L 915 250" class="d-stroke-green" />
+          <polygon points="915,250 908,250 911,256" fill="#16a34a" />
+          <path d="M 600 350 L 915 350" class="d-stroke-green" />
+          <polygon points="915,350 908,348 910,353" fill="#16a34a" />
+          <path d="M 640 410 L 605 310" class="d-stroke" />
+        </svg>
+        <div class="legend">
+          <span><span class="sw"></span>HTTP</span>
+          <span><span class="sw dash"></span>browser redirect</span>
+          <span><span class="sw green"></span>idempotent Xero write</span>
+        </div>
+      </div>
+
+      <div class="cols-2">
+        <div>
+          <h3>Stripe Connect</h3>
+          <ul>
+            <li>Garage owner clicks <strong>Connect Stripe</strong> in <code>/staff/settings</code> → server action creates an Account Link, returns to <code>/api/stripe/connect/return</code>.</li>
+            <li><code>account.updated</code> webhook keeps <code>stripe_charges_enabled · stripe_payouts_enabled · stripe_details_submitted</code> in sync on <code>organizations</code>.</li>
+            <li>Checkout sessions are created with the garage's <code>stripe_account_id</code> as the destination — funds settle to the garage; the platform fee is taken via <code>application_fee_amount</code> (<code>STRIPE_PLATFORM_FEE_PERCENT</code>, default <strong>2%</strong>).</li>
+            <li>Bookings &amp; invoices each have their own metadata, but the webhook handler treats them uniformly through <code>session.metadata.invoice_id</code> / <code>booking_id</code>.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Xero sync (lib/xero-sync.ts)</h3>
+          <ul>
+            <li>One Xero tenant per <code>organization</code>, attached via OAuth at <code>/api/xero/connect/begin</code>. Tokens (<code>xero_access_token</code>, <code>xero_refresh_token</code>, <code>xero_token_expires_at</code>) are stored on <code>organizations</code>.</li>
+            <li><code>ensureXeroContact()</code> — idempotent contact upsert, stores <code>xero_contact_id</code> on <code>customers</code>.</li>
+            <li><code>pushInvoiceToXero()</code> — converts <code>job_items</code> (or a single booking line) to Xero <code>LineItem[]</code>, posts as <code>ACCREC</code>. UK VAT via <code>OUTPUT2</code> + <code>TaxExclusive</code>.</li>
+            <li><code>pushPaymentToXero()</code> — finds the first <code>BANK</code> account on the connected org, records a Payment against the invoice. Idempotent via <code>xero_payment_id</code>.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Webhook event matrix</h3>
+      <table class="tbl">
+        <tr><th>Stripe event</th><th>Action</th><th>Side effect</th></tr>
+        <tr><td><code>account.updated</code></td><td>Update org flags</td><td>UI gates "send pay link" on <code>stripe_charges_enabled</code>.</td></tr>
+        <tr><td><code>checkout.session.completed</code> (paid)</td><td>Mark invoice / booking paid</td><td>Triggers <code>pushPaymentToXero()</code> if invoice path; generates invoice for booking path.</td></tr>
+        <tr><td><code>payment_intent.succeeded</code></td><td>Fallback for non-Checkout flows</td><td>Same paid bookkeeping.</td></tr>
+        <tr><td><code>charge.refunded</code></td><td>Flip invoice back to <code>sent</code></td><td>Operator handles Xero refund manually for now.</td></tr>
+      </table>
+
+      <div class="note">
+        <span class="label">Idempotency contract</span>
+        Every Xero write is guarded by an "id already set" check before calling the API. Replays from Stripe (or from a manual webhook retry) are safe. The fast path for an already-synced payment is two DB reads and no Xero call.
+      </div>
+    </section>
+
+    <!-- ============== 10. EXTERNAL INTEGRATIONS ============== -->
+    <section id="integrations">
+      <div class="sec-head">
+        <div class="num">10</div>
+        <h2>External integrations</h2>
+        <div class="tag">third parties · scope</div>
+      </div>
+
+      <p class="lede2">All external calls live in <code>src/lib/*</code> so they can be swapped or mocked at one boundary. Per-tenant credentials (Stripe Connect, Xero) are stored on <code>organizations</code>; platform credentials come from env vars.</p>
+
+      <table class="tbl">
+        <tr><th style="width: 18%">Service</th><th style="width: 22%">Module</th><th style="width: 14%">Credentials</th><th>What it does</th></tr>
+        <tr><td>Supabase</td><td><code>lib/supabase/*</code></td><td>platform</td><td>Postgres, Auth, storage. SSR + browser + admin clients. RLS enforced.</td></tr>
+        <tr><td>Anthropic Claude</td><td><code>lib/ai-messages.ts</code> · <code>lib/ai-diagnostic.ts</code> · <code>lib/ai-labour.ts</code> · <code>lib/ai-job-from-voice.ts</code></td><td>platform</td><td>Drafts customer communications and powers diagnostic / job sheet helpers.</td></tr>
+        <tr><td>Resend</td><td><code>lib/email.ts</code></td><td>platform</td><td>Transactional email. Webhook updates open / click / delivered timestamps on <code>reminders</code>.</td></tr>
+        <tr><td>Twilio SMS</td><td><code>lib/sms.ts</code></td><td>platform</td><td>Outbound SMS reminders &amp; campaigns.</td></tr>
+        <tr><td>Twilio WhatsApp</td><td><code>lib/whatsapp.ts</code></td><td>platform</td><td>Outbound WhatsApp template messages.</td></tr>
+        <tr><td>DVSA MOT History</td><td><code>lib/dvla.ts</code> · <code>lib/dvla-auth.ts</code></td><td>platform</td><td>OAuth client-credentials → lookup vehicle by reg → MOT expiry + first-due date for new vehicles.</td></tr>
+        <tr><td>DVLA VES</td><td><code>lib/dvla-ves.ts</code></td><td>platform</td><td>Road tax (VED) due date enrichment.</td></tr>
+        <tr><td>DVSA Recalls</td><td><code>lib/dvsa-recalls.ts</code></td><td>platform</td><td>Recall lookup; populates <code>vehicles.recall_status · recall_detail · recall_checked_at</code>.</td></tr>
+        <tr><td>Stripe</td><td><code>lib/stripe.ts</code> · <code>lib/booking-invoice.ts</code></td><td>platform + per-org</td><td>Connect Express onboarding; Checkout pay-links on invoices &amp; bookings; webhooks.</td></tr>
+        <tr><td>Xero</td><td><code>lib/xero.ts</code> · <code>lib/xero-sync.ts</code></td><td>per-org OAuth</td><td>Contacts, invoices, payments. Idempotent push from AIGarage; one-way only.</td></tr>
+      </table>
+    </section>
+
+    <!-- ============== 11. ENV / CONFIG ============== -->
+    <section id="config">
+      <div class="sec-head">
+        <div class="num">11</div>
+        <h2>Environment &amp; configuration</h2>
+        <div class="tag">.env · vercel</div>
+      </div>
+
+      <p class="lede2">Source of truth: <code>.env.example</code>. Vars prefixed <code>NEXT_PUBLIC_</code> are exposed to the browser bundle; everything else is server-only. Per-tenant credentials (Stripe Connect, Xero) are stored on the <code>organizations</code> row, not in env.</p>
+
+      <div class="fields">
+        <div class="field-row"><div class="k">NEXT_PUBLIC_SUPABASE_URL</div><div class="scope client">client</div><div class="desc">Supabase project URL. Used by the SSR helpers and the browser client.</div></div>
+        <div class="field-row"><div class="k">NEXT_PUBLIC_SUPABASE_ANON_KEY</div><div class="scope client">client</div><div class="desc">Anon API key. Combined with RLS, safe to ship to the browser.</div></div>
+        <div class="field-row"><div class="k">SUPABASE_SERVICE_ROLE_KEY</div><div class="scope server">server</div><div class="desc">RLS-bypassing key. Used only by <code>lib/supabase/admin.ts</code>.</div></div>
+        <div class="field-row"><div class="k">ANTHROPIC_API_KEY</div><div class="scope server">server</div><div class="desc">Read by <code>@anthropic-ai/sdk</code> default constructor.</div></div>
+        <div class="field-row"><div class="k">RESEND_API_KEY</div><div class="scope server">server</div><div class="desc">Email send + webhook signature verification.</div></div>
+        <div class="field-row"><div class="k">RESEND_FROM_EMAIL</div><div class="scope server">server</div><div class="desc">Verified sender. Without a verified domain, only mails to the Resend account address are delivered.</div></div>
+        <div class="field-row"><div class="k">TWILIO_ACCOUNT_SID</div><div class="scope server">server</div><div class="desc">Twilio account.</div></div>
+        <div class="field-row"><div class="k">TWILIO_AUTH_TOKEN</div><div class="scope server">server</div><div class="desc">Twilio auth.</div></div>
+        <div class="field-row"><div class="k">TWILIO_FROM_NUMBER</div><div class="scope server">server</div><div class="desc">E.164 sender number. WhatsApp uses Twilio sandbox unless a separate sender is configured.</div></div>
+        <div class="field-row"><div class="k">DVLA_MOT_API_KEY</div><div class="scope server">server</div><div class="desc">DVSA MOT History API key (sent as <code>X-API-Key</code>).</div></div>
+        <div class="field-row"><div class="k">CRON_SECRET</div><div class="scope cron">cron</div><div class="desc">Shared bearer secret. Set on Vercel project so Vercel Cron can authenticate to <code>/api/cron/tick</code>.</div></div>
+        <div class="field-row"><div class="k">STRIPE_SECRET_KEY</div><div class="scope server">server</div><div class="desc">Platform Stripe secret. Used to manage Connect accounts and create Checkout sessions.</div></div>
+        <div class="field-row"><div class="k">STRIPE_WEBHOOK_SECRET</div><div class="scope server">server</div><div class="desc">Verifies signatures on <code>POST /api/webhooks/stripe</code>.</div></div>
+        <div class="field-row"><div class="k">STRIPE_PLATFORM_FEE_PERCENT</div><div class="scope server">server</div><div class="desc">Default <code>2</code>. Skimmed from every customer payment via <code>application_fee_amount</code>.</div></div>
+        <div class="field-row"><div class="k">XERO_CLIENT_ID</div><div class="scope server">server</div><div class="desc">Xero app client id.</div></div>
+        <div class="field-row"><div class="k">XERO_CLIENT_SECRET</div><div class="scope server">server</div><div class="desc">Xero app secret. Callback URL: <code>/api/xero/connect/callback</code>.</div></div>
+        <div class="field-row"><div class="k">NEXT_PUBLIC_ROOT_DOMAIN</div><div class="scope client">client</div><div class="desc">Apex used for subdomain routing. Local: <code>localtest.me:3000</code>; production: real apex.</div></div>
+      </div>
+
+      <div class="note">
+        <span class="label">Local development</span>
+        Subdomains "just work" because <code>*.localtest.me</code> resolves to <code>127.0.0.1</code> publicly — so <code>smith-motors.localtest.me:3000</code> routes to the dev server with no <code>/etc/hosts</code> edits. The <code>next.config.ts</code> allowlists the apex in <code>allowedDevOrigins</code> so HMR works across subdomains.
+      </div>
+    </section>
+
+    <!-- ============== 12. DEPLOY ============== -->
+    <section id="deploy">
+      <div class="sec-head">
+        <div class="num">12</div>
+        <h2>Deployment topology</h2>
+        <div class="tag">vercel</div>
+      </div>
+
+      <p class="lede2">Deployed on Vercel. One project, one cron, wildcard subdomain. Supabase is the only stateful backend; everything else is stateless Node functions.</p>
+
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;12·A</span><span>production deployment</span></div>
+        <svg viewBox="0 0 1000 320" role="img" aria-label="Deployment topology">
+          <!-- DNS -->
+          <rect x="20" y="40" width="200" height="80" class="d-fill-white d-stroke" />
+          <text x="32" y="62" class="d-title">DNS · *.aig.co.uk</text>
+          <text x="32" y="82" class="d-label-mute">apex CNAME → Vercel</text>
+          <text x="32" y="98" class="d-label-mute">wildcard CNAME → Vercel</text>
+          <text x="32" y="114" class="d-label-mute">custom domains → CNAME</text>
+
+          <!-- Vercel -->
+          <rect x="280" y="20" width="320" height="280" class="d-fill-paper d-stroke" />
+          <text x="292" y="40" class="d-eyebrow">VERCEL PROJECT</text>
+
+          <rect x="300" y="58" width="280" height="50" class="d-fill-white d-stroke" />
+          <text x="312" y="78" class="d-title">Edge proxy · proxy.ts</text>
+          <text x="312" y="96" class="d-label-mute">tenant + session</text>
+
+          <rect x="300" y="120" width="280" height="60" class="d-fill-white d-stroke" />
+          <text x="312" y="140" class="d-title">Node functions</text>
+          <text x="312" y="158" class="d-label-mute">RSC pages · server actions · api/*</text>
+          <text x="312" y="172" class="d-label-mute">maxDuration: 60 (cron)</text>
+
+          <rect x="300" y="192" width="280" height="60" class="d-fill-white d-stroke-green" />
+          <text x="312" y="212" class="d-title">Vercel Cron</text>
+          <text x="312" y="230" class="d-label-mute">0 * * * * → /api/cron/tick</text>
+          <text x="312" y="244" class="d-label-mute">vercel.json</text>
+
+          <rect x="300" y="262" width="280" height="30" class="d-fill-white d-stroke" />
+          <text x="312" y="282" class="d-label-mute">env: STRIPE · XERO · TWILIO · DVSA · RESEND · ANTHROPIC</text>
+
+          <!-- Supabase -->
+          <rect x="660" y="40" width="320" height="240" class="d-fill-paper d-stroke" />
+          <text x="672" y="60" class="d-eyebrow">SUPABASE PROJECT</text>
+
+          <rect x="680" y="78" width="280" height="50" class="d-fill-white d-stroke-green" />
+          <text x="692" y="98" class="d-title">Postgres + RLS</text>
+          <text x="692" y="114" class="d-label-mute">17 tables · migrations under git</text>
+
+          <rect x="680" y="138" width="280" height="40" class="d-fill-white d-stroke" />
+          <text x="692" y="158" class="d-title">Auth</text>
+          <text x="692" y="172" class="d-label-mute">email/password · session refresh</text>
+
+          <rect x="680" y="188" width="280" height="40" class="d-fill-white d-stroke" />
+          <text x="692" y="208" class="d-title">Storage</text>
+          <text x="692" y="222" class="d-label-mute">org logos · invoice PDFs</text>
+
+          <rect x="680" y="238" width="280" height="34" class="d-fill-white d-stroke" />
+          <text x="692" y="258" class="d-label-mute">pooler: transaction mode for serverless</text>
+
+          <!-- arrows -->
+          <path d="M 220 80 L 295 80" class="d-stroke" />
+          <polygon points="295,80 288,78 290,83" fill="#0b0d11" />
+          <path d="M 580 150 L 675 100" class="d-stroke-green" />
+          <polygon points="675,100 668,102 671,107" fill="#16a34a" />
+          <path d="M 580 220 L 675 100" class="d-stroke-green" />
+        </svg>
+        <div class="legend">
+          <span><span class="sw"></span>DNS / HTTP</span>
+          <span><span class="sw green"></span>privileged db access (service role from server only)</span>
+        </div>
+      </div>
+
+      <h3>Operational basics</h3>
+      <table class="tbl">
+        <tr><th>Concern</th><th>Mechanism</th></tr>
+        <tr><td>Schema changes</td><td>SQL files under <code>supabase/migrations/</code>. Reviewed, then applied via <code>supabase db push</code> in CI / by hand on the prod project.</td></tr>
+        <tr><td>Secrets</td><td>Vercel Project Environment Variables. Never committed. Local dev uses <code>.env.local</code>.</td></tr>
+        <tr><td>Custom domains</td><td>Tenant adds their own domain → CNAME to Vercel → stored in <code>organizations.custom_domain</code>. Resolution mirrors subdomain routing.</td></tr>
+        <tr><td>Observability</td><td>Vercel function logs (structured <code>console.log("[area]", payload)</code>). Supabase logs for query-level issues.</td></tr>
+        <tr><td>Cron monitoring</td><td>Vercel Cron dashboard + each handler returns JSON with <code>{ ran, failed, errors }</code>.</td></tr>
+        <tr><td>Backups</td><td>Supabase automated daily backups (7-day retention on default plan).</td></tr>
+      </table>
+    </section>
+
+    <!-- ============== 13. SECURITY ============== -->
+    <section id="security">
+      <div class="sec-head">
+        <div class="num">13</div>
+        <h2>Security &amp; compliance</h2>
+        <div class="tag">rls · gdpr · pci</div>
+      </div>
+
+      <p class="lede2">Tenant isolation is enforced at the database. PCI is offloaded to Stripe Checkout (we never see card data). The platform takes a DPA acceptance per organisation and supports customer data deletion with an auditable log.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Application-level</h3>
+          <ul>
+            <li><strong>RLS</strong> on every tenant-scoped table. Policy keys off <code>is_garage_staff(location_id)</code> (security definer) or <code>auth.uid()</code>-matched self-reads.</li>
+            <li><strong>Service-role key</strong> only in <code>lib/supabase/admin.ts</code>; reachable only from webhooks, cron, and the tenant lookup in <code>staff-context.ts</code>.</li>
+            <li><strong>12-hour absolute session timeout</strong> in <code>updateSession()</code>, in addition to Supabase's refresh window.</li>
+            <li><strong>Passkeys</strong> for high-privilege re-auth (settings changes, payments setup) — RP id is the root domain.</li>
+            <li><strong>CRON_SECRET bearer</strong> on every cron handler.</li>
+            <li><strong>Stripe + Resend signature verification</strong> on every webhook; signature failures return 400 with no DB side effect.</li>
+            <li><strong>Stripe-hosted Checkout</strong> — card data never touches our infrastructure. PCI scope is SAQ A.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Compliance hooks</h3>
+          <ul>
+            <li><strong>DPA acceptance</strong> — <code>organizations.dpa_accepted_at · dpa_version · dpa_accepted_by_user_id</code>. Enforced via <code>/staff/dpa-acceptance</code> redirect.</li>
+            <li><strong>Marketing consent</strong> — <code>customers.marketing_email_consent · marketing_sms_consent · consent_updated_at</code>. Broadcast send paths must check.</li>
+            <li><strong>Right to erasure</strong> — anonymisation pass sets <code>customers.anonymized_at</code>; <code>data_deletion_log</code> records reason, requester and email hash.</li>
+            <li><strong>Data retention</strong> — <code>organizations.data_retention_years</code> drives scheduled cleanup of historical communications.</li>
+            <li><strong>Cookie banner</strong> — <code>components/cookie-banner.tsx</code>; non-essential cookies gated.</li>
+            <li><strong>Privacy policy</strong> — <code>organizations.privacy_policy_url</code> per tenant; <code>/privacy</code> hosts the platform-level policy.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Threat surface summary</h3>
+      <table class="tbl">
+        <tr><th>Vector</th><th>Mitigation</th></tr>
+        <tr><td>Cross-tenant read via API</td><td>RLS policies fail closed; service role unreachable from session-authenticated paths.</td></tr>
+        <tr><td>Hijacked session</td><td>12 h absolute timeout; <code>signOut()</code> on suspicious paths; passkeys for re-auth.</td></tr>
+        <tr><td>Replayed webhook</td><td>Signature verification + idempotent writes guarded by <code>xero_*_id</code> and <code>stripe_payment_intent_id</code> uniqueness checks.</td></tr>
+        <tr><td>Subdomain takeover</td><td>Wildcard CNAME to Vercel; custom domains require DNS proof.</td></tr>
+        <tr><td>Reminder spam</td><td>30-day dedupe per (vehicle, type, channel); per-location channel allowlist; consent flags enforced by broadcast send.</td></tr>
+        <tr><td>AI prompt injection from customer input</td><td>System prompt is fixed; user input is template-interpolated into a single structured field; output is plain text inserted into a templated email shell. No tool use, no code execution.</td></tr>
+        <tr><td>Secret leakage</td><td>Service-role key, Stripe secret, Xero tokens, Twilio creds — all server-only. Tokens-at-rest in DB (Xero refresh) are kept in <code>organizations</code>; rotation requires re-OAuth.</td></tr>
+      </table>
+
+      <div class="note">
+        <span class="label">Recommended next steps</span>
+        Encrypt-at-application-layer the Xero refresh tokens on <code>organizations</code> (currently relying on Supabase at-rest encryption only). Add structured audit log for staff actions in <code>/staff/settings</code> + impersonation. Add Vercel Cron health alerting to PagerDuty / Slack.
+      </div>
+    </section>
+
+    <!-- ============== APPENDIX ============== -->
+    <footer style="margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--aig-rule); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3);">
+      <div>
+        <img src="/brand/aigarage-mark-on-brand.svg" alt="" style="height: 18px; vertical-align: middle; margin-right: 8px;" />
+        AIGarage · technical reference · revision 01
+      </div>
+      <div>end of document</div>
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>
