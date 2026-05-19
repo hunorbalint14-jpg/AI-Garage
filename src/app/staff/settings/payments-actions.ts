@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe, publicOrigin } from "@/lib/stripe";
+import { logAudit } from "@/lib/audit";
 
 type StartConnectResult = { error: string } | { url: string };
 
@@ -68,6 +69,14 @@ export async function startStripeConnect(): Promise<StartConnectResult> {
       refresh_url: `${publicOrigin()}/api/stripe/connect/refresh`,
       return_url: `${publicOrigin()}/api/stripe/connect/return`,
       type: "account_onboarding",
+    });
+    await logAudit({
+      organizationId: ctx.organization.id,
+      actorUserId: ctx.user.id,
+      actorEmail: ctx.user.email ?? null,
+      action: "stripe.connect_start",
+      entityType: "stripe_account",
+      entityId: accountId,
     });
     return { url: link.url };
   } catch (err) {

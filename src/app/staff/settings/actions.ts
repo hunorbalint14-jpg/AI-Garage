@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSlug } from "@/lib/slug";
+import { logAudit } from "@/lib/audit";
 
 export type UpdateOrgResult = { error: string } | { success: true };
 
@@ -41,6 +42,22 @@ export async function updateOrganization(
 
   if (error) return { error: error.message };
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "settings.update",
+    entityType: "organization",
+    entityId: ctx.organization.id,
+    metadata: {
+      name,
+      primary_color: primaryColor ?? null,
+      phone,
+      google_review_url: googleReviewUrl,
+      privacy_policy_url: privacyPolicyUrl,
+    },
+  });
+
   revalidatePath("/staff/settings");
   revalidatePath("/staff");
   revalidatePath("/");
@@ -71,6 +88,16 @@ export async function updateBusinessHours(
     .eq("id", ctx.location.id);
 
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "settings.business_hours_update",
+    entityType: "location",
+    entityId: ctx.location.id,
+    metadata: { hours_start: start, hours_end: end },
+  });
 
   revalidatePath("/staff/settings");
   revalidatePath("/staff");
@@ -108,13 +135,27 @@ export async function addLocation(
     .maybeSingle();
   if (existing) return { error: "That subdomain is already taken." };
 
-  const { error } = await admin.from("locations").insert({
-    organization_id: ctx.organization.id,
-    slug: slugInput,
-    name,
-  });
+  const { data: created, error } = await admin
+    .from("locations")
+    .insert({
+      organization_id: ctx.organization.id,
+      slug: slugInput,
+      name,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "settings.location_add",
+    entityType: "location",
+    entityId: created?.id ?? null,
+    metadata: { slug: slugInput, name },
+  });
 
   revalidatePath("/staff/settings");
   return { success: true, slug: slugInput };

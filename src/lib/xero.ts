@@ -1,6 +1,7 @@
 import { XeroClient } from "xero-node";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { publicOrigin } from "@/lib/stripe";
+import { decrypt, encrypt } from "@/lib/encryption";
 
 // OAuth scopes — granular set (Xero migrated away from broad scopes in
 // March 2026; apps created after that date only have granular access).
@@ -75,8 +76,8 @@ export async function getXeroClientForOrg(orgId: string): Promise<{
   }
 
   const tokens: StoredTokens = {
-    accessToken: org.xero_access_token as string,
-    refreshToken: org.xero_refresh_token as string,
+    accessToken: decrypt(org.xero_access_token as string),
+    refreshToken: decrypt(org.xero_refresh_token as string),
     expiresAt: org.xero_token_expires_at as string,
     tenantId: org.xero_tenant_id as string,
   };
@@ -95,11 +96,13 @@ export async function getXeroClientForOrg(orgId: string): Promise<{
   if (expiresInMs < 60_000) {
     try {
       const refreshed = await client.refreshToken();
+      const newAccess = refreshed.access_token;
+      const newRefresh = refreshed.refresh_token ?? tokens.refreshToken;
       await admin
         .from("organizations")
         .update({
-          xero_access_token: refreshed.access_token,
-          xero_refresh_token: refreshed.refresh_token ?? tokens.refreshToken,
+          xero_access_token: newAccess ? encrypt(newAccess) : null,
+          xero_refresh_token: encrypt(newRefresh),
           xero_token_expires_at: new Date(
             (refreshed.expires_at ?? Math.floor(Date.now() / 1000) + 1800) * 1000,
           ).toISOString(),

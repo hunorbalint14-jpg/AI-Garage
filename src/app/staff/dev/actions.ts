@@ -6,6 +6,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { logAudit } from "@/lib/audit";
 
 export type ImpersonateResult = { error: string } | { success: true; redirect: string };
 
@@ -85,8 +86,9 @@ async function mintSessionForEmail(email: string): Promise<{ error: string } | {
 }
 
 export async function impersonateStaff(email: string): Promise<ImpersonateResult> {
+  let ctx;
   try {
-    await guardOwner();
+    ctx = await guardOwner();
   } catch (e) {
     return { error: (e as Error).message };
   }
@@ -112,6 +114,15 @@ export async function impersonateStaff(email: string): Promise<ImpersonateResult
   }
 
   await setStash(stash);
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "impersonation.start",
+    entityType: "staff_user",
+    entityId: user.id,
+    metadata: { target_email: email },
+  });
   revalidatePath("/", "layout");
   return { success: true, redirect: "/staff" };
 }
@@ -172,6 +183,15 @@ export async function impersonateCustomer(customerId: string): Promise<Impersona
   }
 
   await setStash(stash);
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "impersonation.start",
+    entityType: "customer",
+    entityId: customer.id,
+    metadata: { target_email: customer.email },
+  });
   revalidatePath("/", "layout");
   return { success: true, redirect: "/dashboard" };
 }
@@ -188,6 +208,14 @@ export async function exitImpersonation(): Promise<void> {
     store.set(c.name, c.value, { path: "/" });
   }
   await clearStash();
+
+  // We can't read ctx here — the impersonating session was just cleared
+  // and the original cookies are now in place but RSC won't re-evaluate
+  // until the redirect. Log as actor-unknown; the start event already
+  // carries the actor.
+  await logAudit({
+    action: "impersonation.stop",
+  });
 
   revalidatePath("/", "layout");
   redirect("/staff/dev");

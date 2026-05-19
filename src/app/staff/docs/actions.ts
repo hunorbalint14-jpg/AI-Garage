@@ -9,6 +9,7 @@ import {
   shareUrl,
   type CreateShareInput,
 } from "@/lib/doc-shares";
+import { logAudit } from "@/lib/audit";
 
 // Doc keys allowed from the UI. Must match keys in src/app/docs/[slug]/route.ts.
 const ALLOWED_DOC_KEYS = ["technical"] as const;
@@ -73,6 +74,22 @@ export async function createShareAction(formData: FormData): Promise<CreateShare
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? host;
   const url = shareUrl(rootDomain, result.share.slug, result.token);
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "doc_share.mint",
+    entityType: "doc_share",
+    entityId: result.share.id,
+    metadata: {
+      doc_key: docKey,
+      slug: result.share.slug,
+      label,
+      expires_at: result.share.expires_at,
+      max_views: result.share.max_views,
+    },
+  });
+
   revalidatePath("/staff/docs");
   return { ok: true, url, slug: result.share.slug, token: result.token };
 }
@@ -91,6 +108,14 @@ export async function revokeShareAction(id: string): Promise<{ ok: true } | { ok
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Failed to revoke." };
   }
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "doc_share.revoke",
+    entityType: "doc_share",
+    entityId: id,
+  });
   revalidatePath("/staff/docs");
   return { ok: true };
 }

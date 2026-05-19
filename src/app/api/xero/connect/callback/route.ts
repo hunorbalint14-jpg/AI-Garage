@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { makeXeroClient } from "@/lib/xero";
 import { verifyOAuthState } from "@/lib/oauth-state";
+import { encrypt } from "@/lib/encryption";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -45,6 +47,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/staff/settings?xero=forbidden", request.url));
   }
 
+  // Resolve email for the audit log. Apex callback has no session
+  // context — fetch from auth.users via the admin client.
+  let actorEmail: string | null = null;
+  try {
+    const { data: authUser } = await admin.auth.admin.getUserById(verified.userId);
+    actorEmail = authUser.user?.email ?? null;
+  } catch (err) {
+    console.error("[xero/callback] getUserById failed", err);
+  }
+
   const client = makeXeroClient();
   try {
     const tokenSet = await client.apiCallback(request.url);
@@ -65,12 +77,22 @@ export async function GET(request: NextRequest) {
       .update({
         xero_tenant_id: tenant.tenantId,
         xero_tenant_name: tenant.tenantName,
-        xero_access_token: tokenSet.access_token,
-        xero_refresh_token: tokenSet.refresh_token,
+        xero_access_token: tokenSet.access_token ? encrypt(tokenSet.access_token) : null,
+        xero_refresh_token: tokenSet.refresh_token ? encrypt(tokenSet.refresh_token) : null,
         xero_token_expires_at: expiresAt,
         xero_connected_at: new Date().toISOString(),
       })
       .eq("id", verified.orgId);
+
+    await logAudit({
+      organizationId: verified.orgId,
+      actorUserId: verified.userId,
+      actorEmail,
+      action: "xero.connect_complete",
+      entityType: "xero_tenant",
+      entityId: tenant.tenantId,
+      metadata: { tenantName: tenant.tenantName },
+    });
   } catch (err) {
     console.error("[xero/callback] exchange failed", err);
     return NextResponse.redirect(
