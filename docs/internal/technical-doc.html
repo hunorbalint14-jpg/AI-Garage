@@ -719,11 +719,22 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <div class="tag">postgres · rls</div>
       </div>
 
-      <p class="lede2">17 tables, all tenant-scoped via <code>location_id</code> (except <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>). The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
+      <p class="lede2">20 tables, all tenant-scoped via <code>location_id</code> (except <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> which scope to <code>organization_id</code>). The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
 
       <div class="bp">
         <div class="caption"><span class="ref">FIG&nbsp;05·A</span><span>entity relationship diagram</span></div>
-        <svg viewBox="0 0 1100 720" role="img" aria-label="Entity relationship diagram">
+        <svg viewBox="0 0 1100 860" role="img" aria-label="Entity relationship diagram">
+          <defs>
+            <marker id="erd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#0b0d11" />
+            </marker>
+            <marker id="erd-arrow-thin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b6270" />
+            </marker>
+            <marker id="erd-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5">
+              <circle cx="5" cy="5" r="3.2" fill="#0b0d11" />
+            </marker>
+          </defs>
           <!-- groups -->
           <g class="d-label-mute">
             <text x="20" y="22" class="d-eyebrow">TENANCY</text>
@@ -770,6 +781,18 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
             <text x="32" y="572" class="d-title">webauthn_credentials</text>
             <text x="32" y="590" class="d-label-mute">user_id · credential_id · public_key</text>
             <text x="32" y="604" class="d-label-mute">counter · transports · device_name</text>
+
+            <rect x="20" y="630" width="240" height="74" class="d-fill-paper d-stroke" />
+            <text x="32" y="650" class="d-title">audit_log</text>
+            <text x="32" y="668" class="d-label-mute">organization_id · actor_user_id</text>
+            <text x="32" y="682" class="d-label-mute">action · entity_type · entity_id</text>
+            <text x="32" y="696" class="d-label-mute">metadata (jsonb) · ip · ua · ts</text>
+
+            <rect x="20" y="722" width="240" height="74" class="d-fill-paper d-stroke" />
+            <text x="32" y="742" class="d-title">doc_shares</text>
+            <text x="32" y="760" class="d-label-mute">organization_id · doc_key · slug</text>
+            <text x="32" y="774" class="d-label-mute">token_hash (sha-256) · expires_at</text>
+            <text x="32" y="788" class="d-label-mute">max_views · view_count · revoked_at</text>
           </g>
 
           <!-- PEOPLE column -->
@@ -840,7 +863,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
 
           <!-- COMMERCE column -->
           <g>
-            <rect x="860" y="40" width="220" height="120" class="d-fill-white d-stroke" />
+            <rect x="860" y="40" width="220" height="140" class="d-fill-white d-stroke" />
             <text x="872" y="60" class="d-title">invoices</text>
             <text x="872" y="78" class="d-label-mute">customer_id · job_id · booking_id</text>
             <text x="872" y="92" class="d-label-mute">invoice_number · status</text>
@@ -848,58 +871,73 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
             <text x="872" y="120" class="d-label-mute">issued_at · due_at · paid_at</text>
             <text x="872" y="134" class="d-label-mute">stripe_checkout_session_id</text>
             <text x="872" y="148" class="d-label-mute">stripe_payment_intent_id</text>
+            <text x="872" y="162" class="d-label-mute">xero_invoice_id · xero_payment_id</text>
+
+            <rect x="860" y="200" width="220" height="84" class="d-fill-paper d-stroke-green" />
+            <text x="872" y="220" class="d-title">xero_payouts</text>
+            <text x="872" y="238" class="d-label-mute">organization_id</text>
+            <text x="872" y="252" class="d-label-mute">stripe_payout_id (uniq w/ org)</text>
+            <text x="872" y="266" class="d-label-mute">xero_bank_transaction_id</text>
+            <text x="872" y="280" class="d-label-mute">amount_pence · arrival_date</text>
           </g>
 
-          <!-- joins -->
-          <g>
-            <!-- org → locations -->
-            <path d="M 140 130 L 140 148" class="d-stroke" />
-            <!-- locations ← location_users -->
-            <path d="M 140 222 L 140 318" class="d-stroke" />
-            <!-- locations ← scheduled_tasks -->
-            <path d="M 140 222 L 140 396" class="d-stroke" />
+          <!-- joins — arrows point parent → child (1 : many) -->
+          <g fill="none">
+            <!-- organizations → locations -->
+            <path d="M 140 130 L 140 145" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- locations → location_users -->
+            <path d="M 160 222 L 160 315" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- locations → scheduled_tasks -->
+            <path d="M 100 222 L 100 393" class="d-stroke" marker-end="url(#erd-arrow)" />
             <!-- locations → bays -->
-            <path d="M 140 222 L 140 474" class="d-stroke" />
+            <path d="M 130 222 L 130 471" class="d-stroke" marker-end="url(#erd-arrow)" />
 
-            <!-- org → org_users -->
-            <path d="M 240 130 C 280 130 280 270 270 270" class="d-stroke" />
+            <!-- organizations → org_users (curve) -->
+            <path d="M 245 95 C 285 95 285 265 268 265" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- organizations → audit_log (curve down right side of tenancy column) -->
+            <path d="M 245 95 C 285 95 285 660 268 660" class="d-stroke-thin" marker-end="url(#erd-arrow-thin)" />
+            <!-- organizations → doc_shares -->
+            <path d="M 245 95 C 290 95 290 755 268 755" class="d-stroke-thin" marker-end="url(#erd-arrow-thin)" />
 
-            <!-- customers ← vehicles -->
-            <path d="M 420 140 L 420 158" class="d-stroke" />
-            <!-- customers ← reminders -->
-            <path d="M 420 140 L 420 400" class="d-stroke-thin" stroke-dasharray="3 3" />
-            <!-- vehicles ← tyre_checks -->
-            <path d="M 420 232 L 420 324" class="d-stroke" />
-            <!-- vehicles ← reminders -->
-            <path d="M 460 232 L 460 400" class="d-stroke-thin" stroke-dasharray="3 3" />
-            <!-- fleet_companies ← customers (back-edge) -->
-            <path d="M 540 280 C 580 280 580 100 540 100" class="d-stroke-thin" />
+            <!-- customers → vehicles -->
+            <path d="M 420 140 L 420 155" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- customers → reminders -->
+            <path d="M 380 140 L 380 397" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
+            <!-- vehicles → tyre_checks -->
+            <path d="M 420 232 L 420 321" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- vehicles → reminders (dashed, nullable) -->
+            <path d="M 460 232 L 460 397" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
+            <!-- fleet_companies → customers (back-edge upward) -->
+            <path d="M 380 248 L 380 140" class="d-stroke-thin" marker-end="url(#erd-arrow-thin)" />
 
-            <!-- bookings → vehicles -->
-            <path d="M 580 80 L 540 195" class="d-stroke" />
-            <!-- bookings → customers -->
-            <path d="M 580 80 L 540 90" class="d-stroke" />
-            <!-- bookings → bay -->
-            <path d="M 580 110 C 380 110 280 504 260 504" class="d-stroke-thin" stroke-dasharray="3 3" />
-            <!-- bookings → services -->
-            <path d="M 700 120 L 700 304" class="d-stroke" />
-            <!-- bookings ↔ jobs -->
-            <path d="M 700 120 L 700 138" class="d-stroke" />
-            <!-- jobs ↔ job_items -->
-            <path d="M 700 212 L 700 228" class="d-stroke" />
+            <!-- bookings → jobs (vertical) -->
+            <path d="M 700 120 L 700 135" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- jobs → job_items -->
+            <path d="M 700 212 L 700 225" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- services → bookings (parent to child) -->
+            <path d="M 660 304 L 660 120" class="d-stroke-thin" marker-end="url(#erd-arrow-thin)" />
+            <!-- customers → bookings -->
+            <path d="M 540 90 L 580 80" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- vehicles → bookings -->
+            <path d="M 540 195 L 580 90" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- bays → bookings (cross-column, nullable) -->
+            <path d="M 260 504 C 380 504 480 110 580 110" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
 
-            <!-- invoices ← jobs -->
-            <path d="M 860 100 L 820 175" class="d-stroke" />
-            <!-- invoices ← bookings -->
-            <path d="M 860 70 L 820 80" class="d-stroke" />
-            <!-- invoices ← customers -->
-            <path d="M 970 160 C 970 320 540 90 540 90" class="d-stroke-thin" stroke-dasharray="3 3" />
+            <!-- jobs → invoices -->
+            <path d="M 820 175 L 860 100" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- bookings → invoices (booking prepay path) -->
+            <path d="M 820 80 L 860 70" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- customers → invoices (nullable, dashed) -->
+            <path d="M 540 100 C 700 100 780 130 860 130" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
+
+            <!-- organizations → xero_payouts (cross-column) -->
+            <path d="M 245 95 C 600 95 760 220 860 220" class="d-stroke-green" marker-end="url(#erd-arrow)" />
           </g>
 
-          <!-- legend area annotations -->
-          <text x="20" y="640" class="d-label-mute">Tenant scope: every table outside `tenancy` carries <tspan class="d-label">location_id</tspan>; rls policies enforce equality with the caller's location membership.</text>
-          <text x="20" y="660" class="d-label-mute">FK direction is "child → parent"; dashed lines denote optional / nullable relationships.</text>
-          <text x="20" y="680" class="d-label-mute">Auth: <tspan class="d-label">auth.users</tspan> is Supabase-managed; <tspan class="d-label">org_users</tspan>, <tspan class="d-label">location_users</tspan> and <tspan class="d-label">customers.user_id</tspan> all point to it.</text>
+          <!-- legend annotations -->
+          <text x="20" y="820" class="d-label-mute">Tenant scope: every operational table carries <tspan class="d-label">location_id</tspan>; <tspan class="d-label">audit_log</tspan>, <tspan class="d-label">doc_shares</tspan> and <tspan class="d-label">xero_payouts</tspan> scope to <tspan class="d-label">organization_id</tspan>. RLS policies enforce membership.</text>
+          <text x="20" y="838" class="d-label-mute">Arrows run parent → child (1 : many). Dashed lines are nullable / optional FKs. Green = cross-domain link to Xero.</text>
+          <text x="20" y="856" class="d-label-mute">Auth: <tspan class="d-label">auth.users</tspan> is Supabase-managed; <tspan class="d-label">org_users</tspan>, <tspan class="d-label">location_users</tspan>, <tspan class="d-label">customers.user_id</tspan>, <tspan class="d-label">audit_log.actor_user_id</tspan>, <tspan class="d-label">doc_shares.created_by</tspan> all reference it.</text>
         </svg>
         <div class="legend">
           <span><span class="sw green"></span>shared (org-scoped)</span>
@@ -912,10 +950,11 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
       <table class="tbl">
         <tr><th style="width: 22%">Concern</th><th style="width: 30%">Where</th><th>Columns</th></tr>
         <tr><td>Branding</td><td><code>organizations</code></td><td><code>slug · name · primary_color · logo_url · custom_domain · portal_theme</code></td></tr>
-        <tr><td>Compliance</td><td><code>organizations</code> · <code>customers</code></td><td><code>dpa_accepted_at · dpa_version · data_retention_years</code> · <code>marketing_*_consent · anonymized_at</code></td></tr>
+        <tr><td>Compliance</td><td><code>organizations</code> · <code>customers</code> · <code>data_deletion_log</code></td><td><code>dpa_accepted_at · dpa_version · data_retention_years</code> · <code>marketing_*_consent · anonymized_at</code> · <code>customer_email_hash · requested_by</code></td></tr>
         <tr><td>Stripe</td><td><code>organizations</code> · <code>invoices</code> · <code>bookings</code></td><td><code>stripe_account_id · *_charges_enabled · *_payouts_enabled · *_details_submitted</code> · <code>stripe_checkout_session_id · stripe_payment_intent_id · paid_amount_pence</code></td></tr>
-        <tr><td>Xero</td><td><code>organizations</code> · <code>customers</code> · <code>invoices</code></td><td><code>xero_tenant_id · xero_access_token · xero_refresh_token · xero_token_expires_at</code> · <code>xero_contact_id</code> · <code>xero_invoice_id · xero_payment_id · xero_synced_at</code></td></tr>
+        <tr><td>Xero</td><td><code>organizations</code> · <code>customers</code> · <code>invoices</code> · <code>xero_payouts</code></td><td><code>xero_tenant_id · xero_access_token · xero_refresh_token · xero_token_expires_at</code> (tokens encrypted at app layer via <code>lib/encryption.ts</code>) · <code>xero_contact_id</code> · <code>xero_invoice_id · xero_payment_id · xero_synced_at</code> · <code>stripe_payout_id · xero_bank_transaction_id · arrival_date</code></td></tr>
         <tr><td>Email tracking</td><td><code>reminders</code></td><td><code>resend_email_id · delivered_at · opened_at · clicked_at</code></td></tr>
+        <tr><td>Forensic audit</td><td><code>audit_log</code> · <code>doc_shares</code></td><td><code>actor_user_id · actor_email · action · entity_type · entity_id · metadata · ip_address · user_agent</code> · <code>token_hash · view_count · revoked_at · revoked_by</code></td></tr>
       </table>
     </section>
 
@@ -1574,7 +1613,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
     <footer style="margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--aig-rule); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3);">
       <div>
         <img src="/brand/aigarage-mark-on-brand.svg" alt="" style="height: 18px; vertical-align: middle; margin-right: 8px;" />
-        AI Garage · technical reference · revision 02
+        AI Garage · technical reference · revision 03
       </div>
       <div>end of document</div>
     </footer>
