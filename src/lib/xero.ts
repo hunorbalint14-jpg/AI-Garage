@@ -2,13 +2,23 @@ import { XeroClient } from "xero-node";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { publicOrigin } from "@/lib/stripe";
 
-// OAuth scopes for invoice + payment push and basic contact creation.
+// OAuth scopes — granular set (Xero migrated away from broad scopes in
+// March 2026; apps created after that date only have granular access).
 // "offline_access" required for refresh tokens.
+//
+// What each granular scope unlocks for us:
+//   accounting.contacts          → create Xero Contact for a customer
+//   accounting.invoices          → create ACCREC invoices
+//   accounting.payments          → record payments against invoices
+//   accounting.banktransactions  → post Stripe payouts as bank transactions
+//   accounting.accounts.read     → read BANK account to attach payments to
 export const XERO_SCOPES = [
   "offline_access",
-  "accounting.transactions",
   "accounting.contacts",
-  "accounting.settings.read",
+  "accounting.invoices",
+  "accounting.payments",
+  "accounting.banktransactions",
+  "accounting.accounts.read",
 ];
 
 function clientId(): string {
