@@ -5,6 +5,7 @@ import { AddLocationForm } from "./add-location-form";
 import { BusinessHoursForm } from "./business-hours-form";
 import { PasskeysSection, type PasskeyRow } from "./passkeys-section";
 import { PaymentsSection } from "./payments-section";
+import { XeroSection } from "./xero-section";
 
 type LocationRow = { id: string; slug: string; name: string; created_at: string };
 
@@ -18,7 +19,7 @@ export default async function SettingsPage() {
   const [orgRes, locationsRes, currentLocRes, passkeysRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, custom_domain, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted")
+      .select("name, primary_color, logo_url, slug, custom_domain, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at")
       .eq("id", ctx.organization.id)
       .single(),
     admin
@@ -76,6 +77,13 @@ export default async function SettingsPage() {
         chargesEnabled={!!(org as { stripe_charges_enabled?: boolean } | null)?.stripe_charges_enabled}
         payoutsEnabled={!!(org as { stripe_payouts_enabled?: boolean } | null)?.stripe_payouts_enabled}
         detailsSubmitted={!!(org as { stripe_details_submitted?: boolean } | null)?.stripe_details_submitted}
+        canManage={isOwner}
+      />
+
+      <XeroSection
+        connected={!!(org as { xero_tenant_id?: string | null } | null)?.xero_tenant_id}
+        tenantName={(org as { xero_tenant_name?: string | null } | null)?.xero_tenant_name ?? null}
+        connectedAt={(org as { xero_connected_at?: string | null } | null)?.xero_connected_at ?? null}
         canManage={isOwner}
       />
 

@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
+import { pushInvoiceToXero, pushPaymentToXero } from "@/lib/xero-sync";
 
 type GenerateArgs = {
   bookingId: string;
@@ -170,4 +171,19 @@ export async function generateInvoiceForPaidBooking({
     text: `Receipt ${invoiceNumber} from ${garageName}. Total paid: ${fmt(total)}. Service: ${serviceName} on ${dateStr}. Thanks for your booking.`,
     html,
   });
+
+  // Push invoice + payment to Xero (fire-and-forget).
+  try {
+    const xeroInvoiceId = await pushInvoiceToXero(invoice.id);
+    if (xeroInvoiceId) {
+      await pushPaymentToXero({
+        invoiceId: invoice.id,
+        amountPence,
+        paymentDate: new Date().toISOString(),
+        reference: stripePaymentIntentId ?? `Booking ${bookingId.slice(0, 8)}`,
+      });
+    }
+  } catch (err) {
+    console.error("[booking-invoice] xero sync failed", err);
+  }
 }

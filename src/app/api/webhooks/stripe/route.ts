@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { generateInvoiceForPaidBooking } from "@/lib/booking-invoice";
+import { pushPaymentToXero } from "@/lib/xero-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,20 @@ export async function POST(request: NextRequest) {
           rowsUpdated: count,
           error: error?.message,
         });
+
+        // Push payment to Xero so the invoice is marked paid there too.
+        if (count && count > 0) {
+          try {
+            await pushPaymentToXero({
+              invoiceId,
+              amountPence: session.amount_total ?? 0,
+              paymentDate: new Date().toISOString(),
+              reference: paymentIntentId ?? `Checkout ${session.id}`,
+            });
+          } catch (err) {
+            console.error("[stripe-webhook] xero payment push failed", err);
+          }
+        }
       }
 
       if (bookingId) {
