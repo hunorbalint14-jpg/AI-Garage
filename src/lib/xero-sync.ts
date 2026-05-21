@@ -155,6 +155,36 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
   const conn = await getXeroClientForOrg(orgId);
   if (!conn) return null;
 
+  // Dedupe by invoice_number — Xero rejects createInvoices with
+  // ValidationException "Invoice # must be unique." when the number
+  // already exists. Happens after partial-failure retries (we recorded
+  // null xero_invoice_id but Xero saved the row).
+  try {
+    const existing = await conn.client.accountingApi.getInvoices(
+      conn.tenantId,
+      undefined,
+      `InvoiceNumber=${xeroQuoteValue(inv.invoice_number)}`,
+    );
+    const hit = existing.body.invoices?.[0];
+    if (hit?.invoiceID) {
+      await admin
+        .from("invoices")
+        .update({
+          xero_invoice_id: hit.invoiceID,
+          xero_synced_at: new Date().toISOString(),
+        })
+        .eq("id", invoiceId);
+      console.log("[xero-sync] reused existing Xero invoice", {
+        invoiceId,
+        xeroInvoiceId: hit.invoiceID,
+        invoiceNumber: inv.invoice_number,
+      });
+      return hit.invoiceID;
+    }
+  } catch (err) {
+    console.warn("[xero-sync] getInvoices by number failed", err);
+  }
+
   const contactId = await ensureXeroContact({ orgId, customerId: inv.customer_id });
   if (!contactId) return null;
 
