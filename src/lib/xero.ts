@@ -86,29 +86,38 @@ export async function getXeroClientForOrg(orgId: string): Promise<{
   };
 
   const client = makeXeroClient();
-  await client.setTokenSet({
-    access_token: tokens.accessToken,
-    refresh_token: tokens.refreshToken,
-    expires_at: Math.floor(new Date(tokens.expiresAt).getTime() / 1000),
-    token_type: "Bearer",
-    scope: XERO_SCOPES.join(" "),
-  });
 
-  // Refresh if expiring within the next minute.
+  // Refresh if access token has already expired or is within 60s of expiry.
+  // refreshWithRefreshToken() is the low-level path — it doesn't need
+  // client.initialize() (which makes a discovery call to Xero); it just
+  // exchanges the refresh_token for a new token set directly. The old
+  // path (setTokenSet + refreshToken()) blew up with
+  //   TypeError: Cannot read properties of undefined (reading 'refresh')
+  // because the internal openid-client wasn't initialised.
   const expiresInMs = new Date(tokens.expiresAt).getTime() - Date.now();
+  let activeAccessToken = tokens.accessToken;
+  let activeRefreshToken = tokens.refreshToken;
+  let activeExpiresAt = tokens.expiresAt;
+
   if (expiresInMs < 60_000) {
     try {
-      const refreshed = await client.refreshToken();
-      const newAccess = refreshed.access_token;
-      const newRefresh = refreshed.refresh_token ?? tokens.refreshToken;
+      const refreshed = await client.refreshWithRefreshToken(
+        clientId(),
+        clientSecret(),
+        tokens.refreshToken,
+      );
+      activeAccessToken = refreshed.access_token ?? activeAccessToken;
+      activeRefreshToken = refreshed.refresh_token ?? activeRefreshToken;
+      activeExpiresAt = new Date(
+        (refreshed.expires_at ?? Math.floor(Date.now() / 1000) + 1800) * 1000,
+      ).toISOString();
+
       await admin
         .from("organizations")
         .update({
-          xero_access_token: newAccess ? encrypt(newAccess) : null,
-          xero_refresh_token: encrypt(newRefresh),
-          xero_token_expires_at: new Date(
-            (refreshed.expires_at ?? Math.floor(Date.now() / 1000) + 1800) * 1000,
-          ).toISOString(),
+          xero_access_token: encrypt(activeAccessToken),
+          xero_refresh_token: encrypt(activeRefreshToken),
+          xero_token_expires_at: activeExpiresAt,
         })
         .eq("id", orgId);
     } catch (err) {
@@ -116,6 +125,14 @@ export async function getXeroClientForOrg(orgId: string): Promise<{
       return null;
     }
   }
+
+  client.setTokenSet({
+    access_token: activeAccessToken,
+    refresh_token: activeRefreshToken,
+    expires_at: Math.floor(new Date(activeExpiresAt).getTime() / 1000),
+    token_type: "Bearer",
+    scope: XERO_SCOPES.join(" "),
+  });
 
   return { client, tenantId: tokens.tenantId };
 }
