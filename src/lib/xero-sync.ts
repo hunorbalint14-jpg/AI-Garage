@@ -10,8 +10,17 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getXeroClientForOrg } from "@/lib/xero";
 
+// Escape a string for use inside a Xero `where` clause value. Xero
+// expects double quotes around string values and "" to escape an
+// internal double quote.
+function xeroQuoteValue(v: string): string {
+  return `"${v.replace(/"/g, '""')}"`;
+}
+
 // Idempotent helper: returns the Xero ContactID for a customer, creating
-// the Xero contact on first call.
+// the Xero contact on first call. If Xero already has a contact with the
+// same name (Xero rejects duplicate names with a ValidationException),
+// we look it up and reuse the existing ContactID instead.
 async function ensureXeroContact(args: {
   orgId: string;
   customerId: string;
@@ -28,8 +37,54 @@ async function ensureXeroContact(args: {
   const conn = await getXeroClientForOrg(args.orgId);
   if (!conn) return null;
 
+  const name = customer.full_name ?? customer.email ?? "Customer";
+
+  // Pre-flight: does a contact with this name already exist? Xero enforces
+  // unique contact names per org and rejects createContacts with HTTP 400
+  // ValidationException if we duplicate. Cheaper than catching the error.
+  try {
+    const existingByName = await conn.client.accountingApi.getContacts(
+      conn.tenantId,
+      undefined,
+      `Name=${xeroQuoteValue(name)}`,
+    );
+    const hit = existingByName.body.contacts?.[0];
+    if (hit?.contactID) {
+      await admin
+        .from("customers")
+        .update({ xero_contact_id: hit.contactID })
+        .eq("id", args.customerId);
+      return hit.contactID;
+    }
+  } catch (err) {
+    // Lookup is best-effort; fall through to create.
+    console.warn("[xero-sync] getContacts by name failed", err);
+  }
+
+  // Also search by email — a customer may have been added under a different
+  // name on the Xero side but with the same email address.
+  if (customer.email) {
+    try {
+      const existingByEmail = await conn.client.accountingApi.getContacts(
+        conn.tenantId,
+        undefined,
+        `EmailAddress=${xeroQuoteValue(customer.email)}`,
+      );
+      const hit = existingByEmail.body.contacts?.[0];
+      if (hit?.contactID) {
+        await admin
+          .from("customers")
+          .update({ xero_contact_id: hit.contactID })
+          .eq("id", args.customerId);
+        return hit.contactID;
+      }
+    } catch (err) {
+      console.warn("[xero-sync] getContacts by email failed", err);
+    }
+  }
+
   const contact: Contact = {
-    name: customer.full_name ?? customer.email ?? "Customer",
+    name,
     emailAddress: customer.email ?? undefined,
     phones: customer.phone
       ? [{ phoneType: Phone.PhoneTypeEnum.DEFAULT, phoneNumber: customer.phone }]
