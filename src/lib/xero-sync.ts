@@ -171,6 +171,30 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
     );
     const hit = existing.body.invoices?.[0];
     if (hit?.invoiceID) {
+      // If the existing row is still DRAFT or SUBMITTED (e.g. it was
+      // created when this code mirrored our internal "draft" status, or
+      // Xero demoted it due to a now-fixed validation issue), promote
+      // it to AUTHORISED so the follow-up payment push can attach.
+      if (
+        hit.status === Invoice.StatusEnum.DRAFT ||
+        hit.status === Invoice.StatusEnum.SUBMITTED
+      ) {
+        try {
+          await conn.client.accountingApi.updateInvoice(
+            conn.tenantId,
+            hit.invoiceID,
+            { invoices: [{ status: Invoice.StatusEnum.AUTHORISED }] },
+          );
+          console.log("[xero-sync] promoted Xero invoice to AUTHORISED", {
+            invoiceId,
+            xeroInvoiceId: hit.invoiceID,
+            previousStatus: hit.status,
+          });
+        } catch (err) {
+          console.warn("[xero-sync] promote to AUTHORISED failed", err);
+        }
+      }
+
       await admin
         .from("invoices")
         .update({
@@ -247,10 +271,12 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
     ];
   }
 
-  const xeroStatus: Invoice.StatusEnum =
-    inv.status === "paid" || inv.status === "sent"
-      ? Invoice.StatusEnum.AUTHORISED
-      : Invoice.StatusEnum.DRAFT;
+  // Always AUTHORISED — once we've created an invoice row in our DB it's
+  // a real issued sales invoice, not a draft. DRAFT in Xero would block
+  // any later pushPaymentToXero call with "Payments can only be made
+  // against Authorised documents", which is exactly what happened when
+  // we mirrored our internal `draft`/`sent` statuses literally.
+  const xeroStatus: Invoice.StatusEnum = Invoice.StatusEnum.AUTHORISED;
 
   // Prefix the invoice number we send to Xero so it never collides with
   // pre-existing rows on the connected org. Xero Demo Company UK seeds
