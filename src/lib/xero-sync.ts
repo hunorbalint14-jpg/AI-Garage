@@ -155,15 +155,19 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
   const conn = await getXeroClientForOrg(orgId);
   if (!conn) return null;
 
-  // Dedupe by invoice_number — Xero rejects createInvoices with
-  // ValidationException "Invoice # must be unique." when the number
-  // already exists. Happens after partial-failure retries (we recorded
-  // null xero_invoice_id but Xero saved the row).
+  // Dedupe by our internal invoice id, carried on the Xero Reference
+  // field. We do NOT match on InvoiceNumber because Xero invoice numbers
+  // are not globally unique — Xero Demo Company seeds its own INV-0001+
+  // sequence and our same-numbered invoices would collide with unrelated
+  // seed rows, producing cross-customer mismapping (e.g. paying our
+  // INV-0011 routes the payment to Demo Company's pre-existing
+  // Ridgeway University INV-0011).
+  const referenceTag = `AIG-${inv.id}`;
   try {
     const existing = await conn.client.accountingApi.getInvoices(
       conn.tenantId,
       undefined,
-      `InvoiceNumber=${xeroQuoteValue(inv.invoice_number)}`,
+      `Reference=${xeroQuoteValue(referenceTag)}`,
     );
     const hit = existing.body.invoices?.[0];
     if (hit?.invoiceID) {
@@ -177,12 +181,12 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
       console.log("[xero-sync] reused existing Xero invoice", {
         invoiceId,
         xeroInvoiceId: hit.invoiceID,
-        invoiceNumber: inv.invoice_number,
+        reference: referenceTag,
       });
       return hit.invoiceID;
     }
   } catch (err) {
-    console.warn("[xero-sync] getInvoices by number failed", err);
+    console.warn("[xero-sync] getInvoices by reference failed", err);
   }
 
   const contactId = await ensureXeroContact({ orgId, customerId: inv.customer_id });
@@ -248,11 +252,14 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
       ? Invoice.StatusEnum.AUTHORISED
       : Invoice.StatusEnum.DRAFT;
 
+  // Reference carries our internal invoice id so the dedupe lookup above
+  // can find this row again on retry without matching unrelated Xero
+  // rows that happen to share an InvoiceNumber.
   const xeroInvoice: Invoice = {
     type: Invoice.TypeEnum.ACCREC,
     contact: { contactID: contactId },
     invoiceNumber: inv.invoice_number,
-    reference: inv.booking_id ? `Booking ${inv.booking_id.slice(0, 8)}` : undefined,
+    reference: referenceTag,
     date: inv.issued_at,
     dueDate: inv.due_at,
     lineAmountTypes: LineAmountTypes.Exclusive,
