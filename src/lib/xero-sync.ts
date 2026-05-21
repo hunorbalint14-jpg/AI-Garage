@@ -252,13 +252,20 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
       ? Invoice.StatusEnum.AUTHORISED
       : Invoice.StatusEnum.DRAFT;
 
-  // Reference carries our internal invoice id so the dedupe lookup above
-  // can find this row again on retry without matching unrelated Xero
-  // rows that happen to share an InvoiceNumber.
+  // Prefix the invoice number we send to Xero so it never collides with
+  // pre-existing rows on the connected org. Xero Demo Company UK seeds
+  // its own INV-#### sequence, and a naked "INV-0012" matched a seed row
+  // forcing Xero to demote our invoice to SUBMITTED status with the
+  // validation error "Invoice # must be unique." The AIG- prefix
+  // namespaces our numbers so the create lands cleanly as AUTHORISED.
+  //
+  // Garage staff still see INV-#### in the AI Garage UI; their
+  // accountant sees AIG-INV-#### in Xero. Reference is the unique
+  // dedupe key (our UUID) — invoice number is now purely a label.
   const xeroInvoice: Invoice = {
     type: Invoice.TypeEnum.ACCREC,
     contact: { contactID: contactId },
-    invoiceNumber: inv.invoice_number,
+    invoiceNumber: `AIG-${inv.invoice_number}`,
     reference: referenceTag,
     date: inv.issued_at,
     dueDate: inv.due_at,
