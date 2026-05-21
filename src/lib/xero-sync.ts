@@ -10,6 +10,12 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getXeroClientForOrg } from "@/lib/xero";
 
+// Default revenue account code for ACCREC invoice lines. "200" = Sales
+// in the Xero UK default chart of accounts. Override per-tenant later by
+// reading a column off organizations if a garage runs a custom chart.
+const DEFAULT_SALES_ACCOUNT_CODE =
+  process.env.XERO_SALES_ACCOUNT_CODE ?? "200";
+
 // Escape a string for use inside a Xero `where` clause value. Xero
 // expects double quotes around string values and "" to escape an
 // internal double quote.
@@ -165,6 +171,7 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
       quantity: Number(it.quantity),
       unitAmount: Number(it.unit_price),
       taxType: "OUTPUT2", // UK standard rate. Xero remaps if region differs.
+      accountCode: DEFAULT_SALES_ACCOUNT_CODE,
     }));
   } else if (inv.booking_id) {
     const { data: booking } = await admin
@@ -191,6 +198,7 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
         quantity: 1,
         unitAmount: Number(inv.subtotal),
         taxType: "OUTPUT2",
+        accountCode: DEFAULT_SALES_ACCOUNT_CODE,
       },
     ];
   } else {
@@ -200,6 +208,7 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
         quantity: 1,
         unitAmount: Number(inv.subtotal),
         taxType: "OUTPUT2",
+        accountCode: DEFAULT_SALES_ACCOUNT_CODE,
       },
     ];
   }
@@ -425,7 +434,7 @@ export async function pushPayoutToXero(args: {
         description: `Stripe payout ${args.stripePayoutId}`,
         quantity: 1,
         unitAmount: args.amountPence / 100,
-        accountCode: "200", // Sales — Xero default chart of accounts code
+        accountCode: DEFAULT_SALES_ACCOUNT_CODE,
         taxType: "NONE",
       },
     ],
