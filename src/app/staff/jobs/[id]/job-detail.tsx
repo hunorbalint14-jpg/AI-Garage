@@ -31,6 +31,13 @@ type JobItem = {
   type: string;
 };
 
+type Product = {
+  id: string;
+  name: string;
+  unit_price: number;
+  category: string;
+};
+
 const STATUS_STYLE: Record<string, string> = {
   open: "bg-blue-100 text-blue-700",
   complete: "bg-green-100 text-green-700",
@@ -41,7 +48,15 @@ function formatGBP(n: number): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
-export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
+export function JobDetail({
+  job,
+  items,
+  products,
+}: {
+  job: Job;
+  items: JobItem[];
+  products: Product[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [suggestPending, startSuggest] = useTransition();
@@ -52,7 +67,20 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
   const [itemDesc, setItemDesc] = useState("");
   const [itemType, setItemType] = useState("part");
   const [itemQty, setItemQty] = useState("1");
+  const [itemUnitPrice, setItemUnitPrice] = useState("0");
+  const [productId, setProductId] = useState("");
   const [labourHint, setLabourHint] = useState<string | null>(null);
+
+  function handleProductPick(id: string) {
+    setProductId(id);
+    if (!id) return;
+    const p = products.find((x) => x.id === id);
+    if (!p) return;
+    setItemDesc(p.name);
+    setItemType("part");
+    setItemUnitPrice(String(p.unit_price));
+    setLabourHint(null);
+  }
 
   const isOpen = job.status === "open";
   const isInvoiced = job.status === "invoiced";
@@ -76,6 +104,8 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
         setItemDesc("");
         setItemType("part");
         setItemQty("1");
+        setItemUnitPrice("0");
+        setProductId("");
         setLabourHint(null);
       }
     });
@@ -323,6 +353,25 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
         {isOpen && (
           <form onSubmit={handleAddItem} className="p-4 border-t flex flex-col gap-3 bg-muted/10">
             <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Add item</h3>
+            {products.length > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="product-pick" className="text-xs">Pick from products</Label>
+                <select
+                  id="product-pick"
+                  value={productId}
+                  onChange={(e) => handleProductPick(e.target.value)}
+                  disabled={pending}
+                  className={inputClass}
+                >
+                  <option value="">— Custom item / no product —</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {formatGBP(p.unit_price)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_100px_120px_auto] gap-2 items-end">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="description-new" className="text-xs">Description</Label>
@@ -333,7 +382,12 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
                   required
                   disabled={pending}
                   value={itemDesc}
-                  onChange={(e) => { setItemDesc(e.target.value); setLabourHint(null); }}
+                  onChange={(e) => {
+                    setItemDesc(e.target.value);
+                    setLabourHint(null);
+                    // Manual edit detaches from any picked product.
+                    if (productId) setProductId("");
+                  }}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
@@ -379,7 +433,26 @@ export function JobDetail({ job, items }: { job: Job; items: JobItem[] }) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="unitPrice" className="text-xs">Unit price (£)</Label>
-                <Input id="unitPrice" name="unitPrice" type="number" step="0.01" min="0" defaultValue="0" required disabled={pending} />
+                <Input
+                  id="unitPrice"
+                  name="unitPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  required
+                  disabled={pending}
+                  value={itemUnitPrice}
+                  onFocus={(e) => {
+                    if (itemUnitPrice === "0" || itemUnitPrice === "0.00") {
+                      setItemUnitPrice("");
+                      e.currentTarget.select();
+                    }
+                  }}
+                  onChange={(e) => setItemUnitPrice(e.target.value)}
+                  onBlur={() => {
+                    if (itemUnitPrice === "") setItemUnitPrice("0");
+                  }}
+                />
               </div>
               <Button type="submit" disabled={pending}>{pending ? "Adding…" : "Add"}</Button>
             </div>

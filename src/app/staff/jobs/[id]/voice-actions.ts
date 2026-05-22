@@ -70,14 +70,44 @@ export async function applyStructuredJob(
     await admin.from("jobs").update({ notes: next }).eq("id", jobId);
   }
 
+  // Pre-load the location's active product catalogue so we can match
+  // voice-transcribed items against existing SKUs and pull the
+  // canonical name + price instead of saving raw transcript text.
+  const { data: productRows } = await admin
+    .from("products")
+    .select("id, name, sku, unit_price")
+    .eq("location_id", j.location_id)
+    .eq("active", true);
+  type ProductRow = { id: string; name: string; sku: string | null; unit_price: number };
+  const products = (productRows ?? []) as ProductRow[];
+
+  // Case-insensitive substring match — find the longest product name
+  // that appears in the transcribed item description. Picks "brake
+  // pads" over "pads" when both exist.
+  function matchProduct(desc: string): ProductRow | null {
+    const hay = desc.toLowerCase();
+    let best: ProductRow | null = null;
+    for (const p of products) {
+      const needle = p.name.toLowerCase();
+      if (!needle) continue;
+      if (hay.includes(needle) || needle.includes(hay)) {
+        if (!best || p.name.length > best.name.length) best = p;
+      }
+    }
+    return best;
+  }
+
   let added = 0;
   for (const item of data.items) {
+    const matched = item.type === "part" ? matchProduct(item.description) : null;
+    const description = matched ? matched.name : item.description;
+    const unitPrice = matched ? Number(matched.unit_price) : 0;
     const { error } = await admin.from("job_items").insert({
       job_id: jobId,
-      description: item.description,
+      description,
       type: item.type,
       quantity: item.quantity,
-      unit_price: 0,
+      unit_price: unitPrice,
     });
     if (!error) added++;
   }
