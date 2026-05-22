@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/email";
 import { tenantPayUrl } from "@/lib/stripe";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
 import { pushInvoiceToXero, pushPaymentToXero } from "@/lib/xero-sync";
+import { logAudit } from "@/lib/audit";
 
 export type CreateInvoiceResult = { error: string } | { success: true; invoiceId: string };
 
@@ -76,6 +77,16 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   pushInvoiceToXero(invoice.id).catch((err) =>
     console.error("[invoices/createInvoiceFromJob] xero push failed", err),
   );
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "invoice.create",
+    entityType: "invoice",
+    entityId: invoice.id,
+    metadata: { invoice_number: invoiceNumber, job_id: jobId, total },
+  });
 
   revalidatePath(`/staff/jobs/${jobId}`);
   revalidatePath("/staff/invoices");
@@ -163,6 +174,20 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
 
   await admin.from("invoices").update({ status: "sent" }).eq("id", invoiceId);
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "invoice.send",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: {
+      invoice_number: invoice.invoice_number,
+      recipient: invoice.customer.email,
+      total: invoice.total,
+    },
+  });
+
   revalidatePath(`/staff/invoices/${invoiceId}`);
   revalidatePath("/staff/invoices");
   revalidatePath("/staff/revenue");
@@ -200,6 +225,16 @@ export async function markInvoicePaid(invoiceId: string): Promise<InvoiceActionR
     console.error("[invoices/markInvoicePaid] xero push failed", err),
   );
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "invoice.mark_paid",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: { total: invoice.total, paid_at: paidAt },
+  });
+
   revalidatePath(`/staff/invoices/${invoiceId}`);
   revalidatePath("/staff/invoices");
   revalidatePath("/staff/revenue");
@@ -224,6 +259,16 @@ export async function deleteInvoice(invoiceId: string): Promise<InvoiceActionRes
   if (invoice.job_id) {
     await admin.from("jobs").update({ status: "complete" }).eq("id", invoice.job_id);
   }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "invoice.delete",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: { job_id: invoice.job_id, prior_status: invoice.status },
+  });
 
   revalidatePath("/staff/invoices");
   revalidatePath("/staff/revenue");

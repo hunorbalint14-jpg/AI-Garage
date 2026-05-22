@@ -130,6 +130,20 @@ export async function refreshStripeAccountStatus(): Promise<RefreshStatusResult>
       })
       .eq("id", org.id);
 
+    await logAudit({
+      organizationId: ctx.organization.id,
+      actorUserId: ctx.user.id,
+      actorEmail: ctx.user.email ?? null,
+      action: "stripe.status_refresh",
+      entityType: "stripe_account",
+      entityId: org.stripe_account_id as string,
+      metadata: {
+        charges_enabled: chargesEnabled,
+        payouts_enabled: payoutsEnabled,
+        details_submitted: detailsSubmitted,
+      },
+    });
+
     revalidatePath("/staff/settings");
     return { success: true, chargesEnabled, payoutsEnabled, detailsSubmitted };
   } catch (err) {
@@ -155,6 +169,15 @@ export async function openStripeDashboard(): Promise<void> {
     .eq("id", ctx.organization.id)
     .maybeSingle();
   if (!org?.stripe_account_id) return;
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "stripe.dashboard_open",
+    entityType: "stripe_account",
+    entityId: org.stripe_account_id as string,
+  });
 
   const link = await stripe.accounts.createLoginLink(org.stripe_account_id as string);
   redirect(link.url);

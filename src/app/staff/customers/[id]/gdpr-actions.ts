@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createHash } from "crypto";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit";
 
 type ActionResult = { error: string } | { success: true };
 
@@ -27,6 +28,17 @@ export async function updateConsent(
     .eq("location_id", ctx.location.id);
 
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "customer.consent_update",
+    entityType: "customer",
+    entityId: customerId,
+    metadata: { email_consent: emailConsent, sms_consent: smsConsent },
+  });
+
   revalidatePath(`/staff/customers/${customerId}`);
   return { success: true };
 }
@@ -85,6 +97,16 @@ export async function anonymizeCustomer(
     notes: `Anonymized by ${ctx.user.email ?? ctx.user.id}`,
   });
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "customer.anonymize",
+    entityType: "customer",
+    entityId: customerId,
+    metadata: { reason, email_hash: emailHash },
+  });
+
   revalidatePath(`/staff/customers/${customerId}`);
   revalidatePath("/staff/customers");
   return { success: true };
@@ -117,6 +139,21 @@ export async function exportCustomerData(customerId: string): Promise<
     invoices: invoicesRes.data ?? [],
     reminders: remindersRes.data ?? [],
   };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "customer.data_export",
+    entityType: "customer",
+    entityId: customerId,
+    metadata: {
+      vehicle_count: (vehRes.data ?? []).length,
+      booking_count: (bookingsRes.data ?? []).length,
+      invoice_count: (invoicesRes.data ?? []).length,
+      reminder_count: (remindersRes.data ?? []).length,
+    },
+  });
 
   return { success: true, data: JSON.stringify(exportObj, null, 2) };
 }
@@ -168,6 +205,16 @@ export async function deleteCustomerHard(
 
   const { error } = await admin.from("customers").delete().eq("id", customerId);
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "customer.hard_delete",
+    entityType: "customer",
+    entityId: customerId,
+    metadata: { reason, email_hash: emailHash },
+  });
 
   revalidatePath("/staff/customers");
   redirect("/staff/customers");

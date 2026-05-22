@@ -4,6 +4,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getChallenge, clearChallenge } from "@/lib/webauthn/challenge";
 import { getRpId, isOriginAllowed } from "@/lib/webauthn/config";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(req: NextRequest) {
   const ctx = await requireStaffContext();
@@ -53,6 +54,16 @@ export async function POST(req: NextRequest) {
     await clearChallenge();
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "passkey.register",
+    entityType: "webauthn_credential",
+    entityId: credential.id,
+    metadata: { device_name: deviceName, transports: credential.transports ?? null },
+  });
 
   await clearChallenge();
   return NextResponse.json({ success: true });

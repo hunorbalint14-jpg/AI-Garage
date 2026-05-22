@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, tenantBookingUrl } from "@/lib/email";
+import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { draftBroadcastMessage } from "@/lib/ai-messages";
@@ -191,6 +192,26 @@ export async function sendBroadcast(
       }
     }
   }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "campaign.send",
+    entityType: "location",
+    entityId: ctx.location.id,
+    metadata: {
+      subject,
+      email_sent: emailSent,
+      sms_sent: smsSent,
+      whatsapp_sent: whatsappSent,
+      email_failed: emailFailed,
+      sms_failed: smsFailed,
+      whatsapp_failed: whatsappFailed,
+      skipped_no_email_consent: skippedNoEmailConsent,
+      skipped_no_sms_consent: skippedNoSmsConsent,
+    },
+  });
 
   revalidatePath("/staff/campaigns");
   revalidatePath("/staff/reminders");
