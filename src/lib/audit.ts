@@ -71,7 +71,8 @@ export type AuditAction =
   | "quote.approve"
   | "quote.decline"
   | "quote.rebook"
-  | "quote.expire";
+  | "quote.expire"
+  | "quote.deposit_paid";
 
 type LogArgs = {
   organizationId?: string | null;

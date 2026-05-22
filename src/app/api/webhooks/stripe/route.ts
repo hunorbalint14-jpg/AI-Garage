@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { generateInvoiceForPaidBooking } from "@/lib/booking-invoice";
 import { pushPaymentToXero, pushPayoutToXero } from "@/lib/xero-sync";
+import { applyQuoteDeposit } from "@/lib/quote-deposit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,12 +69,22 @@ export async function POST(request: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
       const invoiceId = session.metadata?.invoice_id;
       const bookingId = session.metadata?.booking_id;
+      const quoteId = session.metadata?.quote_id;
       const paid = session.payment_status === "paid";
       if (!paid) break;
       const paymentIntentId =
         typeof session.payment_intent === "string"
           ? session.payment_intent
           : session.payment_intent?.id ?? null;
+
+      if (quoteId) {
+        await applyQuoteDeposit({
+          quoteId,
+          paymentIntentId,
+          checkoutSessionId: session.id,
+          amountPence: session.amount_total ?? 0,
+        });
+      }
 
       if (invoiceId) {
         const { error, count } = await admin

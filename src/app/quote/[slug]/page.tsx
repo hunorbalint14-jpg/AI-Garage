@@ -7,7 +7,7 @@ import { QuoteResponse } from "./quote-response";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Org = { id: string; name: string; logo_url: string | null; primary_color: string | null };
+type Org = { id: string; name: string; logo_url: string | null; primary_color: string | null; quote_deposit_pct: number | null };
 type Customer = { full_name: string | null };
 type Vehicle = { registration: string | null; make: string | null; model: string | null; year: number | null };
 
@@ -72,7 +72,7 @@ export default async function QuotePage({
   const { data } = await admin
     .from("job_quotes")
     .select(
-      "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, phone, organization:organizations(id, name, logo_url, primary_color))",
+      "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, phone, organization:organizations(id, name, logo_url, primary_color, quote_deposit_pct))",
     )
     .eq("id", verify.quote.id)
     .maybeSingle();
@@ -159,46 +159,56 @@ export default async function QuotePage({
           </section>
         )}
 
-        <section className="rounded-lg border bg-white overflow-hidden">
-          <div className="px-4 py-2 bg-slate-50 border-b text-xs font-medium uppercase tracking-wide text-slate-500">Quote</div>
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Item</th>
-                <th className="px-4 py-2 font-medium text-right">Qty</th>
-                <th className="px-4 py-2 font-medium text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quote.items.map((it) => (
-                <tr key={it.id} className="border-t">
-                  <td className="px-4 py-2">
-                    <div>{it.description}</div>
-                    <div className="text-xs text-slate-500 capitalize">{it.type}</div>
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums">{it.quantity}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{formatGBP(it.quantity * it.unit_price)}</td>
+        {/* Single-item quotes render a static summary here; multi-item quotes
+            let QuoteResponse own the per-item checkbox UI + recalculating total. */}
+        {quote.items.length === 1 && (
+          <section className="rounded-lg border bg-white overflow-hidden">
+            <div className="px-4 py-2 bg-slate-50 border-b text-xs font-medium uppercase tracking-wide text-slate-500">Quote</div>
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs text-slate-500">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Item</th>
+                  <th className="px-4 py-2 font-medium text-right">Qty</th>
+                  <th className="px-4 py-2 font-medium text-right">Total</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-slate-50 text-sm">
-              <tr className="border-t">
-                <td colSpan={2} className="px-4 py-1.5 text-right text-slate-500">Subtotal</td>
-                <td className="px-4 py-1.5 text-right tabular-nums">{formatGBP(quote.subtotal)}</td>
-              </tr>
-              <tr>
-                <td colSpan={2} className="px-4 py-1.5 text-right text-slate-500">VAT ({quote.vat_rate}%)</td>
-                <td className="px-4 py-1.5 text-right tabular-nums">{formatGBP(quote.vat_amount)}</td>
-              </tr>
-              <tr className="border-t-2 font-bold">
-                <td colSpan={2} className="px-4 py-2 text-right">Total</td>
-                <td className="px-4 py-2 text-right tabular-nums" style={{ color: primary }}>{formatGBP(quote.total)}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </section>
+              </thead>
+              <tbody>
+                {quote.items.map((it) => (
+                  <tr key={it.id} className="border-t">
+                    <td className="px-4 py-2">
+                      <div>{it.description}</div>
+                      <div className="text-xs text-slate-500 capitalize">{it.type}</div>
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">{it.quantity}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">{formatGBP(it.quantity * it.unit_price)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="bg-slate-50 text-sm">
+                <tr className="border-t">
+                  <td colSpan={2} className="px-4 py-1.5 text-right text-slate-500">Subtotal</td>
+                  <td className="px-4 py-1.5 text-right tabular-nums">{formatGBP(quote.subtotal)}</td>
+                </tr>
+                <tr>
+                  <td colSpan={2} className="px-4 py-1.5 text-right text-slate-500">VAT ({quote.vat_rate}%)</td>
+                  <td className="px-4 py-1.5 text-right tabular-nums">{formatGBP(quote.vat_amount)}</td>
+                </tr>
+                <tr className="border-t-2 font-bold">
+                  <td colSpan={2} className="px-4 py-2 text-right">Total</td>
+                  <td className="px-4 py-2 text-right tabular-nums" style={{ color: primary }}>{formatGBP(quote.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </section>
+        )}
 
-        <QuoteResponse slug={slug} token={token ?? ""} primaryColor={primary} />
+        <QuoteResponse
+          slug={slug}
+          token={token ?? ""}
+          primaryColor={primary}
+          items={quote.items}
+          depositPct={Number(org?.quote_deposit_pct ?? 0)}
+        />
 
         <p className="text-center text-xs text-slate-500">
           Quote expires {new Date(quote.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.

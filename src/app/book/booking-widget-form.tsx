@@ -25,6 +25,8 @@ type Props = {
   privacyPolicyUrl?: string | null;
   prefill: Prefill;
   paymentsEnabled: boolean;
+  fromQuoteSlug?: string | null;
+  fromQuoteToken?: string | null;
 };
 
 function defaultDateTime() {
@@ -48,6 +50,8 @@ export function BookingWidgetForm({
   privacyPolicyUrl,
   prefill,
   paymentsEnabled,
+  fromQuoteSlug,
+  fromQuoteToken,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +112,12 @@ export function BookingWidgetForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+      {fromQuoteSlug && fromQuoteToken && (
+        <>
+          <input type="hidden" name="fromQuoteSlug" value={fromQuoteSlug} />
+          <input type="hidden" name="fromQuoteToken" value={fromQuoteToken} />
+        </>
+      )}
       {prefill ? (
         <div
           className="rounded-lg border border-black/10 bg-gray-50 px-3 py-2 text-xs text-gray-600"

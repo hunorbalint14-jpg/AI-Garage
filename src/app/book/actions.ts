@@ -8,6 +8,8 @@ import { sendSms } from "@/lib/sms";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
 import { bayCapacityAt } from "@/lib/bay-availability";
+import { verifyQuoteAccess } from "@/lib/quote-links";
+import { createStaffNotification } from "@/lib/staff-notifications";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -55,6 +57,8 @@ export async function submitWidgetBooking(
   const scheduledAt = (formData.get("scheduledAt") as string | null)?.trim();
   const notes = (formData.get("notes") as string | null)?.trim() || null;
   const marketingConsent = formData.get("marketingConsent") === "on";
+  const fromQuoteSlug = (formData.get("fromQuoteSlug") as string | null)?.trim() || null;
+  const fromQuoteToken = (formData.get("fromQuoteToken") as string | null)?.trim() || null;
 
   if (!fullName) return { error: "Name is required." };
   if (!email || !EMAIL_RE.test(email)) return { error: "A valid email is required." };
@@ -169,6 +173,17 @@ export async function submitWidgetBooking(
     !!service.price &&
     Number(service.price) > 0;
 
+  // Resolve the originating quote if the customer came in via the "Decline
+  // & book separate" flow. The booking row carries from_quote_id so that
+  // startBooking() can later seed the new job with the snapshot items.
+  let fromQuoteId: string | null = null;
+  if (fromQuoteSlug && fromQuoteToken) {
+    const verify = await verifyQuoteAccess(fromQuoteSlug, fromQuoteToken, ["rebooked", "pending"]);
+    if (verify.ok && verify.quote.location_id === location.id) {
+      fromQuoteId = verify.quote.id;
+    }
+  }
+
   const { data: booking, error: bookingErr } = await admin
     .from("bookings")
     .insert({
@@ -181,11 +196,36 @@ export async function submitWidgetBooking(
       type,
       notes,
       status: willPayNow ? "payment_pending" : "scheduled",
+      from_quote_id: fromQuoteId,
     })
     .select("id")
     .single();
 
   if (bookingErr || !booking) return { error: bookingErr?.message ?? "Failed to create booking." };
+
+  // If the booking was rebooked from a quote, drop an in-app notification
+  // for the location's staff so the mechanic sees the trail from quote → booking.
+  if (fromQuoteId) {
+    const { data: quoteRow } = await admin
+      .from("job_quotes")
+      .select("created_by, job_id, total")
+      .eq("id", fromQuoteId)
+      .maybeSingle();
+    type QuoteRow = { created_by: string | null; job_id: string; total: number };
+    const qrow = quoteRow as QuoteRow | null;
+    const totalFmt = qrow ? new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(qrow.total) : "";
+    void createStaffNotification({
+      userId: qrow?.created_by ?? null,
+      locationId: location.id,
+      organizationId: location.organization.id,
+      kind: "quote.rebooked",
+      title: `Quote → new booking from ${fullName}`,
+      body: `${registration ?? "vehicle"} · ${totalFmt} · ${new Date(scheduledAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`,
+      href: `/staff/bookings/${booking.id}`,
+      entityType: "booking",
+      entityId: booking.id,
+    });
+  }
 
   const garageName = location.organization.name;
   const garagePhone = location.organization.phone;

@@ -2,12 +2,19 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { verifyQuoteAccess } from "@/lib/quote-links";
 import { BookingWidgetForm } from "./booking-widget-form";
 
-export default async function BookingWidgetPage() {
+export default async function BookingWidgetPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ quote?: string; t?: string }>;
+}) {
   const headersList = await headers();
   const slug = headersList.get("x-tenant-slug");
   if (!slug) redirect("/");
+
+  const { quote: quoteSlug, t: quoteToken } = await searchParams;
 
   const admin = createAdminClient();
 
@@ -91,6 +98,66 @@ export default async function BookingWidgetPage() {
   const paymentsEnabled =
     !!org.stripe_account_id && !!org.stripe_charges_enabled;
 
+  // If the customer arrived from a "Decline & book" quote link, prefetch the
+  // quote context (items + total + customer details) so we can prefill the
+  // form and surface "Booking based on quote from X" copy.
+  type QuoteContext = {
+    slug: string;
+    token: string;
+    title: string | null;
+    items: { description: string; type: string; quantity: number; unit_price: number }[];
+    total: number;
+    customer: { full_name: string | null; email: string | null; phone: string | null } | null;
+    vehicle: { registration: string | null } | null;
+  } | null;
+  let quoteContext: QuoteContext = null;
+  if (quoteSlug && quoteToken) {
+    // Accept both pending (rare race) and rebooked, since the customer just
+    // pressed declineAndRebook which flipped the status.
+    const verify = await verifyQuoteAccess(quoteSlug, quoteToken, ["rebooked", "pending"]);
+    if (verify.ok && verify.quote.location_id === location.id) {
+      const { data: items } = await admin
+        .from("job_quote_items")
+        .select("description, type, quantity, unit_price")
+        .eq("quote_id", verify.quote.id)
+        .order("sort_order");
+      const { data: full } = await admin
+        .from("job_quotes")
+        .select("title, total, job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))")
+        .eq("id", verify.quote.id)
+        .maybeSingle();
+      type FullRow = {
+        title: string | null;
+        total: number;
+        job: {
+          customer: { full_name: string | null; email: string | null; phone: string | null } | null;
+          vehicle: { registration: string | null } | null;
+        } | null;
+      };
+      const fullRow = full as FullRow | null;
+      if (fullRow) {
+        quoteContext = {
+          slug: quoteSlug,
+          token: quoteToken,
+          title: fullRow.title,
+          items: (items ?? []).map((it) => it as { description: string; type: string; quantity: number; unit_price: number }),
+          total: Number(fullRow.total),
+          customer: fullRow.job?.customer ?? null,
+          vehicle: fullRow.job?.vehicle ?? null,
+        };
+        // Prefill from the quote's customer if no auth-session prefill exists.
+        if (!prefill && quoteContext.customer?.email) {
+          prefill = {
+            customerId: null,
+            fullName: quoteContext.customer.full_name ?? "",
+            email: quoteContext.customer.email,
+            phone: quoteContext.customer.phone ?? "",
+          };
+        }
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-start justify-center p-4 pt-8">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-md border border-black/[0.06] p-7">
@@ -128,6 +195,22 @@ export default async function BookingWidgetPage() {
           )}
         </div>
 
+        {quoteContext && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">From quote</div>
+            <p className="text-sm text-slate-700">
+              Booking based on the additional-work quote you received{quoteContext.vehicle?.registration ? ` for ${quoteContext.vehicle.registration}` : ""}.
+            </p>
+            <ul className="mt-2 text-xs text-slate-600 list-disc list-inside">
+              {quoteContext.items.map((it, i) => (
+                <li key={i}>
+                  {it.description} <span className="text-slate-400">· {it.type} · {it.quantity}×</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <BookingWidgetForm
           orgColor={org.primary_color}
           garageName={org.name}
@@ -135,6 +218,8 @@ export default async function BookingWidgetPage() {
           privacyPolicyUrl={org.privacy_policy_url}
           prefill={prefill}
           paymentsEnabled={paymentsEnabled}
+          fromQuoteSlug={quoteContext?.slug ?? null}
+          fromQuoteToken={quoteContext?.token ?? null}
         />
       </div>
     </div>
