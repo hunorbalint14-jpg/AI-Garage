@@ -35,7 +35,7 @@ export default async function JobDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [jobRes, itemsRes] = await Promise.all([
+  const [jobRes, itemsRes, productsRes] = await Promise.all([
     admin
       .from("jobs")
       .select(
@@ -48,12 +48,24 @@ export default async function JobDetailPage({
       .select("id, description, quantity, unit_price, type, created_at")
       .eq("job_id", id)
       .order("created_at", { ascending: true }),
+    admin
+      .from("products")
+      .select("id, name, unit_price, category")
+      .eq("location_id", ctx.location.id)
+      .eq("active", true)
+      .order("name"),
   ]);
 
   const job = jobRes.data as Job | null;
   if (!job || job.location_id !== ctx.location.id) notFound();
 
   const items = (itemsRes.data ?? []) as JobItem[];
+  const products = (productsRes.data ?? []) as {
+    id: string;
+    name: string;
+    unit_price: number;
+    category: string;
+  }[];
 
   return (
     <div className="flex flex-col gap-6">
@@ -66,7 +78,7 @@ export default async function JobDetailPage({
         </Link>
       </div>
 
-      <JobDetail job={job} items={items} />
+      <JobDetail job={job} items={items} products={products} />
     </div>
   );
 }

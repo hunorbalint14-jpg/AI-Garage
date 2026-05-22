@@ -189,7 +189,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
 
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, location_id, customer_id, vehicle_id, type, notes, status")
+    .select("id, location_id, customer_id, vehicle_id, service_id, type, notes, status")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -213,6 +213,28 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
     .single();
 
   if (jobErr) return { error: jobErr.message };
+
+  // Seed the job with a line item from the booked service so the
+  // mechanic doesn't have to retype it. Only when the booking has a
+  // service_id — older bookings made before service_id was wired up
+  // skip this and just get an empty items list.
+  if (booking.service_id) {
+    const { data: service } = await admin
+      .from("services")
+      .select("name, price")
+      .eq("id", booking.service_id)
+      .eq("location_id", ctx.location.id)
+      .maybeSingle();
+    if (service) {
+      await admin.from("job_items").insert({
+        job_id: job.id,
+        description: service.name,
+        type: "labour",
+        quantity: 1,
+        unit_price: Number(service.price ?? 0),
+      });
+    }
+  }
 
   const { error: bookingUpdateErr } = await admin
     .from("bookings")
