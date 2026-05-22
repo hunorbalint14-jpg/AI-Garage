@@ -7,6 +7,8 @@ import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob
 import { createInvoiceFromJob, sendInvoice } from "../../invoices/actions";
 import { VoiceNotes } from "./voice-notes";
 import { ItemRow } from "./item-row";
+import { QuoteBuilder } from "./quote-builder";
+import { QuoteList, type QuoteSummary } from "./quote-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -52,10 +54,12 @@ export function JobDetail({
   job,
   items,
   products,
+  quotes,
 }: {
   job: Job;
   items: JobItem[];
   products: Product[];
+  quotes: QuoteSummary[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -250,6 +254,10 @@ export function JobDetail({
       </section>
 
       {isOpen && <VoiceNotes jobId={job.id} />}
+
+      {isOpen && <QuoteBuilder jobId={job.id} products={products} />}
+
+      <QuoteList quotes={quotes} />
 
       <form onSubmit={handleUpdate} className="rounded-lg border p-4 flex flex-col gap-3">
         <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Description & notes</h2>
