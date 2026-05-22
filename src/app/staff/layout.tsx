@@ -2,6 +2,8 @@ import { getStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StaffShell } from "@/components/staff/staff-shell";
 import { ColorSchemeSync } from "@/components/staff/color-scheme-sync";
+import { NotificationsBell } from "@/components/staff/notifications-bell";
+import { listRecentNotifications, unreadNotificationCount } from "@/lib/staff-notifications";
 import { headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
 import { isDpaAccepted } from "@/lib/dpa";
@@ -82,9 +84,15 @@ export default async function StaffLayout({
     .toUpperCase()
     .slice(0, 2);
 
+  const [unreadCount, recentNotifications] = await Promise.all([
+    unreadNotificationCount(ctx.location.id),
+    listRecentNotifications(ctx.location.id, 8),
+  ]);
+
   return (
     <>
       <ColorSchemeSync dark={true} />
+      <NotificationsBell unreadCount={unreadCount} recent={recentNotifications} />
       <StaffShell
         brandColor={brandColor}
         orgRole={ctx.orgRole}

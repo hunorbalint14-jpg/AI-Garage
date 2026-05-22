@@ -189,7 +189,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
 
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, location_id, customer_id, vehicle_id, service_id, type, notes, status")
+    .select("id, location_id, customer_id, vehicle_id, service_id, from_quote_id, type, notes, status")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -233,6 +233,27 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
         quantity: 1,
         unit_price: Number(service.price ?? 0),
       });
+    }
+  }
+
+  // If the booking was rebooked from a declined quote, also seed the new
+  // job with the snapshot items so the mechanic doesn't retype them.
+  if (booking.from_quote_id) {
+    const { data: quoteItems } = await admin
+      .from("job_quote_items")
+      .select("description, type, quantity, unit_price")
+      .eq("quote_id", booking.from_quote_id)
+      .order("sort_order");
+    if (quoteItems && quoteItems.length > 0) {
+      type QuoteItemRow = { description: string; type: string; quantity: number; unit_price: number };
+      const rows = (quoteItems as QuoteItemRow[]).map((it) => ({
+        job_id: job.id,
+        description: it.description,
+        type: it.type,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+      }));
+      await admin.from("job_items").insert(rows);
     }
   }
 
