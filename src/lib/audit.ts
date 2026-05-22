@@ -62,7 +62,16 @@ export type AuditAction =
   // Communications (spam / abuse trail)
   | "reminder.send"
   | "campaign.send"
-  | "message.send";
+  | "message.send"
+  // DVI / mid-job upsell quotes
+  | "quote.create"
+  | "quote.send"
+  | "quote.cancel"
+  | "quote.view"
+  | "quote.approve"
+  | "quote.decline"
+  | "quote.rebook"
+  | "quote.expire";
 
 type LogArgs = {
   organizationId?: string | null;

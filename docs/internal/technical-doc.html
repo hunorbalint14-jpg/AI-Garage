@@ -224,6 +224,95 @@
   }
 
   @page { size: A4; margin: 18mm; }
+
+  /* ============== Mobile + tablet ============== */
+  /* Tablet (≤ 1024px): collapse sidebar to top, narrow main padding. */
+  @media (max-width: 1024px) {
+    .doc { grid-template-columns: 1fr; max-width: none; }
+    .toc {
+      position: static;
+      height: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--aig-rule);
+      padding: 16px 20px;
+    }
+    .toc ol { display: flex; flex-wrap: wrap; gap: 4px 8px; counter-reset: tocn; }
+    .toc ol li { padding: 0; }
+    .toc ol li a { padding: 4px 28px 4px 28px; }
+    .toc .meta { margin-top: 16px; padding-top: 12px; }
+    main { padding: 32px 28px 64px; }
+    .cover-title h1 { font-size: 64px; line-height: 1; }
+    .cover-meta { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* Mobile (≤ 720px): single-column body, smaller type, hide TOC by default. */
+  @media (max-width: 720px) {
+    html, body { font-size: 14.5px; }
+    main { padding: 20px 16px 48px; }
+
+    /* TOC collapses to a details/summary group via JS-less <details>. */
+    .toc { padding: 12px 16px; font-size: 13px; }
+    .toc h4 { margin: 0 0 8px; }
+    .toc ol { flex-direction: column; gap: 0; }
+    .toc ol li a { padding-left: 28px; }
+    .toc .meta { display: none; }
+
+    .cover { min-height: auto; margin-bottom: 48px; padding-bottom: 20px; }
+    .cover-head img { height: 22px; }
+    .cover-title { padding-top: 16px; }
+    .cover-title h1 { font-size: 40px; letter-spacing: -0.02em; margin: 12px 0 16px; max-width: none; }
+    .cover-title .lede { font-size: 17px; line-height: 1.45; }
+    .cover-meta { grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 16px; }
+    .cover-meta dd { font-size: 12px; }
+
+    section { margin-top: 56px; }
+    .sec-head { flex-wrap: wrap; gap: 8px; padding-bottom: 8px; margin-bottom: 18px; }
+    .sec-head h2 { font-size: 24px; }
+    .sec-head .tag { margin-left: 0; width: 100%; font-size: 10px; }
+
+    h3 { font-size: 17px; margin: 20px 0 8px; }
+    h4 { font-size: 13px; margin: 16px 0 6px; }
+    p, ul, ol { max-width: none; }
+    p { font-size: 14.5px; }
+
+    .lede2 { font-size: 15px; margin-bottom: 16px; }
+
+    .cols-2 { grid-template-columns: 1fr; gap: 20px; }
+    .tilegrid { grid-template-columns: 1fr; gap: 8px; }
+    .kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .kpi { padding: 10px 12px; }
+    .kpi .v { font-size: 18px; }
+
+    /* Tables: switch to card-style stacking on tight screens to avoid h-scroll
+       for content-heavy reference tables. The "tbl" markup is preserved. */
+    table.tbl { font-size: 13px; }
+    table.tbl th, table.tbl td { padding: 6px 8px; }
+    .tbl-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+    /* Code blocks: keep horizontal scroll but ensure they don't push the page wide. */
+    pre.code { font-size: 11.5px; padding: 12px 14px; }
+
+    /* Blueprint figures: enable horizontal scroll inside the bp wrapper so the
+       wide SVGs stay readable rather than being squashed into illegible blocks. */
+    .bp { padding: 16px 12px; overflow-x: auto; }
+    .bp .caption { font-size: 10px; gap: 10px; flex-wrap: wrap; }
+    .bp svg { min-width: 640px; }
+    .bp .legend { font-size: 10px; gap: 10px; }
+
+    /* Env-var field rows stack vertically; the 240/80/1fr grid breaks on phones. */
+    .fields { font-size: 13px; }
+    .field-row { grid-template-columns: 1fr; gap: 4px; padding: 10px 12px; }
+    .field-row .scope { font-size: 9px; }
+
+    .note { font-size: 13px; padding: 10px 12px; }
+  }
+
+  /* Very small (≤ 420px): tighten everything one more step. */
+  @media (max-width: 420px) {
+    .cover-title h1 { font-size: 32px; }
+    .cover-meta { grid-template-columns: 1fr; }
+    .kpis { grid-template-columns: 1fr 1fr; }
+  }
 </style>
 </head>
 <body>
@@ -249,11 +338,12 @@
       <li><a href="#integrations">External integrations</a></li>
       <li><a href="#config">Environment &amp; config</a></li>
       <li><a href="#deploy">Deployment topology</a></li>
+      <li><a href="#quotes">Mid-job quotes (DVI)</a></li>
       <li><a href="#security">Security &amp; compliance</a></li>
     </ol>
     <div class="meta">
-      rev. 2026.05.19<br />
-      revision&nbsp;01<br />
+      rev. 2026.05.22<br />
+      revision&nbsp;04<br />
       classification:<br />internal
     </div>
   </aside>
@@ -294,7 +384,7 @@
 
       <div class="kpis">
         <div class="kpi"><div class="v">2&nbsp;<span class="accent">portals</span></div><div class="l">staff · customer</div></div>
-        <div class="kpi"><div class="v">17&nbsp;<span class="accent">tables</span></div><div class="l">tenant-scoped</div></div>
+        <div class="kpi"><div class="v">22&nbsp;<span class="accent">tables</span></div><div class="l">tenant-scoped</div></div>
         <div class="kpi"><div class="v">8&nbsp;<span class="accent">externals</span></div><div class="l">3rd-party APIs</div></div>
         <div class="kpi"><div class="v">3&nbsp;<span class="accent">channels</span></div><div class="l">email · sms · whatsapp</div></div>
       </div>
@@ -308,6 +398,8 @@
             <li><strong>Bookings &amp; jobs</strong> — bay-aware scheduling with Stripe Checkout pay-links.</li>
             <li><strong>Invoicing</strong> — issued in-app, optional Stripe pay-link, mirrored to Xero.</li>
             <li><strong>Campaigns</strong> — AI-drafted broadcast email / SMS to the whole customer list.</li>
+            <li><strong>Mid-job quotes (DVI)</strong> — mechanic records a short video of extra work found, customer approves or declines via a token-gated link.</li>
+            <li><strong>Audit log</strong> — append-only trail of staff-sensitive actions (settings, GDPR, financial, integrations) visible to owners/admins.</li>
             <li><strong>Multi-location orgs</strong> — owners manage many garages under one organisation.</li>
           </ul>
         </div>
@@ -1420,7 +1512,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
 
       <table class="tbl">
         <tr><th style="width: 18%">Service</th><th style="width: 22%">Module</th><th style="width: 14%">Credentials</th><th>What it does</th></tr>
-        <tr><td>Supabase</td><td><code>lib/supabase/*</code></td><td>platform</td><td>Postgres, Auth, storage. SSR + browser + admin clients. RLS enforced.</td></tr>
+        <tr><td>Supabase</td><td><code>lib/supabase/*</code> · <code>lib/quote-storage.ts</code></td><td>platform</td><td>Postgres, Auth, storage. SSR + browser + admin clients. RLS enforced. Private storage bucket <code>job-quote-videos</code> for DVI clips, signed-URL gated.</td></tr>
         <tr><td>Anthropic Claude</td><td><code>lib/ai-messages.ts</code> · <code>lib/ai-diagnostic.ts</code> · <code>lib/ai-labour.ts</code> · <code>lib/ai-job-from-voice.ts</code></td><td>platform</td><td>Drafts customer communications and powers diagnostic / job sheet helpers.</td></tr>
         <tr><td>Resend</td><td><code>lib/email.ts</code></td><td>platform</td><td>Transactional email. Webhook updates open / click / delivered timestamps on <code>reminders</code>.</td></tr>
         <tr><td>Twilio SMS</td><td><code>lib/sms.ts</code></td><td>platform</td><td>Outbound SMS reminders &amp; campaigns.</td></tr>
@@ -1554,10 +1646,132 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
       </table>
     </section>
 
-    <!-- ============== 13. SECURITY ============== -->
-    <section id="security">
+    <!-- ============== 13. MID-JOB QUOTES (DVI) ============== -->
+    <section id="quotes">
       <div class="sec-head">
         <div class="num">13</div>
+        <h2>Mid-job quotes (DVI)</h2>
+        <div class="tag">video · token-gated · upsell</div>
+      </div>
+
+      <p class="lede2">A mechanic working on a job who finds extra work records a short video, attaches line items + total, and sends the customer a token-gated link to approve or decline. Approved items get copied into <code>job_items</code> so the existing job → invoice → Stripe Connect path stays untouched.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Why it exists</h3>
+          <ul>
+            <li><strong>Kills "I never agreed to that" disputes</strong> — the video + the approved quote are the audit trail.</li>
+            <li><strong>Higher upsell conversion than a phone call</strong> — seeing the worn pad beats a verbal description.</li>
+            <li><strong>Customer-friendly</strong> — token link works without an account; works on a bus stop on a phone.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Data model</h3>
+          <ul>
+            <li><code>job_quotes</code> — lifecycle row (pending / approved / declined / expired / cancelled / approved_after_close), token hash, expiry, totals.</li>
+            <li><code>job_quote_items</code> — frozen item snapshot — preserves what the customer agreed to even if products change later.</li>
+            <li><code>job_quotes_increment_view</code> RPC — atomic view counter + first-view stamp.</li>
+            <li>Storage bucket <code>job-quote-videos</code> (private) — path format <code>{location_id}/{job_id}/{quote_id}.{ext}</code>, max 80&nbsp;MB, MP4/MOV/WebM only.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Lifecycle</h3>
+      <div class="bp">
+        <div class="caption"><span class="ref">FIG&nbsp;13·A</span><span>quote raise → customer decide → apply</span></div>
+        <svg viewBox="0 0 1000 360" role="img" aria-label="Quote lifecycle">
+          <text x="20" y="22" class="d-eyebrow">MECHANIC</text>
+          <text x="260" y="22" class="d-eyebrow">AIGARAGE</text>
+          <text x="540" y="22" class="d-eyebrow">CUSTOMER</text>
+          <text x="800" y="22" class="d-eyebrow">JOB</text>
+
+          <line x1="240" y1="32" x2="240" y2="340" class="d-stroke-thin" stroke-dasharray="2 4" />
+          <line x1="520" y1="32" x2="520" y2="340" class="d-stroke-thin" stroke-dasharray="2 4" />
+          <line x1="780" y1="32" x2="780" y2="340" class="d-stroke-thin" stroke-dasharray="2 4" />
+
+          <rect x="20" y="50" width="200" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="72" class="d-title">record video</text>
+          <text x="32" y="92" class="d-label-mute">capture=&quot;environment&quot;</text>
+
+          <rect x="260" y="50" width="240" height="60" class="d-fill-paper d-stroke" />
+          <text x="272" y="72" class="d-title">prepareQuoteUpload()</text>
+          <text x="272" y="92" class="d-label-mute">signed PUT URL · pre-mints quote id</text>
+
+          <rect x="20" y="130" width="200" height="60" class="d-fill-white d-stroke" />
+          <text x="32" y="152" class="d-title">direct PUT</text>
+          <text x="32" y="172" class="d-label-mute">browser → Supabase Storage</text>
+
+          <rect x="260" y="130" width="240" height="60" class="d-fill-paper d-stroke-green" />
+          <text x="272" y="152" class="d-title">createQuote() · sendQuoteWithToken()</text>
+          <text x="272" y="172" class="d-label-mute">insert rows · email + SMS · audit</text>
+
+          <rect x="540" y="130" width="220" height="60" class="d-fill-white d-stroke" />
+          <text x="552" y="152" class="d-title">tap link · view video</text>
+          <text x="552" y="172" class="d-label-mute">/quote/[slug]?t=… (30 min sig URL)</text>
+
+          <rect x="540" y="210" width="220" height="60" class="d-fill-white d-stroke" />
+          <text x="552" y="232" class="d-title">approve or decline</text>
+          <text x="552" y="252" class="d-label-mute">atomic status transition</text>
+
+          <rect x="260" y="210" width="240" height="60" class="d-fill-paper d-stroke-green" />
+          <text x="272" y="232" class="d-title">approveQuote()</text>
+          <text x="272" y="252" class="d-label-mute">copy snapshot → job_items</text>
+
+          <rect x="800" y="210" width="180" height="60" class="d-fill-white d-stroke" />
+          <text x="812" y="232" class="d-title">items added</text>
+          <text x="812" y="252" class="d-label-mute">existing invoice path</text>
+
+          <rect x="20" y="290" width="200" height="40" class="d-fill-white d-stroke" />
+          <text x="32" y="316" class="d-title">notified by email</text>
+
+          <rect x="540" y="290" width="220" height="40" class="d-fill-white d-stroke-green" />
+          <text x="552" y="316" class="d-title">cron · expire stale quotes</text>
+
+          <!-- arrows -->
+          <path d="M 220 80 L 255 80" class="d-stroke" />
+          <polygon points="255,80 248,78 250,83" fill="#0b0d11" />
+          <path d="M 500 80 L 240 145" class="d-stroke" />
+          <polygon points="240,145 246,140 248,146" fill="#0b0d11" />
+          <path d="M 220 160 L 255 160" class="d-stroke" />
+          <polygon points="255,160 248,158 250,163" fill="#0b0d11" />
+          <path d="M 500 160 L 535 160" class="d-stroke-green" />
+          <polygon points="535,160 528,158 530,163" fill="#16a34a" />
+          <path d="M 540 240 L 505 240" class="d-stroke" />
+          <polygon points="505,240 512,238 510,243" fill="#0b0d11" />
+          <path d="M 500 240 L 795 240" class="d-stroke-green" />
+          <polygon points="795,240 788,238 790,243" fill="#16a34a" />
+          <path d="M 260 240 L 220 310" class="d-stroke-dash" />
+        </svg>
+        <div class="legend">
+          <span><span class="sw"></span>HTTP / action</span>
+          <span><span class="sw green"></span>privileged · service role</span>
+          <span><span class="sw dash"></span>email notification</span>
+        </div>
+      </div>
+
+      <h3>Security posture</h3>
+      <ul>
+        <li><strong>Token gating</strong> — 32 random bytes, base64url-encoded, only the sha256 hash is stored. Constant-time compare via <code>crypto.timingSafeEqual</code>. Same pattern as <code>doc_shares</code>.</li>
+        <li><strong>Mint-once token</strong> — to resend, staff must cancel + recreate the quote. Matches the doc-shares posture and prevents accidental link leaks via "resend" buttons.</li>
+        <li><strong>Atomic status transition</strong> — <code>update … where status = 'pending'</code> with a single predicate prevents two concurrent approvals from both inserting items.</li>
+        <li><strong>Bucket privacy</strong> — no anon/authenticated policy on <code>storage.objects</code> for this bucket. All reads through 30-min service-role-minted signed URLs.</li>
+        <li><strong>Job-state guard</strong> — if the job closed while the customer was deciding, the row flips to <code>approved_after_close</code> and staff are emailed to reopen or raise a separate job.</li>
+        <li><strong>Cron expiry</strong> — <code>/api/cron/quote-expiry</code> sweeps stale <code>pending</code> rows hourly at <code>:30</code>.</li>
+      </ul>
+
+      <h3>Audit trail</h3>
+      <p>Eight quote-specific audit actions are recorded: <code>quote.create</code>, <code>quote.send</code>, <code>quote.cancel</code>, <code>quote.view</code> (no actor — customer-side), <code>quote.approve</code>, <code>quote.decline</code>, <code>quote.rebook</code> (v2), <code>quote.expire</code> (cron-driven, no actor).</p>
+
+      <div class="note">
+        <span class="label">Payment posture</span>
+        Approval does not take payment. Items are added to the job and the existing job-complete → invoice → Stripe Connect pay-link path applies the final amount, because labour can overrun the quoted hours. Deposit-on-approve via Stripe Checkout is a deliberate v2 toggle.
+      </div>
+    </section>
+
+    <!-- ============== 14. SECURITY ============== -->
+    <section id="security">
+      <div class="sec-head">
+        <div class="num">14</div>
         <h2>Security &amp; compliance</h2>
         <div class="tag">rls · gdpr · pci</div>
       </div>
@@ -1584,6 +1798,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
             <li><strong>DPA acceptance</strong> — <code>organizations.dpa_accepted_at · dpa_version · dpa_accepted_by_user_id</code>. Enforced via <code>/staff/dpa-acceptance</code> redirect.</li>
             <li><strong>Marketing consent</strong> — <code>customers.marketing_email_consent · marketing_sms_consent · consent_updated_at</code>. Broadcast send paths must check.</li>
             <li><strong>Right to erasure</strong> — anonymisation pass sets <code>customers.anonymized_at</code>; <code>data_deletion_log</code> records reason, requester and email hash.</li>
+            <li><strong>Audit log</strong> — append-only <code>audit_log</code> table records ~35 actions (settings, GDPR ops, financial events, integrations, DVI quotes) with actor, IP, user-agent, and JSON metadata. RLS restricts reads to org owners/admins.</li>
             <li><strong>Data retention</strong> — <code>organizations.data_retention_years</code> drives scheduled cleanup of historical communications.</li>
             <li><strong>Cookie banner</strong> — <code>components/cookie-banner.tsx</code>; non-essential cookies gated.</li>
             <li><strong>Privacy policy</strong> — <code>organizations.privacy_policy_url</code> per tenant; <code>/privacy</code> hosts the platform-level policy.</li>
@@ -1604,8 +1819,13 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
       </table>
 
       <div class="note">
-        <span class="label">Recommended next steps</span>
-        Encrypt-at-application-layer the Xero refresh tokens on <code>organizations</code> (currently relying on Supabase at-rest encryption only). Add structured audit log for staff actions in <code>/staff/settings</code> + impersonation. Add Vercel Cron health alerting to PagerDuty / Slack.
+        <span class="label">Shipped since rev 01</span>
+        Xero refresh tokens are now encrypted at the application layer (AES-256-GCM, <code>src/lib/encryption.ts</code>) on top of Supabase at-rest encryption. Structured <code>audit_log</code> covers ~35 staff actions across settings, GDPR-sensitive customer ops, financial actions, integrations, and DVI quotes — readable by org owners/admins via RLS.
+      </div>
+
+      <div class="note warn">
+        <span class="label">Open follow-ups</span>
+        Vercel Cron health alerting to PagerDuty / Slack. In-app staff notifications (for DVI quote responses). Auto-orphan-video GC pass on the <code>job-quote-videos</code> bucket.
       </div>
     </section>
 
@@ -1613,7 +1833,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
     <footer style="margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--aig-rule); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3);">
       <div>
         <img src="/brand/aigarage-mark-on-brand.svg" alt="" style="height: 18px; vertical-align: middle; margin-right: 8px;" />
-        AI Garage · technical reference · revision 03
+        AI Garage · technical reference · revision 04
       </div>
       <div>end of document</div>
     </footer>

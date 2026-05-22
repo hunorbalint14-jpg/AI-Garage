@@ -35,7 +35,7 @@ export default async function JobDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [jobRes, itemsRes, productsRes] = await Promise.all([
+  const [jobRes, itemsRes, productsRes, quotesRes] = await Promise.all([
     admin
       .from("jobs")
       .select(
@@ -54,6 +54,13 @@ export default async function JobDetailPage({
       .eq("location_id", ctx.location.id)
       .eq("active", true)
       .order("name"),
+    admin
+      .from("job_quotes")
+      .select(
+        "id, status, title, total, created_at, sent_at, viewed_at, viewed_count, responded_at, expires_at, decline_reason",
+      )
+      .eq("job_id", id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const job = jobRes.data as Job | null;
@@ -65,6 +72,19 @@ export default async function JobDetailPage({
     name: string;
     unit_price: number;
     category: string;
+  }[];
+  const quotes = (quotesRes.data ?? []) as {
+    id: string;
+    status: string;
+    title: string | null;
+    total: number;
+    created_at: string;
+    sent_at: string | null;
+    viewed_at: string | null;
+    viewed_count: number;
+    responded_at: string | null;
+    expires_at: string;
+    decline_reason: string | null;
   }[];
 
   return (
@@ -78,7 +98,7 @@ export default async function JobDetailPage({
         </Link>
       </div>
 
-      <JobDetail job={job} items={items} products={products} />
+      <JobDetail job={job} items={items} products={products} quotes={quotes} />
     </div>
   );
 }
