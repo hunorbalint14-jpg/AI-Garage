@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit";
 
 export type ServiceResult = { error: string } | { success: true };
 
@@ -42,12 +42,31 @@ export async function upsertService(
   if (serviceId) {
     const { error } = await admin.from("services").update(payload).eq("id", serviceId).eq("location_id", ctx.location.id);
     if (error) return { error: error.message };
+    await logAudit({
+      organizationId: ctx.organization.id,
+      actorUserId: ctx.user.id,
+      actorEmail: ctx.user.email ?? null,
+      action: "service.upsert",
+      entityType: "service",
+      entityId: serviceId,
+      metadata: { mode: "update", name, category, price, duration_minutes: duration },
+    });
     revalidatePath("/staff/services");
     return { success: true, id: serviceId };
   }
 
   const { data, error } = await admin.from("services").insert({ ...payload, location_id: ctx.location.id }).select("id").single();
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "service.upsert",
+    entityType: "service",
+    entityId: data.id,
+    metadata: { mode: "create", name, category, price, duration_minutes: duration },
+  });
 
   revalidatePath("/staff/services");
   return { success: true, id: data.id };
@@ -61,6 +80,16 @@ export async function toggleServiceActive(serviceId: string, active: boolean): P
   const { error } = await admin.from("services").update({ active }).eq("id", serviceId).eq("location_id", ctx.location.id);
   if (error) return { error: error.message };
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "service.toggle_active",
+    entityType: "service",
+    entityId: serviceId,
+    metadata: { active },
+  });
+
   revalidatePath("/staff/services");
   return { success: true };
 }
@@ -72,6 +101,15 @@ export async function deleteService(serviceId: string): Promise<ServiceResult> {
   const admin = createAdminClient();
   const { error } = await admin.from("services").delete().eq("id", serviceId).eq("location_id", ctx.location.id);
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "service.delete",
+    entityType: "service",
+    entityId: serviceId,
+  });
 
   revalidatePath("/staff/services");
   return { success: true };

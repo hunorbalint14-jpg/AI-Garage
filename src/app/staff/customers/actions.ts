@@ -10,6 +10,7 @@ import { checkVehicleRecalls } from "@/lib/dvsa-recalls";
 import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { logAudit } from "@/lib/audit";
 import {
   draftReminderMessage,
   draftSmsReminderMessage,
@@ -43,6 +44,16 @@ export async function addCustomer(formData: FormData): Promise<AddCustomerResult
     if (error.code === "23505") return { error: "A customer with that email already exists." };
     return { error: error.message };
   }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "customer.create",
+    entityType: "customer",
+    entityId: data.id,
+    metadata: { full_name: fullName, email, phone, location_id: ctx.location.id },
+  });
 
   revalidatePath("/staff/customers");
   return { customerId: data.id };
@@ -133,6 +144,16 @@ export async function addVehicle(customerId: string, formData: FormData): Promis
     if (error.code === "23505") return { error: "A vehicle with that registration is already on file." };
     return { error: error.message };
   }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "vehicle.create",
+    entityType: "vehicle",
+    entityId: data.id,
+    metadata: { registration, customer_id: customerId, make, model, year },
+  });
 
   revalidatePath(`/staff/customers/${customerId}`);
   return { vehicleId: data.id, customerId };
@@ -293,6 +314,21 @@ export async function sendReminder(
     sentChannels.push(waResult.success ? "WhatsApp" : `WhatsApp (failed: ${waResult.error})`);
   }
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "reminder.send",
+    entityType: "vehicle",
+    entityId: vehicle.id,
+    metadata: {
+      customer_id: customer.id,
+      reminder_type: reminderType,
+      registration: vehicle.registration,
+      channels: sentChannels,
+    },
+  });
+
   revalidatePath(`/staff/customers/${customer.id}`);
   revalidatePath("/staff/reminders");
   return { success: true, channels: sentChannels };
@@ -432,6 +468,16 @@ export async function sendDraftedMessage(
   const allFailed = results.every((r) => r.includes("failed"));
   if (allFailed) return { error: results.join("; ") };
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "message.send",
+    entityType: "customer",
+    entityId: customerId,
+    metadata: { topic, results },
+  });
+
   revalidatePath(`/staff/customers/${customerId}`);
   revalidatePath("/staff/reminders");
   return { success: true, summary: results.join(", ") };
@@ -464,6 +510,16 @@ export async function updateCustomer(customerId: string, formData: FormData): Pr
     return { error: error.message };
   }
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "customer.update",
+    entityType: "customer",
+    entityId: customerId,
+    metadata: { full_name: fullName, email, phone },
+  });
+
   revalidatePath(`/staff/customers/${customerId}`);
   revalidatePath("/staff/customers");
   return { success: true };
@@ -482,6 +538,15 @@ export async function deleteCustomer(customerId: string): Promise<DeleteCustomer
     .eq("location_id", ctx.location.id);
 
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "customer.delete",
+    entityType: "customer",
+    entityId: customerId,
+  });
 
   revalidatePath("/staff/customers");
   return { success: true };
@@ -543,6 +608,16 @@ export async function deleteVehicle(vehicleId: string, customerId: string): Prom
     .eq("location_id", ctx.location.id);
 
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "vehicle.delete",
+    entityType: "vehicle",
+    entityId: vehicleId,
+    metadata: { customer_id: customerId },
+  });
 
   revalidatePath(`/staff/customers/${customerId}`);
   return { success: true };

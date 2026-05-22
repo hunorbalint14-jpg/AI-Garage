@@ -4,23 +4,65 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // Canonical action vocabulary. Adding a new value? Use the
 // "<entity>.<verb>" pattern so future filtering stays sane.
 export type AuditAction =
+  // Org / location settings
   | "settings.update"
   | "settings.business_hours_update"
   | "settings.logo_upload"
   | "settings.location_add"
+  // Stripe Connect
   | "stripe.connect_start"
   | "stripe.connect_complete"
   | "stripe.dashboard_open"
   | "stripe.status_refresh"
+  // Xero
   | "xero.connect_complete"
   | "xero.disconnect"
+  // Compliance
   | "dpa.accept"
   | "impersonation.start"
   | "impersonation.stop"
+  // Doc shares
   | "doc_share.mint"
   | "doc_share.revoke"
+  // Passkeys
   | "passkey.register"
-  | "passkey.revoke";
+  | "passkey.revoke"
+  // Customers (GDPR-sensitive)
+  | "customer.create"
+  | "customer.update"
+  | "customer.delete"
+  | "customer.hard_delete"
+  | "customer.anonymize"
+  | "customer.consent_update"
+  | "customer.data_export"
+  // Vehicles
+  | "vehicle.create"
+  | "vehicle.delete"
+  // Invoices (financial)
+  | "invoice.create"
+  | "invoice.send"
+  | "invoice.mark_paid"
+  | "invoice.delete"
+  // Services / products (pricing trail)
+  | "service.upsert"
+  | "service.toggle_active"
+  | "service.delete"
+  | "product.create"
+  | "product.update"
+  | "product.delete"
+  | "product.stock_adjust"
+  // Staff access management
+  | "staff.invite"
+  | "staff.password_reset"
+  | "staff.password_set"
+  | "staff.mfa_reset"
+  | "staff.permissions_update"
+  | "staff.role_change"
+  | "staff.remove"
+  // Communications (spam / abuse trail)
+  | "reminder.send"
+  | "campaign.send"
+  | "message.send";
 
 type LogArgs = {
   organizationId?: string | null;

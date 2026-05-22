@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_PRODUCTS, PRODUCT_CATEGORIES } from "./constants";
+import { logAudit } from "@/lib/audit";
 
 type ActionResult = { error: string } | { success: true };
 
@@ -48,17 +49,32 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
   if (Number.isNaN(unitPrice) || unitPrice < 0) return { error: "Invalid unit price." };
 
   const admin = createAdminClient();
-  const { error } = await admin.from("products").insert({
-    location_id: ctx.location.id,
-    name,
-    category,
-    sku,
-    supplier,
-    unit_price: unitPrice,
-    cost_price: Number.isNaN(costPrice) ? null : costPrice,
-    stock_qty: Number.isNaN(stockQty) ? 0 : stockQty,
-  });
+  const { data, error } = await admin
+    .from("products")
+    .insert({
+      location_id: ctx.location.id,
+      name,
+      category,
+      sku,
+      supplier,
+      unit_price: unitPrice,
+      cost_price: Number.isNaN(costPrice) ? null : costPrice,
+      stock_qty: Number.isNaN(stockQty) ? 0 : stockQty,
+    })
+    .select("id")
+    .single();
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "product.create",
+    entityType: "product",
+    entityId: data.id,
+    metadata: { name, category, sku, supplier, unit_price: unitPrice },
+  });
+
   revalidatePath("/staff/products");
   return { success: true };
 }
@@ -79,6 +95,17 @@ export async function updateProduct(
     .eq("id", productId)
     .eq("location_id", ctx.location.id);
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "product.update",
+    entityType: "product",
+    entityId: productId,
+    metadata: { fields: fields as Record<string, unknown> },
+  });
+
   revalidatePath("/staff/products");
   return { success: true };
 }
@@ -95,6 +122,16 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
     .eq("id", productId)
     .eq("location_id", ctx.location.id);
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "product.delete",
+    entityType: "product",
+    entityId: productId,
+  });
+
   revalidatePath("/staff/products");
   return { success: true };
 }
@@ -118,6 +155,17 @@ export async function adjustStock(productId: string, delta: number): Promise<Act
     .eq("id", productId)
     .eq("location_id", ctx.location.id);
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "product.stock_adjust",
+    entityType: "product",
+    entityId: productId,
+    metadata: { delta, previous_qty: data.stock_qty, new_qty: newQty },
+  });
+
   revalidatePath("/staff/products");
   return { success: true };
 }

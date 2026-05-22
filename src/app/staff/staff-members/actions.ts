@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { logAudit } from "@/lib/audit";
 
 export type StaffActionResult = { error: string } | { success: true };
 export type InviteResult = { error: string } | { success: true; inviteLink: string };
@@ -116,6 +117,16 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
     text: `Hi ${firstName},\n\n${garageName} has invited you to join their team on AI Garage.\n\nClick the link below to accept your invite and set your password:\n\n${inviteLink}\n\nThis link expires in 24 hours. If you didn't expect this, you can ignore it.\n\nAI Garage`,
   });
 
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "staff.invite",
+    entityType: "auth_user",
+    entityId: userId,
+    metadata: { invited_email: email, scope, location_id: locationId, role },
+  });
+
   revalidatePath("/staff/staff-members");
   return { success: true, inviteLink };
 }
@@ -138,6 +149,17 @@ export async function resetStaffPassword(email: string): Promise<LinkResult> {
     options: { redirectTo: `${siteUrl}/auth/callback?next=/staff` },
   });
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "staff.password_reset",
+    entityType: "auth_user",
+    entityId: targetUser?.id ?? null,
+    metadata: { target_email: email },
+  });
+
   return { success: true, link: data.properties.action_link };
 }
 
@@ -152,6 +174,16 @@ export async function setStaffPassword(
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.updateUserById(userId, { password });
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "staff.password_set",
+    entityType: "auth_user",
+    entityId: userId,
+  });
+
   return { success: true };
 }
 
@@ -168,6 +200,16 @@ export async function resetStaffMfa(userId: string): Promise<StaffActionResult> 
   for (const factor of factors) {
     await admin.auth.admin.mfa.deleteFactor({ userId, id: factor.id });
   }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "staff.mfa_reset",
+    entityType: "auth_user",
+    entityId: userId,
+    metadata: { factor_count: factors.length },
+  });
 
   revalidatePath("/staff/staff-members");
   return { success: true };
@@ -189,6 +231,17 @@ export async function updateStaffPermissions(
     .eq("location_id", locationId);
 
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "staff.permissions_update",
+    entityType: "location_user",
+    entityId: userId,
+    metadata: { location_id: locationId, permissions: permissions as unknown as Record<string, unknown> },
+  });
+
   revalidatePath("/staff/staff-members");
   return { success: true };
 }
@@ -209,6 +262,17 @@ export async function updateStaffRole(
     .eq("location_id", locationId);
 
   if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "staff.role_change",
+    entityType: "location_user",
+    entityId: userId,
+    metadata: { location_id: locationId, new_role: role },
+  });
+
   revalidatePath("/staff/staff-members");
   return { success: true };
 }
@@ -239,6 +303,16 @@ export async function removeStaffMember(
       .neq("role", "owner");
     if (error) return { error: error.message };
   }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "staff.remove",
+    entityType: locationId ? "location_user" : "org_user",
+    entityId: userId,
+    metadata: { location_id: locationId },
+  });
 
   revalidatePath("/staff/staff-members");
   return { success: true };
