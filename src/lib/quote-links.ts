@@ -58,26 +58,37 @@ export async function verifyQuoteAccess(
   allowedStatuses: string[] = ["pending"],
 ): Promise<QuoteVerifyResult> {
   if (!rawToken || rawToken.length < 16) {
+    console.log("[verifyQuoteAccess] bad_token (length)", { slug, tokenLen: rawToken?.length ?? 0 });
     return { ok: false, reason: "bad_token" };
   }
 
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("job_quotes")
-    .select("id, job_id, location_id, status, expires_at, token_hash")
+    .select("id, job_id, location_id, status, expires_at, token_hash, slug")
     .eq("slug", slug)
     .maybeSingle();
 
-  if (!data) return { ok: false, reason: "not_found" };
-  const row = data as QuoteRecord & { token_hash: string };
+  if (error) {
+    console.error("[verifyQuoteAccess] db error", { slug, error: error.message, code: error.code });
+    return { ok: false, reason: "not_found" };
+  }
+  if (!data) {
+    console.warn("[verifyQuoteAccess] no row for slug", { slug });
+    return { ok: false, reason: "not_found" };
+  }
+  const row = data as QuoteRecord & { token_hash: string; slug: string };
 
   if (!constantTimeEqualHex(hashToken(rawToken), row.token_hash)) {
+    console.warn("[verifyQuoteAccess] token hash mismatch", { slug, expectedSlug: row.slug, status: row.status });
     return { ok: false, reason: "bad_token" };
   }
   if (new Date(row.expires_at) <= new Date()) {
+    console.warn("[verifyQuoteAccess] expired", { slug, expires_at: row.expires_at });
     return { ok: false, reason: "expired" };
   }
   if (!allowedStatuses.includes(row.status)) {
+    console.warn("[verifyQuoteAccess] wrong_status", { slug, status: row.status, allowed: allowedStatuses });
     return { ok: false, reason: "wrong_status" };
   }
 
