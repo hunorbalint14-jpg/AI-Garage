@@ -7,7 +7,7 @@ import { QuoteResponse } from "./quote-response";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Org = { id: string; name: string; logo_url: string | null; primary_color: string | null; quote_deposit_pct: number | null };
+type Org = { id: string; name: string; logo_url: string | null; primary_color: string | null; quote_deposit_pct?: number | null };
 type Customer = { full_name: string | null };
 type Vehicle = { registration: string | null; make: string | null; model: string | null; year: number | null };
 
@@ -69,13 +69,22 @@ export default async function QuotePage({
   const admin = createAdminClient();
 
   // Load full quote payload — RLS bypassed via admin client, already token-gated.
-  const { data } = await admin
-    .from("job_quotes")
-    .select(
-      "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, phone, organization:organizations(id, name, logo_url, primary_color, quote_deposit_pct))",
-    )
-    .eq("id", verify.quote.id)
-    .maybeSingle();
+  // quote_deposit_pct is a v2 column; load org with it first, fall back to
+  // the v1 column set so environments mid-migration still resolve.
+  const fullSelect =
+    "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, phone, organization:organizations(id, name, logo_url, primary_color, quote_deposit_pct))";
+  const v1Select =
+    "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, phone, organization:organizations(id, name, logo_url, primary_color))";
+
+  let data: unknown = null;
+  const first = await admin.from("job_quotes").select(fullSelect).eq("id", verify.quote.id).maybeSingle();
+  if (first.error) {
+    console.warn("[quote] full select failed, retrying without v2 cols", first.error.message);
+    const second = await admin.from("job_quotes").select(v1Select).eq("id", verify.quote.id).maybeSingle();
+    data = second.data;
+  } else {
+    data = first.data;
+  }
 
   const partial = data as Omit<FullQuote, "items"> | null;
   if (!partial) return renderGate("not_found");
