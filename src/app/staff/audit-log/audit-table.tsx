@@ -60,20 +60,74 @@ export function AuditTable({ rows, initialActor }: { rows: AuditRow[]; initialAc
 
   return (
     <div className="flex flex-col gap-3">
-      <form onSubmit={applyActorFilter} className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
+      <form onSubmit={applyActorFilter} className="w-full">
+        <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={actor}
             onChange={(e) => setActor(e.target.value)}
             placeholder="Filter by actor email…"
-            className="pl-8"
+            className="pl-8 w-full"
           />
         </div>
       </form>
 
-      <div className="rounded-lg border overflow-hidden">
-        <table className="w-full text-sm">
+      {/* Mobile / tablet: card list. Tap to expand. */}
+      <ul className="flex flex-col gap-2 md:hidden">
+        {rows.map((r) => {
+          const isExpanded = expanded.has(r.id);
+          const linkBuilder = r.entity_type ? ENTITY_LINK[r.entity_type] : null;
+          const entityHref = linkBuilder && r.entity_id ? linkBuilder(r.entity_id) : null;
+          return (
+            <li key={r.id} className="rounded-lg border bg-card">
+              <button
+                type="button"
+                onClick={() => toggle(r.id)}
+                className="w-full text-left p-3 flex items-start gap-2"
+              >
+                <span className="mt-0.5 text-muted-foreground shrink-0">
+                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-mono text-xs break-all">{r.action}</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground break-words">
+                    {r.actor_email ?? <span className="italic">system</span>}
+                    {" · "}
+                    {fmtTime(r.created_at)}
+                  </div>
+                  {r.entity_type && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      <span>{r.entity_type}</span>
+                      {entityHref && r.entity_id && (
+                        <a href={entityHref} className="ml-1 underline" onClick={(e) => e.stopPropagation()}>↗</a>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </button>
+              {isExpanded && (
+                <div className="border-t bg-muted/30 px-3 py-2 text-xs space-y-1">
+                  {r.entity_id && (
+                    <div><span className="text-muted-foreground">entity_id:</span> <span className="font-mono break-all">{r.entity_id}</span></div>
+                  )}
+                  {r.ip_address && (
+                    <div><span className="text-muted-foreground">ip:</span> <span className="font-mono">{r.ip_address}</span></div>
+                  )}
+                  {r.user_agent && (
+                    <div className="break-all"><span className="text-muted-foreground">user_agent:</span> {r.user_agent}</div>
+                  )}
+                  <div className="text-muted-foreground">metadata:</div>
+                  <pre className="text-xs bg-background border rounded p-2 overflow-x-auto">{JSON.stringify(r.metadata ?? {}, null, 2)}</pre>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Desktop: full table. */}
+      <div className="hidden md:block rounded-lg border overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
           <thead className="bg-muted/50 text-left">
             <tr>
               <th className="w-6 px-2 py-2"></th>

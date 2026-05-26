@@ -45,13 +45,13 @@ export default async function NewQuotePage() {
   const validityDays = Number((orgRes.data as { quote_validity_days?: number } | null)?.quote_validity_days ?? 30);
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl">
+    <div className="flex flex-col gap-4 sm:gap-6 max-w-3xl">
       <div>
         <Link href="/staff/quotes" className="text-sm text-muted-foreground underline">← Back to quotes</Link>
       </div>
       <div>
-        <h1 className="text-2xl font-bold">New quote</h1>
-        <p className="text-sm text-muted-foreground mt-1">Draft a quote for a prospect or existing customer. Default validity: {validityDays} days (configurable in settings).</p>
+        <h1 className="text-xl sm:text-2xl font-bold">New quote</h1>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Draft a quote for a prospect or existing customer. Default validity: {validityDays} days (configurable in settings).</p>
       </div>
 
       <QuoteBuilder

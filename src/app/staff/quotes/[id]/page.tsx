@@ -97,26 +97,26 @@ export default async function QuoteDetailPage({
   const partial = quote.status === "approved" && (quote.approved_item_ids?.length ?? 0) > 0 && quote.approved_item_ids.length < items.length;
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
+    <div className="flex flex-col gap-4 sm:gap-6 max-w-4xl">
       <div>
         <Link href="/staff/quotes" className="text-sm text-muted-foreground underline">← Back to quotes</Link>
       </div>
 
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{quote.title || "(no title)"}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold break-words">{quote.title || "(no title)"}</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Created {fmtDateTime(quote.created_at)}
           </p>
         </div>
-        <span className={`shrink-0 mt-1 inline-block rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wide ${STATUS_STYLE[quote.status] ?? ""}`}>
+        <span className={`shrink-0 mt-1 inline-block rounded-full px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-medium uppercase tracking-wide ${STATUS_STYLE[quote.status] ?? ""}`}>
           {quote.status.replace(/_/g, " ")}
         </span>
       </div>
 
       <section className="rounded-lg border p-4">
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">Customer & vehicle</h2>
-        <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-sm">
+        <dl className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-x-3 gap-y-2 sm:gap-y-1 text-sm">
           <dt className="text-muted-foreground">Customer</dt>
           <dd>
             {quote.customer ? (
@@ -164,7 +164,39 @@ export default async function QuoteDetailPage({
 
       <section className="rounded-lg border overflow-hidden">
         <div className="px-4 py-2 bg-muted/40 text-xs font-medium uppercase tracking-wide text-muted-foreground">Items</div>
-        <table className="w-full text-sm">
+
+        {/* Mobile / tablet — stacked items + totals below. */}
+        <div className="md:hidden">
+          <ul className="divide-y">
+            {items.map((it) => (
+              <li key={it.id} className="px-3 py-2 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm break-words">{it.description}</div>
+                  <div className="text-xs text-muted-foreground capitalize">
+                    {it.type} · {it.quantity} × {fmt(Number(it.unit_price))}
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-sm font-semibold tabular-nums">{fmt(Number(it.quantity) * Number(it.unit_price))}</div>
+                  {partial && (
+                    <div className="text-xs text-muted-foreground">{approvedSet.has(it.id) ? "Approved" : "—"}</div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+          <dl className="border-t bg-muted/30 grid grid-cols-2 gap-y-1 px-3 py-2 text-sm">
+            <dt className="text-muted-foreground">Subtotal</dt>
+            <dd className="text-right tabular-nums">{fmt(Number(quote.subtotal))}</dd>
+            <dt className="text-muted-foreground">VAT ({quote.vat_rate}%)</dt>
+            <dd className="text-right tabular-nums">{fmt(Number(quote.vat_amount))}</dd>
+            <dt className="font-semibold">Total</dt>
+            <dd className="text-right tabular-nums font-semibold">{fmt(Number(quote.total))}</dd>
+          </dl>
+        </div>
+
+        {/* Desktop — full table. */}
+        <table className="hidden md:table w-full text-sm">
           <thead className="text-left text-xs text-muted-foreground">
             <tr>
               <th className="px-4 py-2 font-medium">Description</th>
@@ -213,7 +245,7 @@ export default async function QuoteDetailPage({
 
       <section className="rounded-lg border p-4">
         <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">Timeline</h2>
-        <dl className="grid grid-cols-[160px_1fr] gap-y-1 text-sm">
+        <dl className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-x-3 gap-y-2 sm:gap-y-1 text-sm">
           <dt className="text-muted-foreground">Sent</dt>
           <dd>{fmtDateTime(quote.sent_at)}</dd>
           <dt className="text-muted-foreground">First viewed</dt>

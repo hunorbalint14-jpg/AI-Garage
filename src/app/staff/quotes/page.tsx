@@ -95,9 +95,9 @@ export default async function QuotesPage({
     <div className="flex flex-col gap-6">
       <PageHeader title="Quotes" description="Prospect + customer quotes sent for review." />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3">
         <QuoteFilters initialQ={query} initialStatus={statusFilter ?? ""} />
-        <Link href="/staff/quotes/new">
+        <Link href="/staff/quotes/new" className="self-end sm:self-auto">
           <Button>
             <Plus className="mr-1 h-4 w-4" /> New quote
           </Button>
@@ -128,8 +128,38 @@ export default async function QuotesPage({
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
-          <table className="w-full text-sm">
+        <>
+          {/* Mobile / tablet: card list — readable without h-scroll. */}
+          <ul className="flex flex-col gap-2 md:hidden">
+            {rows.map((r) => (
+              <li key={r.id} className="rounded-lg border bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <Link href={`/staff/quotes/${r.id}`} className="text-sm font-medium underline break-words">
+                      {r.title || "(no title)"}
+                    </Link>
+                    <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                      {r.customer?.full_name && <span>{r.customer.full_name}</span>}
+                      {r.vehicle?.registration && <span className="font-mono">{r.vehicle.registration}</span>}
+                    </div>
+                  </div>
+                  <span className={`shrink-0 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_STYLE[r.status] ?? ""}`}>
+                    {r.status.replace(/_/g, " ")}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground tabular-nums">{fmt(Number(r.total ?? 0))}</span>
+                  <span>Sent {fmtDate(r.sent_at)}</span>
+                  <span>Expires {fmtDate(r.expires_at)}</span>
+                  <span>{r.viewed_count ?? 0} view{r.viewed_count === 1 ? "" : "s"}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop: classic table. */}
+          <div className="hidden md:block rounded-lg border overflow-x-auto">
+            <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-muted/50 text-left">
               <tr>
                 <th className="px-4 py-2 font-medium">Title / Reg</th>
@@ -172,7 +202,8 @@ export default async function QuotesPage({
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
