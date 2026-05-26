@@ -187,13 +187,29 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const { data: booking } = await admin
+  const { data: booking, error: bookingFetchErr } = await admin
     .from("bookings")
-    .select("id, location_id, customer_id, vehicle_id, service_id, from_quote_id, type, notes, status")
+    .select("id, location_id, customer_id, vehicle_id, service_id, type, notes, status")
     .eq("id", bookingId)
     .maybeSingle();
 
+  if (bookingFetchErr) return { error: `Booking lookup failed: ${bookingFetchErr.message}` };
   if (!booking || booking.location_id !== ctx.location.id) return { error: "Booking not found." };
+
+  // from_quote_id is a v2 column. Load it separately so that environments
+  // that haven't run the v2 migration yet don't fail the whole select. Falls
+  // back to null on any error (missing column, RLS, etc.).
+  let fromQuoteId: string | null = null;
+  try {
+    const { data: extra } = await admin
+      .from("bookings")
+      .select("from_quote_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    fromQuoteId = (extra as { from_quote_id: string | null } | null)?.from_quote_id ?? null;
+  } catch {
+    fromQuoteId = null;
+  }
   if (booking.status === "complete" || booking.status === "cancelled") {
     return { error: `Booking is ${booking.status}.` };
   }
@@ -238,11 +254,11 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
 
   // If the booking was rebooked from a declined quote, also seed the new
   // job with the snapshot items so the mechanic doesn't retype them.
-  if (booking.from_quote_id) {
+  if (fromQuoteId) {
     const { data: quoteItems } = await admin
       .from("job_quote_items")
       .select("description, type, quantity, unit_price")
-      .eq("quote_id", booking.from_quote_id)
+      .eq("quote_id", fromQuoteId)
       .order("sort_order");
     if (quoteItems && quoteItems.length > 0) {
       type QuoteItemRow = { description: string; type: string; quantity: number; unit_price: number };

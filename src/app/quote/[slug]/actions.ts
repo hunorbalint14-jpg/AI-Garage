@@ -209,11 +209,19 @@ export async function approveQuote(
   const approvedTotal = Math.round((approvedSubtotal + approvedVat) * 100) / 100;
 
   // Look up the org-level deposit policy + Stripe Connect details.
-  const { data: locRow } = await admin
-    .from("locations")
-    .select("id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct)")
-    .eq("id", verify.quote.location_id)
-    .maybeSingle();
+  // quote_deposit_pct is a v2 column; retry without it if the migration
+  // hasn't run, so existing approve flow stays alive.
+  const fullLocSelect = "id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct)";
+  const v1LocSelect = "id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled)";
+
+  let locRowData: unknown = null;
+  const locFirst = await admin.from("locations").select(fullLocSelect).eq("id", verify.quote.location_id).maybeSingle();
+  if (locFirst.error) {
+    const locSecond = await admin.from("locations").select(v1LocSelect).eq("id", verify.quote.location_id).maybeSingle();
+    locRowData = locSecond.data;
+  } else {
+    locRowData = locFirst.data;
+  }
   type LocRow = {
     id: string;
     slug: string;
@@ -222,10 +230,10 @@ export async function approveQuote(
       name: string;
       stripe_account_id: string | null;
       stripe_charges_enabled: boolean | null;
-      quote_deposit_pct: number | null;
+      quote_deposit_pct?: number | null;
     } | null;
   };
-  const loc = locRow as LocRow | null;
+  const loc = locRowData as LocRow | null;
   const org = loc?.organization ?? null;
 
   const depositPct = Number(org?.quote_deposit_pct ?? 0);
@@ -236,8 +244,9 @@ export async function approveQuote(
     : 0;
 
   // Atomic status transition — only the row still `pending` flips, so two
-  // concurrent approvals can't both apply items.
-  const claimUpdate: Record<string, unknown> = {
+  // concurrent approvals can't both apply items. Try with v2 columns first;
+  // fall back to the v1 minimal update if the v2 migration hasn't run.
+  const claimUpdateFull: Record<string, unknown> = {
     status: "approved",
     responded_at: new Date().toISOString(),
     approved_item_ids: validSelectedIds.length > 0 ? validSelectedIds : items.map((it) => it.id),
@@ -245,15 +254,37 @@ export async function approveQuote(
     deposit_pct: depositRequired ? depositPct : null,
     deposit_amount: depositRequired ? depositAmount : null,
   };
+  const claimUpdateMinimal: Record<string, unknown> = {
+    status: "approved",
+    responded_at: new Date().toISOString(),
+  };
 
-  const { data: claimed, error: claimErr } = await admin
+  let claimed: { id: string; job_id: string; location_id: string; total: number; created_by: string | null } | null = null;
+  let claimErrMsg: string | null = null;
+
+  const claimFirst = await admin
     .from("job_quotes")
-    .update(claimUpdate)
+    .update(claimUpdateFull)
     .eq("id", verify.quote.id)
     .eq("status", "pending")
     .select("id, job_id, location_id, total, created_by")
     .maybeSingle();
-  if (claimErr) return { error: claimErr.message };
+  if (claimFirst.error) {
+    // Retry without v2 cols.
+    const claimSecond = await admin
+      .from("job_quotes")
+      .update(claimUpdateMinimal)
+      .eq("id", verify.quote.id)
+      .eq("status", "pending")
+      .select("id, job_id, location_id, total, created_by")
+      .maybeSingle();
+    if (claimSecond.error) claimErrMsg = claimSecond.error.message;
+    else claimed = claimSecond.data as typeof claimed;
+  } else {
+    claimed = claimFirst.data as typeof claimed;
+  }
+
+  if (claimErrMsg) return { error: claimErrMsg };
   if (!claimed) return { error: "This quote has already been responded to." };
 
   type Claimed = { id: string; job_id: string; location_id: string; total: number; created_by: string | null };

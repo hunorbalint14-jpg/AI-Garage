@@ -184,22 +184,43 @@ export async function submitWidgetBooking(
     }
   }
 
-  const { data: booking, error: bookingErr } = await admin
-    .from("bookings")
-    .insert({
-      location_id: location.id,
-      customer_id: customerId,
-      vehicle_id: vehicleId,
-      service_id: service.id,
-      scheduled_at: new Date(scheduledAt).toISOString(),
-      duration_minutes: 60,
-      type,
-      notes,
-      status: willPayNow ? "payment_pending" : "scheduled",
-      from_quote_id: fromQuoteId,
-    })
-    .select("id")
-    .single();
+  // Build insert payload — only include from_quote_id if the v2 column exists.
+  // Try with it first; if Postgres rejects (column doesn't exist), retry without.
+  const baseInsert: Record<string, unknown> = {
+    location_id: location.id,
+    customer_id: customerId,
+    vehicle_id: vehicleId,
+    service_id: service.id,
+    scheduled_at: new Date(scheduledAt).toISOString(),
+    duration_minutes: 60,
+    type,
+    notes,
+    status: willPayNow ? "payment_pending" : "scheduled",
+  };
+
+  let booking: { id: string } | null = null;
+  let bookingErr: { message: string } | null = null;
+
+  if (fromQuoteId) {
+    const res = await admin
+      .from("bookings")
+      .insert({ ...baseInsert, from_quote_id: fromQuoteId })
+      .select("id")
+      .single();
+    if (res.error?.message?.includes("from_quote_id")) {
+      // Column doesn't exist yet — retry without it.
+      const fallback = await admin.from("bookings").insert(baseInsert).select("id").single();
+      booking = fallback.data;
+      bookingErr = fallback.error;
+    } else {
+      booking = res.data;
+      bookingErr = res.error;
+    }
+  } else {
+    const res = await admin.from("bookings").insert(baseInsert).select("id").single();
+    booking = res.data;
+    bookingErr = res.error;
+  }
 
   if (bookingErr || !booking) return { error: bookingErr?.message ?? "Failed to create booking." };
 
