@@ -5,7 +5,7 @@
 import {
   LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt,
   TrendingUp, Building2, Wrench, Columns, UserCog, FlaskConical, Zap, Package,
-  Share2,
+  Share2, FileText, ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -54,6 +54,7 @@ export const NAV_MODULES: NavModule[] = [
     icon: TrendingUp,
     items: [
       { key: "revenue",  href: "/staff/revenue",  label: "Revenue",  icon: TrendingUp, ownerOnly: true },
+      { key: "quotes",   href: "/staff/quotes",   label: "Quotes",   icon: FileText },
       { key: "invoices", href: "/staff/invoices", label: "Invoices", icon: Receipt },
     ],
   },
@@ -73,6 +74,7 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { key: "team",     href: "/staff/staff-members", label: "Team",       icon: UserCog,      ownerOnly: true },
       { key: "settings", href: "/staff/settings",     label: "Settings",   icon: Settings },
+      { key: "audit",    href: "/staff/audit-log",    label: "Audit log",  icon: ShieldCheck,  ownerOnly: true },
       { key: "docs",     href: "/staff/docs",         label: "Doc shares", icon: Share2,       ownerOnly: true },
       { key: "dev",      href: "/staff/dev",          label: "Dev tools",  icon: FlaskConical, ownerOnly: true },
     ],

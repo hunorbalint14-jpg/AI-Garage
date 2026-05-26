@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// DVI quote links. Tokens are random 32-byte values shown only via the
-// generated link; the DB only stores their sha256 hash. Mirrors doc-shares.ts.
+// Quote token gating. Two source tables share the same /quote/[slug]?t=...
+// customer route — DVI mid-job (job_quotes, slug "q-...") and standalone
+// pre-job (standalone_quotes, slug "sq-..."). Tokens are random 32-byte
+// values shown only via the generated link; DB only stores the sha256 hash.
 
 export type QuoteVerifyReason =
   | "not_found"
@@ -10,10 +12,14 @@ export type QuoteVerifyReason =
   | "expired"
   | "wrong_status";
 
+export type QuoteSource = "job" | "standalone";
+
 export type QuoteRecord = {
   id: string;
-  job_id: string;
+  source: QuoteSource;
+  job_id: string | null;        // null for standalone quotes
   location_id: string;
+  customer_id: string | null;   // null for DVI (look up via job)
   status: string;
   expires_at: string;
 };
@@ -45,13 +51,23 @@ export function generateQuoteSlug(): string {
   return `q-${crypto.randomBytes(5).toString("hex")}`;
 }
 
+export function generateStandaloneQuoteSlug(): string {
+  return `sq-${crypto.randomBytes(5).toString("hex")}`;
+}
+
 export function hashQuoteToken(token: string): string {
   return hashToken(token);
 }
 
-// Lookup by slug + verify the raw token against the stored hash.
-// `allowedStatuses` defaults to ["pending"] for the customer landing page;
-// outcome pages pass the appropriate value so refresh-after-approve works.
+function detectSource(slug: string): QuoteSource | null {
+  if (slug.startsWith("sq-")) return "standalone";
+  if (slug.startsWith("q-")) return "job";
+  return null;
+}
+
+// Lookup by slug + verify the raw token against the stored hash. Routes by
+// slug prefix to the right source table; defaults allowedStatuses to ["pending"]
+// for the customer landing page. Outcome pages pass appropriate statuses.
 export async function verifyQuoteAccess(
   slug: string,
   rawToken: string | null,
@@ -62,7 +78,67 @@ export async function verifyQuoteAccess(
     return { ok: false, reason: "bad_token" };
   }
 
+  const source = detectSource(slug);
+  if (!source) {
+    console.warn("[verifyQuoteAccess] unknown slug prefix", { slug });
+    return { ok: false, reason: "not_found" };
+  }
+
   const admin = createAdminClient();
+
+  if (source === "standalone") {
+    const { data, error } = await admin
+      .from("standalone_quotes")
+      .select("id, location_id, customer_id, status, expires_at, token_hash, slug")
+      .eq("slug", slug)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[verifyQuoteAccess] standalone db error", { slug, error: error.message, code: error.code });
+      return { ok: false, reason: "not_found" };
+    }
+    if (!data) {
+      console.warn("[verifyQuoteAccess] no standalone row for slug", { slug });
+      return { ok: false, reason: "not_found" };
+    }
+    const row = data as {
+      id: string;
+      location_id: string;
+      customer_id: string;
+      status: string;
+      expires_at: string | null;
+      token_hash: string | null;
+      slug: string;
+    };
+
+    if (!row.token_hash || !constantTimeEqualHex(hashToken(rawToken), row.token_hash)) {
+      console.warn("[verifyQuoteAccess] standalone token hash mismatch", { slug, status: row.status });
+      return { ok: false, reason: "bad_token" };
+    }
+    if (!row.expires_at || new Date(row.expires_at) <= new Date()) {
+      console.warn("[verifyQuoteAccess] standalone expired", { slug, expires_at: row.expires_at });
+      return { ok: false, reason: "expired" };
+    }
+    if (!allowedStatuses.includes(row.status)) {
+      console.warn("[verifyQuoteAccess] standalone wrong_status", { slug, status: row.status, allowed: allowedStatuses });
+      return { ok: false, reason: "wrong_status" };
+    }
+
+    return {
+      ok: true,
+      quote: {
+        id: row.id,
+        source: "standalone",
+        job_id: null,
+        location_id: row.location_id,
+        customer_id: row.customer_id,
+        status: row.status,
+        expires_at: row.expires_at,
+      },
+    };
+  }
+
+  // source === "job"
   const { data, error } = await admin
     .from("job_quotes")
     .select("id, job_id, location_id, status, expires_at, token_hash, slug")
@@ -70,31 +146,48 @@ export async function verifyQuoteAccess(
     .maybeSingle();
 
   if (error) {
-    console.error("[verifyQuoteAccess] db error", { slug, error: error.message, code: error.code });
+    console.error("[verifyQuoteAccess] job db error", { slug, error: error.message, code: error.code });
     return { ok: false, reason: "not_found" };
   }
   if (!data) {
-    console.warn("[verifyQuoteAccess] no row for slug", { slug });
+    console.warn("[verifyQuoteAccess] no job_quotes row for slug", { slug });
     return { ok: false, reason: "not_found" };
   }
-  const row = data as QuoteRecord & { token_hash: string; slug: string };
+  const row = data as {
+    id: string;
+    job_id: string;
+    location_id: string;
+    status: string;
+    expires_at: string;
+    token_hash: string;
+    slug: string;
+  };
 
   if (!constantTimeEqualHex(hashToken(rawToken), row.token_hash)) {
-    console.warn("[verifyQuoteAccess] token hash mismatch", { slug, expectedSlug: row.slug, status: row.status });
+    console.warn("[verifyQuoteAccess] job token hash mismatch", { slug, status: row.status });
     return { ok: false, reason: "bad_token" };
   }
   if (new Date(row.expires_at) <= new Date()) {
-    console.warn("[verifyQuoteAccess] expired", { slug, expires_at: row.expires_at });
+    console.warn("[verifyQuoteAccess] job expired", { slug, expires_at: row.expires_at });
     return { ok: false, reason: "expired" };
   }
   if (!allowedStatuses.includes(row.status)) {
-    console.warn("[verifyQuoteAccess] wrong_status", { slug, status: row.status, allowed: allowedStatuses });
+    console.warn("[verifyQuoteAccess] job wrong_status", { slug, status: row.status, allowed: allowedStatuses });
     return { ok: false, reason: "wrong_status" };
   }
 
-  const { token_hash: _omit, ...safe } = row;
-  void _omit;
-  return { ok: true, quote: safe as QuoteRecord };
+  return {
+    ok: true,
+    quote: {
+      id: row.id,
+      source: "job",
+      job_id: row.job_id,
+      location_id: row.location_id,
+      customer_id: null,
+      status: row.status,
+      expires_at: row.expires_at,
+    },
+  };
 }
 
 // Build a tenant-aware quote URL: https://{slug}.{rootHost}/quote/{quoteSlug}?t={token}

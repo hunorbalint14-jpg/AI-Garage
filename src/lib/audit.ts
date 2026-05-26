@@ -72,7 +72,16 @@ export type AuditAction =
   | "quote.decline"
   | "quote.rebook"
   | "quote.expire"
-  | "quote.deposit_paid";
+  | "quote.deposit_paid"
+  // Standalone (pre-job) quotes
+  | "standalone_quote.create"
+  | "standalone_quote.send"
+  | "standalone_quote.cancel"
+  | "standalone_quote.view"
+  | "standalone_quote.approve"
+  | "standalone_quote.decline"
+  | "standalone_quote.expire"
+  | "standalone_quote.deposit_paid";
 
 type LogArgs = {
   organizationId?: string | null;

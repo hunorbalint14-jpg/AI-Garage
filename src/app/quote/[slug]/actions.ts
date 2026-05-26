@@ -3,7 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
-import { verifyQuoteAccess, tenantQuoteUrl } from "@/lib/quote-links";
+import { verifyQuoteAccess, tenantQuoteUrl, type QuoteRecord } from "@/lib/quote-links";
 import { stripe, platformFeePence, tenantOrigin, publicOrigin } from "@/lib/stripe";
 import { createStaffNotification } from "@/lib/staff-notifications";
 
@@ -183,6 +183,11 @@ export async function approveQuote(
     if (verify.reason === "wrong_status") return { error: "This quote has already been responded to." };
     if (verify.reason === "expired") return { error: "This quote has expired." };
     return { error: "Invalid link." };
+  }
+
+  // Standalone (pre-job) quotes — separate flow because there's no job yet.
+  if (verify.quote.source === "standalone") {
+    return approveStandaloneQuote(verify.quote, slug, token, selectedItemIds);
   }
 
   const admin = createAdminClient();
@@ -443,6 +448,10 @@ export async function declineQuote(
     return { error: "Invalid link." };
   }
 
+  if (verify.quote.source === "standalone") {
+    return declineStandaloneQuote(verify.quote, reason);
+  }
+
   const admin = createAdminClient();
   const cleanReason = reason?.trim().slice(0, 1000) || null;
 
@@ -513,6 +522,10 @@ export async function declineAndRebook(slug: string, token: string): Promise<Reb
     if (verify.reason === "expired") return { error: "This quote has expired." };
     return { error: "Invalid link." };
   }
+  // Standalone quotes are themselves booking precursors — no rebook flow.
+  if (verify.quote.source === "standalone") {
+    return { error: "Rebooking is not applicable for this quote." };
+  }
 
   const admin = createAdminClient();
 
@@ -556,4 +569,364 @@ export async function declineAndRebook(slug: string, token: string): Promise<Reb
   // booking — fire-and-forget here would be premature.
 
   return { success: true, rebookUrl };
+}
+
+// ---------------------------------------------------------------------------
+// Standalone quote handlers — separate because there's no parent job.
+// ---------------------------------------------------------------------------
+
+async function approveStandaloneQuote(
+  verifyQuote: QuoteRecord,
+  slug: string,
+  token: string,
+  selectedItemIds: string[],
+): Promise<ApproveResult> {
+  const admin = createAdminClient();
+
+  const { data: allItems } = await admin
+    .from("standalone_quote_items")
+    .select("id, quantity, unit_price")
+    .eq("quote_id", verifyQuote.id);
+  type ItemRow = { id: string; quantity: number; unit_price: number };
+  const items = (allItems ?? []) as ItemRow[];
+
+  const validSelectedIds = selectedItemIds.filter((id) => items.some((it) => it.id === id));
+  const effectiveSelected = validSelectedIds.length > 0
+    ? items.filter((it) => validSelectedIds.includes(it.id))
+    : items;
+  if (effectiveSelected.length === 0) return { error: "Select at least one item to approve." };
+
+  const subtotal = effectiveSelected.reduce((sum, it) => sum + it.quantity * it.unit_price, 0);
+  const VAT = 20;
+  const approvedSubtotal = Math.round(subtotal * 100) / 100;
+  const approvedVat = Math.round(approvedSubtotal * VAT) / 100;
+  const approvedTotal = Math.round((approvedSubtotal + approvedVat) * 100) / 100;
+
+  // Org-level deposit policy + Stripe Connect.
+  const { data: locRow } = await admin
+    .from("locations")
+    .select("id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct)")
+    .eq("id", verifyQuote.location_id)
+    .maybeSingle();
+  type LocRow = {
+    id: string;
+    slug: string;
+    organization: {
+      id: string;
+      name: string;
+      stripe_account_id: string | null;
+      stripe_charges_enabled: boolean | null;
+      quote_deposit_pct: number | null;
+    } | null;
+  };
+  const loc = locRow as LocRow | null;
+  const org = loc?.organization ?? null;
+  const depositPct = Number(org?.quote_deposit_pct ?? 0);
+  const depositRequired = depositPct > 0 && !!org?.stripe_account_id && !!org.stripe_charges_enabled;
+  const depositAmount = depositRequired ? Math.round(approvedTotal * depositPct) / 100 : 0;
+
+  // Atomic claim: pending → approved.
+  const { data: claimed, error: claimErr } = await admin
+    .from("standalone_quotes")
+    .update({
+      status: "approved",
+      responded_at: new Date().toISOString(),
+      approved_item_ids: validSelectedIds.length > 0 ? validSelectedIds : items.map((it) => it.id),
+      deposit_required: depositRequired,
+      deposit_pct: depositRequired ? depositPct : null,
+      deposit_amount: depositRequired ? depositAmount : null,
+    })
+    .eq("id", verifyQuote.id)
+    .eq("status", "pending")
+    .select("id, location_id, organization_id, total, created_by, customer:customers(full_name), vehicle:vehicles(registration)")
+    .maybeSingle();
+  if (claimErr) return { error: claimErr.message };
+  if (!claimed) return { error: "This quote has already been responded to." };
+
+  type ClaimedRow = {
+    id: string;
+    location_id: string;
+    organization_id: string;
+    total: number;
+    created_by: string | null;
+    customer: { full_name: string | null } | null;
+    vehicle: { registration: string | null } | null;
+  };
+  const q = claimed as unknown as ClaimedRow;
+
+  // Deposit path — create Stripe Checkout. Items remain in the snapshot;
+  // staff is notified after deposit_paid_at lands via webhook.
+  if (depositRequired && depositAmount > 0 && org && loc) {
+    const customerName = q.customer?.full_name ?? "Customer";
+    const reg = q.vehicle?.registration ?? "vehicle";
+    const amountPence = Math.round(depositAmount * 100);
+
+    try {
+      const session = await stripe.checkout.sessions.create(
+        {
+          mode: "payment",
+          line_items: [
+            {
+              quantity: 1,
+              price_data: {
+                currency: "gbp",
+                unit_amount: amountPence,
+                product_data: {
+                  name: `${depositPct}% deposit · ${org.name}`,
+                  description: `Quote acceptance for ${reg} (${customerName})`,
+                },
+              },
+            },
+          ],
+          payment_intent_data: {
+            application_fee_amount: platformFeePence(amountPence),
+            metadata: { standalone_quote_id: q.id },
+          },
+          metadata: { standalone_quote_id: q.id },
+          success_url: `${publicOrigin()}/quote/${slug}/deposit-success?t=${token}`,
+          cancel_url: tenantQuoteUrl(loc.slug, slug, token),
+        },
+        { stripeAccount: org.stripe_account_id! },
+      );
+
+      await admin
+        .from("standalone_quotes")
+        .update({ stripe_checkout_session_id: session.id })
+        .eq("id", q.id);
+
+      await logAudit({
+        organizationId: org.id,
+        action: "standalone_quote.approve",
+        entityType: "standalone_quote",
+        entityId: q.id,
+        metadata: { total: approvedTotal, deposit_pending: true, deposit_pct: depositPct, partial: validSelectedIds.length > 0 },
+      });
+
+      if (!session.url) return { error: "Stripe did not return a checkout URL." };
+      void tenantOrigin;
+      return { success: true, depositUrl: session.url };
+    } catch (err) {
+      console.error("[standalone-quote] checkout create failed", err);
+      await admin
+        .from("standalone_quotes")
+        .update({ status: "pending", responded_at: null, deposit_required: false, deposit_pct: null, deposit_amount: null })
+        .eq("id", q.id);
+      return { error: "Couldn't start the deposit payment. Please try again or contact the garage." };
+    }
+  }
+
+  // No deposit — done. Staff will create a booking + job manually.
+  await logAudit({
+    organizationId: q.organization_id,
+    action: "standalone_quote.approve",
+    entityType: "standalone_quote",
+    entityId: q.id,
+    metadata: { total: approvedTotal, partial: validSelectedIds.length > 0 },
+  });
+
+  void notifyStaffOfStandaloneDecision({
+    quoteId: q.id,
+    locationId: q.location_id,
+    organizationId: q.organization_id,
+    decision: "approved",
+    declineReason: null,
+    total: approvedTotal,
+    vehicleReg: q.vehicle?.registration ?? null,
+    customerName: q.customer?.full_name ?? null,
+    createdBy: q.created_by,
+  });
+
+  return { success: true };
+}
+
+async function declineStandaloneQuote(
+  verifyQuote: QuoteRecord,
+  reason: string | null,
+): Promise<DeclineResult> {
+  const admin = createAdminClient();
+  const cleanReason = reason?.trim().slice(0, 1000) || null;
+
+  const { data: claimed, error: claimErr } = await admin
+    .from("standalone_quotes")
+    .update({
+      status: "declined",
+      responded_at: new Date().toISOString(),
+      decline_reason: cleanReason,
+    })
+    .eq("id", verifyQuote.id)
+    .eq("status", "pending")
+    .select("id, location_id, organization_id, total, created_by, customer:customers(full_name), vehicle:vehicles(registration)")
+    .maybeSingle();
+  if (claimErr) return { error: claimErr.message };
+  if (!claimed) return { error: "This quote has already been responded to." };
+
+  type ClaimedRow = {
+    id: string;
+    location_id: string;
+    organization_id: string;
+    total: number;
+    created_by: string | null;
+    customer: { full_name: string | null } | null;
+    vehicle: { registration: string | null } | null;
+  };
+  const q = claimed as unknown as ClaimedRow;
+
+  await logAudit({
+    organizationId: q.organization_id,
+    action: "standalone_quote.decline",
+    entityType: "standalone_quote",
+    entityId: q.id,
+    metadata: { total: q.total, reason: cleanReason },
+  });
+
+  void notifyStaffOfStandaloneDecision({
+    quoteId: q.id,
+    locationId: q.location_id,
+    organizationId: q.organization_id,
+    decision: "declined",
+    declineReason: cleanReason,
+    total: q.total,
+    vehicleReg: q.vehicle?.registration ?? null,
+    customerName: q.customer?.full_name ?? null,
+    createdBy: q.created_by,
+  });
+
+  return { success: true };
+}
+
+// Mirrors notifyStaffOfDecision but writes the standalone_quote.* notification
+// kinds + omits jobId from the URL (links the staff back to the quote detail).
+async function notifyStaffOfStandaloneDecision(args: {
+  quoteId: string;
+  locationId: string;
+  organizationId: string;
+  decision: "approved" | "declined" | "deposit_paid";
+  declineReason: string | null;
+  total: number;
+  vehicleReg: string | null;
+  customerName: string | null;
+  createdBy: string | null;
+}) {
+  const admin = createAdminClient();
+  const recipients = new Set<string>();
+
+  if (args.createdBy) {
+    const { data: actor } = await admin.auth.admin.getUserById(args.createdBy);
+    if (actor?.user?.email) recipients.add(actor.user.email);
+  }
+  const { data: locMembers } = await admin
+    .from("location_users")
+    .select("user_id")
+    .eq("location_id", args.locationId);
+  for (const m of locMembers ?? []) {
+    const { data: u } = await admin.auth.admin.getUserById((m as { user_id: string }).user_id);
+    if (u?.user?.email) recipients.add(u.user.email);
+  }
+
+  const totalFmt = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(args.total);
+  const who = args.customerName ?? "Customer";
+  const reg = args.vehicleReg ?? "the vehicle";
+
+  let subject: string;
+  let text: string;
+  let kind: "quote.approved" | "quote.declined" | "quote.deposit_paid";
+  let body: string;
+
+  switch (args.decision) {
+    case "approved":
+      subject = `✓ Quote approved by ${who} (${reg})`;
+      text = `${who} approved the quote for ${reg} (${totalFmt}). Contact the customer to schedule the work.`;
+      kind = "quote.approved";
+      body = `${reg} · ${totalFmt}`;
+      break;
+    case "declined":
+      subject = `✗ Quote declined by ${who} (${reg})`;
+      text = `${who} declined the quote for ${reg} (${totalFmt}).${args.declineReason ? `\n\nReason: ${args.declineReason}` : ""}`;
+      kind = "quote.declined";
+      body = `${reg} · ${totalFmt}${args.declineReason ? ` · "${args.declineReason}"` : ""}`;
+      break;
+    case "deposit_paid":
+      subject = `✓ Deposit paid by ${who} (${reg})`;
+      text = `${who} paid the deposit on the quote for ${reg} (${totalFmt}). Contact them to schedule.`;
+      kind = "quote.deposit_paid";
+      body = `${reg} · ${totalFmt} · deposit captured`;
+      break;
+  }
+
+  for (const email of recipients) {
+    await sendEmail({ to: email, subject, text });
+  }
+
+  void createStaffNotification({
+    userId: args.createdBy,
+    locationId: args.locationId,
+    organizationId: args.organizationId,
+    kind,
+    title: subject.replace(/^[^A-Za-z]+/, ""),
+    body,
+    href: `/staff/quotes/${args.quoteId}`,
+    entityType: "standalone_quote",
+    entityId: args.quoteId,
+  });
+}
+
+// Called from the Stripe webhook when a deposit Checkout session completes
+// against a standalone quote. Idempotent: deposit_paid_at gate prevents
+// double-application on webhook replays.
+export async function applyStandaloneQuoteDeposit(args: {
+  quoteId: string;
+  paymentIntentId: string | null;
+  checkoutSessionId: string;
+  amountPence: number;
+}): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from("standalone_quotes")
+    .select("id, location_id, organization_id, total, created_by, deposit_paid_at, customer:customers(full_name), vehicle:vehicles(registration)")
+    .eq("id", args.quoteId)
+    .maybeSingle();
+  type Row = {
+    id: string;
+    location_id: string;
+    organization_id: string;
+    total: number;
+    created_by: string | null;
+    deposit_paid_at: string | null;
+    customer: { full_name: string | null } | null;
+    vehicle: { registration: string | null } | null;
+  };
+  const q = data as Row | null;
+  if (!q) return;
+  if (q.deposit_paid_at) return;
+
+  await admin
+    .from("standalone_quotes")
+    .update({
+      deposit_paid_at: new Date().toISOString(),
+      stripe_payment_intent_id: args.paymentIntentId,
+      stripe_checkout_session_id: args.checkoutSessionId,
+    })
+    .eq("id", q.id)
+    .is("deposit_paid_at", null);
+
+  await logAudit({
+    organizationId: q.organization_id,
+    action: "standalone_quote.deposit_paid",
+    entityType: "standalone_quote",
+    entityId: q.id,
+    metadata: { total: q.total, deposit_pence: args.amountPence, payment_intent_id: args.paymentIntentId },
+  });
+
+  void notifyStaffOfStandaloneDecision({
+    quoteId: q.id,
+    locationId: q.location_id,
+    organizationId: q.organization_id,
+    decision: "deposit_paid",
+    declineReason: null,
+    total: args.amountPence / 100,
+    vehicleReg: q.vehicle?.registration ?? null,
+    customerName: q.customer?.full_name ?? null,
+    createdBy: q.created_by,
+  });
 }
