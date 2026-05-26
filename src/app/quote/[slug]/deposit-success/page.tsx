@@ -34,13 +34,13 @@ export default async function DepositSuccessPage({
   const admin = createAdminClient();
   const { data } = await admin
     .from("job_quotes")
-    .select("deposit_paid_at, deposit_amount, location:locations(name, phone, organization:organizations(name))")
+    .select("deposit_paid_at, deposit_amount, location:locations(name, organization:organizations(name, phone))")
     .eq("id", verify.quote.id)
     .maybeSingle();
   type Row = {
     deposit_paid_at: string | null;
     deposit_amount: number | null;
-    location: { name: string; phone: string | null; organization: { name: string } | null } | null;
+    location: { name: string; organization: { name: string; phone: string | null } | null } | null;
   };
   const row = data as Row | null;
   const garageName = row?.location?.organization?.name ?? row?.location?.name ?? "the garage";
@@ -56,8 +56,8 @@ export default async function DepositSuccessPage({
             ? `Your ${row.deposit_amount ? formatGBP(row.deposit_amount) + " " : ""}deposit has been received and ${garageName} is continuing the work.`
             : `Your payment is processing. ${garageName} will be notified once Stripe confirms — typically within a minute.`}
         </p>
-        {row?.location?.phone && (
-          <p className="text-xs text-slate-500">Any questions? <Link href={`tel:${row.location.phone}`} className="underline">{row.location.phone}</Link></p>
+        {row?.location?.organization?.phone && (
+          <p className="text-xs text-slate-500">Any questions? <Link href={`tel:${row.location.organization.phone}`} className="underline">{row.location.organization.phone}</Link></p>
         )}
       </div>
     </main>

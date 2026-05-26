@@ -7,7 +7,7 @@ import { QuoteResponse } from "./quote-response";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Org = { id: string; name: string; logo_url: string | null; primary_color: string | null; quote_deposit_pct?: number | null };
+type Org = { id: string; name: string; logo_url: string | null; primary_color: string | null; phone: string | null; quote_deposit_pct?: number | null };
 type Customer = { full_name: string | null };
 type Vehicle = { registration: string | null; make: string | null; model: string | null; year: number | null };
 
@@ -30,7 +30,6 @@ type FullQuote = {
   } | null;
   location: {
     name: string;
-    phone: string | null;
     organization: Org | null;
   } | null;
   items: {
@@ -81,9 +80,9 @@ export default async function QuotePage({
   // quote_deposit_pct is a v2 column; load org with it first, fall back to
   // the v1 column set so environments mid-migration still resolve.
   const fullSelect =
-    "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, phone, organization:organizations(id, name, logo_url, primary_color, quote_deposit_pct))";
+    "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone, quote_deposit_pct))";
   const v1Select =
-    "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, phone, organization:organizations(id, name, logo_url, primary_color))";
+    "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone))";
 
   let data: unknown = null;
   const first = await admin.from("job_quotes").select(fullSelect).eq("id", verify.quote.id).maybeSingle();
@@ -140,8 +139,8 @@ export default async function QuotePage({
           )}
           <div>
             <div className="text-sm font-semibold">{garageName}</div>
-            {quote.location?.phone && (
-              <a href={`tel:${quote.location.phone}`} className="text-xs text-slate-500">{quote.location.phone}</a>
+            {org?.phone && (
+              <a href={`tel:${org.phone}`} className="text-xs text-slate-500">{org.phone}</a>
             )}
           </div>
         </div>
