@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe";
 import { generateInvoiceForPaidBooking } from "@/lib/booking-invoice";
 import { pushPaymentToXero, pushPayoutToXero } from "@/lib/xero-sync";
 import { applyQuoteDeposit } from "@/lib/quote-deposit";
+import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
       const invoiceId = session.metadata?.invoice_id;
       const bookingId = session.metadata?.booking_id;
       const quoteId = session.metadata?.quote_id;
+      const standaloneQuoteId = session.metadata?.standalone_quote_id;
       const paid = session.payment_status === "paid";
       if (!paid) break;
       const paymentIntentId =
@@ -80,6 +82,15 @@ export async function POST(request: NextRequest) {
       if (quoteId) {
         await applyQuoteDeposit({
           quoteId,
+          paymentIntentId,
+          checkoutSessionId: session.id,
+          amountPence: session.amount_total ?? 0,
+        });
+      }
+
+      if (standaloneQuoteId) {
+        await applyStandaloneQuoteDeposit({
+          quoteId: standaloneQuoteId,
           paymentIntentId,
           checkoutSessionId: session.id,
           amountPence: session.amount_total ?? 0,

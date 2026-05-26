@@ -18,6 +18,13 @@ export function videoPath(locationId: string, jobId: string, quoteId: string, ex
   return `${locationId}/${jobId}/${quoteId}.${cleanExt}`;
 }
 
+// Standalone quotes are not tied to a job — use a "standalone" sentinel
+// in the parent folder slot so the bucket stays organised per-location.
+export function standaloneVideoPath(locationId: string, quoteId: string, ext: string): string {
+  const cleanExt = ext.replace(/[^a-z0-9]/gi, "").toLowerCase().slice(0, 5) || "mp4";
+  return `${locationId}/standalone/${quoteId}.${cleanExt}`;
+}
+
 // Mint a signed PUT URL for direct client → Supabase Storage upload, bypassing
 // the Next.js server-action body limit. The client PUTs the raw file bytes.
 export async function createUploadUrl(path: string): Promise<{ url: string; token: string } | { error: string }> {

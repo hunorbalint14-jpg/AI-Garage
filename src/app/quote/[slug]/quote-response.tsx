@@ -26,12 +26,14 @@ export function QuoteResponse({
   primaryColor,
   items,
   depositPct,
+  showRebookCta = true,
 }: {
   slug: string;
   token: string;
   primaryColor: string;
   items: QuoteItem[];
   depositPct: number;
+  showRebookCta?: boolean;
 }) {
   const [stage, setStage] = useState<Stage>("idle");
   const [reason, setReason] = useState("");
@@ -251,14 +253,16 @@ export function QuoteResponse({
               : "✓ Approve & continue work"}
       </button>
 
-      <button
-        type="button"
-        onClick={handleRebook}
-        disabled={pending}
-        className="w-full rounded-md border bg-white px-4 py-3 text-sm font-medium text-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
-      >
-        <Calendar className="h-4 w-4" /> Skip for now — book a separate appointment
-      </button>
+      {showRebookCta && (
+        <button
+          type="button"
+          onClick={handleRebook}
+          disabled={pending}
+          className="w-full rounded-md border bg-white px-4 py-3 text-sm font-medium text-slate-700 disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          <Calendar className="h-4 w-4" /> Skip for now — book a separate appointment
+        </button>
+      )}
 
       <button
         type="button"

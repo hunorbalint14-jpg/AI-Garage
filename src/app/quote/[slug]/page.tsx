@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { verifyQuoteAccess, type QuoteVerifyReason } from "@/lib/quote-links";
+import { verifyQuoteAccess, type QuoteVerifyReason, type QuoteSource } from "@/lib/quote-links";
 import { createSignedReadUrl } from "@/lib/quote-storage";
 import { logAudit } from "@/lib/audit";
 import { QuoteResponse } from "./quote-response";
@@ -11,27 +11,25 @@ type Org = { id: string; name: string; logo_url: string | null; primary_color: s
 type Customer = { full_name: string | null };
 type Vehicle = { registration: string | null; make: string | null; model: string | null; year: number | null };
 
-type FullQuote = {
+// Normalised shape — both job_quotes and standalone_quotes are reduced to this
+// before the render so the JSX doesn't have to branch on source.
+type NormalisedQuote = {
   id: string;
-  job_id: string;
-  location_id: string;
+  source: QuoteSource;
   status: string;
   title: string | null;
   description: string | null;
-  video_path: string;
+  customer_message: string | null;
+  video_path: string | null;
   subtotal: number;
   vat_rate: number;
   vat_amount: number;
   total: number;
   expires_at: string;
-  job: {
-    customer: Customer | null;
-    vehicle: Vehicle | null;
-  } | null;
-  location: {
-    name: string;
-    organization: Org | null;
-  } | null;
+  customer: Customer | null;
+  vehicle: Vehicle | null;
+  org: Org | null;
+  location_name: string | null;
   items: {
     id: string;
     description: string;
@@ -75,56 +73,49 @@ export default async function QuotePage({
   }
 
   const admin = createAdminClient();
+  const quote = verify.quote.source === "standalone"
+    ? await loadStandalone(admin, verify.quote.id)
+    : await loadJobQuote(admin, verify.quote.id);
 
-  // Load full quote payload — RLS bypassed via admin client, already token-gated.
-  // quote_deposit_pct is a v2 column; load org with it first, fall back to
-  // the v1 column set so environments mid-migration still resolve.
-  const fullSelect =
-    "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone, quote_deposit_pct))";
-  const v1Select =
-    "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone))";
+  if (!quote) return renderGate("not_found");
 
-  let data: unknown = null;
-  const first = await admin.from("job_quotes").select(fullSelect).eq("id", verify.quote.id).maybeSingle();
-  if (first.error) {
-    console.warn("[quote] full select failed, retrying without v2 cols", first.error.message);
-    const second = await admin.from("job_quotes").select(v1Select).eq("id", verify.quote.id).maybeSingle();
-    data = second.data;
+  // Fire-and-forget view counter + audit log.
+  if (verify.quote.source === "standalone") {
+    void admin.rpc("standalone_quotes_increment_view", { p_id: quote.id });
+    void logAudit({
+      organizationId: quote.org?.id ?? null,
+      action: "standalone_quote.view",
+      entityType: "standalone_quote",
+      entityId: quote.id,
+      metadata: {},
+    });
   } else {
-    data = first.data;
+    void admin.rpc("job_quotes_increment_view", { p_id: quote.id });
+    void logAudit({
+      organizationId: quote.org?.id ?? null,
+      action: "quote.view",
+      entityType: "job_quote",
+      entityId: quote.id,
+      metadata: {},
+    });
   }
 
-  const partial = data as Omit<FullQuote, "items"> | null;
-  if (!partial) return renderGate("not_found");
+  const videoUrl = quote.video_path ? await createSignedReadUrl(quote.video_path, 1800) : null;
 
-  const { data: itemRows } = await admin
-    .from("job_quote_items")
-    .select("id, description, type, quantity, unit_price")
-    .eq("quote_id", verify.quote.id)
-    .order("sort_order");
-
-  const quote: FullQuote = { ...partial, items: itemRows ?? [] };
-
-  // Atomic view counter + first-view stamp. Fire-and-forget.
-  void admin.rpc("job_quotes_increment_view", { p_id: quote.id });
-  void logAudit({
-    organizationId: quote.location?.organization?.id ?? null,
-    action: "quote.view",
-    entityType: "job_quote",
-    entityId: quote.id,
-    metadata: { job_id: quote.job_id },
-  });
-
-  const videoUrl = await createSignedReadUrl(quote.video_path, 1800);
-
-  const org = quote.location?.organization;
-  const garageName = org?.name ?? quote.location?.name ?? "Your garage";
-  const customerName = quote.job?.customer?.full_name?.split(" ")[0] ?? "there";
-  const vehicle = quote.job?.vehicle;
+  const org = quote.org;
+  const garageName = org?.name ?? quote.location_name ?? "Your garage";
+  const customerName = quote.customer?.full_name?.split(" ")[0] ?? "there";
+  const vehicle = quote.vehicle;
   const vehicleDesc = vehicle
     ? [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || vehicle.registration || "your vehicle"
-    : "your vehicle";
+    : null;
   const primary = org?.primary_color || "#22c55e";
+
+  const isStandalone = quote.source === "standalone";
+  const eyebrow = isStandalone ? "Quote" : "Additional work found";
+  const lede = isStandalone
+    ? `Hi ${customerName} — here's the quote ${vehicleDesc ? `for ${vehicleDesc}` : ""} from ${garageName}. Review the items, then approve or decline below.`
+    : `Hi ${customerName} — while working on ${vehicleDesc ?? "your vehicle"} we found extra work that needs your approval before we continue.`;
 
   return (
     <main
@@ -148,11 +139,9 @@ export default async function QuotePage({
 
       <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
         <section>
-          <div className="text-xs font-mono uppercase tracking-wide text-slate-500 mb-1">Additional work found</div>
-          <h1 className="text-2xl font-bold">{quote.title ?? "Quote for extra work"}</h1>
-          <p className="text-sm text-slate-600 mt-1">
-            Hi {customerName} — while working on <span className="font-mono">{vehicleDesc}</span> we found extra work that needs your approval before we continue.
-          </p>
+          <div className="text-xs font-mono uppercase tracking-wide text-slate-500 mb-1">{eyebrow}</div>
+          <h1 className="text-2xl font-bold">{quote.title ?? (isStandalone ? "Quote" : "Quote for extra work")}</h1>
+          <p className="text-sm text-slate-600 mt-1">{lede}</p>
         </section>
 
         {videoUrl ? (
@@ -163,16 +152,18 @@ export default async function QuotePage({
             src={videoUrl}
             className="w-full rounded-lg border bg-black"
           />
-        ) : (
+        ) : isStandalone ? null : (
           <div className="rounded-lg border bg-slate-100 p-8 text-center text-sm text-slate-500">
             Video unavailable. Contact the garage if you need to see what was found.
           </div>
         )}
 
-        {quote.description && (
+        {(isStandalone ? quote.customer_message : quote.description) && (
           <section className="rounded-lg border bg-white p-4">
-            <div className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">What we found</div>
-            <p className="text-sm whitespace-pre-wrap">{quote.description}</p>
+            <div className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-1">
+              {isStandalone ? "Note from the garage" : "What we found"}
+            </div>
+            <p className="text-sm whitespace-pre-wrap">{isStandalone ? quote.customer_message : quote.description}</p>
           </section>
         )}
 
@@ -225,6 +216,7 @@ export default async function QuotePage({
           primaryColor={primary}
           items={quote.items}
           depositPct={Number(org?.quote_deposit_pct ?? 0)}
+          showRebookCta={!isStandalone}
         />
 
         <p className="text-center text-xs text-slate-500">
@@ -233,6 +225,126 @@ export default async function QuotePage({
       </div>
     </main>
   );
+}
+
+async function loadJobQuote(admin: ReturnType<typeof createAdminClient>, id: string): Promise<NormalisedQuote | null> {
+  // Try the v2 select first (includes quote_deposit_pct), fall back to v1.
+  const fullSelect =
+    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone, quote_deposit_pct))";
+  const v1Select =
+    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone))";
+
+  let raw: unknown = null;
+  const first = await admin.from("job_quotes").select(fullSelect).eq("id", id).maybeSingle();
+  if (first.error) {
+    console.warn("[quote] job full select failed, retrying", first.error.message);
+    const second = await admin.from("job_quotes").select(v1Select).eq("id", id).maybeSingle();
+    raw = second.data;
+  } else {
+    raw = first.data;
+  }
+  type RawRow = {
+    id: string;
+    location_id: string;
+    status: string;
+    title: string | null;
+    description: string | null;
+    video_path: string;
+    subtotal: number;
+    vat_rate: number;
+    vat_amount: number;
+    total: number;
+    expires_at: string;
+    job: { customer: Customer | null; vehicle: Vehicle | null } | null;
+    location: { name: string; organization: Org | null } | null;
+  };
+  const r = raw as RawRow | null;
+  if (!r) return null;
+
+  const { data: itemRows } = await admin
+    .from("job_quote_items")
+    .select("id, description, type, quantity, unit_price")
+    .eq("quote_id", id)
+    .order("sort_order");
+
+  return {
+    id: r.id,
+    source: "job",
+    status: r.status,
+    title: r.title,
+    description: r.description,
+    customer_message: null,
+    video_path: r.video_path,
+    subtotal: r.subtotal,
+    vat_rate: r.vat_rate,
+    vat_amount: r.vat_amount,
+    total: r.total,
+    expires_at: r.expires_at,
+    customer: r.job?.customer ?? null,
+    vehicle: r.job?.vehicle ?? null,
+    org: r.location?.organization ?? null,
+    location_name: r.location?.name ?? null,
+    items: (itemRows ?? []) as NormalisedQuote["items"],
+  };
+}
+
+async function loadStandalone(admin: ReturnType<typeof createAdminClient>, id: string): Promise<NormalisedQuote | null> {
+  const { data, error } = await admin
+    .from("standalone_quotes")
+    .select(
+      "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, customer:customers(full_name), vehicle:vehicles(registration, make, model, year), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone, quote_deposit_pct))",
+    )
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    console.error("[quote] standalone select failed", error.message);
+    return null;
+  }
+  type RawRow = {
+    id: string;
+    location_id: string;
+    status: string;
+    title: string | null;
+    description: string | null;
+    customer_message: string | null;
+    video_path: string | null;
+    subtotal: number;
+    vat_rate: number;
+    vat_amount: number;
+    total: number;
+    expires_at: string;
+    customer: Customer | null;
+    vehicle: Vehicle | null;
+    location: { name: string; organization: Org | null } | null;
+  };
+  const r = data as RawRow | null;
+  if (!r) return null;
+
+  const { data: itemRows } = await admin
+    .from("standalone_quote_items")
+    .select("id, description, type, quantity, unit_price")
+    .eq("quote_id", id)
+    .order("sort_order");
+
+  return {
+    id: r.id,
+    source: "standalone",
+    status: r.status,
+    title: r.title,
+    description: r.description,
+    customer_message: r.customer_message,
+    video_path: r.video_path,
+    subtotal: r.subtotal,
+    vat_rate: r.vat_rate,
+    vat_amount: r.vat_amount,
+    total: r.total,
+    expires_at: r.expires_at,
+    customer: r.customer,
+    vehicle: r.vehicle,
+    org: r.location?.organization ?? null,
+    location_name: r.location?.name ?? null,
+    items: (itemRows ?? []) as NormalisedQuote["items"],
+  };
 }
 
 function renderGate(reason: QuoteVerifyReason) {
