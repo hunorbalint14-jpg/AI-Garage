@@ -73,13 +73,13 @@ export default async function AuditLogPage({
         description="Append-only trail of staff actions. Visible only to org owners and admins. Tenant-scoped via RLS."
       />
 
-      <div className="rounded-lg border p-4 flex flex-col gap-3">
+      <div className="rounded-lg border p-3 sm:p-4 flex flex-col gap-3">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filter by category</h2>
-        <div className="flex flex-wrap gap-1">
+        <div className="-mx-1 flex gap-1 overflow-x-auto px-1 sm:flex-wrap sm:overflow-visible">
           <Link
             href={`/staff/audit-log${actorFilter ? `?actor=${encodeURIComponent(actorFilter)}` : ""}`}
             className={
-              "rounded-full px-3 py-1 text-xs font-medium " +
+              "shrink-0 rounded-full px-3 py-1 text-xs font-medium " +
               (!groupFilter && !actionFilter ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/70")
             }
           >
@@ -95,7 +95,7 @@ export default async function AuditLogPage({
                 key={g.label}
                 href={`/staff/audit-log?${params.toString()}`}
                 className={
-                  "rounded-full px-3 py-1 text-xs font-medium " +
+                  "shrink-0 rounded-full px-3 py-1 text-xs font-medium " +
                   (active ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/70")
                 }
               >

@@ -36,19 +36,19 @@ export function QuoteFilters({ initialQ, initialStatus }: { initialQ: string; in
   }
 
   return (
-    <div className="flex flex-wrap gap-3 items-center">
-      <form onSubmit={applyQuery} className="flex items-center gap-2">
-        <div className="relative">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 w-full sm:w-auto">
+      <form onSubmit={applyQuery} className="w-full sm:w-auto">
+        <div className="relative w-full sm:w-72">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Title, customer, registration…"
-            className="pl-8 w-72"
+            className="pl-8 w-full"
           />
         </div>
       </form>
-      <div className="flex flex-wrap gap-1">
+      <div className="-mx-1 flex gap-1 overflow-x-auto px-1 sm:flex-wrap sm:overflow-visible">
         {STATUSES.map((s) => {
           const active = (initialStatus || "") === s.value;
           return (
@@ -57,7 +57,7 @@ export function QuoteFilters({ initialQ, initialStatus }: { initialQ: string; in
               type="button"
               onClick={() => applyStatus(s.value)}
               className={
-                "rounded-full px-3 py-1 text-xs font-medium " +
+                "shrink-0 rounded-full px-3 py-1 text-xs font-medium " +
                 (active ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:bg-muted/70")
               }
             >
