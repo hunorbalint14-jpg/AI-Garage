@@ -64,7 +64,16 @@ export default async function QuotePage({
   const { t: token } = await searchParams;
 
   const verify = await verifyQuoteAccess(slug, token ?? null, ["pending"]);
-  if (!verify.ok) return renderGate(verify.reason);
+  if (!verify.ok) {
+    console.log("[quote-page] verify failed", {
+      slug,
+      reason: verify.reason,
+      tokenPresent: !!token,
+      tokenLen: token?.length ?? 0,
+      tokenHead: token?.slice(0, 6) ?? null,
+    });
+    return renderGate(verify.reason);
+  }
 
   const admin = createAdminClient();
 
