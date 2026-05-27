@@ -154,16 +154,13 @@ export async function sendReminderDraft(
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [vehicleRes, orgRes] = await Promise.all([
-    admin
-      .from("vehicles")
-      .select(
-        "id, registration, make, model, year, mot_expiry, service_due, customer:customers(id, full_name, email, phone)",
-      )
-      .eq("id", vehicleId)
-      .maybeSingle(),
-    admin.from("organizations").select("name").eq("id", ctx.organization.id).maybeSingle(),
-  ]);
+  const { data: vehicleData } = await admin
+    .from("vehicles")
+    .select(
+      "id, registration, make, model, year, mot_expiry, service_due, customer:customers(id, full_name, email, phone)",
+    )
+    .eq("id", vehicleId)
+    .maybeSingle();
 
   type VehicleRow = {
     id: string;
@@ -173,8 +170,7 @@ export async function sendReminderDraft(
     customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
   };
 
-  const vehicle = vehicleRes.data as VehicleRow | null;
-  const org = orgRes.data;
+  const vehicle = vehicleData as VehicleRow | null;
   if (!vehicle || !vehicle.customer) return { error: "Vehicle or customer not found." };
 
   const customer = vehicle.customer;
@@ -188,7 +184,6 @@ export async function sendReminderDraft(
       })
     : "soon";
   const subject = `${label.toUpperCase()} reminder — ${vehicle.registration} due ${formattedDate}`;
-  const garageName = org?.name ?? ctx.organization.name;
   const sentChannels: string[] = [];
 
   const bookingUrl = tenantBookingUrl(ctx.location.slug);
