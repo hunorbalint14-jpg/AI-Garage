@@ -2,7 +2,17 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { StaffManager } from "./staff-manager";
-import { type Permissions, DEFAULT_PERMS } from "./constants";
+import { type Permissions, normalisePermissions } from "./constants";
+
+export type RoleTemplateOption = {
+  id: string;
+  organizationId: string | null;
+  key: string;
+  label: string;
+  description: string | null;
+  permissions: Permissions;
+  isSystem: boolean;
+};
 
 export type StaffEntry = {
   userId: string;
@@ -17,6 +27,9 @@ export type StaffEntry = {
     locationName: string;
     role: string;
     permissions: Permissions;
+    templateId: string | null;
+    motTester: boolean;
+    motQcReviewer: boolean;
   }[];
 };
 
@@ -40,7 +53,7 @@ export default async function StaffMembersPage() {
 
   const admin = createAdminClient();
 
-  const [orgUsersRes, locationsRes] = await Promise.all([
+  const [orgUsersRes, locationsRes, templatesRes] = await Promise.all([
     admin
       .from("org_users")
       .select("user_id, role")
@@ -50,15 +63,40 @@ export default async function StaffMembersPage() {
       .select("id, name, slug")
       .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: true }),
+    admin
+      .from("role_templates")
+      .select("id, organization_id, key, label, description, permissions, is_system")
+      .or(`organization_id.is.null,organization_id.eq.${ctx.organization.id}`)
+      .order("is_system", { ascending: false })
+      .order("sort_order"),
   ]);
 
   const locations = (locationsRes.data ?? []) as LocationOption[];
   const locationIds = locations.map((l) => l.id);
 
+  type TemplateRow = {
+    id: string;
+    organization_id: string | null;
+    key: string;
+    label: string;
+    description: string | null;
+    permissions: Partial<Permissions> | null;
+    is_system: boolean;
+  };
+  const templates: RoleTemplateOption[] = ((templatesRes.data ?? []) as TemplateRow[]).map((t) => ({
+    id: t.id,
+    organizationId: t.organization_id,
+    key: t.key,
+    label: t.label,
+    description: t.description,
+    permissions: normalisePermissions(t.permissions),
+    isSystem: t.is_system,
+  }));
+
   const locationUsersRes = locationIds.length
     ? await admin
         .from("location_users")
-        .select("user_id, location_id, role, permissions")
+        .select("user_id, location_id, role, permissions, template_id, mot_tester, mot_qc_reviewer")
         .in("location_id", locationIds)
     : { data: [] };
 
@@ -66,7 +104,10 @@ export default async function StaffMembersPage() {
     user_id: string;
     location_id: string;
     role: string;
-    permissions: Permissions | null;
+    permissions: Partial<Permissions> | null;
+    template_id: string | null;
+    mot_tester: boolean | null;
+    mot_qc_reviewer: boolean | null;
   }[];
 
   const orgUsers = (orgUsersRes.data ?? []) as { user_id: string; role: string }[];
@@ -97,7 +138,10 @@ export default async function StaffMembersPage() {
         locationId: u.location_id,
         locationName: locations.find((l) => l.id === u.location_id)?.name ?? "Unknown",
         role: u.role,
-        permissions: u.permissions ?? DEFAULT_PERMS,
+        permissions: normalisePermissions(u.permissions),
+        templateId: u.template_id,
+        motTester: u.mot_tester === true,
+        motQcReviewer: u.mot_qc_reviewer === true,
       }));
 
     entriesMap.set(userId, {
@@ -130,6 +174,7 @@ export default async function StaffMembersPage() {
       <StaffManager
         entries={entries}
         locations={locations}
+        templates={templates}
         currentUserId={ctx.user.id}
         isOwner={ctx.orgRole === "owner"}
       />

@@ -5,36 +5,38 @@ import {
   inviteStaffMember,
   updateStaffPermissions,
   updateStaffRole,
+  updateStaffMotFlags,
   removeStaffMember,
   resetStaffPassword,
   resetStaffMfa,
   setStaffPassword,
 } from "./actions";
-import { type Permissions, DEFAULT_PERMISSIONS } from "./constants";
-import type { StaffEntry, LocationOption } from "./page";
+import {
+  PERMISSION_GROUPS,
+  PERMISSION_LABELS,
+  HARD_OWNER_ADMIN_PERMS,
+  type Permissions,
+  normalisePermissions,
+} from "./constants";
+import type { StaffEntry, LocationOption, RoleTemplateOption } from "./page";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const PERM_LABELS: { key: keyof Permissions; label: string; desc: string }[] = [
-  { key: "bookings", label: "Bookings", desc: "Create, edit, cancel bookings" },
-  { key: "customers", label: "Customers", desc: "Add and manage customer records" },
-  { key: "reminders", label: "Reminders", desc: "Send messages and reminders" },
-  { key: "revenue", label: "Revenue", desc: "View invoices and financial data" },
-  { key: "campaigns", label: "Campaigns", desc: "Send bulk marketing messages" },
-  { key: "services", label: "Services", desc: "Configure service catalogue" },
-  { key: "bays", label: "Bays", desc: "Set up and manage workshop bays" },
-  { key: "staff", label: "Manage staff", desc: "Invite and remove team members" },
-  { key: "automations", label: "Automations", desc: "Configure automated workflows" },
-  { key: "fleet", label: "Fleet", desc: "Manage fleet accounts and vehicles" },
-  { key: "invoices", label: "Invoices", desc: "Create and manage invoices" },
-  { key: "products", label: "Products", desc: "Manage parts catalogue and stock" },
+const ROLE_OPTIONS = [
+  { value: "manager", label: "Manager" },
+  { value: "service_advisor", label: "Service Advisor" },
+  { value: "mechanic", label: "Mechanic" },
+  { value: "apprentice", label: "Apprentice" },
+  { value: "receptionist", label: "Receptionist" },
+  { value: "parts", label: "Parts / Stores" },
+  { value: "bookkeeper", label: "Bookkeeper" },
+  { value: "staff", label: "Staff (legacy)" },
 ];
 
 function PermDot({ active }: { active: boolean }) {
   return (
     <span
-      title={active ? "Enabled" : "Disabled"}
       className={`inline-block h-2 w-2 rounded-full ${active ? "bg-green-500" : "bg-muted"}`}
     />
   );
@@ -45,13 +47,18 @@ function RoleBadge({ role }: { role: string }) {
     owner: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
     admin: "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300",
     manager: "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300",
+    service_advisor: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300",
+    mechanic: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+    apprentice: "bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300",
+    receptionist: "bg-pink-100 text-pink-800 dark:bg-pink-950/40 dark:text-pink-300",
+    parts: "bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300",
+    bookkeeper: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300",
     staff: "bg-muted text-muted-foreground",
   };
+  const label = ROLE_OPTIONS.find((r) => r.value === role)?.label ?? role;
   return (
-    <span
-      className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${styles[role] ?? styles.staff}`}
-    >
-      {role}
+    <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${styles[role] ?? styles.staff}`}>
+      {label}
     </span>
   );
 }
@@ -66,24 +73,39 @@ function PermissionsGrid({
   disabled: boolean;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
-      {PERM_LABELS.map(({ key, label, desc }) => (
-        <label
-          key={key}
-          className="flex items-start gap-2.5 rounded-md border p-2.5 cursor-pointer hover:bg-muted/40 transition-colors"
-        >
-          <input
-            type="checkbox"
-            checked={perms[key]}
-            onChange={(e) => onChange({ ...perms, [key]: e.target.checked })}
-            disabled={disabled}
-            className="mt-0.5 shrink-0"
-          />
-          <div>
-            <p className="text-sm font-medium leading-none">{label}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+    <div className="flex flex-col gap-3">
+      {PERMISSION_GROUPS.map((g) => (
+        <div key={g.label} className="rounded-md border p-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.label}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {g.keys.map((k) => {
+              const meta = PERMISSION_LABELS[k];
+              const locked = HARD_OWNER_ADMIN_PERMS.includes(k);
+              return (
+                <label
+                  key={k}
+                  className={`flex items-start gap-2 rounded-md border p-2 ${locked ? "opacity-60" : "cursor-pointer hover:bg-muted/40"} transition-colors`}
+                  title={locked ? "Owner/admin only — cannot be granted via template" : meta.desc}
+                >
+                  <input
+                    type="checkbox"
+                    checked={perms[k]}
+                    onChange={(e) => onChange({ ...perms, [k]: e.target.checked })}
+                    disabled={disabled || locked}
+                    className="mt-0.5 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium leading-tight">
+                      {meta.label}
+                      {locked && <span className="ml-1 text-[10px] text-muted-foreground">(owner only)</span>}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{meta.desc}</p>
+                  </div>
+                </label>
+              );
+            })}
           </div>
-        </label>
+        </div>
       ))}
     </div>
   );
@@ -94,18 +116,34 @@ type InviteFormState = {
   fullName: string;
   scope: "org" | "location";
   locationId: string;
+  templateId: string;
   role: string;
   permissions: Permissions;
+  motTester: boolean;
+  motQcReviewer: boolean;
 };
+
+function findTemplate(templates: RoleTemplateOption[], id: string | null): RoleTemplateOption | null {
+  if (!id) return null;
+  return templates.find((t) => t.id === id) ?? null;
+}
+
+function templateForRole(templates: RoleTemplateOption[], role: string): RoleTemplateOption | null {
+  // Prefer system template with matching key; fall back to first custom with key.
+  return templates.find((t) => t.key === role && t.isSystem)
+    ?? templates.find((t) => t.key === role)
+    ?? null;
+}
 
 export function StaffManager({
   entries,
   locations,
-  currentUserId,
+  templates,
   isOwner,
 }: {
   entries: StaffEntry[];
   locations: LocationOption[];
+  templates: RoleTemplateOption[];
   currentUserId: string;
   isOwner: boolean;
 }) {
@@ -120,14 +158,22 @@ export function StaffManager({
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editPerms, setEditPerms] = useState<Permissions | null>(null);
   const [editRole, setEditRole] = useState<string>("");
+  const [editMotTester, setEditMotTester] = useState(false);
+  const [editMotQc, setEditMotQc] = useState(false);
+
+  const defaultTemplate =
+    templateForRole(templates, "mechanic") ?? templates.find((t) => t.isSystem) ?? null;
 
   const [invite, setInvite] = useState<InviteFormState>({
     email: "",
     fullName: "",
     scope: "location",
     locationId: locations[0]?.id ?? "",
-    role: "staff",
-    permissions: DEFAULT_PERMISSIONS.staff,
+    templateId: defaultTemplate?.id ?? "",
+    role: defaultTemplate?.key ?? "mechanic",
+    permissions: defaultTemplate?.permissions ?? normalisePermissions(null),
+    motTester: false,
+    motQcReviewer: false,
   });
 
   function flash(msg: string) {
@@ -155,9 +201,18 @@ export function StaffManager({
     document.body.removeChild(el);
   }
 
-  function handleRoleChange(role: string) {
-    const perms = DEFAULT_PERMISSIONS[role] ?? DEFAULT_PERMISSIONS.staff;
-    setInvite((prev) => ({ ...prev, role, permissions: perms }));
+  function applyInviteTemplate(templateId: string) {
+    const t = findTemplate(templates, templateId);
+    if (!t) {
+      setInvite((p) => ({ ...p, templateId }));
+      return;
+    }
+    setInvite((p) => ({
+      ...p,
+      templateId,
+      role: t.key in Object.fromEntries(ROLE_OPTIONS.map((r) => [r.value, true])) ? t.key : p.role,
+      permissions: t.permissions,
+    }));
   }
 
   function handleInviteSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -169,6 +224,9 @@ export function StaffManager({
     formData.set("scope", invite.scope);
     formData.set("locationId", invite.locationId);
     formData.set("role", invite.role);
+    formData.set("templateId", invite.templateId);
+    if (invite.motTester) formData.set("mot_tester", "on");
+    if (invite.motQcReviewer) formData.set("mot_qc_reviewer", "on");
     for (const [k, v] of Object.entries(invite.permissions)) {
       if (v) formData.set(`perm_${k}`, "on");
     }
@@ -184,8 +242,11 @@ export function StaffManager({
           fullName: "",
           scope: "location",
           locationId: locations[0]?.id ?? "",
-          role: "staff",
-          permissions: DEFAULT_PERMISSIONS.staff,
+          templateId: defaultTemplate?.id ?? "",
+          role: defaultTemplate?.key ?? "mechanic",
+          permissions: defaultTemplate?.permissions ?? normalisePermissions(null),
+          motTester: false,
+          motQcReviewer: false,
         });
       }
     });
@@ -226,10 +287,19 @@ export function StaffManager({
     });
   }
 
-  function startEdit(userId: string, locationId: string, currentPerms: Permissions, currentRole: string) {
+  function startEdit(
+    userId: string,
+    locationId: string,
+    currentPerms: Permissions,
+    currentRole: string,
+    motTester: boolean,
+    motQc: boolean,
+  ) {
     setEditingKey(`${userId}|${locationId}`);
     setEditPerms({ ...currentPerms });
     setEditRole(currentRole);
+    setEditMotTester(motTester);
+    setEditMotQc(motQc);
     setError(null);
   }
 
@@ -237,18 +307,34 @@ export function StaffManager({
     setEditingKey(null);
     setEditPerms(null);
     setEditRole("");
+    setEditMotTester(false);
+    setEditMotQc(false);
   }
 
-  function saveEdit(userId: string, locationId: string) {
+  function applyEditTemplate(t: RoleTemplateOption) {
+    setEditPerms(t.permissions);
+    if (ROLE_OPTIONS.some((r) => r.value === t.key)) setEditRole(t.key);
+  }
+
+  function saveEdit(userId: string, locationId: string, prevMotTester: boolean, prevMotQc: boolean) {
     if (!editPerms) return;
     setError(null);
     startTransition(async () => {
-      const [permResult, roleResult] = await Promise.all([
+      const tasks: Promise<{ error: string } | { success: true }>[] = [
         updateStaffPermissions(userId, locationId, editPerms),
         updateStaffRole(userId, locationId, editRole),
-      ]);
-      const err = ("error" in permResult ? permResult.error : null) ?? ("error" in roleResult ? roleResult.error : null);
-      if (err) { setError(err); return; }
+      ];
+      if (editMotTester !== prevMotTester || editMotQc !== prevMotQc) {
+        tasks.push(updateStaffMotFlags(userId, locationId, editMotTester, editMotQc));
+      }
+      const results = await Promise.all(tasks);
+      const err = results
+        .map((r) => ("error" in r ? r.error : null))
+        .find(Boolean);
+      if (err) {
+        setError(err);
+        return;
+      }
       flash("Staff updated.");
       cancelEdit();
     });
@@ -271,8 +357,8 @@ export function StaffManager({
     <div className="flex flex-col gap-4">
       {/* Staff list */}
       <div className="rounded-lg border overflow-hidden">
-        {/* Table header */}
-        <div className="bg-muted/50 grid grid-cols-[1fr_100px_160px_auto] gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+        {/* Desktop header */}
+        <div className="hidden md:grid bg-muted/50 grid-cols-[1fr_140px_180px_auto] gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
           <span>Staff member</span>
           <span>Role</span>
           <span>Permissions</span>
@@ -289,11 +375,10 @@ export function StaffManager({
           const displayName = entry.fullName ?? entry.email;
           const isOrg = !!entry.orgRole;
 
-          // Org-level row
           if (isOrg) {
             return (
               <div key={`org-${entry.userId}`} className="border-t">
-                <div className="grid grid-cols-[1fr_100px_160px_auto] gap-4 px-4 py-3 items-center">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_180px_auto] gap-2 md:gap-4 px-4 py-3 md:items-center">
                   <div>
                     <p className="text-sm font-medium">
                       {displayName}
@@ -304,7 +389,7 @@ export function StaffManager({
                     <p className="text-xs text-muted-foreground">{entry.email}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">All locations</p>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2">
                     <RoleBadge role={entry.orgRole!} />
                   </div>
                   <div className="flex flex-wrap gap-1.5 items-center">
@@ -315,7 +400,7 @@ export function StaffManager({
                       <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">No MFA</span>
                     )}
                   </div>
-                  <div className="flex gap-1.5 justify-end flex-wrap">
+                  <div className="flex gap-1.5 md:justify-end flex-wrap">
                     {!entry.isCurrentUser && (
                       <>
                         <Button variant="outline" size="xs" disabled={pending} onClick={() => { setSetPasswordFor({ userId: entry.userId, name: displayName }); setNewPassword(""); }}>
@@ -342,14 +427,15 @@ export function StaffManager({
             );
           }
 
-          // Location-level rows (one per location)
           return entry.locationEntries.map((loc) => {
             const key = `${entry.userId}|${loc.locationId}`;
             const isEditing = editingKey === key;
+            const tpl = findTemplate(templates, loc.templateId);
+            const enabledCount = Object.values(loc.permissions).filter(Boolean).length;
 
             return (
               <div key={key} className="border-t">
-                <div className="grid grid-cols-[1fr_100px_160px_auto] gap-4 px-4 py-3 items-center">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_180px_auto] gap-2 md:gap-4 px-4 py-3 md:items-center">
                   <div>
                     <p className="text-sm font-medium">
                       {displayName}
@@ -360,17 +446,26 @@ export function StaffManager({
                     <p className="text-xs text-muted-foreground">{entry.email}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">{loc.locationName}</p>
                   </div>
-                  <div>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <RoleBadge role={loc.role} />
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {PERM_LABELS.map(({ key: pk, label }) => (
-                      <span key={pk} className="flex items-center gap-1 text-xs text-muted-foreground" title={label}>
-                        <PermDot active={loc.permissions[pk]} />
+                    {tpl && !tpl.isSystem && (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Custom template">
+                        {tpl.label}
                       </span>
-                    ))}
+                    )}
                   </div>
-                  <div className="flex gap-1.5 justify-end flex-wrap">
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <PermDot active={enabledCount > 0} /> {enabledCount} perms
+                    </span>
+                    {loc.motTester && (
+                      <span className="rounded bg-blue-100 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">MOT tester</span>
+                    )}
+                    {loc.motQcReviewer && (
+                      <span className="rounded bg-blue-100 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">QC reviewer</span>
+                    )}
+                  </div>
+                  <div className="flex gap-1.5 md:justify-end flex-wrap">
                     {!entry.isCurrentUser && (
                       <>
                         <Button variant="outline" size="xs" disabled={pending} onClick={() => { setSetPasswordFor({ userId: entry.userId, name: displayName }); setNewPassword(""); }}>
@@ -391,7 +486,7 @@ export function StaffManager({
                           onClick={() =>
                             isEditing
                               ? cancelEdit()
-                              : startEdit(entry.userId, loc.locationId, loc.permissions, loc.role)
+                              : startEdit(entry.userId, loc.locationId, loc.permissions, loc.role, loc.motTester, loc.motQcReviewer)
                           }
                         >
                           {isEditing ? "Cancel" : "Edit"}
@@ -409,45 +504,100 @@ export function StaffManager({
                   </div>
                 </div>
 
-                {/* Inline edit panel */}
                 {isEditing && editPerms && (
                   <div className="px-4 pb-4 border-t bg-muted/20">
                     <div className="pt-4 flex flex-col gap-4">
-                      <div className="flex items-center gap-3">
-                        <Label htmlFor={`role-${key}`} className="text-sm shrink-0">Role</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
+                        <Label htmlFor={`role-${key}`} className="text-sm">Role</Label>
                         <select
                           id={`role-${key}`}
                           value={editRole}
                           onChange={(e) => setEditRole(e.target.value)}
                           disabled={pending}
-                          className={inputClass + " max-w-[160px]"}
+                          className={inputClass + " sm:max-w-[220px]"}
                         >
-                          <option value="staff">Staff</option>
-                          <option value="manager">Manager</option>
+                          {ROLE_OPTIONS.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
                         </select>
-                        <button
-                          type="button"
-                          className="text-xs text-muted-foreground underline"
-                          onClick={() =>
-                            setEditPerms(DEFAULT_PERMISSIONS[editRole] ?? DEFAULT_PERMISSIONS.staff)
-                          }
-                        >
-                          Reset to defaults
-                        </button>
+                        <Label className="text-sm">Apply template</Label>
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <select
+                            disabled={pending}
+                            defaultValue=""
+                            onChange={(e) => {
+                              const t = findTemplate(templates, e.target.value);
+                              if (t) applyEditTemplate(t);
+                              e.target.value = "";
+                            }}
+                            className={inputClass + " sm:max-w-[280px]"}
+                          >
+                            <option value="">Choose a template…</option>
+                            <optgroup label="System">
+                              {templates.filter((t) => t.isSystem).map((t) => (
+                                <option key={t.id} value={t.id}>{t.label}</option>
+                              ))}
+                            </optgroup>
+                            {templates.some((t) => !t.isSystem) && (
+                              <optgroup label="Custom">
+                                {templates.filter((t) => !t.isSystem).map((t) => (
+                                  <option key={t.id} value={t.id}>{t.label}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                          </select>
+                          <span className="text-xs text-muted-foreground">
+                            Replaces all permissions below
+                          </span>
+                        </div>
                       </div>
+
                       <div>
                         <p className="text-sm font-medium mb-2">Permissions</p>
-                        <PermissionsGrid
-                          perms={editPerms}
-                          onChange={setEditPerms}
-                          disabled={pending}
-                        />
+                        <PermissionsGrid perms={editPerms} onChange={setEditPerms} disabled={pending} />
                       </div>
+
+                      <div className="rounded-md border p-3">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">MOT (DVSA)</p>
+                        <div className="flex flex-col gap-2">
+                          <label className="flex items-start gap-2 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editMotTester}
+                              onChange={(e) => setEditMotTester(e.target.checked)}
+                              disabled={pending}
+                              className="mt-0.5"
+                            />
+                            <span>
+                              <span className="font-medium">MOT tester certified</span>
+                              <span className="block text-xs text-muted-foreground">
+                                Labels this member as a DVSA MOT tester. DVSA MTS enforces tester separation externally.
+                              </span>
+                            </span>
+                          </label>
+                          <label className="flex items-start gap-2 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={editMotQc}
+                              onChange={(e) => setEditMotQc(e.target.checked)}
+                              disabled={pending}
+                              className="mt-0.5"
+                            />
+                            <span>
+                              <span className="font-medium">QC reviewer</span>
+                              <span className="block text-xs text-muted-foreground">
+                                Performs the DVSA 2-monthly quality-control check on another tester&apos;s work.
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+
                       <div className="flex gap-2">
                         <Button
                           size="sm"
                           disabled={pending}
-                          onClick={() => saveEdit(entry.userId, loc.locationId)}
+                          onClick={() => saveEdit(entry.userId, loc.locationId, loc.motTester, loc.motQcReviewer)}
                         >
                           {pending ? "Saving…" : "Save changes"}
                         </Button>
@@ -464,11 +614,9 @@ export function StaffManager({
         })}
       </div>
 
-      {/* Status messages */}
       {error && <p className="text-sm text-red-600">{error}</p>}
       {success && <p className="text-sm text-green-700">{success}</p>}
 
-      {/* Set password inline form */}
       {setPasswordFor && (
         <form onSubmit={handleSetPassword} className="rounded-lg border p-4 flex flex-col gap-3">
           <div className="flex items-center justify-between">
@@ -497,7 +645,6 @@ export function StaffManager({
         </form>
       )}
 
-      {/* Invite link (shown after successful invite — fallback if email doesn't arrive) */}
       {inviteLink && (
         <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 flex flex-col gap-2">
           <div className="flex items-start justify-between gap-4">
@@ -521,7 +668,6 @@ export function StaffManager({
         </div>
       )}
 
-      {/* Password reset link */}
       {resetLink && (
         <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4 flex flex-col gap-2">
           <div className="flex items-start justify-between gap-4">
@@ -545,7 +691,6 @@ export function StaffManager({
         </div>
       )}
 
-      {/* Invite panel */}
       {!showInvite ? (
         <div>
           <Button onClick={() => setShowInvite(true)}>+ Invite team member</Button>
@@ -565,7 +710,6 @@ export function StaffManager({
             </button>
           </div>
 
-          {/* Basic info */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="inv-email">Email address</Label>
@@ -592,7 +736,6 @@ export function StaffManager({
             </div>
           </div>
 
-          {/* Access scope */}
           <div className="flex flex-col gap-2">
             <Label>Access level</Label>
             <div className="flex flex-col gap-2">
@@ -608,7 +751,7 @@ export function StaffManager({
                   <div>
                     <p className="text-sm font-medium">All locations (Admin)</p>
                     <p className="text-xs text-muted-foreground">
-                      Full access to every location in the organisation
+                      Full access to every location in the organisation.
                     </p>
                   </div>
                 </label>
@@ -621,7 +764,7 @@ export function StaffManager({
                     setInvite((p) => ({
                       ...p,
                       scope: "location",
-                      role: p.role === "admin" ? "staff" : p.role,
+                      role: p.role === "admin" ? defaultTemplate?.key ?? "mechanic" : p.role,
                     }))
                   }
                   disabled={pending}
@@ -630,14 +773,14 @@ export function StaffManager({
                 <div className="flex-1">
                   <p className="text-sm font-medium">Specific location</p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Access to one location with customisable permissions
+                    Pick a template, then tweak the permissions if needed.
                   </p>
                   {invite.scope === "location" && (
                     <select
                       value={invite.locationId}
                       onChange={(e) => setInvite((p) => ({ ...p, locationId: e.target.value }))}
                       disabled={pending}
-                      className={inputClass + " max-w-xs"}
+                      className={inputClass + " sm:max-w-xs"}
                     >
                       {locations.map((l) => (
                         <option key={l.id} value={l.id}>{l.name}</option>
@@ -649,62 +792,104 @@ export function StaffManager({
             </div>
           </div>
 
-          {/* Role (location scope only) */}
           {invite.scope === "location" && (
-            <div className="flex flex-col gap-2">
-              <Label>Role</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: "manager", label: "Manager", desc: "Leads the location, access to most features" },
-                  { value: "staff", label: "Staff", desc: "Day-to-day work: bookings, customers, reminders" },
-                ].map((r) => (
-                  <label
-                    key={r.value}
-                    className={`flex items-start gap-2.5 rounded-md border p-3 cursor-pointer transition-colors ${
-                      invite.role === r.value ? "border-primary bg-muted/30" : "hover:bg-muted/20"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      checked={invite.role === r.value}
-                      onChange={() => handleRoleChange(r.value)}
-                      disabled={pending}
-                      className="mt-0.5"
-                    />
-                    <div>
-                      <p className="text-sm font-medium">{r.label}</p>
-                      <p className="text-xs text-muted-foreground">{r.desc}</p>
-                    </div>
-                  </label>
-                ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label>Role</Label>
+                <select
+                  value={invite.role}
+                  onChange={(e) => {
+                    const r = e.target.value;
+                    const t = templateForRole(templates, r);
+                    setInvite((p) => ({
+                      ...p,
+                      role: r,
+                      templateId: t?.id ?? "",
+                      permissions: t?.permissions ?? p.permissions,
+                    }));
+                  }}
+                  disabled={pending}
+                  className={inputClass}
+                >
+                  {ROLE_OPTIONS.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label>Template</Label>
+                <select
+                  value={invite.templateId}
+                  onChange={(e) => applyInviteTemplate(e.target.value)}
+                  disabled={pending}
+                  className={inputClass}
+                >
+                  <option value="">(custom — keep current ticks)</option>
+                  <optgroup label="System">
+                    {templates.filter((t) => t.isSystem).map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </optgroup>
+                  {templates.some((t) => !t.isSystem) && (
+                    <optgroup label="Custom">
+                      {templates.filter((t) => !t.isSystem).map((t) => (
+                        <option key={t.id} value={t.id}>{t.label}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
               </div>
             </div>
           )}
 
-          {/* Permissions (location scope only) */}
           {invite.scope === "location" && (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
+            <>
+              <div className="flex flex-col gap-2">
                 <Label>Permissions</Label>
-                <button
-                  type="button"
-                  className="text-xs text-muted-foreground underline"
-                  onClick={() =>
-                    setInvite((p) => ({
-                      ...p,
-                      permissions: DEFAULT_PERMISSIONS[p.role] ?? DEFAULT_PERMISSIONS.staff,
-                    }))
-                  }
-                >
-                  Reset to role defaults
-                </button>
+                <PermissionsGrid
+                  perms={invite.permissions}
+                  onChange={(p) => setInvite((prev) => ({ ...prev, permissions: p, templateId: "" }))}
+                  disabled={pending}
+                />
               </div>
-              <PermissionsGrid
-                perms={invite.permissions}
-                onChange={(p) => setInvite((prev) => ({ ...prev, permissions: p }))}
-                disabled={pending}
-              />
-            </div>
+
+              <div className="rounded-md border p-3">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">MOT (DVSA)</p>
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-start gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={invite.motTester}
+                      onChange={(e) => setInvite((p) => ({ ...p, motTester: e.target.checked }))}
+                      disabled={pending}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium">MOT tester certified</span>
+                      <span className="block text-xs text-muted-foreground">
+                        DVSA MTS enforces tester separation; this just labels them in AI Garage.
+                      </span>
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={invite.motQcReviewer}
+                      onChange={(e) => setInvite((p) => ({ ...p, motQcReviewer: e.target.checked }))}
+                      disabled={pending}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium">QC reviewer</span>
+                      <span className="block text-xs text-muted-foreground">
+                        Performs DVSA 2-monthly quality-control checks.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </>
           )}
 
           {error && <p className="text-sm text-red-600">{error}</p>}

@@ -59,6 +59,12 @@ export type AuditAction =
   | "staff.permissions_update"
   | "staff.role_change"
   | "staff.remove"
+  | "staff.template_assign"
+  | "staff.mot_flag_change"
+  // Role templates
+  | "role_template.create"
+  | "role_template.update"
+  | "role_template.delete"
   // Communications (spam / abuse trail)
   | "reminder.send"
   | "campaign.send"

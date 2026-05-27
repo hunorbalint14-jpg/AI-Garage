@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSlug } from "@/lib/slug";
 import { logAudit } from "@/lib/audit";
@@ -13,8 +14,8 @@ export async function updateOrganization(
 ): Promise<UpdateOrgResult> {
   const ctx = await requireStaffContext();
 
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only organization owners can update settings." };
+  if (!hasPermission(ctx, "org_settings")) {
+    return { error: "Permission denied." };
   }
 
   const name = (formData.get("name") as string | null)?.trim();
@@ -70,8 +71,8 @@ export async function updateBusinessHours(
   formData: FormData,
 ): Promise<UpdateHoursResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only organisation owners can update business hours." };
+  if (!hasPermission(ctx, "org_settings")) {
+    return { error: "Permission denied." };
   }
 
   const start = parseInt(formData.get("hoursStart") as string, 10);
@@ -113,8 +114,8 @@ export async function addLocation(
 ): Promise<AddLocationResult> {
   const ctx = await requireStaffContext();
 
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only organisation owners can add locations." };
+  if (!hasPermission(ctx, "org_settings")) {
+    return { error: "Permission denied." };
   }
 
   const name = (formData.get("name") as string | null)?.trim();

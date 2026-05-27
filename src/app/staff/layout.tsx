@@ -96,6 +96,7 @@ export default async function StaffLayout({
       <StaffShell
         brandColor={brandColor}
         orgRole={ctx.orgRole}
+        locationPermissions={ctx.locationPermissions}
         orgName={ctx.organization.name}
         orgInitials={orgInitials}
         orgLogoUrl={orgLogoUrl}

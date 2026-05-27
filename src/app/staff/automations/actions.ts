@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
 
@@ -48,8 +49,8 @@ export async function updateSchedule(
   dayOfWeek: number | null,
 ): Promise<ActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners can manage automations." };
+  if (!hasPermission(ctx, "automations")) {
+    return { error: "Permission denied." };
   }
   if (hour < 0 || hour > 23) return { error: "Hour must be 0–23." };
   if (frequency === "weekly" && (dayOfWeek === null || dayOfWeek < 0 || dayOfWeek > 6)) {
@@ -70,8 +71,8 @@ export async function updateSchedule(
 
 export async function toggleTask(taskId: string, enabled: boolean): Promise<ActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners can manage automations." };
+  if (!hasPermission(ctx, "automations")) {
+    return { error: "Permission denied." };
   }
   const admin = createAdminClient();
   const { error } = await admin
@@ -86,8 +87,8 @@ export async function toggleTask(taskId: string, enabled: boolean): Promise<Acti
 
 export async function updateTaskSettings(taskId: string, settings: TaskSettings): Promise<ActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners can manage automations." };
+  if (!hasPermission(ctx, "automations")) {
+    return { error: "Permission denied." };
   }
   const admin = createAdminClient();
   const { error } = await admin
@@ -102,8 +103,8 @@ export async function updateTaskSettings(taskId: string, settings: TaskSettings)
 
 export async function runTaskNow(taskType: TaskType): Promise<ActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners can trigger automations." };
+  if (!hasPermission(ctx, "automations")) {
+    return { error: "Permission denied." };
   }
   const secret = process.env.CRON_SECRET;
   if (!secret) return { error: "CRON_SECRET not configured." };

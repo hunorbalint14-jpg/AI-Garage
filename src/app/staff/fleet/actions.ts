@@ -3,12 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type FleetResult = { error: string } | { success: true };
 
 export async function createFleetCompany(formData: FormData): Promise<{ error: string } | { id: string }> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "fleet")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const name = (formData.get("name") as string | null)?.trim();
@@ -31,6 +33,7 @@ export async function createFleetCompany(formData: FormData): Promise<{ error: s
 
 export async function updateFleetCompany(companyId: string, formData: FormData): Promise<FleetResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "fleet")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const name = (formData.get("name") as string | null)?.trim();
@@ -53,6 +56,7 @@ export async function updateFleetCompany(companyId: string, formData: FormData):
 
 export async function deleteFleetCompany(companyId: string): Promise<FleetResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "fleet")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   // Unlink customers first
@@ -73,6 +77,7 @@ export async function assignCustomerToFleet(
   fleetCompanyId: string | null,
 ): Promise<FleetResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "fleet")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { error } = await admin.from("customers")

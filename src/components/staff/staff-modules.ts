@@ -1,6 +1,7 @@
 // Route → module grouping for the staff dock.
-// Edit this file to re-organise the nav. The shell auto-filters owner-only
-// items based on `orgRole`, and hides any module that ends up empty.
+// Edit this file to re-organise the nav. The shell auto-filters items based
+// on the user's permissions (org owner/admin bypass everything), and hides
+// any module that ends up empty.
 
 import {
   LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt,
@@ -8,13 +9,16 @@ import {
   Share2, FileText, ShieldCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { PermissionKey } from "@/app/staff/staff-members/constants";
 
 export type NavItem = {
   key: string;
   href: string;
   label: string;
   icon: LucideIcon;
-  /** Hide for location-level staff; show only when orgRole is set */
+  /** Hide unless the user has this permission (or is org owner/admin). */
+  permission?: PermissionKey;
+  /** Hide unless the user is org owner/admin (used for surfaces that are not gated by a single permission). */
   ownerOnly?: boolean;
 };
 
@@ -32,10 +36,10 @@ export const NAV_MODULES: NavModule[] = [
     icon: CalendarDays,
     items: [
       { key: "dashboard", href: "/staff",            label: "Dashboard", icon: LayoutDashboard },
-      { key: "bookings",  href: "/staff/bookings",   label: "Bookings",  icon: CalendarDays },
-      { key: "customers", href: "/staff/customers",  label: "Customers", icon: Users },
-      { key: "fleet",     href: "/staff/fleet",      label: "Fleet",     icon: Building2 },
-      { key: "reminders", href: "/staff/reminders",  label: "Reminders", icon: Bell },
+      { key: "bookings",  href: "/staff/bookings",   label: "Bookings",  icon: CalendarDays, permission: "bookings" },
+      { key: "customers", href: "/staff/customers",  label: "Customers", icon: Users,        permission: "customers" },
+      { key: "fleet",     href: "/staff/fleet",      label: "Fleet",     icon: Building2,    permission: "fleet" },
+      { key: "reminders", href: "/staff/reminders",  label: "Reminders", icon: Bell,         permission: "reminders" },
     ],
   },
   {
@@ -43,9 +47,9 @@ export const NAV_MODULES: NavModule[] = [
     label: "Shop",
     icon: Wrench,
     items: [
-      { key: "services", href: "/staff/services", label: "Services", icon: Wrench,  ownerOnly: true },
-      { key: "products", href: "/staff/products", label: "Products", icon: Package, ownerOnly: true },
-      { key: "bays",     href: "/staff/bays",     label: "Bays",     icon: Columns, ownerOnly: true },
+      { key: "services", href: "/staff/services", label: "Services", icon: Wrench,  permission: "services" },
+      { key: "products", href: "/staff/products", label: "Products", icon: Package, permission: "products" },
+      { key: "bays",     href: "/staff/bays",     label: "Bays",     icon: Columns, permission: "bays" },
     ],
   },
   {
@@ -53,9 +57,9 @@ export const NAV_MODULES: NavModule[] = [
     label: "Money",
     icon: TrendingUp,
     items: [
-      { key: "revenue",  href: "/staff/revenue",  label: "Revenue",  icon: TrendingUp, ownerOnly: true },
-      { key: "quotes",   href: "/staff/quotes",   label: "Quotes",   icon: FileText },
-      { key: "invoices", href: "/staff/invoices", label: "Invoices", icon: Receipt },
+      { key: "revenue",  href: "/staff/revenue",  label: "Revenue",  icon: TrendingUp, permission: "revenue" },
+      { key: "quotes",   href: "/staff/quotes",   label: "Quotes",   icon: FileText,   permission: "quotes_draft" },
+      { key: "invoices", href: "/staff/invoices", label: "Invoices", icon: Receipt,    permission: "invoices" },
     ],
   },
   {
@@ -63,8 +67,8 @@ export const NAV_MODULES: NavModule[] = [
     label: "Grow",
     icon: Megaphone,
     items: [
-      { key: "campaigns",   href: "/staff/campaigns",   label: "Campaigns",   icon: Megaphone, ownerOnly: true },
-      { key: "automations", href: "/staff/automations", label: "Automations", icon: Zap,       ownerOnly: true },
+      { key: "campaigns",   href: "/staff/campaigns",   label: "Campaigns",   icon: Megaphone, permission: "campaigns" },
+      { key: "automations", href: "/staff/automations", label: "Automations", icon: Zap,       permission: "automations" },
     ],
   },
   {
@@ -72,28 +76,42 @@ export const NAV_MODULES: NavModule[] = [
     label: "Admin",
     icon: Settings,
     items: [
-      { key: "team",     href: "/staff/staff-members", label: "Team",       icon: UserCog,      ownerOnly: true },
+      { key: "team",     href: "/staff/staff-members", label: "Team",       icon: UserCog,      permission: "staff_manage" },
       { key: "settings", href: "/staff/settings",     label: "Settings",   icon: Settings },
-      { key: "audit",    href: "/staff/audit-log",    label: "Audit log",  icon: ShieldCheck,  ownerOnly: true },
+      { key: "audit",    href: "/staff/audit-log",    label: "Audit log",  icon: ShieldCheck,  permission: "audit_log" },
       { key: "docs",     href: "/staff/docs",         label: "Doc shares", icon: Share2,       ownerOnly: true },
       { key: "dev",      href: "/staff/dev",          label: "Dev tools",  icon: FlaskConical, ownerOnly: true },
     ],
   },
 ];
 
-export function filterModulesForRole(
-  orgRole: "owner" | "admin" | null | undefined,
-): NavModule[] {
-  const isOwnerOrAdmin = !!orgRole;
+type FilterCtx = {
+  orgRole: "owner" | "admin" | null | undefined;
+  locationPermissions?: Partial<Record<PermissionKey, boolean>> | null;
+};
+
+export function filterModulesForRole(ctxOrOrgRole: FilterCtx | "owner" | "admin" | null | undefined): NavModule[] {
+  // Back-compat: also accept the old (orgRole) call signature.
+  const ctx: FilterCtx =
+    typeof ctxOrOrgRole === "object" && ctxOrOrgRole !== null
+      ? ctxOrOrgRole
+      : { orgRole: ctxOrOrgRole ?? null, locationPermissions: null };
+
+  const isOwnerOrAdmin = ctx.orgRole === "owner" || ctx.orgRole === "admin";
+
+  const itemAllowed = (i: NavItem): boolean => {
+    if (i.ownerOnly && !isOwnerOrAdmin) return false;
+    if (i.permission && !isOwnerOrAdmin) {
+      return ctx.locationPermissions?.[i.permission] === true;
+    }
+    return true;
+  };
+
   return NAV_MODULES
-    .map((m) => ({ ...m, items: m.items.filter((i) => !i.ownerOnly || isOwnerOrAdmin) }))
+    .map((m) => ({ ...m, items: m.items.filter(itemAllowed) }))
     .filter((m) => m.items.length > 0);
 }
 
-/**
- * Given a pathname, work out which module + item is currently active.
- * Picks the longest matching href so /staff/bookings/123 still maps to Bookings.
- */
 export function findActive(
   pathname: string,
   modules: NavModule[],

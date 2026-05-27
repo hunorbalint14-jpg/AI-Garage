@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_PRODUCTS, PRODUCT_CATEGORIES } from "./constants";
 import { logAudit } from "@/lib/audit";
@@ -32,8 +33,8 @@ export async function seedDefaultProducts(locationId: string) {
 
 export async function createProduct(formData: FormData): Promise<ActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners/admins can manage products." };
+  if (!hasPermission(ctx, "products")) {
+    return { error: "Permission denied." };
   }
 
   const name = (formData.get("name") as string | null)?.trim();
@@ -84,8 +85,8 @@ export async function updateProduct(
   fields: { unit_price?: number; cost_price?: number | null; stock_qty?: number; sku?: string | null; supplier?: string | null; active?: boolean },
 ): Promise<ActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners/admins can manage products." };
+  if (!hasPermission(ctx, "products")) {
+    return { error: "Permission denied." };
   }
 
   const admin = createAdminClient();
@@ -112,8 +113,8 @@ export async function updateProduct(
 
 export async function deleteProduct(productId: string): Promise<ActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners/admins can manage products." };
+  if (!hasPermission(ctx, "products")) {
+    return { error: "Permission denied." };
   }
   const admin = createAdminClient();
   const { error } = await admin
@@ -138,6 +139,7 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
 
 export async function adjustStock(productId: string, delta: number): Promise<ActionResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "products")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data } = await admin

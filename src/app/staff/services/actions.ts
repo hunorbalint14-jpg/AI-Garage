@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaffContext } from "@/lib/staff-context";
+import { requireStaffContext, type StaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 
 export type ServiceResult = { error: string } | { success: true };
 
-function requireOwner(orgRole: string | null) {
-  if (!orgRole) throw new Error("Only org owners and admins can manage services.");
+function requireOwner(ctx: StaffContext) {
+  if (!hasPermission(ctx, "services")) throw new Error("Permission denied.");
 }
 
 export type UpsertServiceResult = { error: string } | { success: true; id: string };
@@ -18,7 +19,7 @@ export async function upsertService(
   serviceId?: string,
 ): Promise<UpsertServiceResult> {
   const ctx = await requireStaffContext();
-  try { requireOwner(ctx.orgRole); } catch (e) { return { error: (e as Error).message }; }
+  try { requireOwner(ctx); } catch (e) { return { error: (e as Error).message }; }
 
   const admin = createAdminClient();
 
@@ -74,7 +75,7 @@ export async function upsertService(
 
 export async function toggleServiceActive(serviceId: string, active: boolean): Promise<ServiceResult> {
   const ctx = await requireStaffContext();
-  try { requireOwner(ctx.orgRole); } catch (e) { return { error: (e as Error).message }; }
+  try { requireOwner(ctx); } catch (e) { return { error: (e as Error).message }; }
 
   const admin = createAdminClient();
   const { error } = await admin.from("services").update({ active }).eq("id", serviceId).eq("location_id", ctx.location.id);
@@ -96,7 +97,7 @@ export async function toggleServiceActive(serviceId: string, active: boolean): P
 
 export async function deleteService(serviceId: string): Promise<ServiceResult> {
   const ctx = await requireStaffContext();
-  try { requireOwner(ctx.orgRole); } catch (e) { return { error: (e as Error).message }; }
+  try { requireOwner(ctx); } catch (e) { return { error: (e as Error).message }; }
 
   const admin = createAdminClient();
   const { error } = await admin.from("services").delete().eq("id", serviceId).eq("location_id", ctx.location.id);
