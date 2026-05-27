@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
@@ -44,6 +45,7 @@ export async function draftReminderPreview(
   tone: "friendly" | "direct" | "warm" = "friendly",
 ): Promise<ReminderPreviewResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "reminders")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [vehicleRes, orgRes] = await Promise.all([
@@ -152,6 +154,7 @@ export async function sendReminderDraft(
   sendChannels: { email: boolean; sms: boolean; whatsapp: boolean },
 ): Promise<SendReminderDraftResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "reminders")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [vehicleRes, orgRes] = await Promise.all([

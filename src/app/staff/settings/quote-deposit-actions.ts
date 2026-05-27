@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 
@@ -9,8 +10,8 @@ export type SaveDepositResult = { error: string } | { success: true; pct: number
 
 export async function saveQuoteDepositPct(formData: FormData): Promise<SaveDepositResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners and admins can change the deposit policy." };
+  if (!hasPermission(ctx, "org_settings")) {
+    return { error: "Permission denied." };
   }
 
   const raw = (formData.get("pct") as string | null)?.trim() ?? "0";

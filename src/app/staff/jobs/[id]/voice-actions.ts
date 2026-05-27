@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { structureVoiceNotes, type StructuredJob } from "@/lib/ai-job-from-voice";
 
@@ -12,6 +13,7 @@ export async function structureTranscript(
   transcript: string,
 ): Promise<StructureResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   if (!transcript?.trim()) return { error: "Transcript is empty." };
   if (transcript.length > 8000) return { error: "Transcript too long (max 8000 chars)." };
 
@@ -51,6 +53,7 @@ export async function applyStructuredJob(
   appendToNotes: boolean,
 ): Promise<ApplyResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: job } = await admin

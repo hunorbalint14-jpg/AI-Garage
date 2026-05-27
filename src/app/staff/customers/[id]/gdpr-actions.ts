@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createHash } from "crypto";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 
@@ -15,6 +16,7 @@ export async function updateConsent(
   smsConsent: boolean,
 ): Promise<ActionResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { error } = await admin
@@ -48,7 +50,7 @@ export async function anonymizeCustomer(
   reason: string,
 ): Promise<ActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
+  if (!hasPermission(ctx, "gdpr_actions")) {
     return { error: "Only owners/admins can erase customer data." };
   }
   if (!reason.trim()) return { error: "Reason is required for audit log." };
@@ -116,6 +118,7 @@ export async function exportCustomerData(customerId: string): Promise<
   { error: string } | { success: true; data: string }
 > {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "gdpr_actions")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [custRes, vehRes, bookingsRes, jobsRes, invoicesRes, remindersRes] = await Promise.all([

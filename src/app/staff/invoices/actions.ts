@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { tenantPayUrl } from "@/lib/stripe";
@@ -14,6 +15,7 @@ export type CreateInvoiceResult = { error: string } | { success: true; invoiceId
 
 export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoiceResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "invoices")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [jobRes, itemsRes] = await Promise.all([
@@ -98,6 +100,7 @@ export type InvoiceActionResult = { error: string } | { success: true };
 
 export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "invoices")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [invoiceRes, orgRes] = await Promise.all([
@@ -196,6 +199,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
 
 export async function markInvoicePaid(invoiceId: string): Promise<InvoiceActionResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "invoices")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: invoice } = await admin
@@ -243,6 +247,7 @@ export async function markInvoicePaid(invoiceId: string): Promise<InvoiceActionR
 
 export async function deleteInvoice(invoiceId: string): Promise<InvoiceActionResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "invoices")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: invoice } = await admin

@@ -12,12 +12,14 @@ import {
   onBrandColor,
   type NavModule,
 } from "@/components/staff/staff-modules";
+import type { Permissions } from "@/app/staff/staff-members/constants";
 
 type Location = { id: string; slug: string; name: string };
 
 export function StaffShell({
   brandColor,
   orgRole,
+  locationPermissions,
   orgName,
   orgInitials,
   orgLogoUrl,
@@ -31,6 +33,7 @@ export function StaffShell({
 }: {
   brandColor: string;
   orgRole?: "owner" | "admin" | null;
+  locationPermissions?: Permissions | null;
   orgName: string;
   orgInitials: string;
   orgLogoUrl: string | null;
@@ -43,7 +46,10 @@ export function StaffShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "/staff";
-  const modules = useMemo(() => filterModulesForRole(orgRole), [orgRole]);
+  const modules = useMemo(
+    () => filterModulesForRole({ orgRole: orgRole ?? null, locationPermissions }),
+    [orgRole, locationPermissions],
+  );
   const { module: activeModule, item: activeItem } = findActive(pathname, modules);
   const onBrand = useMemo(() => onBrandColor(brandColor), [brandColor]);
 

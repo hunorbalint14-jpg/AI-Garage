@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./settings-form";
@@ -102,6 +103,25 @@ export default async function SettingsPage() {
         connectedAt={(org as { xero_connected_at?: string | null } | null)?.xero_connected_at ?? null}
         canManage={isOwner}
       />
+
+      {isOwner && (
+        <section className="flex flex-col gap-2 rounded-lg border p-4">
+          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Team roles
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Manage permission templates: clone system presets (Mechanic, Service Advisor, etc.) or create custom profiles for your shop.
+          </p>
+          <div>
+            <Link
+              href="/staff/settings/team-roles"
+              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted/40"
+            >
+              Manage templates →
+            </Link>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-lg border p-4">
         <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
