@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+
+      # Hard gates — must pass to merge.
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm run test:coverage
+
+      # Lint is reported but doesn't block CI yet — the codebase has a backlog
+      # of pre-existing Next.js 16 strict-mode warnings/errors. Tighten this
+      # to a hard gate once the backlog is cleared.
+      - name: Lint
+        run: npx eslint src/
+        continue-on-error: true
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/
+          retention-days: 14
