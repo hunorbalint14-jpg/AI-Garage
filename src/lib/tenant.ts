@@ -25,3 +25,11 @@ export function resolveTenantFromHost(host: string | null): TenantContext {
   const slug = hostname.slice(0, -1 * (rootHostname.length + 1));
   return { slug: slug || null, isRootDomain: !slug };
 }
+
+export function buildTenantUrl(slug: string): string {
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
+  const host = rootDomain.split(":")[0];
+  const isLocal =
+    host === "localtest.me" || host.endsWith(".local") || host === "localhost";
+  return `${isLocal ? "http" : "https"}://${slug}.${rootDomain}`;
+}

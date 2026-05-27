@@ -3,6 +3,7 @@
 import { type Permissions, normalisePermissions, PERMISSION_GROUPS } from "./constants";
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { buildTenantUrl } from "@/lib/tenant";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -99,7 +100,7 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
     userId = newUser.user.id;
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `http://${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000"}`;
+  const siteUrl = buildTenantUrl(ctx.location.slug);
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
@@ -201,7 +202,7 @@ export async function resetStaffPassword(email: string): Promise<LinkResult> {
     await admin.auth.admin.updateUserById(targetUser.id, { email_confirm: true });
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `http://${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000"}`;
+  const siteUrl = buildTenantUrl(ctx.location.slug);
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
