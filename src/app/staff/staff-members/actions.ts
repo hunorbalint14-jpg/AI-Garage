@@ -11,6 +11,21 @@ export type StaffActionResult = { error: string } | { success: true };
 export type InviteResult = { error: string } | { success: true; inviteLink: string };
 export type LinkResult = { error: string } | { success: true; link: string };
 
+// Build the URL the magiclink redirects to after auth. Must be a real
+// tenant subdomain (so the invited user lands on the right garage's staff
+// console) and must be on https in any non-dev environment. Filters out
+// the local-dev "localtest.me" value if it leaks into prod env.
+function tenantAuthCallbackUrl(slug: string): string {
+  const rawRoot = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "";
+  const isLocal = !rawRoot || rawRoot.includes("localtest") || rawRoot.includes("localhost");
+  if (isLocal) {
+    // dev fallback — Supabase redirect URLs allowlist includes localhost.
+    const host = rawRoot || "localhost:3000";
+    return `http://${slug}.${host}/auth/callback?next=/staff`;
+  }
+  return `https://${slug}.${rawRoot}/auth/callback?next=/staff`;
+}
+
 const ALLOWED_LOCATION_ROLES = [
   "manager",
   "service_advisor",
@@ -99,11 +114,16 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
     userId = newUser.user.id;
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `http://${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000"}`;
+  // For location-scoped invites land them on that location. For org-scoped
+  // (admin) invites we land on the inviter's current location — the location
+  // switcher lets them hop to any other after sign-in.
+  const targetSlug = (scope === "location" && locationId
+    ? (await admin.from("locations").select("slug").eq("id", locationId).maybeSingle()).data?.slug
+    : null) ?? ctx.location.slug;
   const { data: linkData, error: linkErr } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { redirectTo: `${siteUrl}/auth/callback?next=/staff` },
+    options: { redirectTo: tenantAuthCallbackUrl(targetSlug) },
   });
   if (linkErr) return { error: linkErr.message };
   const inviteLink = linkData.properties.action_link;
@@ -201,11 +221,10 @@ export async function resetStaffPassword(email: string): Promise<LinkResult> {
     await admin.auth.admin.updateUserById(targetUser.id, { email_confirm: true });
   }
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? `http://${process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localhost:3000"}`;
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { redirectTo: `${siteUrl}/auth/callback?next=/staff` },
+    options: { redirectTo: tenantAuthCallbackUrl(ctx.location.slug) },
   });
   if (error) return { error: error.message };
 
