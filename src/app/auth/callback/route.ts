@@ -23,7 +23,43 @@ export async function GET(request: NextRequest) {
   const origin = `${protocol}://${host}`;
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
+    // Magiclink + invite emails generated via the admin API redirect with
+    // tokens in the URL fragment (#access_token=...&refresh_token=...) — the
+    // legacy "implicit" flow. The hash never reaches the server, so we
+    // return a tiny HTML bridge that reads it client-side, posts the tokens
+    // to /api/auth/set-session (which writes the session cookies), and
+    // then navigates to `next`.
+    const safeNext = next.startsWith("/") ? next : "/staff";
+    const fallback = `${origin}/login?error=auth-callback-failed`;
+    const html = `<!doctype html>
+<html><head><meta charset="utf-8"><title>Signing you in…</title></head>
+<body>
+<p style="font-family:system-ui;padding:24px">Signing you in…</p>
+<script>
+(function () {
+  var hash = (window.location.hash || "").replace(/^#/, "");
+  if (!hash) { window.location.replace(${JSON.stringify(fallback)}); return; }
+  var p = new URLSearchParams(hash);
+  var at = p.get("access_token");
+  var rt = p.get("refresh_token");
+  if (!at || !rt) { window.location.replace(${JSON.stringify(fallback)}); return; }
+  fetch("/api/auth/set-session", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ access_token: at, refresh_token: rt }),
+  }).then(function (r) {
+    if (!r.ok) { window.location.replace(${JSON.stringify(fallback)}); return; }
+    window.location.replace(${JSON.stringify(safeNext)});
+  }).catch(function () {
+    window.location.replace(${JSON.stringify(fallback)});
+  });
+})();
+</script>
+</body></html>`;
+    return new NextResponse(html, {
+      status: 200,
+      headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+    });
   }
 
   // Collect cookies written during session exchange
