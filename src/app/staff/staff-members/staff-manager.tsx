@@ -140,12 +140,14 @@ export function StaffManager({
   locations,
   templates,
   isOwner,
+  isAdmin,
 }: {
   entries: StaffEntry[];
   locations: LocationOption[];
   templates: RoleTemplateOption[];
   currentUserId: string;
   isOwner: boolean;
+  isAdmin: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -416,7 +418,7 @@ export function StaffManager({
                         )}
                       </>
                     )}
-                    {isOwner && entry.orgRole !== "owner" && !entry.isCurrentUser && (
+                    {(isOwner || isAdmin) && entry.orgRole !== "owner" && !entry.isCurrentUser && (
                       <Button variant="destructive" size="xs" disabled={pending} onClick={() => handleRemove(entry.userId, null, displayName)}>
                         Remove
                       </Button>

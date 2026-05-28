@@ -177,6 +177,7 @@ export default async function StaffMembersPage() {
         templates={templates}
         currentUserId={ctx.user.id}
         isOwner={ctx.orgRole === "owner"}
+        isAdmin={ctx.orgRole === "admin"}
       />
     </div>
   );
