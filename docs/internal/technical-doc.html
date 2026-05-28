@@ -814,11 +814,11 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <div class="tag">postgres · rls</div>
       </div>
 
-      <p class="lede2">20 tables, all tenant-scoped via <code>location_id</code> (except <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> which scope to <code>organization_id</code>). The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
+      <p class="lede2">28 tables, most tenant-scoped via <code>location_id</code>. Org-scoped tables: <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> (required <code>organization_id</code>) plus <code>role_templates</code> + <code>staff_notifications</code> (nullable <code>organization_id</code>). <code>standalone_quotes</code> carries both <code>location_id</code> and a denormalised <code>organization_id</code>. The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
 
       <div class="bp">
         <div class="caption"><span class="ref">FIG&nbsp;05·A</span><span>entity relationship diagram</span></div>
-        <svg viewBox="0 0 1100 860" role="img" aria-label="Entity relationship diagram">
+        <svg viewBox="0 0 1400 860" role="img" aria-label="Entity relationship diagram">
           <defs>
             <marker id="erd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#0b0d11" />
@@ -836,6 +836,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
             <text x="300" y="22" class="d-eyebrow">PEOPLE</text>
             <text x="580" y="22" class="d-eyebrow">VEHICLE OPS</text>
             <text x="860" y="22" class="d-eyebrow">COMMERCE</text>
+            <text x="1140" y="22" class="d-eyebrow">QUOTES &amp; RBAC</text>
           </g>
 
           <!-- TENANCY column -->
@@ -976,6 +977,48 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
             <text x="872" y="280" class="d-label-mute">amount_pence · arrival_date</text>
           </g>
 
+          <!-- QUOTES & RBAC column -->
+          <g>
+            <rect x="1140" y="40" width="240" height="104" class="d-fill-white d-stroke" />
+            <text x="1152" y="60" class="d-title">job_quotes</text>
+            <text x="1152" y="78" class="d-label-mute">job_id · location_id · status</text>
+            <text x="1152" y="92" class="d-label-mute">token_hash · slug · video_path</text>
+            <text x="1152" y="106" class="d-label-mute">subtotal · vat · total · deposit_*</text>
+            <text x="1152" y="120" class="d-label-mute">approved_item_ids · applied_job_item_ids</text>
+            <text x="1152" y="134" class="d-label-mute">stripe_* · expires_at</text>
+
+            <rect x="1140" y="162" width="240" height="56" class="d-fill-white d-stroke" />
+            <text x="1152" y="182" class="d-title">job_quote_items</text>
+            <text x="1152" y="200" class="d-label-mute">quote_id · description · type</text>
+            <text x="1152" y="214" class="d-label-mute">quantity · unit_price · product_id</text>
+
+            <rect x="1140" y="236" width="240" height="118" class="d-fill-white d-stroke" />
+            <text x="1152" y="256" class="d-title">standalone_quotes</text>
+            <text x="1152" y="274" class="d-label-mute">location_id · organization_id</text>
+            <text x="1152" y="288" class="d-label-mute">customer_id · vehicle_id · status</text>
+            <text x="1152" y="302" class="d-label-mute">token_hash · slug · customer_message</text>
+            <text x="1152" y="316" class="d-label-mute">subtotal · vat · total · deposit_*</text>
+            <text x="1152" y="330" class="d-label-mute">approved_item_ids · stripe_*</text>
+            <text x="1152" y="344" class="d-label-mute">converted_booking_id ⟶</text>
+
+            <rect x="1140" y="372" width="240" height="56" class="d-fill-white d-stroke" />
+            <text x="1152" y="392" class="d-title">standalone_quote_items</text>
+            <text x="1152" y="410" class="d-label-mute">quote_id · description · type</text>
+            <text x="1152" y="424" class="d-label-mute">quantity · unit_price · product_id</text>
+
+            <rect x="1140" y="446" width="240" height="74" class="d-fill-white d-stroke" />
+            <text x="1152" y="466" class="d-title">role_templates</text>
+            <text x="1152" y="484" class="d-label-mute">organization_id (null = system)</text>
+            <text x="1152" y="498" class="d-label-mute">key · label · permissions (jsonb)</text>
+            <text x="1152" y="512" class="d-label-mute">is_system · sort_order</text>
+
+            <rect x="1140" y="538" width="240" height="74" class="d-fill-paper d-stroke" />
+            <text x="1152" y="558" class="d-title">staff_notifications</text>
+            <text x="1152" y="576" class="d-label-mute">user_id · location_id · organization_id</text>
+            <text x="1152" y="590" class="d-label-mute">kind · title · body · href</text>
+            <text x="1152" y="604" class="d-label-mute">entity_type · entity_id · read_at</text>
+          </g>
+
           <!-- joins — arrows point parent → child (1 : many) -->
           <g fill="none">
             <!-- organizations → locations -->
@@ -1027,12 +1070,25 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
 
             <!-- organizations → xero_payouts (cross-column) -->
             <path d="M 245 95 C 600 95 760 220 860 220" class="d-stroke-green" marker-end="url(#erd-arrow)" />
+
+            <!-- jobs → job_quotes (cross-column to QUOTES&RBAC) -->
+            <path d="M 820 165 C 980 165 1000 92 1135 92" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- job_quotes → job_quote_items -->
+            <path d="M 1260 144 L 1260 159" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- customers → standalone_quotes (cross-column, far) -->
+            <path d="M 540 70 C 980 70 1000 295 1135 295" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- standalone_quotes → standalone_quote_items -->
+            <path d="M 1260 354 L 1260 369" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- standalone_quotes → bookings (converted_booking_id, nullable back-edge) -->
+            <path d="M 1140 320 C 980 320 900 110 820 100" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
+            <!-- role_templates → location_users (template_id, nullable, long back-edge) -->
+            <path d="M 1140 483 C 700 483 420 360 268 350" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
           </g>
 
           <!-- legend annotations -->
           <text x="20" y="820" class="d-label-mute">Tenant scope: every operational table carries <tspan class="d-label">location_id</tspan>; <tspan class="d-label">audit_log</tspan>, <tspan class="d-label">doc_shares</tspan> and <tspan class="d-label">xero_payouts</tspan> scope to <tspan class="d-label">organization_id</tspan>. RLS policies enforce membership.</text>
           <text x="20" y="838" class="d-label-mute">Arrows run parent → child (1 : many). Dashed lines are nullable / optional FKs. Green = cross-domain link to Xero.</text>
-          <text x="20" y="856" class="d-label-mute">Auth: <tspan class="d-label">auth.users</tspan> is Supabase-managed; <tspan class="d-label">org_users</tspan>, <tspan class="d-label">location_users</tspan>, <tspan class="d-label">customers.user_id</tspan>, <tspan class="d-label">audit_log.actor_user_id</tspan>, <tspan class="d-label">doc_shares.created_by</tspan> all reference it.</text>
+          <text x="20" y="856" class="d-label-mute">Auth: <tspan class="d-label">auth.users</tspan> is Supabase-managed; <tspan class="d-label">org_users</tspan>, <tspan class="d-label">location_users</tspan>, <tspan class="d-label">customers.user_id</tspan>, <tspan class="d-label">audit_log.actor_user_id</tspan>, <tspan class="d-label">doc_shares.created_by</tspan>, <tspan class="d-label">role_templates.created_by</tspan>, <tspan class="d-label">staff_notifications.user_id</tspan> all reference it.</text>
         </svg>
         <div class="legend">
           <span><span class="sw green"></span>shared (org-scoped)</span>
@@ -1050,6 +1106,9 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <tr><td>Xero</td><td><code>organizations</code> · <code>customers</code> · <code>invoices</code> · <code>xero_payouts</code></td><td><code>xero_tenant_id · xero_access_token · xero_refresh_token · xero_token_expires_at</code> (tokens encrypted at app layer via <code>lib/encryption.ts</code>) · <code>xero_contact_id</code> · <code>xero_invoice_id · xero_payment_id · xero_synced_at</code> · <code>stripe_payout_id · xero_bank_transaction_id · arrival_date</code></td></tr>
         <tr><td>Email tracking</td><td><code>reminders</code></td><td><code>resend_email_id · delivered_at · opened_at · clicked_at</code></td></tr>
         <tr><td>Forensic audit</td><td><code>audit_log</code> · <code>doc_shares</code></td><td><code>actor_user_id · actor_email · action · entity_type · entity_id · metadata · ip_address · user_agent</code> · <code>token_hash · view_count · revoked_at · revoked_by</code></td></tr>
+        <tr><td>Quote lifecycle</td><td><code>job_quotes</code> · <code>standalone_quotes</code></td><td><code>status · token_hash · slug · expires_at · sent_at · viewed_at · viewed_count · responded_at · approved_item_ids · decline_reason · deposit_pct · deposit_amount · deposit_required · deposit_paid_at · stripe_checkout_session_id · stripe_payment_intent_id</code> · standalone adds <code>organization_id · customer_message · converted_booking_id</code>; DVI adds <code>job_id · applied_job_item_ids</code></td></tr>
+        <tr><td>RBAC</td><td><code>location_users</code> · <code>role_templates</code></td><td><code>role · permissions (jsonb) · template_id · mot_tester · mot_qc_reviewer</code> · <code>key · label · permissions · is_system · sort_order</code> (system rows have <code>organization_id IS NULL</code>)</td></tr>
+        <tr><td>In-app notifications</td><td><code>staff_notifications</code></td><td><code>user_id · location_id · organization_id · kind · title · body · href · entity_type · entity_id · read_at</code></td></tr>
       </table>
     </section>
 
