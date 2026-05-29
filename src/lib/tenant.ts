@@ -3,12 +3,27 @@ const ROOT_DOMAIN =
   process.env.NEXT_PUBLIC_ROOT_DOMAIN ??
   "garage-ai.local:3000";
 
+// Vercel preview deployments are served from `<project>-<hash>-<scope>.vercel.app`
+// — a subdomain of vercel.app, not of our ROOT_DOMAIN — so tenant resolution
+// from host fails and the app falls through to the landing page. Setting
+// PREVIEW_TENANT_SLUG (preview env only) pins a single tenant so previews
+// render that garage's pages. Never set this in Production.
+const PREVIEW_TENANT_SLUG = process.env.PREVIEW_TENANT_SLUG?.trim() || null;
+
 export type TenantContext = {
   slug: string | null;
   isRootDomain: boolean;
 };
 
 export function resolveTenantFromHost(host: string | null): TenantContext {
+  const fromHost = resolveFromHostStrict(host);
+  if (fromHost.slug) return fromHost;
+  // Fall back to the preview pin only when host failed to identify a tenant.
+  if (PREVIEW_TENANT_SLUG) return { slug: PREVIEW_TENANT_SLUG, isRootDomain: false };
+  return fromHost;
+}
+
+function resolveFromHostStrict(host: string | null): TenantContext {
   if (!host) return { slug: null, isRootDomain: true };
 
   const hostname = host.split(":")[0];
