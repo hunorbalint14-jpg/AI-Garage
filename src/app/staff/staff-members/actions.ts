@@ -402,6 +402,17 @@ export async function removeStaffMember(
 
   const admin = createAdminClient();
 
+  // Capture identity BEFORE deleting the membership row so the audit entry is
+  // attributable to a person, not a now-orphaned UUID. Lookup failure is
+  // non-fatal — never block a security action on it. (#133)
+  let removedEmail: string | null = null;
+  let removedName: string | null = null;
+  const { data: target } = await admin.auth.admin.getUserById(userId);
+  if (target?.user) {
+    removedEmail = target.user.email ?? null;
+    removedName = (target.user.user_metadata?.full_name as string | undefined) ?? null;
+  }
+
   if (locationId) {
     const { error } = await admin
       .from("location_users")
@@ -426,7 +437,7 @@ export async function removeStaffMember(
     action: "staff.remove",
     entityType: locationId ? "location_user" : "org_user",
     entityId: userId,
-    metadata: { location_id: locationId },
+    metadata: { location_id: locationId, removed_email: removedEmail, removed_name: removedName },
   });
 
   revalidatePath("/staff/staff-members");
