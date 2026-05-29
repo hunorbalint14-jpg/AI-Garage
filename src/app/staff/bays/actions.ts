@@ -2,14 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type BayResult = { error: string } | { success: true };
 
 export async function createBay(formData: FormData): Promise<BayResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Owner or admin only." };
+  if (!hasPermission(ctx, "bays")) {
+    return { error: "Permission denied." };
   }
 
   const name = (formData.get("name") as string | null)?.trim();
@@ -37,8 +38,8 @@ export async function createBay(formData: FormData): Promise<BayResult> {
 
 export async function deleteBay(bayId: string): Promise<BayResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Owner or admin only." };
+  if (!hasPermission(ctx, "bays")) {
+    return { error: "Permission denied." };
   }
 
   const admin = createAdminClient();
@@ -56,8 +57,8 @@ export async function deleteBay(bayId: string): Promise<BayResult> {
 
 export async function updateBay(bayId: string, formData: FormData): Promise<BayResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Owner or admin only." };
+  if (!hasPermission(ctx, "bays")) {
+    return { error: "Permission denied." };
   }
 
   const name = (formData.get("name") as string | null)?.trim();

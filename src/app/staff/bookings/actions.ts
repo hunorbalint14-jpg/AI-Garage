@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
@@ -93,6 +94,7 @@ ${garageLogoUrl ? `<div style="margin-bottom:24px"><img src="${garageLogoUrl}" a
 
 export async function createBooking(formData: FormData): Promise<CreateBookingResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const customerId = (formData.get("customerId") as string | null)?.trim();
@@ -185,6 +187,7 @@ export type UpdateBookingStatusResult = { error: string } | { success: true; job
 
 export async function startBooking(bookingId: string): Promise<UpdateBookingStatusResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: booking, error: bookingFetchErr } = await admin
@@ -288,6 +291,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
 
 export async function cancelBooking(bookingId: string): Promise<UpdateBookingStatusResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { error } = await admin
@@ -306,6 +310,7 @@ export async function cancelBooking(bookingId: string): Promise<UpdateBookingSta
 
 export async function markNoShow(bookingId: string): Promise<UpdateBookingStatusResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { error } = await admin
@@ -326,6 +331,7 @@ export type AssignBayResult = { error: string } | { success: true };
 
 export async function assignBay(bookingId: string, bayId: string | null): Promise<AssignBayResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   if (bayId) {
@@ -373,6 +379,7 @@ export async function assignBay(bookingId: string, bayId: string | null): Promis
 
 export async function deleteBooking(bookingId: string): Promise<UpdateBookingStatusResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { error } = await admin

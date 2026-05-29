@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
@@ -57,6 +58,7 @@ export async function prepareStandaloneQuoteUpload(
   fileExt: string,
 ): Promise<PrepareUploadResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_draft")) return { error: "Permission denied." };
 
   if (!isAllowedVideoMime(fileMime)) {
     return { error: "Unsupported video format. Use MP4, MOV, or WebM." };
@@ -96,6 +98,9 @@ export async function createStandaloneQuote(args: {
   sendImmediately?: boolean;
 }): Promise<CreateStandaloneQuoteResult> {
   const ctx = await requireStaffContext();
+  // Send-immediately requires the send permission too; otherwise drafting is enough.
+  const needed = args.sendImmediately ? "quotes_send" : "quotes_draft";
+  if (!hasPermission(ctx, needed)) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   if (!args.items.length) return { error: "Add at least one line item." };
@@ -239,6 +244,7 @@ export async function sendStandaloneQuoteDraft(
   quoteId: string,
 ): Promise<SendStandaloneResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   type DraftRow = {
@@ -334,6 +340,7 @@ export async function sendFreshStandaloneQuote(
   token: string,
 ): Promise<SendStandaloneResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   type Row = {
@@ -442,6 +449,7 @@ export async function updateStandaloneQuoteDraft(args: {
   items?: StandaloneQuoteItemInput[];
 }): Promise<UpdateDraftResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_draft")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data } = await admin
@@ -501,6 +509,7 @@ export type CancelStandaloneResult = { error: string } | { success: true };
 
 export async function cancelStandaloneQuote(quoteId: string): Promise<CancelStandaloneResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   type Row = { id: string; location_id: string; status: string; video_path: string | null };

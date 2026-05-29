@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
@@ -31,6 +32,7 @@ export type AddJobItemResult = { error: string } | { success: true; itemId: stri
 
 export async function addJobItem(jobId: string, formData: FormData): Promise<AddJobItemResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const description = (formData.get("description") as string | null)?.trim();
@@ -72,6 +74,7 @@ export type RemoveJobItemResult = { error: string } | { success: true };
 
 export async function removeJobItem(jobId: string, itemId: string): Promise<RemoveJobItemResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: job } = await admin.from("jobs").select("location_id, status").eq("id", jobId).maybeSingle();
@@ -94,6 +97,7 @@ export async function updateJobItem(
   unitPrice: number,
 ): Promise<UpdateJobItemResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   if (!Number.isFinite(quantity) || quantity <= 0) return { error: "Quantity must be greater than 0." };
@@ -118,6 +122,7 @@ export type UpdateJobResult = { error: string } | { success: true };
 
 export async function updateJob(jobId: string, formData: FormData): Promise<UpdateJobResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const description = (formData.get("description") as string | null)?.trim() || null;
@@ -135,6 +140,7 @@ export async function updateJob(jobId: string, formData: FormData): Promise<Upda
 
 export async function completeJob(jobId: string): Promise<UpdateJobResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: job } = await admin
@@ -169,6 +175,7 @@ export async function completeJob(jobId: string): Promise<UpdateJobResult> {
 
 export async function reopenJob(jobId: string): Promise<UpdateJobResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: job } = await admin
@@ -200,6 +207,7 @@ export type SendReviewRequestResult = { error: string } | { success: true; chann
 
 export async function sendReviewRequest(jobId: string): Promise<SendReviewRequestResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "reminders")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [jobRes, orgRes] = await Promise.all([
@@ -267,6 +275,7 @@ ${garageName}`;
 
 export async function deleteJob(jobId: string): Promise<UpdateJobResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: job } = await admin

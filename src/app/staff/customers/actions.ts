@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
@@ -25,6 +26,7 @@ export type AddCustomerResult = { error: string } | { customerId: string };
 
 export async function addCustomer(formData: FormData): Promise<AddCustomerResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
 
   const fullName = (formData.get("fullName") as string | null)?.trim();
   const email = (formData.get("email") as string | null)?.trim().toLowerCase();
@@ -104,6 +106,7 @@ export type AddVehicleResult = { error: string } | { vehicleId: string; customer
 
 export async function addVehicle(customerId: string, formData: FormData): Promise<AddVehicleResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
 
   const registrationInput = formData.get("registration") as string | null;
   const make = (formData.get("make") as string | null)?.trim() || null;
@@ -166,6 +169,7 @@ export async function sendReminder(
   reminderType: "mot" | "service",
 ): Promise<SendReminderResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "reminders")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [vehicleRes, orgRes] = await Promise.all([
@@ -344,6 +348,7 @@ export async function draftMessagePreview(
   channels: ("email" | "sms" | "whatsapp")[],
 ): Promise<DraftMessagePreviewResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "reminders")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [customerRes, orgRes] = await Promise.all([
@@ -390,6 +395,7 @@ export async function sendDraftedMessage(
   whatsappText: string | null,
 ): Promise<SendDraftedMessageResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "reminders")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const [customerRes, orgRes] = await Promise.all([
@@ -489,6 +495,7 @@ export type UpdateCustomerResult = { error: string } | { success: true };
 
 export async function updateCustomer(customerId: string, formData: FormData): Promise<UpdateCustomerResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
 
   const fullName = (formData.get("fullName") as string | null)?.trim();
   const email = (formData.get("email") as string | null)?.trim().toLowerCase();
@@ -529,6 +536,7 @@ export type DeleteCustomerResult = { error: string } | { success: true };
 
 export async function deleteCustomer(customerId: string): Promise<DeleteCustomerResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { error } = await admin
@@ -556,6 +564,7 @@ export type UpdateVehicleResult = { error: string } | { success: true };
 
 export async function updateVehicle(vehicleId: string, customerId: string, formData: FormData): Promise<UpdateVehicleResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
 
   const registrationInput = formData.get("registration") as string | null;
   const make = (formData.get("make") as string | null)?.trim() || null;
@@ -599,6 +608,7 @@ export type DeleteVehicleResult = { error: string } | { success: true };
 
 export async function deleteVehicle(vehicleId: string, customerId: string): Promise<DeleteVehicleResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { error } = await admin

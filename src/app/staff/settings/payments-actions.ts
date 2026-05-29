@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe, publicOrigin } from "@/lib/stripe";
 import { logAudit } from "@/lib/audit";
@@ -14,8 +15,8 @@ type StartConnectResult = { error: string } | { url: string };
 // and admins only — this is a money-handling action.
 export async function startStripeConnect(): Promise<StartConnectResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners and admins can connect Stripe." };
+  if (!hasPermission(ctx, "stripe_connect")) {
+    return { error: "Permission denied." };
   }
 
   const admin = createAdminClient();
@@ -103,8 +104,8 @@ type RefreshStatusResult =
 // button on the settings page.
 export async function refreshStripeAccountStatus(): Promise<RefreshStatusResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
-    return { error: "Only owners and admins can refresh Stripe status." };
+  if (!hasPermission(ctx, "stripe_connect")) {
+    return { error: "Permission denied." };
   }
 
   const admin = createAdminClient();
@@ -160,7 +161,7 @@ export async function refreshStripeAccountStatus(): Promise<RefreshStatusResult>
 // account (for the garage to view payouts, balance, etc.).
 export async function openStripeDashboard(): Promise<void> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") return;
+  if (!hasPermission(ctx, "stripe_connect")) return;
 
   const admin = createAdminClient();
   const { data: org } = await admin

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveTenantFromHost } from "@/lib/tenant";
+import { type Permissions, normalisePermissions } from "@/app/staff/staff-members/constants";
 
 export type StaffContext = {
   user: { id: string; email: string | undefined; fullName: string | null };
@@ -15,6 +16,11 @@ export type StaffContext = {
   // Location-level role for non-org-member staff at this specific location.
   // Null if the user is accessing via org-level membership.
   locationRole: string | null;
+  // Permission snapshot for the current location. Null if accessing via
+  // orgRole (owners/admins bypass perm checks).
+  locationPermissions: Permissions | null;
+  motTester: boolean;
+  motQcReviewer: boolean;
   supabase: Awaited<ReturnType<typeof createClient>>;
 };
 
@@ -69,7 +75,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
       .maybeSingle(),
     admin
       .from("location_users")
-      .select("role")
+      .select("role, permissions, mot_tester, mot_qc_reviewer")
       .eq("user_id", user.id)
       .eq("location_id", location.id)
       .maybeSingle(),
@@ -79,7 +85,16 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     | "owner"
     | "admin"
     | undefined) ?? null;
-  const locationRole = (locMembershipRes.data?.role as string | undefined) ?? null;
+
+  const locRow = locMembershipRes.data as
+    | { role: string; permissions: Partial<Permissions> | null; mot_tester: boolean | null; mot_qc_reviewer: boolean | null }
+    | null;
+  const locationRole = locRow?.role ?? null;
+  // Org-level access (owner/admin) bypasses perm checks, surface null to
+  // signal that. Otherwise normalise to fill missing keys defensively.
+  const locationPermissions = orgRole ? null : locRow ? normalisePermissions(locRow.permissions) : null;
+  const motTester = locRow?.mot_tester === true;
+  const motQcReviewer = locRow?.mot_qc_reviewer === true;
 
   if (!orgRole && !locationRole) return null;
 
@@ -94,6 +109,9 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     location: { id: location.id, slug: location.slug, name: location.name },
     orgRole,
     locationRole,
+    locationPermissions,
+    motTester,
+    motQcReviewer,
     supabase,
   };
 });

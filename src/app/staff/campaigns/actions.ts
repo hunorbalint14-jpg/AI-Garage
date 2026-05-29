@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -18,7 +19,7 @@ export async function draftBroadcastPreview(
   channels: ("email" | "sms" | "whatsapp")[],
 ): Promise<DraftBroadcastPreviewResult> {
   const ctx = await requireStaffContext();
-  if (!ctx.orgRole) return { error: "Only org owners and admins can send campaigns." };
+  if (!hasPermission(ctx, "campaigns")) return { error: "Permission denied." };
 
   const admin = createAdminClient();
 
@@ -80,7 +81,7 @@ export async function sendBroadcast(
   whatsappText: string | null,
 ): Promise<SendBroadcastResult> {
   const ctx = await requireStaffContext();
-  if (!ctx.orgRole) return { error: "Only org owners and admins can send campaigns." };
+  if (!hasPermission(ctx, "campaigns")) return { error: "Permission denied." };
 
   const admin = createAdminClient();
 

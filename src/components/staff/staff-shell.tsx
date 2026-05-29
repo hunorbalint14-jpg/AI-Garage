@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { Search, ChevronLeft, ChevronRight, ChevronDown, X, Menu } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Search, ChevronLeft, ChevronDown } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { LocationSwitcher } from "@/components/staff/location-switcher";
 import { SignOutButton } from "@/app/staff/sign-out-button";
 import {
@@ -12,12 +13,14 @@ import {
   onBrandColor,
   type NavModule,
 } from "@/components/staff/staff-modules";
+import type { Permissions } from "@/app/staff/staff-members/constants";
 
 type Location = { id: string; slug: string; name: string };
 
 export function StaffShell({
   brandColor,
   orgRole,
+  locationPermissions,
   orgName,
   orgInitials,
   orgLogoUrl,
@@ -31,6 +34,7 @@ export function StaffShell({
 }: {
   brandColor: string;
   orgRole?: "owner" | "admin" | null;
+  locationPermissions?: Permissions | null;
   orgName: string;
   orgInitials: string;
   orgLogoUrl: string | null;
@@ -43,7 +47,10 @@ export function StaffShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "/staff";
-  const modules = useMemo(() => filterModulesForRole(orgRole), [orgRole]);
+  const modules = useMemo(
+    () => filterModulesForRole({ orgRole: orgRole ?? null, locationPermissions }),
+    [orgRole, locationPermissions],
+  );
   const { module: activeModule, item: activeItem } = findActive(pathname, modules);
   const onBrand = useMemo(() => onBrandColor(brandColor), [brandColor]);
 
@@ -52,11 +59,15 @@ export function StaffShell({
   const [sheetOpen, setSheetOpen] = useState(false);
 
   // Auto-close overlays on navigation so the user lands on the new page
-  // without anything in the way.
-  useEffect(() => {
+  // without anything in the way. React docs recommend this "compare prop
+  // during render" pattern over a useEffect for state-derived-from-props
+  // (avoids cascading-render lint warning).
+  const [lastPath, setLastPath] = useState(pathname);
+  if (lastPath !== pathname) {
+    setLastPath(pathname);
     setDrawerOpen(false);
     setSheetOpen(false);
-  }, [pathname]);
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#0e1014] text-[#e6e8eb] dark">
@@ -68,7 +79,6 @@ export function StaffShell({
         <nav className="flex flex-1 flex-col items-center gap-1 w-full">
           {modules.map((m) => {
             const isActive = m.key === activeModule.key;
-            const Icon = m.icon;
             // First item in module is the "module home" we navigate to when
             // clicked from the rail. Pane shows full sub-list.
             const moduleHome = m.items[0].href;
@@ -232,7 +242,7 @@ export function StaffShell({
 
 /* ─────────────────────────── sub-components ─────────────────────────── */
 
-function ModuleIconButton({ Icon }: { isActive: boolean; Icon: any }) {
+function ModuleIconButton({ Icon }: { isActive: boolean; Icon: LucideIcon }) {
   return <Icon className="h-[19px] w-[19px]" />;
 }
 
@@ -291,7 +301,7 @@ function ContextPane({
     <>
       <div className="flex items-center justify-between border-b border-[#2a2f37] px-4 pb-3 pt-4">
         <div className="min-w-0">
-          <div className="font-mono text-[10px] tracking-[0.2em] text-[#5a6170]">// MODULE</div>
+          <div className="font-mono text-[10px] tracking-[0.2em] text-[#5a6170]">{"// MODULE"}</div>
           <div className="mt-1 text-[15px] font-bold text-[#e6e8eb]">{module.label}</div>
           <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5a6170] mt-1 truncate">
             {orgName} · {role.toUpperCase()}

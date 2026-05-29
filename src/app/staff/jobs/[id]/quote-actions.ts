@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
@@ -57,6 +58,7 @@ export async function prepareQuoteUpload(
   fileExt: string,
 ): Promise<PrepareUploadResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_draft")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   if (!isAllowedVideoMime(fileMime)) {
@@ -105,6 +107,7 @@ export async function createQuote(args: {
   expiresInDays?: number;
 }): Promise<CreateQuoteResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_draft")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   if (!args.items.length) return { error: "Add at least one item to the quote." };
@@ -212,6 +215,7 @@ export async function sendQuoteWithToken(
   token: string,
 ): Promise<SendQuoteResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   type QuoteWithCustomer = {
@@ -302,6 +306,7 @@ export type CancelQuoteResult = { error: string } | { success: true };
 
 export async function cancelQuote(quoteId: string): Promise<CancelQuoteResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   const { data: q } = await admin

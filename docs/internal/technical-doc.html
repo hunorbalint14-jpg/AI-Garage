@@ -339,11 +339,14 @@
       <li><a href="#config">Environment &amp; config</a></li>
       <li><a href="#deploy">Deployment topology</a></li>
       <li><a href="#quotes">Mid-job quotes (DVI)</a></li>
+      <li><a href="#standalone-quotes">Standalone quotes</a></li>
+      <li><a href="#roles">Team roles &amp; permissions</a></li>
+      <li><a href="#testing">Testing &amp; CI</a></li>
       <li><a href="#security">Security &amp; compliance</a></li>
     </ol>
     <div class="meta">
-      rev. 2026.05.22<br />
-      revision&nbsp;04<br />
+      rev. 2026.05.27<br />
+      revision&nbsp;05<br />
       classification:<br />internal
     </div>
   </aside>
@@ -359,7 +362,7 @@
       </div>
 
       <div class="cover-title">
-        <div class="eyebrow">Engineering reference · Rev 01</div>
+        <div class="eyebrow">Engineering reference · Rev 05</div>
         <h1>End&#8209;to&#8209;end<br /><span class="accent">technical</span> documentation</h1>
         <p class="lede">A blueprint of the AI Garage SaaS — multi-tenant Next.js on Supabase, with AI-drafted customer communications, scheduled reminder pipelines and Stripe / Xero / DVSA integrations. Written for developers and the CTO.</p>
       </div>
@@ -811,11 +814,11 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <div class="tag">postgres · rls</div>
       </div>
 
-      <p class="lede2">20 tables, all tenant-scoped via <code>location_id</code> (except <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> which scope to <code>organization_id</code>). The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
+      <p class="lede2">28 tables, most tenant-scoped via <code>location_id</code>. Org-scoped tables: <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> (required <code>organization_id</code>) plus <code>role_templates</code> + <code>staff_notifications</code> (nullable <code>organization_id</code>). <code>standalone_quotes</code> carries both <code>location_id</code> and a denormalised <code>organization_id</code>. The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
 
       <div class="bp">
         <div class="caption"><span class="ref">FIG&nbsp;05·A</span><span>entity relationship diagram</span></div>
-        <svg viewBox="0 0 1100 860" role="img" aria-label="Entity relationship diagram">
+        <svg viewBox="0 0 1400 860" role="img" aria-label="Entity relationship diagram">
           <defs>
             <marker id="erd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#0b0d11" />
@@ -833,6 +836,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
             <text x="300" y="22" class="d-eyebrow">PEOPLE</text>
             <text x="580" y="22" class="d-eyebrow">VEHICLE OPS</text>
             <text x="860" y="22" class="d-eyebrow">COMMERCE</text>
+            <text x="1140" y="22" class="d-eyebrow">QUOTES &amp; RBAC</text>
           </g>
 
           <!-- TENANCY column -->
@@ -973,6 +977,48 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
             <text x="872" y="280" class="d-label-mute">amount_pence · arrival_date</text>
           </g>
 
+          <!-- QUOTES & RBAC column -->
+          <g>
+            <rect x="1140" y="40" width="240" height="104" class="d-fill-white d-stroke" />
+            <text x="1152" y="60" class="d-title">job_quotes</text>
+            <text x="1152" y="78" class="d-label-mute">job_id · location_id · status</text>
+            <text x="1152" y="92" class="d-label-mute">token_hash · slug · video_path</text>
+            <text x="1152" y="106" class="d-label-mute">subtotal · vat · total · deposit_*</text>
+            <text x="1152" y="120" class="d-label-mute">approved_item_ids · applied_job_item_ids</text>
+            <text x="1152" y="134" class="d-label-mute">stripe_* · expires_at</text>
+
+            <rect x="1140" y="162" width="240" height="56" class="d-fill-white d-stroke" />
+            <text x="1152" y="182" class="d-title">job_quote_items</text>
+            <text x="1152" y="200" class="d-label-mute">quote_id · description · type</text>
+            <text x="1152" y="214" class="d-label-mute">quantity · unit_price · product_id</text>
+
+            <rect x="1140" y="236" width="240" height="118" class="d-fill-white d-stroke" />
+            <text x="1152" y="256" class="d-title">standalone_quotes</text>
+            <text x="1152" y="274" class="d-label-mute">location_id · organization_id</text>
+            <text x="1152" y="288" class="d-label-mute">customer_id · vehicle_id · status</text>
+            <text x="1152" y="302" class="d-label-mute">token_hash · slug · customer_message</text>
+            <text x="1152" y="316" class="d-label-mute">subtotal · vat · total · deposit_*</text>
+            <text x="1152" y="330" class="d-label-mute">approved_item_ids · stripe_*</text>
+            <text x="1152" y="344" class="d-label-mute">converted_booking_id ⟶</text>
+
+            <rect x="1140" y="372" width="240" height="56" class="d-fill-white d-stroke" />
+            <text x="1152" y="392" class="d-title">standalone_quote_items</text>
+            <text x="1152" y="410" class="d-label-mute">quote_id · description · type</text>
+            <text x="1152" y="424" class="d-label-mute">quantity · unit_price · product_id</text>
+
+            <rect x="1140" y="446" width="240" height="74" class="d-fill-white d-stroke" />
+            <text x="1152" y="466" class="d-title">role_templates</text>
+            <text x="1152" y="484" class="d-label-mute">organization_id (null = system)</text>
+            <text x="1152" y="498" class="d-label-mute">key · label · permissions (jsonb)</text>
+            <text x="1152" y="512" class="d-label-mute">is_system · sort_order</text>
+
+            <rect x="1140" y="538" width="240" height="74" class="d-fill-paper d-stroke" />
+            <text x="1152" y="558" class="d-title">staff_notifications</text>
+            <text x="1152" y="576" class="d-label-mute">user_id · location_id · organization_id</text>
+            <text x="1152" y="590" class="d-label-mute">kind · title · body · href</text>
+            <text x="1152" y="604" class="d-label-mute">entity_type · entity_id · read_at</text>
+          </g>
+
           <!-- joins — arrows point parent → child (1 : many) -->
           <g fill="none">
             <!-- organizations → locations -->
@@ -1024,12 +1070,25 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
 
             <!-- organizations → xero_payouts (cross-column) -->
             <path d="M 245 95 C 600 95 760 220 860 220" class="d-stroke-green" marker-end="url(#erd-arrow)" />
+
+            <!-- jobs → job_quotes (cross-column to QUOTES&RBAC) -->
+            <path d="M 820 165 C 980 165 1000 92 1135 92" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- job_quotes → job_quote_items -->
+            <path d="M 1260 144 L 1260 159" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- customers → standalone_quotes (cross-column, far) -->
+            <path d="M 540 70 C 980 70 1000 295 1135 295" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- standalone_quotes → standalone_quote_items -->
+            <path d="M 1260 354 L 1260 369" class="d-stroke" marker-end="url(#erd-arrow)" />
+            <!-- standalone_quotes → bookings (converted_booking_id, nullable back-edge) -->
+            <path d="M 1140 320 C 980 320 900 110 820 100" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
+            <!-- role_templates → location_users (template_id, nullable, long back-edge) -->
+            <path d="M 1140 483 C 700 483 420 360 268 350" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
           </g>
 
           <!-- legend annotations -->
           <text x="20" y="820" class="d-label-mute">Tenant scope: every operational table carries <tspan class="d-label">location_id</tspan>; <tspan class="d-label">audit_log</tspan>, <tspan class="d-label">doc_shares</tspan> and <tspan class="d-label">xero_payouts</tspan> scope to <tspan class="d-label">organization_id</tspan>. RLS policies enforce membership.</text>
           <text x="20" y="838" class="d-label-mute">Arrows run parent → child (1 : many). Dashed lines are nullable / optional FKs. Green = cross-domain link to Xero.</text>
-          <text x="20" y="856" class="d-label-mute">Auth: <tspan class="d-label">auth.users</tspan> is Supabase-managed; <tspan class="d-label">org_users</tspan>, <tspan class="d-label">location_users</tspan>, <tspan class="d-label">customers.user_id</tspan>, <tspan class="d-label">audit_log.actor_user_id</tspan>, <tspan class="d-label">doc_shares.created_by</tspan> all reference it.</text>
+          <text x="20" y="856" class="d-label-mute">Auth: <tspan class="d-label">auth.users</tspan> is Supabase-managed; <tspan class="d-label">org_users</tspan>, <tspan class="d-label">location_users</tspan>, <tspan class="d-label">customers.user_id</tspan>, <tspan class="d-label">audit_log.actor_user_id</tspan>, <tspan class="d-label">doc_shares.created_by</tspan>, <tspan class="d-label">role_templates.created_by</tspan>, <tspan class="d-label">staff_notifications.user_id</tspan> all reference it.</text>
         </svg>
         <div class="legend">
           <span><span class="sw green"></span>shared (org-scoped)</span>
@@ -1047,6 +1106,9 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <tr><td>Xero</td><td><code>organizations</code> · <code>customers</code> · <code>invoices</code> · <code>xero_payouts</code></td><td><code>xero_tenant_id · xero_access_token · xero_refresh_token · xero_token_expires_at</code> (tokens encrypted at app layer via <code>lib/encryption.ts</code>) · <code>xero_contact_id</code> · <code>xero_invoice_id · xero_payment_id · xero_synced_at</code> · <code>stripe_payout_id · xero_bank_transaction_id · arrival_date</code></td></tr>
         <tr><td>Email tracking</td><td><code>reminders</code></td><td><code>resend_email_id · delivered_at · opened_at · clicked_at</code></td></tr>
         <tr><td>Forensic audit</td><td><code>audit_log</code> · <code>doc_shares</code></td><td><code>actor_user_id · actor_email · action · entity_type · entity_id · metadata · ip_address · user_agent</code> · <code>token_hash · view_count · revoked_at · revoked_by</code></td></tr>
+        <tr><td>Quote lifecycle</td><td><code>job_quotes</code> · <code>standalone_quotes</code></td><td><code>status · token_hash · slug · expires_at · sent_at · viewed_at · viewed_count · responded_at · approved_item_ids · decline_reason · deposit_pct · deposit_amount · deposit_required · deposit_paid_at · stripe_checkout_session_id · stripe_payment_intent_id</code> · standalone adds <code>organization_id · customer_message · converted_booking_id</code>; DVI adds <code>job_id · applied_job_item_ids</code></td></tr>
+        <tr><td>RBAC</td><td><code>location_users</code> · <code>role_templates</code></td><td><code>role · permissions (jsonb) · template_id · mot_tester · mot_qc_reviewer</code> · <code>key · label · permissions · is_system · sort_order</code> (system rows have <code>organization_id IS NULL</code>)</td></tr>
+        <tr><td>In-app notifications</td><td><code>staff_notifications</code></td><td><code>user_id · location_id · organization_id · kind · title · body · href · entity_type · entity_id · read_at</code></td></tr>
       </table>
     </section>
 
@@ -1768,10 +1830,180 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
       </div>
     </section>
 
-    <!-- ============== 14. SECURITY ============== -->
-    <section id="security">
+    <!-- ============== 14. STANDALONE QUOTES ============== -->
+    <section id="standalone-quotes">
       <div class="sec-head">
         <div class="num">14</div>
+        <h2>Standalone quotes</h2>
+        <div class="tag">pre-job · token-gated · prospect</div>
+      </div>
+
+      <p class="lede2">Quotes raised <strong>before a job exists</strong> — a customer rings asking "how much for a full service plus brakes?", staff draft line items + optional video, customer approves the price by tapping a link, then staff schedule a booking. Lives alongside DVI mid-job quotes; the customer route at <code>/quote/[slug]</code> handles both via slug-prefix routing (<code>q-</code> = DVI, <code>sq-</code> = standalone).</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Why it exists</h3>
+          <ul>
+            <li><strong>UK industry norm</strong> — no statutory quote-validity period; consensus 30 days. <code>organizations.quote_validity_days</code> per-org default, configurable in Settings.</li>
+            <li><strong>No phantom job rows</strong> — quote can sit in <code>draft</code> indefinitely without polluting the jobs table.</li>
+            <li><strong>Optional video</strong> — same Storage bucket as DVI, path <code>{location_id}/standalone/{quote_id}.{ext}</code>.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Data model</h3>
+          <ul>
+            <li><code>standalone_quotes</code> — superset of DVI lifecycle (<code>draft / pending / approved / declined / rebooked / expired / cancelled / approved_after_close</code>). Nullable <code>token_hash</code> + <code>slug</code> while in draft.</li>
+            <li><code>standalone_quote_items</code> — frozen line-item snapshot, cascade-delete with parent.</li>
+            <li><code>standalone_quotes_increment_view</code> RPC — atomic view counter.</li>
+            <li>Slug format: <code>sq-&lt;10 hex&gt;</code> (DVI uses <code>q-</code>) so <code>verifyQuoteAccess</code> in <code>src/lib/quote-links.ts</code> routes to the right table.</li>
+            <li><code>converted_booking_id</code> FK to <code>bookings</code> — populated when staff later schedules an approved quote.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Lifecycle differences vs DVI</h3>
+      <ul>
+        <li><strong>Approve does not auto-add items to a job</strong> — there is no job yet. Status flips to <code>approved</code> + staff are notified to schedule a booking. Items remain in the snapshot until the staff-created booking is started.</li>
+        <li><strong>Rebook CTA is hidden</strong> on the customer page — a standalone quote <em>is</em> the booking-precursor, so "decline and rebook" makes no sense.</li>
+        <li><strong>Deposit-on-approve</strong> — same Stripe Checkout flow as DVI v2; webhook handles both <code>quote_id</code> and <code>standalone_quote_id</code> metadata.</li>
+        <li><strong>Cron expiry</strong> — <code>/api/cron/quote-expiry</code> sweeps both tables for <code>status='pending' AND expires_at &lt; now()</code>.</li>
+      </ul>
+
+      <h3>Staff surfaces</h3>
+      <table class="tbl">
+        <tr><th>Route</th><th>Purpose</th></tr>
+        <tr><td><code>/staff/quotes</code></td><td>List with status filter chips + summary cards; mobile card-list, desktop table.</td></tr>
+        <tr><td><code>/staff/quotes/new</code></td><td>Customer + vehicle picker, line-item editor with product picker, optional video upload, "Save as draft" or "Send to customer".</td></tr>
+        <tr><td><code>/staff/quotes/[id]</code></td><td>Detail view: video player, items + totals, timeline, customer link reminder (mint-once token).</td></tr>
+      </table>
+
+      <h3>Audit verbs</h3>
+      <p><code>standalone_quote.create</code>, <code>standalone_quote.send</code>, <code>standalone_quote.cancel</code>, <code>standalone_quote.view</code>, <code>standalone_quote.approve</code>, <code>standalone_quote.decline</code>, <code>standalone_quote.expire</code>, <code>standalone_quote.deposit_paid</code>.</p>
+    </section>
+
+    <!-- ============== 15. ROLES &amp; PERMISSIONS ============== -->
+    <section id="roles">
+      <div class="sec-head">
+        <div class="num">15</div>
+        <h2>Team roles &amp; permissions</h2>
+        <div class="tag">rbac · templates · uk-garage</div>
+      </div>
+
+      <p class="lede2">Two-tier role model with a 23-key permission catalogue, eight system templates seeded with UK garage defaults (DVSA MTS taxonomy, IGA/Trust My Garage code, ICO Accountability Framework), and owner-defined custom templates. Every mutating server action calls <code>hasPermission(ctx, key)</code>; the helper is in <code>src/lib/permissions.ts</code>.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Hierarchy</h3>
+          <ul>
+            <li><strong>Org-level</strong> (<code>org_users</code>): <code>owner</code> / <code>admin</code> — full access across every location in the org. Bypass all <code>hasPermission</code> checks.</li>
+            <li><strong>Location-level</strong> (<code>location_users</code>): <code>manager</code> · <code>service_advisor</code> · <code>mechanic</code> · <code>apprentice</code> · <code>receptionist</code> · <code>parts</code> · <code>bookkeeper</code> · <code>staff</code> (legacy alias). Each has a <code>permissions</code> JSONB column + <code>template_id</code> snapshot reference.</li>
+            <li><strong>MOT flags</strong> — <code>mot_tester</code> and <code>mot_qc_reviewer</code> live as separate booleans, not capabilities. DVSA MTS enforces tester separation externally; we just label.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Permission groups (23 keys)</h3>
+          <ul>
+            <li><strong>Operational</strong> — bookings, customers, reminders, fleet, products, notifications</li>
+            <li><strong>Financial</strong> — revenue (margin), invoices, reports</li>
+            <li><strong>Quotes</strong> — quotes_draft / quotes_send / quotes_approve_view (split so techs can draft, advisors send)</li>
+            <li><strong>Catalogue &amp; config</strong> — services, bays, automations, campaigns, org_settings</li>
+            <li><strong>Sensitive</strong> — staff_manage, audit_log, gdpr_actions, stripe_connect, xero_integration</li>
+            <li><strong>MOT</strong> — mot_records</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Hard-locked permissions</h3>
+      <p><code>staff_manage</code>, <code>org_settings</code>, and <code>gdpr_actions</code> can <strong>never</strong> be granted via a location template — only org owners/admins exercise them. <code>HARD_OWNER_ADMIN_PERMS</code> in <code>src/app/staff/staff-members/constants.ts</code> enforces this in the helper.</p>
+
+      <h3>Templates</h3>
+      <p>Eight system templates live in <code>role_templates</code> with <code>organization_id = NULL</code> + <code>is_system = TRUE</code> — read-only baselines. Owners can clone a system template into an org-scoped custom template (e.g. "Lead Tech", "Apprentice Plus") and tweak the perm grid.</p>
+      <p><strong>Snapshot semantics</strong> — applying a template <em>copies</em> the permissions onto the user's <code>location_users.permissions</code> column. Editing the template afterwards does <strong>not</strong> auto-propagate to existing members — protects against accidental privilege escalation. Owners re-apply per-user from <code>/staff/staff-members</code> when they want to push template edits out.</p>
+
+      <h3>Enforcement</h3>
+      <ul>
+        <li><code>requireStaffContext()</code> loads <code>locationPermissions</code> + MOT flags into ctx on every request.</li>
+        <li>Every mutating server action under <code>src/app/staff/**/actions.ts</code> calls <code>hasPermission(ctx, key)</code> before any DB write — returns <code>{ error: "Permission denied." }</code> on deny.</li>
+        <li>The staff sidebar in <code>src/components/staff/staff-modules.ts</code> tags each nav item with <code>permission?: PermissionKey</code> and <code>filterModulesForRole(ctx)</code> hides items the user can't use.</li>
+      </ul>
+
+      <h3>Audit verbs</h3>
+      <p><code>role_template.create</code> / <code>role_template.update</code> / <code>role_template.delete</code>, <code>staff.template_assign</code>, <code>staff.mot_flag_change</code>, plus the existing <code>staff.*</code> verbs (invite, role_change, permissions_update, remove, password_reset, password_set, mfa_reset).</p>
+
+      <div class="note">
+        <span class="label">UK garage research</span>
+        Role names + default capabilities derived from DVSA MTS approved-tester taxonomy (mechanic vs MOT tester vs QC reviewer), Trust My Garage / Independent Garage Association code of practice (quoting rules), and the ICO Accountability Framework's RBAC + least-privilege requirement.
+      </div>
+    </section>
+
+    <!-- ============== 16. TESTING &amp; CI ============== -->
+    <section id="testing">
+      <div class="sec-head">
+        <div class="num">16</div>
+        <h2>Testing &amp; CI</h2>
+        <div class="tag">vitest · github-actions · pre-commit</div>
+      </div>
+
+      <p class="lede2">Vitest 2.1 runs ~180 unit tests in &lt;2 s. GitHub Actions blocks merges on typecheck + tests. Husky pre-commit hook scopes lint + typecheck to staged files.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Test layout</h3>
+          <ul>
+            <li>Tests colocate next to source as <code>*.test.ts</code> / <code>*.test.tsx</code>.</li>
+            <li><code>vitest.config.mts</code> — node env by default; jsdom opt-in per-file via <code>*.dom.test.tsx</code> glob.</li>
+            <li><code>vitest.setup.ts</code> seeds stable env defaults so libs that read env at module-load don't crash under test.</li>
+            <li><code>src/test/helpers/</code> — <code>mockStaffContext</code>, <code>mockStaffContextMember</code>, <code>createSupabaseMock</code> (fluent builder).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Coverage focus</h3>
+          <ul>
+            <li><strong>Phase A</strong> — pure libs (<code>src/lib/**</code>): permissions, tenant, quote-links, encryption, oauth-state, doc-shares, cron/schedule, registration, slug, stripe, sms, whatsapp, email, dvla, utils.</li>
+            <li><strong>Phase B</strong> — server-action permission gates: every mutating action under <code>src/app/staff/**/actions.ts</code> tested for the <code>Permission denied</code> shape.</li>
+            <li><strong>Out of scope</strong> (future PRs): webhook signature + idempotency tests, Playwright E2E, component tests.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>CI workflow (<code>.github/workflows/ci.yml</code>)</h3>
+      <table class="tbl">
+        <tr><th>Step</th><th>Gate</th></tr>
+        <tr><td><code>npm run typecheck</code></td><td><strong>Hard</strong> — blocks merge</td></tr>
+        <tr><td><code>npm run test:coverage</code></td><td><strong>Hard</strong> — blocks merge</td></tr>
+        <tr><td><code>npx eslint src/</code></td><td>Soft (<code>continue-on-error</code>) while Next 16 strict-mode warning backlog is cleared</td></tr>
+        <tr><td>Upload coverage artifact</td><td>Always — 14-day retention</td></tr>
+      </table>
+      <p>Concurrency group cancels in-progress runs on force-push. Runs on every push + pull_request. Total CI ~3-4 min — well under GitHub free-tier budget.</p>
+
+      <h3>Pre-commit hook</h3>
+      <p><code>.husky/pre-commit</code> runs <code>npx lint-staged</code>. The <code>lint-staged</code> config in <code>package.json</code> scopes <code>eslint --fix</code> + <code>tsc --noEmit</code> to staged <code>.ts</code>/<code>.tsx</code> files. Bypass with <code>git commit --no-verify</code>.</p>
+
+      <h3>Writing a new server-action test</h3>
+      <pre style="background:var(--aig-paper-2); padding:12px; border-radius:6px; font-family:var(--font-mono); font-size:12px; overflow-x:auto; line-height:1.5"><code>vi.mock("@/lib/staff-context", () =&gt; ({ requireStaffContext: vi.fn() }));
+vi.mock("@/lib/supabase/admin", () =&gt; ({ createAdminClient: vi.fn() }));
+// ...other deps mocked similarly
+
+const { requireStaffContext } = await import("@/lib/staff-context");
+const { myAction } = await import("./actions");
+
+it("denies without my_perm", async () =&gt; {
+  vi.mocked(requireStaffContext).mockResolvedValue(
+    mockStaffContextMember({ my_perm: false }),
+  );
+  expect(await myAction(args)).toEqual({ error: "Permission denied." });
+});</code></pre>
+
+      <div class="note">
+        <span class="label">Branch protection</span>
+        After the CI PR merges, enable required status check <code>ci / ci</code> on <code>main</code> via GitHub → Settings → Branches → branch protection rule. The check appears in the search box only after CI has run at least once on any branch.
+      </div>
+    </section>
+
+    <!-- ============== 17. SECURITY ============== -->
+    <section id="security">
+      <div class="sec-head">
+        <div class="num">17</div>
         <h2>Security &amp; compliance</h2>
         <div class="tag">rls · gdpr · pci</div>
       </div>
@@ -1833,7 +2065,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
     <footer style="margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--aig-rule); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3);">
       <div>
         <img src="/brand/aigarage-mark-on-brand.svg" alt="" style="height: 18px; vertical-align: middle; margin-right: 8px;" />
-        AI Garage · technical reference · revision 04
+        AI Garage · technical reference · revision 05
       </div>
       <div>end of document</div>
     </footer>
