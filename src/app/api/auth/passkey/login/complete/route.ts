@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getChallenge, clearChallenge } from "@/lib/webauthn/challenge";
 import { getRpId, isOriginAllowed } from "@/lib/webauthn/config";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 function publicKeyToUint8(input: unknown): Uint8Array {
   if (input instanceof Uint8Array) return input;
@@ -26,6 +27,14 @@ function publicKeyToUint8(input: unknown): Uint8Array {
 }
 
 export async function POST(req: NextRequest) {
+  const limited = await enforceRateLimit("login");
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts." },
+      { status: 429, headers: { "retry-after": String(limited.retryAfter) } },
+    );
+  }
+
   const body = await req.json();
   const assertion = body.assertion;
   if (!assertion?.id) {

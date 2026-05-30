@@ -1,6 +1,6 @@
 # Security Hardening Plan
 
-> Internal roadmap. Status: Phase 1 in progress. Last updated 2026-05-29.
+> Internal roadmap. Status: Phase 1 + Phase 2 complete. Last updated 2026-05-30.
 
 Garage-AI is a multi-tenant Next.js 16 + Supabase SaaS handling customer PII, payments (Stripe Connect) and accounting (Xero) for UK garages. A read-only audit of auth/session, multi-tenancy/RLS and secrets/webhooks/input was performed and the HIGH/MED findings verified directly against source. This document tracks the phased remediation (4 PRs), priority-ordered so each change ships independently.
 
@@ -67,12 +67,14 @@ Existing `/docs/[slug]` per-route headers are correct and more restrictive — k
 
 ---
 
-## Phase 2 — Rate limiting + account lockout (PR 2, Upstash Redis)
+## Phase 2 — Rate limiting + account lockout (PR 2, Upstash Redis) ✅ DONE
 
-- Add `@upstash/ratelimit`, `@upstash/redis`; env `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
-- `src/lib/rate-limit.ts` — sliding-window factory keyed by IP + email; fail-open on outage (per-endpoint decision); presets `authLimiter` (~5/min) and `looseLimiter`.
-- Apply to login, forgot-password, reset-password, passkey begin/complete, set-session. Login is client-side today — wrap in a server action to gate it server-side (largest piece).
-- Lockout: after N failures, generic "too many attempts" (don't reveal account existence).
+- Added `@upstash/ratelimit`, `@upstash/redis`; env `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` (documented in `.env.example`).
+- `src/lib/rate-limit.ts` — sliding-window limiter, keyed by `IP[:email]`. **Disabled** (allows all) when Upstash env unset, so local dev + un-provisioned envs work unchanged. **Fail-open** on Upstash error (logs, allows) — an outage must not lock out every login. Buckets: `login` 8/min, `email` 4/hr, `token` 20/min.
+- Login moved **server-side** to gate it: `signInStaff` (`staff/login/actions.ts`), `signInCustomer` + `sendCustomerMagicLink` (`login/actions.ts`). Forgot-password → `requestPasswordReset` (`forgot-password/actions.ts`). All three client forms now call these instead of the browser Supabase client.
+- Also gated: `reset-password` `updatePassword` (per-IP), passkey `login/begin` + `login/complete` (429 + `retry-after`), `set-session` (429). Removed now-dead `getStaffTenantUrl` (ungated handoff-token minter).
+- Lockout = the sliding window itself + a generic `tooManyAttemptsError` message (no account enumeration).
+- Tests: `src/lib/rate-limit.test.ts` (disabled-allow, `clientIp` parsing, message formatting).
 
 ## Phase 3 — Input validation, uploads, token hygiene (PR 3)
 

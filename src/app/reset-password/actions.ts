@@ -4,6 +4,7 @@ import { createHmac } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
+import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 
 const RESET_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -32,6 +33,9 @@ export type UpdatePasswordResult = { error: string } | { success: true };
 export async function updatePassword(
   formData: FormData,
 ): Promise<UpdatePasswordResult> {
+  const limited = await enforceRateLimit("login");
+  if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
+
   const token = formData.get("token") as string | null;
   const password = formData.get("password") as string | null;
   const confirm = formData.get("confirm") as string | null;
