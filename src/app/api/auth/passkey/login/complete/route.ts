@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getChallenge, clearChallenge } from "@/lib/webauthn/challenge";
 import { getRpId, isOriginAllowed } from "@/lib/webauthn/config";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
+import { getCurrentTenant } from "@/lib/tenant-data";
 
 function publicKeyToUint8(input: unknown): Uint8Array {
   if (input instanceof Uint8Array) return input;
@@ -48,6 +50,14 @@ export async function POST(req: NextRequest) {
 
   const origin = req.headers.get("origin") ?? "";
   if (!isOriginAllowed(origin)) {
+    const tenant = await getCurrentTenant();
+    await logAudit({
+      action: "auth.login_failed",
+      actorUserId: null,
+      actorEmail: null,
+      organizationId: tenant?.organization.id ?? null,
+      metadata: { method: "passkey", reason: "origin_not_allowed" },
+    });
     return NextResponse.json({ error: "Origin not allowed." }, { status: 400 });
   }
 
@@ -60,6 +70,14 @@ export async function POST(req: NextRequest) {
 
   if (!credential) {
     await clearChallenge();
+    const tenant = await getCurrentTenant();
+    await logAudit({
+      action: "auth.login_failed",
+      actorUserId: null,
+      actorEmail: null,
+      organizationId: tenant?.organization.id ?? null,
+      metadata: { method: "passkey", reason: "unknown_credential" },
+    });
     return NextResponse.json({ error: "Passkey not recognised." }, { status: 401 });
   }
 
@@ -79,11 +97,27 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     await clearChallenge();
+    const tenant = await getCurrentTenant();
+    await logAudit({
+      action: "auth.login_failed",
+      actorUserId: null,
+      actorEmail: null,
+      organizationId: tenant?.organization.id ?? null,
+      metadata: { method: "passkey", reason: `verification_error: ${(e as Error).message}` },
+    });
     return NextResponse.json({ error: `Verification failed: ${(e as Error).message}` }, { status: 401 });
   }
 
   if (!verification.verified) {
     await clearChallenge();
+    const tenant = await getCurrentTenant();
+    await logAudit({
+      action: "auth.login_failed",
+      actorUserId: null,
+      actorEmail: null,
+      organizationId: tenant?.organization.id ?? null,
+      metadata: { method: "passkey", reason: "not_verified" },
+    });
     return NextResponse.json({ error: "Verification failed." }, { status: 401 });
   }
 
@@ -102,6 +136,17 @@ export async function POST(req: NextRequest) {
     await clearChallenge();
     return NextResponse.json({ error: "Auth user has no email." }, { status: 500 });
   }
+
+  // Log successful passkey login. Passkeys are staff-only, so portal is always
+  // "staff". Organization may be null when on the root domain (resolved below).
+  const tenant = await getCurrentTenant();
+  await logAudit({
+    action: "auth.login",
+    actorUserId: credential.user_id,
+    actorEmail: authUser.user.email,
+    organizationId: tenant?.organization.id ?? null,
+    metadata: { method: "passkey", portal: "staff" },
+  });
 
   // Detect if we're on the root marketing domain (no subdomain) — if so, route
   // the user to their tenant via a cross-subdomain magic link. Otherwise mint
