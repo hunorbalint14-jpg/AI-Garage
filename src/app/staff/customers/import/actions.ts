@@ -4,8 +4,27 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
+import { emailSchema, nameSchema, phoneSchema, parseOrError } from "@/lib/validation";
+import { z } from "zod";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Upload guards. A garage customer list is small; these bound memory + abuse.
+const MAX_FILE_BYTES = 2_000_000; // 2 MB
+const MAX_ROWS = 5000;
+// Browsers vary in the MIME they attach to a .csv (some send octet-stream or
+// the Excel type). Accept those + empty, reject anything clearly not a CSV.
+const ALLOWED_MIME = new Set([
+  "text/csv",
+  "text/plain",
+  "application/vnd.ms-excel",
+  "application/octet-stream",
+  "",
+]);
+
+const importRowSchema = z.object({
+  full_name: nameSchema,
+  email: emailSchema,
+  phone: phoneSchema,
+});
 
 export type ImportResult =
   | { error: string }
@@ -52,11 +71,18 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
 
   const file = formData.get("file") as File | null;
   if (!file) return { error: "No file uploaded." };
-  if (!file.name.endsWith(".csv")) return { error: "File must be a .csv." };
+  if (!file.name.toLowerCase().endsWith(".csv")) return { error: "File must be a .csv." };
+  if (!ALLOWED_MIME.has(file.type)) return { error: "File must be a .csv." };
+  if (file.size > MAX_FILE_BYTES) {
+    return { error: `File is too large (max ${Math.floor(MAX_FILE_BYTES / 1_000_000)} MB).` };
+  }
 
   const text = await file.text();
   const rows = parseCSV(text);
   if (!rows.length) return { error: "CSV is empty or has no data rows." };
+  if (rows.length > MAX_ROWS) {
+    return { error: `Too many rows (max ${MAX_ROWS}). Split the file and try again.` };
+  }
 
   let customersCreated = 0;
   let customersSkipped = 0;
@@ -68,12 +94,14 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
     const row = rows[i];
     const rowNum = i + 2;
 
-    const fullName = row.full_name?.trim();
-    const email = row.email?.trim().toLowerCase();
-    const phone = row.phone?.trim() || null;
-
-    if (!fullName) { errors.push(`Row ${rowNum}: full_name required`); continue; }
-    if (!email || !EMAIL_RE.test(email)) { errors.push(`Row ${rowNum}: invalid email`); continue; }
+    const parsedRow = parseOrError(importRowSchema, {
+      full_name: row.full_name,
+      email: row.email,
+      phone: row.phone ?? undefined,
+    });
+    if ("error" in parsedRow) { errors.push(`Row ${rowNum}: ${parsedRow.error}`); continue; }
+    const { full_name: fullName, email } = parsedRow.data;
+    const phone = parsedRow.data.phone ?? null;
 
     let customerId = emailToCustomerId.get(email);
 
