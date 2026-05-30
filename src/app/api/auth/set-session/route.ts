@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { enforceRateLimit } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
+import { resolvePortalForUser } from "@/lib/tenant-data";
 
 // Bridge endpoint used by the /auth/callback HTML shim. Receives the access +
 // refresh tokens the magiclink left in the URL fragment, calls supabase.setSession
@@ -61,6 +63,24 @@ export async function POST(request: NextRequest) {
   });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 401 });
+  }
+
+  // Log the login — no overlap with /auth/callback because that route only
+  // reaches set-session when there is no ?code= (legacy implicit flow).
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { portal, organizationId } = await resolvePortalForUser(user.id);
+      await logAudit({
+        action: "auth.login",
+        actorUserId: user.id,
+        actorEmail: user.email ?? null,
+        organizationId,
+        metadata: { method: "magiclink", portal },
+      });
+    }
+  } catch {
+    // Never let audit failure affect the session response
   }
 
   return response;

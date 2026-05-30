@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { safeInternalPath } from "@/lib/safe-redirect";
 import { signResetToken } from "@/lib/reset-token";
+import { logAudit } from "@/lib/audit";
+import { resolvePortalForUser, getCurrentTenant } from "@/lib/tenant-data";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -73,11 +74,27 @@ export async function GET(request: NextRequest) {
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
+    const tenant = await getCurrentTenant();
+    await logAudit({
+      action: "auth.login_failed",
+      actorUserId: null,
+      actorEmail: null,
+      organizationId: tenant?.organization.id ?? null,
+      metadata: { method: "magiclink", reason: error.message },
+    });
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
   }
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
+    const tenant = await getCurrentTenant();
+    await logAudit({
+      action: "auth.login_failed",
+      actorUserId: null,
+      actorEmail: null,
+      organizationId: tenant?.organization.id ?? null,
+      metadata: { method: "magiclink", reason: "no_user_after_exchange" },
+    });
     return NextResponse.redirect(`${origin}/login?error=auth-callback-failed`);
   }
 
@@ -88,40 +105,17 @@ export async function GET(request: NextRequest) {
     const token = signResetToken(user.id);
     redirectTo = `${origin}/reset-password?t=${token}`;
   } else {
-    // Detect staff — check if user belongs to this location's org
-    const admin = createAdminClient();
-    const { resolveTenantFromHost } = await import("@/lib/tenant");
-    const slug =
-      request.headers.get("x-tenant-slug") ??
-      resolveTenantFromHost(request.headers.get("host") ?? "").slug;
-
-    if (slug) {
-      const { data: location } = await admin
-        .from("locations")
-        .select("id, organization_id")
-        .eq("slug", slug)
-        .maybeSingle();
-
-      if (location) {
-        const [orgCheck, locCheck] = await Promise.all([
-          admin
-            .from("org_users")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("organization_id", location.organization_id)
-            .maybeSingle(),
-          admin
-            .from("location_users")
-            .select("id")
-            .eq("user_id", user.id)
-            .eq("location_id", location.id)
-            .maybeSingle(),
-        ]);
-
-        if (orgCheck.data || locCheck.data) {
-          redirectTo = `${origin}/staff`;
-        }
-      }
+    // Detect staff vs customer using the shared portal helper, then log the login.
+    const { portal, organizationId } = await resolvePortalForUser(user.id);
+    await logAudit({
+      action: "auth.login",
+      actorUserId: user.id,
+      actorEmail: user.email ?? null,
+      organizationId,
+      metadata: { method: "magiclink", portal },
+    });
+    if (portal === "staff") {
+      redirectTo = `${origin}/staff`;
     }
   }
 
