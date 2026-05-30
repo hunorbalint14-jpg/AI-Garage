@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,8 +18,8 @@ export async function registerCustomer(
 
   if (!fullName) return { error: "Name is required." };
   if (!email || !EMAIL_RE.test(email)) return { error: "A valid email is required." };
-  if (!password || password.length < 6)
-    return { error: "Password must be at least 6 characters." };
+  if (!password || password.length < MIN_PASSWORD_LENGTH)
+    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
 
   const headersList = await headers();
   const slug = headersList.get("x-tenant-slug");

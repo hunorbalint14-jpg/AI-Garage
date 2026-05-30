@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSlug } from "@/lib/slug";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 
 export type SignupResult = { error: string } | { redirectUrl: string };
 
@@ -15,8 +16,8 @@ export async function signUpGarage(formData: FormData): Promise<SignupResult> {
   if (!businessName) return { error: "Business name is required." };
   if (!ownerName) return { error: "Your name is required." };
   if (!email) return { error: "Email is required." };
-  if (!password || password.length < 6) {
-    return { error: "Password must be at least 6 characters." };
+  if (!password || password.length < MIN_PASSWORD_LENGTH) {
+    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
   }
   if (!slugInput) return { error: "Subdomain is required." };
 

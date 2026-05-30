@@ -6,6 +6,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 
 export type StaffActionResult = { error: string } | { success: true };
 export type InviteResult = { error: string } | { success: true; inviteLink: string };
@@ -215,9 +216,39 @@ export async function resetStaffPassword(email: string): Promise<LinkResult> {
   if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") return { error: "Owner or admin only." };
 
   const admin = createAdminClient();
-  const { data: { users: allUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  const targetUser = allUsers.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-  if (targetUser && !targetUser.email_confirmed_at) {
+  const normalisedEmail = email.trim().toLowerCase();
+
+  // Resolve the target ONLY among members of the caller's org. A project-wide
+  // listUsers() scan would let an owner mint a reset link for a user in another
+  // tenant, and breaks past the 1000-user page cap. (#security Phase 1)
+  const orgId = ctx.organization.id;
+  const [orgUsersRes, locationsRes] = await Promise.all([
+    admin.from("org_users").select("user_id").eq("organization_id", orgId),
+    admin.from("locations").select("id").eq("organization_id", orgId),
+  ]);
+  const locationIds = ((locationsRes.data ?? []) as { id: string }[]).map((l) => l.id);
+  const locUsersRes = locationIds.length
+    ? await admin.from("location_users").select("user_id").in("location_id", locationIds)
+    : { data: [] as { user_id: string }[] };
+
+  const memberIds = [
+    ...new Set([
+      ...((orgUsersRes.data ?? []) as { user_id: string }[]).map((u) => u.user_id),
+      ...((locUsersRes.data ?? []) as { user_id: string }[]).map((u) => u.user_id),
+    ]),
+  ];
+
+  let targetUser: { id: string; emailConfirmed: boolean } | null = null;
+  for (const id of memberIds) {
+    const { data: lookup } = await admin.auth.admin.getUserById(id);
+    if (lookup?.user?.email?.toLowerCase() === normalisedEmail) {
+      targetUser = { id, emailConfirmed: Boolean(lookup.user.email_confirmed_at) };
+      break;
+    }
+  }
+  if (!targetUser) return { error: "User not found." };
+
+  if (!targetUser.emailConfirmed) {
     await admin.auth.admin.updateUserById(targetUser.id, { email_confirm: true });
   }
 
@@ -234,7 +265,7 @@ export async function resetStaffPassword(email: string): Promise<LinkResult> {
     actorEmail: ctx.user.email ?? null,
     action: "staff.password_reset",
     entityType: "auth_user",
-    entityId: targetUser?.id ?? null,
+    entityId: targetUser.id,
     metadata: { target_email: email },
   });
 
@@ -247,7 +278,8 @@ export async function setStaffPassword(
 ): Promise<StaffActionResult> {
   const ctx = await requireStaffContext();
   if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") return { error: "Owner or admin only." };
-  if (password.length < 8) return { error: "Password must be at least 8 characters." };
+  if (password.length < MIN_PASSWORD_LENGTH)
+    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
 
   const admin = createAdminClient();
   const { error } = await admin.auth.admin.updateUserById(userId, { password });
