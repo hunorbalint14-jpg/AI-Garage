@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createBooking } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,9 +26,17 @@ function fmt(n: number | null) {
   return ` — £${n.toFixed(2)}`;
 }
 
-function defaultDateTime(): string {
+// Default value for the datetime-local input. With a `?date=YYYY-MM-DD` param
+// (e.g. from the calendar day panel) use that day at 09:00; otherwise tomorrow
+// at 09:00.
+function defaultDateTime(dateParam?: string | null): string {
   const d = new Date();
-  d.setDate(d.getDate() + 1);
+  const ymd = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateParam ?? "");
+  if (ymd) {
+    d.setFullYear(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3]));
+  } else {
+    d.setDate(d.getDate() + 1);
+  }
   d.setHours(9, 0, 0, 0);
   const tzOffset = d.getTimezoneOffset() * 60000;
   return new Date(d.getTime() - tzOffset).toISOString().slice(0, 16);
@@ -49,8 +58,13 @@ export function BookingForm({
   defaultVehicleId: string | null;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const initialDateTime = useMemo(
+    () => defaultDateTime(searchParams.get("date")),
+    [searchParams],
+  );
 
   const [customerId, setCustomerId] = useState(defaultCustomerId ?? "");
   const [vehicleId, setVehicleId] = useState(defaultVehicleId ?? "");
@@ -139,7 +153,7 @@ export function BookingForm({
             id="scheduledAt"
             name="scheduledAt"
             type="datetime-local"
-            defaultValue={defaultDateTime()}
+            defaultValue={initialDateTime}
             required
             disabled={pending}
           />
@@ -240,7 +254,7 @@ export function BookingForm({
           variant="outline"
           disabled={pending}
           nativeButton={false}
-          render={<a href="/staff/bookings">Cancel</a>}
+          render={<Link href="/staff/bookings">Cancel</Link>}
         />
       </div>
     </form>
