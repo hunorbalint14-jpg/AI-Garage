@@ -2,24 +2,29 @@
 
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
+import { emailSchema, nameSchema, phoneSchema, passwordSchema, parseOrError } from "@/lib/validation";
+import { z } from "zod";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const registerSchema = z.object({
+  fullName: nameSchema,
+  email: emailSchema,
+  phone: phoneSchema,
+  password: passwordSchema,
+});
 
 export type RegisterResult = { error: string } | { success: true };
 
 export async function registerCustomer(
   formData: FormData,
 ): Promise<RegisterResult> {
-  const fullName = (formData.get("fullName") as string | null)?.trim();
-  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
-  const phone = (formData.get("phone") as string | null)?.trim() || null;
-  const password = formData.get("password") as string | null;
-
-  if (!fullName) return { error: "Name is required." };
-  if (!email || !EMAIL_RE.test(email)) return { error: "A valid email is required." };
-  if (!password || password.length < MIN_PASSWORD_LENGTH)
-    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
+  const parsed = parseOrError(registerSchema, {
+    fullName: formData.get("fullName"),
+    email: formData.get("email"),
+    phone: formData.get("phone") ?? undefined,
+    password: formData.get("password"),
+  });
+  if ("error" in parsed) return parsed;
+  const { fullName, email, phone, password } = parsed.data;
 
   const headersList = await headers();
   const slug = headersList.get("x-tenant-slug");
@@ -63,7 +68,7 @@ export async function registerCustomer(
     user_id: userId,
     full_name: fullName,
     email,
-    phone,
+    phone: phone ?? null,
   });
 
   if (customerErr) {

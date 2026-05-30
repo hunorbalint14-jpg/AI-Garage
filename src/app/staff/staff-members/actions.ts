@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
+import { emailSchema, parseOrError } from "@/lib/validation";
 
 export type StaffActionResult = { error: string } | { success: true };
 export type InviteResult = { error: string } | { success: true; inviteLink: string };
@@ -52,7 +53,10 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
     return { error: "Owner or admin only." };
   }
 
-  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
+  const emailParsed = parseOrError(emailSchema, formData.get("email"));
+  if ("error" in emailParsed) return emailParsed;
+  const email = emailParsed.data;
+
   const fullName = (formData.get("fullName") as string | null)?.trim() || null;
   const scope = (formData.get("scope") as string | null) ?? "location";
   const locationId = (formData.get("locationId") as string | null)?.trim() || null;
@@ -60,8 +64,6 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
   const templateId = (formData.get("templateId") as string | null)?.trim() || null;
   const motTester = formData.get("mot_tester") === "on";
   const motQcReviewer = formData.get("mot_qc_reviewer") === "on";
-
-  if (!email) return { error: "Email is required." };
   if (scope === "location" && !locationId) return { error: "Select a location." };
   if (scope === "org" && role !== "admin") {
     // Org scope is always admin; auto-coerce.
