@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updatePassword } from "./actions";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const [pending, startTransition] = useTransition();
@@ -39,7 +40,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
   return (
     <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/[0.03] p-8 backdrop-blur-md shadow-2xl">
       <h1 className="text-2xl font-bold tracking-tight">Choose a new password</h1>
-      <p className="mt-1.5 text-sm text-gray-400">Must be at least 6 characters.</p>
+      <p className="mt-1.5 text-sm text-gray-400">Must be at least {MIN_PASSWORD_LENGTH} characters.</p>
 
       <form action={handleSubmit} className="mt-6 flex flex-col gap-4">
         <div>
@@ -51,7 +52,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
             name="password"
             type="password"
             required
-            minLength={6}
+            minLength={MIN_PASSWORD_LENGTH}
             autoComplete="new-password"
             className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
           />

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeInternalPath } from "@/lib/safe-redirect";
 
 // Cross-subdomain auth handoff. Called with ?token_hash=...&next=/staff after
 // the user signs in on a different host (e.g. root marketing domain). We verify
@@ -9,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
-  const next = searchParams.get("next") || "/staff";
+  const next = safeInternalPath(searchParams.get("next"), "/staff");
 
   if (!tokenHash) {
     return NextResponse.redirect(`${origin}/staff/login?error=missing-token`);

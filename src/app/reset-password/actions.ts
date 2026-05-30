@@ -2,6 +2,8 @@
 
 import { createHmac } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { safeEqual } from "@/lib/safe-equal";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 
 const RESET_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -17,7 +19,7 @@ function verifyResetToken(token: string): { uid: string } | null {
     const expected = createHmac("sha256", secret)
       .update(`${uid}:${ts}`)
       .digest("hex");
-    if (sig !== expected) return null;
+    if (!safeEqual(sig, expected)) return null;
 
     return { uid };
   } catch {
@@ -35,8 +37,8 @@ export async function updatePassword(
   const confirm = formData.get("confirm") as string | null;
 
   if (!token) return { error: "Missing reset token." };
-  if (!password || password.length < 6)
-    return { error: "Password must be at least 6 characters." };
+  if (!password || password.length < MIN_PASSWORD_LENGTH)
+    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
   if (password !== confirm) return { error: "Passwords don't match." };
 
   const payload = verifyResetToken(token);

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { safeEqual } from "@/lib/safe-equal";
 import { sendEmail } from "@/lib/email";
 
 // Runs every Monday at 08:00 UTC via Vercel Cron.
@@ -110,7 +111,7 @@ ${logoUrl ? `<div style="margin:0 0 12px"><img src="${logoUrl}" alt="${orgName}"
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
