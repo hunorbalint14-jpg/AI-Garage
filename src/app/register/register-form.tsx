@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useTransition } from "react";
 import { registerCustomer } from "./actions";
 import { createClient } from "@/lib/supabase/client";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 
 export function RegisterForm({
   garageName,
@@ -65,12 +66,12 @@ export function RegisterForm({
             name="password"
             type="password"
             required
-            minLength={6}
+            minLength={MIN_PASSWORD_LENGTH}
             autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <p className="mt-1 text-xs text-gray-500">At least 6 characters.</p>
+          <p className="mt-1 text-xs text-gray-500">At least {MIN_PASSWORD_LENGTH} characters.</p>
         </div>
 
         {error && <p className="text-sm text-red-400">{error}</p>}

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { makeSessionStartValue, readSessionStart } from "@/lib/session-cookie";
 
 const SESSION_STARTED_COOKIE = "ai_session_started_at";
 const MAX_SESSION_MS = 12 * 60 * 60 * 1000; // 12 hours
@@ -58,17 +59,23 @@ export async function updateSession(
     const startedRaw = request.cookies.get(SESSION_STARTED_COOKIE)?.value;
     const now = Date.now();
     if (!startedRaw) {
-      // First request after sign-in — stamp the session start
-      supabaseResponse.cookies.set(SESSION_STARTED_COOKIE, String(now), {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: Math.floor(MAX_SESSION_MS / 1000),
-      });
+      // First request after sign-in — stamp the (signed) session start
+      supabaseResponse.cookies.set(
+        SESSION_STARTED_COOKIE,
+        await makeSessionStartValue(now),
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: Math.floor(MAX_SESSION_MS / 1000),
+        },
+      );
     } else {
-      const startedAt = parseInt(startedRaw, 10);
-      if (Number.isFinite(startedAt) && now - startedAt > MAX_SESSION_MS) {
+      // A present-but-unsigned/tampered value reads back as null — treat it
+      // the same as an expired session rather than trusting the timestamp.
+      const startedAt = await readSessionStart(startedRaw);
+      if (startedAt === null || now - startedAt > MAX_SESSION_MS) {
         // Session expired — sign out + redirect to login
         try {
           await supabase.auth.signOut();

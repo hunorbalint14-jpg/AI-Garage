@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { safeInternalPath } from "@/lib/safe-redirect";
 import { createHmac } from "crypto";
 
 function signResetToken(userId: string): string {
@@ -15,7 +16,7 @@ function signResetToken(userId: string): string {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = safeInternalPath(searchParams.get("next"), "/dashboard");
 
   const host = request.headers.get("host") ?? "localhost:3000";
   const protocol =
@@ -29,7 +30,6 @@ export async function GET(request: NextRequest) {
     // return a tiny HTML bridge that reads it client-side, posts the tokens
     // to /api/auth/set-session (which writes the session cookies), and
     // then navigates to `next`.
-    const safeNext = next.startsWith("/") ? next : "/staff";
     const fallback = `${origin}/login?error=auth-callback-failed`;
     const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Signing you in…</title></head>
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     body: JSON.stringify({ access_token: at, refresh_token: rt }),
   }).then(function (r) {
     if (!r.ok) { window.location.replace(${JSON.stringify(fallback)}); return; }
-    window.location.replace(${JSON.stringify(safeNext)});
+    window.location.replace(${JSON.stringify(next)});
   }).catch(function () {
     window.location.replace(${JSON.stringify(fallback)});
   });
