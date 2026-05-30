@@ -19,6 +19,15 @@ const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 const redis = url && token ? new Redis({ url, token }) : null;
 
+// A deployed environment with no Upstash config means auth is silently
+// unthrottled — make that loud. One line per cold start (module load), not
+// per request. Local dev (no VERCEL_ENV) stays quiet: the no-op is intentional.
+if (!redis && (process.env.VERCEL_ENV || process.env.NODE_ENV === "production")) {
+  console.warn(
+    "[rate-limit] DISABLED — UPSTASH_REDIS_REST_URL/TOKEN unset. Auth endpoints are NOT throttled.",
+  );
+}
+
 type Window = Parameters<typeof Ratelimit.slidingWindow>[1];
 
 function makeLimiter(prefix: string, tokens: number, window: Window): Ratelimit | null {
