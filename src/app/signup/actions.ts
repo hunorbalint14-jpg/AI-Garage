@@ -2,23 +2,29 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSlug } from "@/lib/slug";
-import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
+import { emailSchema, nameSchema, passwordSchema, parseOrError } from "@/lib/validation";
+import { z } from "zod";
+
+const signupSchema = z.object({
+  businessName: nameSchema,
+  ownerName: nameSchema,
+  email: emailSchema,
+  password: passwordSchema,
+});
 
 export type SignupResult = { error: string } | { redirectUrl: string };
 
 export async function signUpGarage(formData: FormData): Promise<SignupResult> {
-  const businessName = (formData.get("businessName") as string | null)?.trim();
-  const slugInput = (formData.get("slug") as string | null)?.trim().toLowerCase();
-  const ownerName = (formData.get("ownerName") as string | null)?.trim();
-  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
-  const password = formData.get("password") as string | null;
+  const parsed = parseOrError(signupSchema, {
+    businessName: formData.get("businessName"),
+    ownerName: formData.get("ownerName"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+  if ("error" in parsed) return parsed;
+  const { businessName, ownerName, email, password } = parsed.data;
 
-  if (!businessName) return { error: "Business name is required." };
-  if (!ownerName) return { error: "Your name is required." };
-  if (!email) return { error: "Email is required." };
-  if (!password || password.length < MIN_PASSWORD_LENGTH) {
-    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.` };
-  }
+  const slugInput = (formData.get("slug") as string | null)?.trim().toLowerCase();
   if (!slugInput) return { error: "Subdomain is required." };
 
   const slugError = validateSlug(slugInput);

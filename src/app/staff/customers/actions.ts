@@ -5,6 +5,8 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
+import { emailSchema, nameSchema, phoneSchema, parseOrError } from "@/lib/validation";
+import { z } from "zod";
 import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
 import { lookupVehicleVes } from "@/lib/dvla-ves";
 import { checkVehicleRecalls } from "@/lib/dvsa-recalls";
@@ -22,23 +24,29 @@ import {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const addCustomerSchema = z.object({
+  fullName: nameSchema,
+  email: emailSchema,
+  phone: phoneSchema,
+});
+
 export type AddCustomerResult = { error: string } | { customerId: string };
 
 export async function addCustomer(formData: FormData): Promise<AddCustomerResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
 
-  const fullName = (formData.get("fullName") as string | null)?.trim();
-  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
-  const phone = (formData.get("phone") as string | null)?.trim();
-
-  if (!fullName) return { error: "Name is required." };
-  if (!email) return { error: "Email is required." };
-  if (!EMAIL_RE.test(email)) return { error: "Email looks invalid." };
+  const parsed = parseOrError(addCustomerSchema, {
+    fullName: formData.get("fullName"),
+    email: formData.get("email"),
+    phone: formData.get("phone") ?? undefined,
+  });
+  if ("error" in parsed) return parsed;
+  const { fullName, email, phone } = parsed.data;
 
   const { data, error } = await ctx.supabase
     .from("customers")
-    .insert({ location_id: ctx.location.id, full_name: fullName, email, phone: phone || null })
+    .insert({ location_id: ctx.location.id, full_name: fullName, email, phone: phone ?? null })
     .select("id")
     .single();
 

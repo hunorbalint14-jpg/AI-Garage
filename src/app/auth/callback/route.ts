@@ -2,16 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeInternalPath } from "@/lib/safe-redirect";
-import { createHmac } from "crypto";
-
-function signResetToken(userId: string): string {
-  const ts = Date.now().toString();
-  const secret = process.env.CRON_SECRET ?? "dev-reset-secret";
-  const sig = createHmac("sha256", secret)
-    .update(`${userId}:${ts}`)
-    .digest("hex");
-  return Buffer.from(JSON.stringify({ uid: userId, ts, sig })).toString("base64url");
-}
+import { signResetToken } from "@/lib/reset-token";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

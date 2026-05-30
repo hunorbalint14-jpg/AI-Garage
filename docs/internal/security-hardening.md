@@ -1,6 +1,6 @@
 # Security Hardening Plan
 
-> Internal roadmap. Status: Phase 1 + Phase 2 complete. Last updated 2026-05-30.
+> Internal roadmap. Status: Phase 1 + Phase 2 + Phase 3 complete. Last updated 2026-05-30.
 
 Garage-AI is a multi-tenant Next.js 16 + Supabase SaaS handling customer PII, payments (Stripe Connect) and accounting (Xero) for UK garages. A read-only audit of auth/session, multi-tenancy/RLS and secrets/webhooks/input was performed and the HIGH/MED findings verified directly against source. This document tracks the phased remediation (4 PRs), priority-ordered so each change ships independently.
 
@@ -76,11 +76,13 @@ Existing `/docs/[slug]` per-route headers are correct and more restrictive — k
 - Lockout = the sliding window itself + a generic `tooManyAttemptsError` message (no account enumeration).
 - Tests: `src/lib/rate-limit.test.ts` (disabled-allow, `clientIp` parsing, message formatting).
 
-## Phase 3 — Input validation, uploads, token hygiene (PR 3)
+## Phase 3 — Input validation, uploads, token hygiene (PR 3) ✅ DONE
 
-- `zod` schemas for high-value server actions (auth, staff invite, customer create/import, payments).
-- CSV import: MIME check (`text/csv`), max file size, max row count.
-- Reset token: dedicated `RESET_TOKEN_SECRET` (split from `CRON_SECRET`); single-use via persisted nonce/jti marked consumed.
+- Added `zod`. Shared field schemas + `parseOrError` helper in `src/lib/validation.ts` (email/name/phone/password). Applied to `registerCustomer`, `signUpGarage`, `addCustomer`, `inviteStaffMember` (email), and CSV import rows. Payment actions left as-is — they operate on existing records by id, not free-text input (noted for Phase 4 review).
+- CSV import (`customers/import/actions.ts`): MIME allow-list, 2 MB size cap, 5000-row cap, and per-row zod validation (was extension-only + manual regex).
+- Reset token: extracted to `src/lib/reset-token.ts` with a dedicated `RESET_TOKEN_SECRET` (falls back to `CRON_SECRET` until provisioned). Now **single-use** — each token carries a random `jti` recorded in the new `password_reset_tokens` table on consume; replay hits the PK conflict and is rejected. Sig now binds `uid:ts:jti`. Migration: `20260530000000_password_reset_tokens.sql` (RLS on, no policies — service-role only).
+  - **Deploy note**: in-flight reset links (signed < 10 min before deploy) become invalid due to the format change — users must re-request. Provision `RESET_TOKEN_SECRET` in Vercel.
+- Tests: `validation.test.ts`, `reset-token.test.ts` (round-trip, single-use, tamper, uid-swap, expiry, malformed).
 
 ## Phase 4 — Defense in depth & review (PR 4)
 
