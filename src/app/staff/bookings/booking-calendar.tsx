@@ -86,7 +86,7 @@ export function BookingCalendar({
               type="button"
               onClick={() => navMonth(-1)}
               aria-label="Previous month"
-              className="rounded-md p-1.5 hover:bg-muted"
+              className="rounded-md p-2 hover:bg-muted"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -97,7 +97,7 @@ export function BookingCalendar({
                   `/staff/bookings?view=calendar&month=${todayKey.slice(0, 7)}`,
                 )
               }
-              className="rounded-md px-2.5 py-1 text-xs font-medium hover:bg-muted"
+              className="rounded-md px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
             >
               Today
             </button>
@@ -105,7 +105,7 @@ export function BookingCalendar({
               type="button"
               onClick={() => navMonth(1)}
               aria-label="Next month"
-              className="rounded-md p-1.5 hover:bg-muted"
+              className="rounded-md p-2 hover:bg-muted"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -115,7 +115,8 @@ export function BookingCalendar({
         <div className="grid grid-cols-7 border-b bg-muted/50 text-center text-xs font-medium text-muted-foreground">
           {WEEKDAYS.map((d) => (
             <div key={d} className="py-2">
-              {d}
+              <span className="sm:hidden">{d[0]}</span>
+              <span className="hidden sm:inline">{d}</span>
             </div>
           ))}
         </div>
@@ -133,7 +134,7 @@ export function BookingCalendar({
                 key={key}
                 onClick={() => setSelected(key)}
                 className={cn(
-                  "flex min-h-[76px] flex-col items-start gap-1 border-b border-r p-1.5 text-left transition-colors",
+                  "flex min-h-[58px] flex-col items-start gap-1 border-b border-r p-1 text-left transition-colors sm:min-h-[76px] sm:p-1.5",
                   "hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/40",
                   !inMonth && "bg-muted/20 text-muted-foreground",
                   isSelected && "bg-primary/10 ring-1 ring-inset ring-primary",
@@ -172,7 +173,7 @@ export function BookingCalendar({
       </div>
 
       {/* Day panel */}
-      <div className="rounded-lg border">
+      <div className="rounded-lg border lg:sticky lg:top-4 lg:self-start">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h2 className="text-sm font-semibold">{fullDayLabel(selected)}</h2>
           <span className="text-xs text-muted-foreground">
