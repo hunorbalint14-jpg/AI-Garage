@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 
 const ROOT =
   process.env.ROOT_DOMAIN ??
@@ -58,13 +60,28 @@ function handoffUrl(slug: string, tokenHash: string, next: string): string {
   return `${tenantOrigin(slug)}/auth/handoff?token_hash=${encodeURIComponent(tokenHash)}&next=${encodeURIComponent(next)}`;
 }
 
-// After a successful root-domain sign-in, build a handoff URL on the user's
-// tenant subdomain. The handoff route runs server-side verifyOtp which sets
-// the auth cookies on the tenant subdomain (cookies are host-scoped).
-export async function getStaffTenantUrl(): Promise<
-  { url: string } | { error: string }
-> {
+// Server-side staff password sign-in. Runs through the rate limiter (per
+// IP+email) before touching Supabase, so brute-force / credential-stuffing is
+// throttled — which a client-side signInWithPassword could not enforce. On the
+// root marketing domain it returns a cross-subdomain handoff URL; on a tenant
+// subdomain it returns "/staff".
+export async function signInStaff(
+  email: string,
+  password: string,
+): Promise<{ url: string } | { error: string }> {
+  const limited = await enforceRateLimit("login", email);
+  if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
+
   const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) return { error: error.message };
+
+  const headersList = await headers();
+  const hostname = (headersList.get("host") ?? "").split(":")[0];
+  const isRootDomain = hostname === ROOT_HOST || hostname === `www.${ROOT_HOST}`;
+  if (!isRootDomain) return { url: "/staff" };
+
+  // Root domain — mint a handoff link to the user's tenant subdomain.
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -78,13 +95,13 @@ export async function getStaffTenantUrl(): Promise<
   }
 
   const admin = createAdminClient();
-  const { data, error } = await admin.auth.admin.generateLink({
+  const { data, error: linkErr } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email: user.email,
   });
   const tokenHash = data?.properties?.hashed_token;
-  if (error || !tokenHash) {
-    return { error: error?.message ?? "Failed to generate handoff token." };
+  if (linkErr || !tokenHash) {
+    return { error: linkErr?.message ?? "Failed to generate handoff token." };
   }
   return { url: handoffUrl(slug, tokenHash, "/staff") };
 }

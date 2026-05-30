@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import { startAuthentication } from "@simplewebauthn/browser";
-import { createClient } from "@/lib/supabase/client";
-import { getStaffTenantUrl } from "./actions";
-
-const ROOT_HOST =
-  (process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000").split(":")[0];
-
-function isRootDomain() {
-  if (typeof window === "undefined") return false;
-  const h = window.location.hostname;
-  return h === ROOT_HOST || h === `www.${ROOT_HOST}`;
-}
+import { signInStaff } from "./actions";
 
 export function StaffLoginForm({
   initialEmail = "",
@@ -21,7 +11,6 @@ export function StaffLoginForm({
   initialEmail?: string;
   accentColor?: string;
 }) {
-  const supabase = createClient();
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -72,28 +61,13 @@ export function StaffLoginForm({
     setPending(true);
     setError(null);
 
-    const { error: signInErr } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInErr) {
-      setError(signInErr.message);
+    const result = await signInStaff(email, password);
+    if ("error" in result) {
+      setError(result.error);
       setPending(false);
       return;
     }
-
-    if (isRootDomain()) {
-      const result = await getStaffTenantUrl();
-      if ("error" in result) {
-        setError(result.error);
-        setPending(false);
-        return;
-      }
-      window.location.href = result.url;
-    } else {
-      window.location.href = "/staff";
-    }
+    window.location.href = result.url;
   }
 
   return (

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { enforceRateLimit } from "@/lib/rate-limit";
 
 // Bridge endpoint used by the /auth/callback HTML shim. Receives the access +
 // refresh tokens the magiclink left in the URL fragment, calls supabase.setSession
@@ -10,6 +11,14 @@ import { createServerClient } from "@supabase/ssr";
 // flow (#access_token=...). The hash never reaches the server, so we bridge it
 // here client-side. PKCE (?code=) handled separately in /auth/callback GET.
 export async function POST(request: NextRequest) {
+  const limited = await enforceRateLimit("token");
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts." },
+      { status: 429, headers: { "retry-after": String(limited.retryAfter) } },
+    );
+  }
+
   let body: { access_token?: unknown; refresh_token?: unknown };
   try {
     body = (await request.json()) as typeof body;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { signInCustomer, sendCustomerMagicLink } from "./actions";
 
 type Mode = "magic-link" | "password";
 
@@ -12,7 +12,6 @@ export function CustomerLoginForm({
   garageName: string;
   primaryColor?: string;
 }) {
-  const supabase = createClient();
   const [mode, setMode] = useState<Mode>("magic-link");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -27,15 +26,12 @@ export function CustomerLoginForm({
     setMessage(null);
 
     if (mode === "magic-link") {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/dashboard` },
-      });
-      if (error) setError(error.message);
+      const result = await sendCustomerMagicLink(email);
+      if ("error" in result) setError(result.error);
       else setMessage("Check your email for the sign-in link.");
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
+      const result = await signInCustomer(email, password);
+      if ("error" in result) setError(result.error);
       else window.location.href = "/dashboard";
     }
     setPending(false);

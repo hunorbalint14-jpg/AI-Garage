@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { requestPasswordReset } from "./actions";
 
 export function ForgotPasswordForm() {
-  const supabase = createClient();
   const [pending, startTransition] = useTransition();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -14,10 +13,8 @@ export function ForgotPasswordForm() {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
-      });
-      if (error) setError(error.message);
+      const result = await requestPasswordReset(email);
+      if ("error" in result) setError(result.error);
       else setSent(true);
     });
   }
