@@ -15,8 +15,12 @@ import { headers } from "next/headers";
 //  - Buckets count ATTEMPTS, not failures — a brute-force run burns the budget
 //    regardless of whether each guess succeeds, and a normal login costs 1.
 
-const url = process.env.UPSTASH_REDIS_REST_URL;
-const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+// Accept both our own names and the ones Vercel's Upstash Marketplace
+// integration injects (`UPSTASH_KV_REST_API_*`), so the limiter activates
+// whichever way the DB was provisioned. The Redis client needs the REST URL +
+// token — not `UPSTASH_REDIS_URL`, which is the redis:// TCP string.
+const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.UPSTASH_KV_REST_API_URL;
+const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.UPSTASH_KV_REST_API_TOKEN;
 const redis = url && token ? new Redis({ url, token }) : null;
 
 // A deployed environment with no Upstash config means auth is silently
@@ -24,7 +28,7 @@ const redis = url && token ? new Redis({ url, token }) : null;
 // per request. Local dev (no VERCEL_ENV) stays quiet: the no-op is intentional.
 if (!redis && (process.env.VERCEL_ENV || process.env.NODE_ENV === "production")) {
   console.warn(
-    "[rate-limit] DISABLED — UPSTASH_REDIS_REST_URL/TOKEN unset. Auth endpoints are NOT throttled.",
+    "[rate-limit] DISABLED — UPSTASH_REDIS_REST_URL/TOKEN (or UPSTASH_KV_REST_API_*) unset. Auth endpoints are NOT throttled.",
   );
 }
 
