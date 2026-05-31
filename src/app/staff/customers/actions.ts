@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { emailSchema, nameSchema, phoneSchema, parseOrError } from "@/lib/validation";
+import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 import { z } from "zod";
 import { lookupVehicle, type DvsaVehicle } from "@/lib/dvla";
 import { lookupVehicleVes } from "@/lib/dvla-ves";
@@ -178,6 +179,10 @@ export async function sendReminder(
 ): Promise<SendReminderResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "reminders")) return { error: "Permission denied." };
+
+  const limited = await enforceRateLimit("ai", ctx.user.id);
+  if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
+
   const admin = createAdminClient();
 
   const [vehicleRes, orgRes] = await Promise.all([
@@ -357,6 +362,10 @@ export async function draftMessagePreview(
 ): Promise<DraftMessagePreviewResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "reminders")) return { error: "Permission denied." };
+
+  const limited = await enforceRateLimit("ai", ctx.user.id);
+  if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
+
   const admin = createAdminClient();
 
   const [customerRes, orgRes] = await Promise.all([
