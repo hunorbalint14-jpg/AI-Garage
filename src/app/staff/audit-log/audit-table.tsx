@@ -21,7 +21,7 @@ export type AuditRow = {
 
 const ENTITY_LINK: Record<string, (id: string) => string> = {
   job: (id) => `/staff/jobs/${id}`,
-  job_quote: () => `/staff/quotes`,
+  job_quote: (id) => `/staff/job-quotes/${id}`,
   standalone_quote: (id) => `/staff/quotes/${id}`,
   customer: (id) => `/staff/customers/${id}`,
   invoice: (id) => `/staff/invoices/${id}`,

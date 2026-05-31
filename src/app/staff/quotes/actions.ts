@@ -399,6 +399,88 @@ export async function sendFreshStandaloneQuote(
   return { success: true, channels: result.channels, customerUrl: url };
 }
 
+// ---------------------------------------------------------------------------
+// Remind the customer about a still-pending standalone quote. Mirrors the job-
+// quote remind flow: tokens are mint-once, so we rotate the token (mint a fresh
+// one, store its hash, re-send). The previously-sent link stops working. On a
+// total send failure we restore the prior hash so the old link keeps working.
+// ---------------------------------------------------------------------------
+export async function remindStandaloneQuote(
+  quoteId: string,
+): Promise<SendStandaloneResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  type Row = {
+    id: string;
+    location_id: string;
+    status: string;
+    slug: string | null;
+    total: number;
+    title: string | null;
+    token_hash: string | null;
+    last_reminded_at: string | null;
+    customer: { full_name: string | null; email: string | null; phone: string | null } | null;
+    vehicle: { registration: string | null } | null;
+  };
+  const { data } = await admin
+    .from("standalone_quotes")
+    .select("id, location_id, status, slug, total, title, token_hash, last_reminded_at, customer:customers(full_name, email, phone), vehicle:vehicles(registration)")
+    .eq("id", quoteId)
+    .maybeSingle();
+  const q = data as Row | null;
+  if (!q || q.location_id !== ctx.location.id) return { error: "Quote not found." };
+  if (q.status !== "pending" || !q.slug) return { error: "Only pending quotes can be reminded." };
+
+  const customer = q.customer;
+  if (!customer?.email && !customer?.phone) {
+    return { error: "Customer has no email or phone — cannot notify." };
+  }
+
+  // Rotate the token before sending so the link in the message resolves.
+  const token = generateQuoteToken();
+  const { error: rotateErr } = await admin
+    .from("standalone_quotes")
+    .update({ token_hash: hashQuoteToken(token), last_reminded_at: new Date().toISOString() })
+    .eq("id", quoteId)
+    .eq("status", "pending");
+  if (rotateErr) return { error: rotateErr.message };
+
+  const url = tenantQuoteUrl(ctx.location.slug, q.slug, token);
+  const result = await dispatchStandaloneNotification({
+    customer,
+    vehicleReg: q.vehicle?.registration ?? null,
+    title: q.title,
+    total: q.total,
+    garageName: ctx.organization.name,
+    url,
+  });
+
+  if (result.channels.length === 0) {
+    // Restore the previous hash so the customer's existing link keeps working.
+    await admin
+      .from("standalone_quotes")
+      .update({ token_hash: q.token_hash, last_reminded_at: q.last_reminded_at })
+      .eq("id", quoteId);
+    return { error: "Failed to send via any channel." };
+  }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "standalone_quote.remind",
+    entityType: "standalone_quote",
+    entityId: quoteId,
+    metadata: { channels: result.channels, total: q.total },
+  });
+
+  revalidatePath("/staff/quotes");
+  revalidatePath(`/staff/quotes/${quoteId}`);
+  return { success: true, channels: result.channels, customerUrl: url };
+}
+
 async function dispatchStandaloneNotification(args: {
   customer: { full_name: string | null; email: string | null; phone: string | null };
   vehicleReg: string | null;

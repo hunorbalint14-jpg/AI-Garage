@@ -76,6 +76,7 @@ export type AuditAction =
   // DVI / mid-job upsell quotes
   | "quote.create"
   | "quote.send"
+  | "quote.remind"
   | "quote.cancel"
   | "quote.view"
   | "quote.approve"
@@ -86,6 +87,7 @@ export type AuditAction =
   // Standalone (pre-job) quotes
   | "standalone_quote.create"
   | "standalone_quote.send"
+  | "standalone_quote.remind"
   | "standalone_quote.cancel"
   | "standalone_quote.view"
   | "standalone_quote.approve"

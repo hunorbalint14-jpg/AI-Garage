@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Video, X } from "lucide-react";
+import Link from "next/link";
+import { Video, X, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cancelQuote } from "./quote-actions";
+import { cancelQuote, remindQuote } from "./quote-actions";
 
 export type QuoteSummary = {
   id: string;
@@ -13,6 +14,7 @@ export type QuoteSummary = {
   total: number;
   created_at: string;
   sent_at: string | null;
+  last_reminded_at: string | null;
   viewed_at: string | null;
   viewed_count: number;
   responded_at: string | null;
@@ -42,14 +44,30 @@ export function QuoteList({ quotes }: { quotes: QuoteSummary[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
 
   function handleCancel(id: string) {
     if (!confirm("Cancel this quote? The customer link will stop working.")) return;
     setError(null);
+    setInfo(null);
     startTransition(async () => {
       const result = await cancelQuote(id);
       if ("error" in result) setError(result.error);
       else router.refresh();
+    });
+  }
+
+  function handleRemind(id: string) {
+    if (!confirm("Send a reminder? This rotates the link — the previously-sent link will stop working.")) return;
+    setError(null);
+    setInfo(null);
+    startTransition(async () => {
+      const result = await remindQuote(id);
+      if ("error" in result) setError(result.error);
+      else {
+        setInfo(`Reminder sent via ${result.channels.join(" + ")}.`);
+        router.refresh();
+      }
     });
   }
 
@@ -70,11 +88,14 @@ export function QuoteList({ quotes }: { quotes: QuoteSummary[] }) {
                 <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_STYLE[q.status] ?? ""}`}>
                   {q.status.replace(/_/g, " ")}
                 </span>
-                <span className="text-sm font-medium truncate">{q.title || "(no title)"}</span>
+                <Link href={`/staff/job-quotes/${q.id}`} className="text-sm font-medium truncate underline hover:no-underline">
+                  {q.title || "(no title)"}
+                </Link>
               </div>
               <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">
                 <span>Created {formatDate(q.created_at)}</span>
                 {q.sent_at && <span>Sent {formatDate(q.sent_at)}</span>}
+                {q.last_reminded_at && <span>Reminded {formatDate(q.last_reminded_at)}</span>}
                 {q.viewed_at && <span>Viewed {q.viewed_count}× · last {formatDate(q.viewed_at)}</span>}
                 {q.responded_at && <span>Responded {formatDate(q.responded_at)}</span>}
                 {!q.responded_at && q.status === "pending" && (
@@ -86,20 +107,32 @@ export function QuoteList({ quotes }: { quotes: QuoteSummary[] }) {
             <div className="flex items-center gap-2">
               <span className="font-semibold tabular-nums">{formatGBP(q.total)}</span>
               {q.status === "pending" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleCancel(q.id)}
-                  disabled={pending}
-                  aria-label="Cancel quote"
-                >
-                  <X className="h-3 w-3 mr-1" /> Cancel
-                </Button>
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleRemind(q.id)}
+                    disabled={pending}
+                    aria-label="Remind customer"
+                  >
+                    <Bell className="h-3 w-3 mr-1" /> Remind
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleCancel(q.id)}
+                    disabled={pending}
+                    aria-label="Cancel quote"
+                  >
+                    <X className="h-3 w-3 mr-1" /> Cancel
+                  </Button>
+                </>
               )}
             </div>
           </li>
         ))}
       </ul>
+      {info && <p className="px-4 pb-4 text-sm text-green-700">{info}</p>}
       {error && <p className="px-4 pb-4 text-sm text-red-600">{error}</p>}
     </section>
   );

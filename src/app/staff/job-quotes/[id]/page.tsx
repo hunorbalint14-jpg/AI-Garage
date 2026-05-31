@@ -3,17 +3,17 @@ import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSignedReadUrl } from "@/lib/quote-storage";
-import { QuoteDetailActions } from "./quote-detail-actions";
+import { JobQuoteDetailActions } from "./job-quote-detail-actions";
 
 export const dynamic = "force-dynamic";
 
 type QuoteRow = {
   id: string;
+  job_id: string;
   location_id: string;
   status: string;
   title: string | null;
   description: string | null;
-  customer_message: string | null;
   video_path: string | null;
   subtotal: number;
   vat_rate: number;
@@ -27,13 +27,12 @@ type QuoteRow = {
   responded_at: string | null;
   decline_reason: string | null;
   approved_item_ids: string[];
-  deposit_required: boolean;
-  deposit_pct: number | null;
-  deposit_amount: number | null;
-  deposit_paid_at: string | null;
   created_at: string;
-  customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
-  vehicle: { id: string; registration: string | null; make: string | null; model: string | null } | null;
+  job: {
+    id: string;
+    customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
+    vehicle: { id: string; registration: string | null; make: string | null; model: string | null } | null;
+  } | null;
 };
 
 type QuoteItem = {
@@ -45,10 +44,10 @@ type QuoteItem = {
 };
 
 const STATUS_STYLE: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
   pending: "bg-amber-100 text-amber-800",
   approved: "bg-green-100 text-green-700",
   declined: "bg-red-100 text-red-700",
+  rebooked: "bg-blue-100 text-blue-700",
   expired: "bg-gray-200 text-gray-700",
   cancelled: "bg-gray-200 text-gray-700",
   approved_after_close: "bg-purple-100 text-purple-700",
@@ -65,7 +64,7 @@ function fmtDateTime(s: string | null): string {
   });
 }
 
-export default async function QuoteDetailPage({
+export default async function JobQuoteDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -75,9 +74,9 @@ export default async function QuoteDetailPage({
   const admin = createAdminClient();
 
   const { data: quoteData } = await admin
-    .from("standalone_quotes")
+    .from("job_quotes")
     .select(
-      "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, last_reminded_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model)",
+      "id, job_id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, last_reminded_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, created_at, job:jobs(id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -86,7 +85,7 @@ export default async function QuoteDetailPage({
   if (!quote || quote.location_id !== ctx.location.id) notFound();
 
   const { data: itemRows } = await admin
-    .from("standalone_quote_items")
+    .from("job_quote_items")
     .select("id, description, type, quantity, unit_price")
     .eq("quote_id", id)
     .order("sort_order");
@@ -97,10 +96,13 @@ export default async function QuoteDetailPage({
   const approvedSet = new Set(quote.approved_item_ids ?? []);
   const partial = quote.status === "approved" && (quote.approved_item_ids?.length ?? 0) > 0 && quote.approved_item_ids.length < items.length;
 
+  const customer = quote.job?.customer ?? null;
+  const vehicle = quote.job?.vehicle ?? null;
+
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
       <div>
-        <Link href="/staff/quotes" className="text-sm text-muted-foreground underline">← Back to quotes</Link>
+        <Link href={`/staff/jobs/${quote.job_id}`} className="text-sm text-muted-foreground underline">← Back to job</Link>
       </div>
 
       <div className="flex items-start justify-between gap-4">
@@ -120,24 +122,24 @@ export default async function QuoteDetailPage({
         <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-sm">
           <dt className="text-muted-foreground">Customer</dt>
           <dd>
-            {quote.customer ? (
-              <Link href={`/staff/customers/${quote.customer.id}`} className="underline">
-                {quote.customer.full_name ?? "(no name)"}
+            {customer ? (
+              <Link href={`/staff/customers/${customer.id}`} className="underline">
+                {customer.full_name ?? "(no name)"}
               </Link>
             ) : "—"}
-            {quote.customer && (
+            {customer && (
               <div className="text-xs text-muted-foreground">
-                {quote.customer.email ?? "no email"} · {quote.customer.phone ?? "no phone"}
+                {customer.email ?? "no email"} · {customer.phone ?? "no phone"}
               </div>
             )}
           </dd>
           <dt className="text-muted-foreground">Vehicle</dt>
           <dd>
-            {quote.vehicle ? (
+            {vehicle ? (
               <>
-                <span className="font-mono">{quote.vehicle.registration}</span>
-                {(quote.vehicle.make || quote.vehicle.model) && (
-                  <span className="text-muted-foreground"> — {[quote.vehicle.make, quote.vehicle.model].filter(Boolean).join(" ")}</span>
+                <span className="font-mono">{vehicle.registration}</span>
+                {(vehicle.make || vehicle.model) && (
+                  <span className="text-muted-foreground"> — {[vehicle.make, vehicle.model].filter(Boolean).join(" ")}</span>
                 )}
               </>
             ) : "—"}
@@ -149,13 +151,6 @@ export default async function QuoteDetailPage({
         <section className="rounded-lg border p-4">
           <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">Staff notes</h2>
           <p className="text-sm whitespace-pre-wrap">{quote.description}</p>
-        </section>
-      )}
-
-      {quote.customer_message && (
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">Message to customer</h2>
-          <p className="text-sm whitespace-pre-wrap">{quote.customer_message}</p>
         </section>
       )}
 
@@ -225,12 +220,6 @@ export default async function QuoteDetailPage({
           <dd>{fmtDateTime(quote.responded_at)}</dd>
           <dt className="text-muted-foreground">Expires</dt>
           <dd>{fmtDateTime(quote.expires_at)}</dd>
-          {quote.deposit_required && (
-            <>
-              <dt className="text-muted-foreground">Deposit ({quote.deposit_pct}%)</dt>
-              <dd>{quote.deposit_amount ? fmt(Number(quote.deposit_amount)) : "—"} {quote.deposit_paid_at ? `· paid ${fmtDateTime(quote.deposit_paid_at)}` : "· awaiting payment"}</dd>
-            </>
-          )}
           {quote.decline_reason && (
             <>
               <dt className="text-muted-foreground">Decline reason</dt>
@@ -240,7 +229,7 @@ export default async function QuoteDetailPage({
         </dl>
       </section>
 
-      <QuoteDetailActions quoteId={quote.id} status={quote.status} />
+      <JobQuoteDetailActions quoteId={quote.id} status={quote.status} />
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default async function JobDetailPage({
     admin
       .from("job_quotes")
       .select(
-        "id, status, title, total, created_at, sent_at, viewed_at, viewed_count, responded_at, expires_at, decline_reason",
+        "id, status, title, total, created_at, sent_at, last_reminded_at, viewed_at, viewed_count, responded_at, expires_at, decline_reason",
       )
       .eq("job_id", id)
       .order("created_at", { ascending: false }),
@@ -80,6 +80,7 @@ export default async function JobDetailPage({
     total: number;
     created_at: string;
     sent_at: string | null;
+    last_reminded_at: string | null;
     viewed_at: string | null;
     viewed_count: number;
     responded_at: string | null;

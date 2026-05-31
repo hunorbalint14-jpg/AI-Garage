@@ -299,6 +299,114 @@ export async function sendQuoteWithToken(
 }
 
 // ---------------------------------------------------------------------------
+// Remind the customer about a still-pending quote. Tokens are mint-once (only
+// the sha256 hash is stored), so we can't re-derive the original link — we
+// rotate the token instead: mint a fresh one, store its hash, re-send. The
+// previously-sent link stops working, which is acceptable/desirable. If every
+// channel fails we restore the prior hash so the old link keeps working.
+// ---------------------------------------------------------------------------
+export type RemindQuoteResult =
+  | { error: string }
+  | { success: true; channels: string[]; customerUrl: string };
+
+export async function remindQuote(quoteId: string): Promise<RemindQuoteResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  type QuoteWithCustomer = {
+    id: string;
+    job_id: string;
+    location_id: string;
+    slug: string;
+    title: string | null;
+    description: string | null;
+    total: number;
+    status: string;
+    token_hash: string | null;
+    last_reminded_at: string | null;
+    job: {
+      customer: { full_name: string | null; email: string | null; phone: string | null } | null;
+      vehicle: { registration: string | null } | null;
+    } | null;
+  };
+
+  const { data: q } = await admin
+    .from("job_quotes")
+    .select(
+      "id, job_id, location_id, slug, title, description, total, status, token_hash, last_reminded_at, job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))",
+    )
+    .eq("id", quoteId)
+    .maybeSingle();
+  const quote = q as QuoteWithCustomer | null;
+  if (!quote || quote.location_id !== ctx.location.id) return { error: "Quote not found." };
+  if (quote.status !== "pending") return { error: "Only pending quotes can be reminded." };
+
+  const customer = quote.job?.customer;
+  if (!customer?.email && !customer?.phone) {
+    return { error: "Customer has no email or phone — cannot notify." };
+  }
+
+  // Rotate the token before sending so the link in the message resolves.
+  const token = generateQuoteToken();
+  const { error: rotateErr } = await admin
+    .from("job_quotes")
+    .update({ token_hash: hashQuoteToken(token), last_reminded_at: new Date().toISOString() })
+    .eq("id", quoteId)
+    .eq("status", "pending");
+  if (rotateErr) return { error: rotateErr.message };
+
+  const url = tenantQuoteUrl(ctx.location.slug, quote.slug, token);
+  const garageName = ctx.organization.name;
+  const firstName = customer.full_name?.split(" ")[0] ?? "there";
+  const reg = quote.job?.vehicle?.registration ?? "your vehicle";
+  const totalFmt = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(quote.total);
+
+  const channels: string[] = [];
+
+  if (customer.email) {
+    const subject = `Reminder: quote from ${garageName} awaiting your response`;
+    const text = `Hi ${firstName},\n\nJust a reminder about the extra work we found on ${reg} — it still needs your approval before we can continue.\n\n${quote.title ? quote.title + "\n\n" : ""}${quote.description ? quote.description + "\n\n" : ""}Total (inc. VAT): ${totalFmt}\n\nWatch the short video showing what we found, then approve or decline.`;
+    const result = await sendEmail({
+      to: customer.email,
+      subject,
+      text,
+      cta: { url, label: "View video & quote" },
+    });
+    if (result.success) channels.push("email");
+  }
+
+  if (customer.phone) {
+    const body = `Hi ${firstName}, reminder from ${garageName}: extra work on ${reg} (${totalFmt}) still needs your approval. View video + decide: ${url}`;
+    const result = await sendSms({ to: customer.phone, body });
+    if (result.success) channels.push("sms");
+  }
+
+  if (channels.length === 0) {
+    // Restore the previous hash so the customer's existing link keeps working.
+    await admin
+      .from("job_quotes")
+      .update({ token_hash: quote.token_hash, last_reminded_at: quote.last_reminded_at })
+      .eq("id", quoteId);
+    return { error: "Failed to send via any channel." };
+  }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "quote.remind",
+    entityType: "job_quote",
+    entityId: quoteId,
+    metadata: { job_id: quote.job_id, channels, total: quote.total },
+  });
+
+  revalidatePath(`/staff/jobs/${quote.job_id}`);
+  revalidatePath(`/staff/job-quotes/${quoteId}`);
+  return { success: true, channels, customerUrl: url };
+}
+
+// ---------------------------------------------------------------------------
 // Cancel a pending quote. Stops the customer link working (status check
 // rejects everything except `pending`) and cleans up the video object.
 // ---------------------------------------------------------------------------
@@ -339,5 +447,6 @@ export async function cancelQuote(quoteId: string): Promise<CancelQuoteResult> {
   });
 
   revalidatePath(`/staff/jobs/${quote.job_id}`);
+  revalidatePath(`/staff/job-quotes/${quoteId}`);
   return { success: true };
 }
