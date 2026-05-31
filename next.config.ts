@@ -13,6 +13,8 @@ const CSP_REPORT_ONLY = [
   "script-src 'self' 'unsafe-inline' https://js.stripe.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
+  // Quote/DVI videos stream from Supabase Storage signed URLs via <video>.
+  "media-src 'self' blob: https://*.supabase.co",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com",
   "frame-src https://js.stripe.com https://hooks.stripe.com",
