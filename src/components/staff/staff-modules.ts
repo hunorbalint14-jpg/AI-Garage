@@ -18,8 +18,8 @@ export type NavItem = {
   icon: LucideIcon;
   /** Hide unless the user has this permission (or is org owner/admin). */
   permission?: PermissionKey;
-  /** Hide unless the user is org owner/admin (used for surfaces that are not gated by a single permission). */
-  ownerOnly?: boolean;
+  /** Hide unless the user is org owner or admin (used for surfaces that are not gated by a single permission). */
+  adminOnly?: boolean;
 };
 
 export type NavModule = {
@@ -79,8 +79,8 @@ export const NAV_MODULES: NavModule[] = [
       { key: "team",     href: "/staff/staff-members", label: "Team",       icon: UserCog,      permission: "staff_manage" },
       { key: "settings", href: "/staff/settings",     label: "Settings",   icon: Settings },
       { key: "audit",    href: "/staff/audit-log",    label: "Audit log",  icon: ShieldCheck,  permission: "audit_log" },
-      { key: "docs",     href: "/staff/docs",         label: "Doc shares", icon: Share2,       ownerOnly: true },
-      { key: "dev",      href: "/staff/dev",          label: "Dev tools",  icon: FlaskConical, ownerOnly: true },
+      { key: "docs",     href: "/staff/docs",         label: "Doc shares", icon: Share2,       adminOnly: true },
+      { key: "dev",      href: "/staff/dev",          label: "Dev tools",  icon: FlaskConical, adminOnly: true },
     ],
   },
 ];
@@ -100,7 +100,7 @@ export function filterModulesForRole(ctxOrOrgRole: FilterCtx | "owner" | "admin"
   const isOwnerOrAdmin = ctx.orgRole === "owner" || ctx.orgRole === "admin";
 
   const itemAllowed = (i: NavItem): boolean => {
-    if (i.ownerOnly && !isOwnerOrAdmin) return false;
+    if (i.adminOnly && !isOwnerOrAdmin) return false;
     if (i.permission && !isOwnerOrAdmin) {
       return ctx.locationPermissions?.[i.permission] === true;
     }

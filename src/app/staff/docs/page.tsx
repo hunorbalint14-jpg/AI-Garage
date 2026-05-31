@@ -3,15 +3,15 @@ import { redirect } from "next/navigation";
 import { listShares } from "@/lib/doc-shares";
 import { ShareManager } from "./share-table";
 
-// Owner-only page for minting + revoking signed share links to internal docs.
+// Owner/admin page for minting + revoking signed share links to internal docs.
 // Reachable at /staff/docs on any tenant subdomain.
 //
-// Access scope: scoped to the current organization. Org owners see and manage
-// only their org's shares. Tighten this if a doc must be platform-only.
+// Access scope: scoped to the current organization. Org owners and admins see
+// and manage only their org's shares. Tighten this if a doc must be platform-only.
 
 export default async function StaffDocsPage() {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner") {
+  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
     redirect("/staff");
   }
 
