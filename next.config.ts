@@ -3,6 +3,11 @@ import type { NextConfig } from "next";
 // Starter CSP shipped in Report-Only mode (Phase 1) so violations are logged
 // without breaking Next inline scripts, Stripe.js, or Supabase. Tune against
 // reports, then promote to an enforced `Content-Security-Policy` in Phase 4.
+// Violations POST here so we can review real traffic before flipping to an
+// enforced policy. `report-to` (Reporting API) + `report-uri` (legacy) cover
+// both browser generations.
+const CSP_REPORT_ENDPOINT = "/api/csp-report";
+
 const CSP_REPORT_ONLY = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' https://js.stripe.com",
@@ -15,6 +20,8 @@ const CSP_REPORT_ONLY = [
   "base-uri 'self'",
   "form-action 'self'",
   "object-src 'none'",
+  "report-to csp-endpoint",
+  `report-uri ${CSP_REPORT_ENDPOINT}`,
 ].join("; ");
 
 const SECURITY_HEADERS = [
@@ -23,6 +30,8 @@ const SECURITY_HEADERS = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Names the `csp-endpoint` group referenced by the CSP `report-to` directive.
+  { key: "Reporting-Endpoints", value: `csp-endpoint="${CSP_REPORT_ENDPOINT}"` },
   { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
 ];
 
