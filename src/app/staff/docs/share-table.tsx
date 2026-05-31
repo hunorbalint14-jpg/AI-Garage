@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { createShareAction, revokeShareAction } from "./actions";
 import type { DocShare } from "@/lib/doc-shares";
+import { Button } from "@/components/ui/button";
 
 const DOC_OPTIONS = [
   { value: "technical", label: "Technical reference" },
@@ -20,11 +21,13 @@ const EXPIRY_OPTIONS = [
 export function ShareManager({ shares }: { shares: DocShare[] }) {
   const [issued, setIssued] = useState<{ url: string; slug: string; createdAt: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const onSubmit = (formData: FormData) => {
     setError(null);
     setIssued(null);
+    setCopied(false);
     startTransition(async () => {
       const res = await createShareAction(formData);
       if (res.ok) {
@@ -46,14 +49,14 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
   return (
     <div className="space-y-8">
       {/* MINT FORM */}
-      <section className="rounded-md border border-neutral-200 bg-white p-6">
+      <section className="rounded-md border border-border bg-card p-6">
         <h2 className="mb-4 text-base font-semibold tracking-tight">Mint a new link</h2>
         <form action={onSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Document">
             <select
               name="doc_key"
               required
-              className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
               defaultValue="technical"
             >
               {DOC_OPTIONS.map((o) => (
@@ -64,7 +67,7 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
           <Field label="Expires after">
             <select
               name="expires_in_days"
-              className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
               defaultValue="7"
             >
               {EXPIRY_OPTIONS.map((o) => (
@@ -78,7 +81,7 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
               type="text"
               maxLength={120}
               placeholder="e.g. Sent to John @ Acme · CTO review"
-              className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
             />
           </Field>
           <Field label="Max views (optional)">
@@ -87,17 +90,13 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
               type="number"
               min={1}
               placeholder="leave blank for unlimited"
-              className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm"
+              className="w-full rounded border border-input bg-background px-3 py-2 text-sm text-foreground"
             />
           </Field>
-          <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={isPending}
-              className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
-            >
+          <div className="sm:col-span-2 flex items-center">
+            <Button type="submit" disabled={isPending}>
               {isPending ? "Minting…" : "Mint share link"}
-            </button>
+            </Button>
             {error ? (
               <span className="ml-4 text-sm text-red-600">{error}</span>
             ) : null}
@@ -106,21 +105,26 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
 
         {/* ONE-TIME REVEAL */}
         {issued ? (
-          <div className="mt-6 rounded-md border border-emerald-300 bg-emerald-50 p-4">
-            <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-emerald-800">
+          <div className="mt-6 rounded-md border border-emerald-500/40 bg-emerald-500/10 p-4">
+            <div className="mb-2 font-mono text-[11px] uppercase tracking-widest text-emerald-400">
               Show this once — copy now
             </div>
             <div className="flex items-center gap-3">
-              <code className="flex-1 overflow-x-auto rounded bg-white p-2 text-xs">{issued.url}</code>
-              <button
+              <code className="flex-1 overflow-x-auto rounded border border-border bg-background p-2 text-xs text-foreground">{issued.url}</code>
+              <Button
                 type="button"
-                onClick={() => navigator.clipboard.writeText(issued.url)}
-                className="rounded border border-emerald-300 bg-white px-3 py-2 text-xs font-medium hover:bg-emerald-100"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(issued.url);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
               >
-                Copy
-              </button>
+                {copied ? "Copied ✓" : "Copy"}
+              </Button>
             </div>
-            <p className="mt-2 text-xs text-emerald-900/70">
+            <p className="mt-2 text-xs text-muted-foreground">
               The token is hashed in the database. If you lose this URL, you'll need to revoke this
               link and mint a new one.
             </p>
@@ -129,19 +133,19 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
       </section>
 
       {/* TABLE */}
-      <section className="rounded-md border border-neutral-200 bg-white">
-        <header className="border-b border-neutral-200 px-6 py-4">
+      <section className="rounded-md border border-border bg-card">
+        <header className="border-b border-border px-6 py-4">
           <h2 className="text-base font-semibold tracking-tight">Active &amp; historic links</h2>
-          <p className="text-sm text-neutral-500">{shares.length} total</p>
+          <p className="text-sm text-muted-foreground">{shares.length} total</p>
         </header>
         {shares.length === 0 ? (
-          <div className="px-6 py-10 text-sm text-neutral-500">
+          <div className="px-6 py-10 text-sm text-muted-foreground">
             No share links yet. Mint one above to start.
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-neutral-50 text-left font-mono text-[10px] uppercase tracking-widest text-neutral-500">
+              <tr className="bg-muted text-left font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                 <th className="px-6 py-2 font-medium">Doc</th>
                 <th className="px-2 py-2 font-medium">Label</th>
                 <th className="px-2 py-2 font-medium">Status</th>
@@ -155,30 +159,32 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
               {shares.map((s) => {
                 const status = shareStatus(s);
                 return (
-                  <tr key={s.id} className="border-t border-neutral-100">
+                  <tr key={s.id} className="border-t border-border">
                     <td className="px-6 py-3 align-top font-mono text-xs">{s.doc_key}</td>
-                    <td className="px-2 py-3 align-top text-neutral-700">{s.label ?? <em className="text-neutral-400">no label</em>}</td>
+                    <td className="px-2 py-3 align-top text-foreground">{s.label ?? <em className="text-muted-foreground">no label</em>}</td>
                     <td className="px-2 py-3 align-top">
                       <StatusPill status={status} />
                     </td>
                     <td className="px-2 py-3 align-top font-mono text-xs">
                       {s.view_count}{s.max_views ? ` / ${s.max_views}` : ""}
                     </td>
-                    <td className="px-2 py-3 align-top text-xs text-neutral-600">
+                    <td className="px-2 py-3 align-top text-xs text-muted-foreground">
                       {s.expires_at ? new Date(s.expires_at).toLocaleString("en-GB") : "never"}
                     </td>
-                    <td className="px-2 py-3 align-top text-xs text-neutral-600">
+                    <td className="px-2 py-3 align-top text-xs text-muted-foreground">
                       {s.last_viewed_at ? new Date(s.last_viewed_at).toLocaleString("en-GB") : "—"}
                     </td>
                     <td className="px-6 py-3 align-top text-right">
                       {status === "active" ? (
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="xs"
                           onClick={() => onRevoke(s.id)}
-                          className="rounded border border-neutral-300 px-2 py-1 text-xs hover:border-red-300 hover:text-red-700"
+                          className="hover:border-destructive/40 hover:text-destructive"
                         >
                           Revoke
-                        </button>
+                        </Button>
                       ) : null}
                     </td>
                   </tr>
@@ -197,7 +203,7 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-neutral-500">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
         {label}
       </span>
       {children}
@@ -216,8 +222,8 @@ function shareStatus(s: DocShare): ShareStatus {
 
 function StatusPill({ status }: { status: ShareStatus }) {
   const tone: Record<ShareStatus, string> = {
-    active: "bg-emerald-50 text-emerald-800 border-emerald-200",
-    expired: "bg-neutral-100 text-neutral-700 border-neutral-200",
+    active: "bg-green-50 text-green-700 border-green-200",
+    expired: "bg-muted text-muted-foreground border-border",
     revoked: "bg-red-50 text-red-700 border-red-200",
     exhausted: "bg-amber-50 text-amber-800 border-amber-200",
   };
