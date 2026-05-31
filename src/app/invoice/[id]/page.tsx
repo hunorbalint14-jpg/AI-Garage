@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AnimatedBackground } from "@/components/animated-background";
 import { CustomerSignOutButton } from "../../dashboard/sign-out-button";
-import { PrintButton } from "./print-button";
 
 type Invoice = {
   id: string;
@@ -191,7 +190,16 @@ export default async function CustomerInvoicePage({
         )}
 
         <div className="flex gap-3">
-          <PrintButton />
+          {/* Opens the clean A4 invoice (src/app/invoice/[id]/print) in a new
+              tab, which auto-triggers the print dialog → Save as PDF. */}
+          <a
+            href={`/invoice/${invoice.id}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-white/10 transition-colors"
+          >
+            Print / Save PDF
+          </a>
         </div>
       </main>
     </div>
