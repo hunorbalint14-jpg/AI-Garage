@@ -18,6 +18,11 @@ updates:
     # Pinned exactly today; let Dependabot widen as needed but flag majors.
     labels:
       - "dependencies"
+    ignore:
+      # Keep @types/node aligned to the Node runtime (currently Node 20). Skip
+      # major bumps; minor/patch within the current major still flow.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # Keep GitHub Actions (CI workflow) pinned to current versions.
   - package-ecosystem: "github-actions"
