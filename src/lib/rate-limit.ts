@@ -53,6 +53,10 @@ const LIMITERS = {
   email: makeLimiter("email", 4, "3600 s"),
   // Token bridge (set-session): looser, per IP.
   token: makeLimiter("token", 20, "60 s"),
+  // Anthropic-backed actions (diagnostics, voice→job, labour, message drafts).
+  // Per-user burst cap to stop a script/loop running up API cost; generous
+  // enough for normal interactive use.
+  ai: makeLimiter("ai", 15, "60 s"),
 } as const;
 
 export type RateLimitBucket = keyof typeof LIMITERS;

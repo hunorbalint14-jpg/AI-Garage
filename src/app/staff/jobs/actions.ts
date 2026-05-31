@@ -9,6 +9,7 @@ import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { estimateLabourTime } from "@/lib/ai-labour";
+import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 
 export type LabourEstimateResult = { error: string } | { hours: number; note: string };
 
@@ -16,8 +17,10 @@ export async function suggestLabourTime(
   description: string,
   vehicleDescription?: string,
 ): Promise<LabourEstimateResult> {
-  await requireStaffContext();
+  const ctx = await requireStaffContext();
   if (!description.trim()) return { error: "Description required." };
+  const limited = await enforceRateLimit("ai", ctx.user.id);
+  if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
   try {
     return await estimateLabourTime(description.trim(), vehicleDescription);
   } catch {
