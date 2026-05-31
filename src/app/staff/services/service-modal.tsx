@@ -5,6 +5,7 @@ import { upsertService, toggleServiceActive, deleteService } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
 
 export type ServiceRow = {
   id: string;
@@ -22,8 +23,6 @@ const CATEGORIES = [
   "Clutch & Gearbox", "Electrics", "Air Conditioning",
   "Diagnostics", "Bodywork", "General",
 ];
-
-const SELECT_CLASS = "w-full rounded-md border border-black/20 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50";
 
 function fmt(n: number | null) {
   if (n === null) return "—";
@@ -54,9 +53,9 @@ function ServiceForm({ service, onDone }: { service?: ServiceRow; onDone: () => 
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Category</Label>
-          <select name="category" defaultValue={service?.category ?? "General"} disabled={pending} className={SELECT_CLASS}>
+          <NativeSelect name="category" defaultValue={service?.category ?? "General"} disabled={pending}>
             {CATEGORIES.map((c) => <option key={c} value={c.toLowerCase()}>{c}</option>)}
-          </select>
+          </NativeSelect>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Duration (min)</Label>
@@ -68,10 +67,10 @@ function ServiceForm({ service, onDone }: { service?: ServiceRow; onDone: () => 
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>VAT</Label>
-          <select name="vatIncluded" defaultValue={service?.vat_included !== false ? "true" : "false"} disabled={pending} className={SELECT_CLASS}>
+          <NativeSelect name="vatIncluded" defaultValue={service?.vat_included !== false ? "true" : "false"} disabled={pending}>
             <option value="true">Price includes VAT</option>
             <option value="false">Price ex-VAT</option>
-          </select>
+          </NativeSelect>
         </div>
         <div className="flex flex-col gap-1.5 col-span-2">
           <Label>Description</Label>
