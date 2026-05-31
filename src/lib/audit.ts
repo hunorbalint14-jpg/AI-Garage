@@ -24,6 +24,10 @@ export type AuditAction =
   // Doc shares
   | "doc_share.mint"
   | "doc_share.revoke"
+  // Auth lifecycle
+  | "auth.login"
+  | "auth.login_failed"
+  | "auth.logout"
   // Passkeys
   | "passkey.register"
   | "passkey.revoke"
@@ -97,6 +101,10 @@ type LogArgs = {
   entityType?: string | null;
   entityId?: string | null;
   metadata?: Record<string, unknown>;
+  /** Explicit IP address — use when calling from edge middleware where next/headers() is unavailable. */
+  ipAddress?: string | null;
+  /** Explicit user-agent — use when calling from edge middleware where next/headers() is unavailable. */
+  userAgent?: string | null;
 };
 
 // Fire-and-forget audit write. Never throws — failures only log to stderr
@@ -104,18 +112,22 @@ type LogArgs = {
 export async function logAudit(args: LogArgs): Promise<void> {
   try {
     const admin = createAdminClient();
-    let ip: string | null = null;
-    let ua: string | null = null;
-    try {
-      const h = await headers();
-      ip =
-        h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-        h.get("x-real-ip") ??
-        null;
-      ua = h.get("user-agent") ?? null;
-    } catch {
-      // headers() throws outside a request context — acceptable for cron
-      // and webhook callers; they pass actorUserId explicitly.
+    // Prefer caller-supplied IP/UA (required for edge middleware where
+    // headers() is unavailable); fall back to reading request headers.
+    let ip: string | null = args.ipAddress ?? null;
+    let ua: string | null = args.userAgent ?? null;
+    if (ip === null && ua === null) {
+      try {
+        const h = await headers();
+        ip =
+          h.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+          h.get("x-real-ip") ??
+          null;
+        ua = h.get("user-agent") ?? null;
+      } catch {
+        // headers() throws outside a request context — acceptable for cron,
+        // webhook, and edge-middleware callers that pass ip/ua explicitly.
+      }
     }
     await admin.from("audit_log").insert({
       organization_id: args.organizationId ?? null,

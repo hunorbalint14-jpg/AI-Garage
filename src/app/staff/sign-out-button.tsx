@@ -1,15 +1,14 @@
 "use client";
 
 import { useTransition } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { signOutWithAudit } from "@/app/sign-out-action";
 
 export function SignOutButton({ dark = true }: { dark?: boolean }) {
-  const supabase = createClient();
   const [pending, startTransition] = useTransition();
 
   function handleSignOut() {
     startTransition(async () => {
-      await supabase.auth.signOut();
+      await signOutWithAudit("staff");
       window.location.href = "/staff/login";
     });
   }

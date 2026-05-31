@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { makeSessionStartValue, readSessionStart } from "@/lib/session-cookie";
+import { logAudit } from "@/lib/audit";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const SESSION_STARTED_COOKIE = "ai_session_started_at";
 const MAX_SESSION_MS = 12 * 60 * 60 * 1000; // 12 hours
@@ -46,10 +48,10 @@ export async function updateSession(
     },
   );
 
-  let user: { id: string } | null = null;
+  let user: { id: string; email?: string | null } | null = null;
   try {
     const { data } = await supabase.auth.getUser();
-    user = data.user as { id: string } | null;
+    user = data.user as { id: string; email?: string | null } | null;
   } catch {
     // Invalid/expired session — let routes handle redirect to login
   }
@@ -76,15 +78,52 @@ export async function updateSession(
       // the same as an expired session rather than trusting the timestamp.
       const startedAt = await readSessionStart(startedRaw);
       if (startedAt === null || now - startedAt > MAX_SESSION_MS) {
-        // Session expired — sign out + redirect to login
+        // Session expired — log the auto-logout, then sign out + redirect to login.
+        const pathname = request.nextUrl.pathname;
+        const isApi = pathname.startsWith("/api/");
+        const isStaff = pathname.startsWith("/staff");
+
+        try {
+          // Resolve org from the tenant slug injected by the proxy.
+          const tenantSlug =
+            extraRequestHeaders?.["x-tenant-slug"] ??
+            request.headers.get("x-tenant-slug") ??
+            null;
+          let organizationId: string | null = null;
+          if (tenantSlug) {
+            const admin = createAdminClient();
+            const { data: loc } = await admin
+              .from("locations")
+              .select("organization_id")
+              .eq("slug", tenantSlug)
+              .maybeSingle();
+            organizationId = loc?.organization_id ?? null;
+          }
+          await logAudit({
+            action: "auth.logout",
+            actorUserId: user.id,
+            actorEmail: user.email ?? null,
+            organizationId,
+            metadata: {
+              portal: isStaff ? "staff" : "customer",
+              method: "auto",
+              reason: "session_timeout",
+            },
+            ipAddress:
+              request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+              request.headers.get("x-real-ip") ??
+              null,
+            userAgent: request.headers.get("user-agent") ?? null,
+          });
+        } catch {
+          // Never let audit failure break the session-expiry flow
+        }
+
         try {
           await supabase.auth.signOut();
         } catch {
           // Ignore
         }
-        const pathname = request.nextUrl.pathname;
-        const isApi = pathname.startsWith("/api/");
-        const isStaff = pathname.startsWith("/staff");
         if (isApi) {
           const res = NextResponse.json(
             { error: "Session expired. Please sign in again." },

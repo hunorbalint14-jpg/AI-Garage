@@ -4,6 +4,8 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
+import { getCurrentTenant } from "@/lib/tenant-data";
 
 const ROOT =
   process.env.ROOT_DOMAIN ??
@@ -73,8 +75,34 @@ export async function signInStaff(
   if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: error.message };
+  const [{ error }, tenant] = await Promise.all([
+    supabase.auth.signInWithPassword({ email, password }),
+    getCurrentTenant(),
+  ]);
+  const organizationId = tenant?.organization.id ?? null;
+
+  if (error) {
+    await logAudit({
+      action: "auth.login_failed",
+      actorUserId: null,
+      actorEmail: email,
+      organizationId,
+      metadata: { method: "password", portal: "staff", reason: error.message },
+    });
+    return { error: error.message };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  await logAudit({
+    action: "auth.login",
+    actorUserId: user?.id ?? null,
+    actorEmail: user?.email ?? email,
+    organizationId,
+    metadata: { method: "password", portal: "staff" },
+  });
 
   const headersList = await headers();
   const hostname = (headersList.get("host") ?? "").split(":")[0];
@@ -82,9 +110,8 @@ export async function signInStaff(
   if (!isRootDomain) return { url: "/staff" };
 
   // Root domain — mint a handoff link to the user's tenant subdomain.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // (The handoff itself is only a cross-domain session transfer, not a new
+  // login — we already logged auth.login above.)
   if (!user?.email) return { error: "Not signed in." };
 
   const slug = await findTenantSlugForUser(user.id);

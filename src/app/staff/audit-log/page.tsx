@@ -26,7 +26,7 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   },
   {
     label: "Auth",
-    actions: ["passkey.register", "passkey.revoke", "impersonation.start", "impersonation.stop", "staff.invite", "staff.password_reset", "staff.password_set", "staff.mfa_reset", "staff.permissions_update", "staff.role_change", "staff.remove"],
+    actions: ["auth.login", "auth.login_failed", "auth.logout", "passkey.register", "passkey.revoke", "impersonation.start", "impersonation.stop", "staff.invite", "staff.password_reset", "staff.password_set", "staff.mfa_reset", "staff.permissions_update", "staff.role_change", "staff.remove"],
   },
 ];
 
