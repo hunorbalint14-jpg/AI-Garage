@@ -8,16 +8,26 @@ import type { NextConfig } from "next";
 // both browser generations.
 const CSP_REPORT_ENDPOINT = "/api/csp-report";
 
+// The Vercel Live feedback/comments toolbar is injected on PREVIEW deployments
+// only. It loads a script + iframe from vercel.live and opens a Pusher
+// websocket for real-time comments. Allow those sources on preview builds so
+// the toolbar works (and stops spamming CSP reports); production stays tight —
+// it never loads vercel.live.
+const IS_PREVIEW = process.env.VERCEL_ENV === "preview";
+const LIVE = "https://vercel.live";
+const LIVE_PUSHER = "wss://ws-us3.pusher.com https://sockjs-us3.pusher.com";
+const live = (extra: string) => (IS_PREVIEW ? ` ${extra}` : "");
+
 const CSP_REPORT_ONLY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://js.stripe.com",
-  "style-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline' https://js.stripe.com${live(LIVE)}`,
+  `style-src 'self' 'unsafe-inline'${live(LIVE)}`,
   "img-src 'self' data: blob: https:",
   // Quote/DVI videos stream from Supabase Storage signed URLs via <video>.
   "media-src 'self' blob: https://*.supabase.co",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com",
-  "frame-src https://js.stripe.com https://hooks.stripe.com",
+  `font-src 'self' data:${live(`${LIVE} https://assets.vercel.com`)}`,
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com${live(`${LIVE} ${LIVE_PUSHER}`)}`,
+  `frame-src https://js.stripe.com https://hooks.stripe.com${live(LIVE)}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
