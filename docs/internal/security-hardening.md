@@ -1,6 +1,6 @@
 # Security Hardening Plan
 
-> Internal roadmap. Status: Phase 1 + Phase 2 + Phase 3 complete. Last updated 2026-05-30.
+> Internal roadmap. Status: Phases 1–3 complete; Phase 4 done bar CSP-enforce (awaiting prod report review). Last updated 2026-05-31.
 
 Garage-AI is a multi-tenant Next.js 16 + Supabase SaaS handling customer PII, payments (Stripe Connect) and accounting (Xero) for UK garages. A read-only audit of auth/session, multi-tenancy/RLS and secrets/webhooks/input was performed and the HIGH/MED findings verified directly against source. This document tracks the phased remediation (4 PRs), priority-ordered so each change ships independently.
 
@@ -84,12 +84,12 @@ Existing `/docs/[slug]` per-route headers are correct and more restrictive — k
   - **Deploy note**: in-flight reset links (signed < 10 min before deploy) become invalid due to the format change — users must re-request. Provision `RESET_TOKEN_SECRET` in Vercel.
 - Tests: `validation.test.ts`, `reset-token.test.ts` (round-trip, single-use, tamper, uid-swap, expiry, malformed).
 
-## Phase 4 — Defense in depth & review (PR 4)
+## Phase 4 — Defense in depth & review (PR 4) — mostly DONE
 
-- Audit every `createAdminClient()` call site — ensure user-supplied-id queries also constrain `organization_id`/`location_id`.
-- Flip CSP Report-Only → enforced after tuning.
-- `npm audit` triage; bump high/critical.
-- Consider `__Host-` cookie prefix; confirm Supabase prod cookie flags.
+- **Admin-client cross-tenant audit — DONE, no gaps found.** Reviewed every `createAdminClient()` mutation site across bookings, jobs, customers (+GDPR erase/export/hard-delete), products, fleet, notifications, staff-members, dashboard customer-booking actions, and the public `book`/`pay`/`quote` routes. Every write keyed by a user-supplied id is tenant-scoped by one of two consistent patterns: (a) inline `.eq("location_id", ctx.location.id)` on the mutation, or (b) load-then-verify guard (`row.location_id !== ctx.location.id → "not found"`) before mutating. Public routes (`pay/[id]`, `quote/[slug]`, `book`) are capability/token-based by design with server-derived ids. No IDOR fix required.
+- **`npm audit` — DONE.** Safe transitive bumps applied via `npm audit fix` (qs, uuid, ws). Bumped `next` 16.2.4 → **16.2.6** to clear the one **HIGH** advisory (Middleware/Proxy bypass + cache-poisoned redirects — directly relevant, tenancy runs through the proxy). Remaining 9 are **moderate**, all transitive inside `next` (postcss) and `resend`→`svix`→`uuid`, fixable only via breaking `--force`; left as monitored, not forced.
+- **`__Host-` cookie — reviewed, NOT adopted (rationale recorded).** `__Host-` requires `Secure`, but dev runs on **http** (`localtest.me:3000`) so the cookie would never be sent locally and break login. The session-timeout cookie is already `httpOnly` + `Secure` (prod) + `SameSite=Lax` + `path=/` + HMAC-signed (Phase 1.4); Supabase auth cookies are SDK-managed (Secure+httpOnly on https in prod). Revisit if/when dev moves to https.
+- **CSP enforce — DEFERRED.** Still `Content-Security-Policy-Report-Only`. Flip to enforced only after reviewing accumulated prod CSP reports (needs prod access; not done in this PR).
 
 ## Out of scope (deliberate)
 
