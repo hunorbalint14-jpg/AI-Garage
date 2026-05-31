@@ -22,6 +22,20 @@ async function guardOwner() {
 
 type StashedCookie = { name: string; value: string };
 
+type ImpersonationContext = {
+  actor: { organizationId: string; userId: string; email: string | null };
+  target: { type: "staff_user" | "customer"; id: string; email: string | null };
+};
+
+// The stash cookie holds the original auth cookies plus the actor/target
+// identity captured at impersonation start. The `context` field is optional
+// so that old-format stashes (bare cookie arrays, written before this change)
+// can still be parsed and used to exit impersonation gracefully.
+type Stash = {
+  cookies: StashedCookie[];
+  context?: ImpersonationContext;
+};
+
 async function snapshotAuthCookies(): Promise<StashedCookie[]> {
   const store = await cookies();
   return store
@@ -39,9 +53,10 @@ async function clearAuthCookies() {
   }
 }
 
-async function setStash(stashed: StashedCookie[]) {
+async function setStash(stashedCookies: StashedCookie[], context: ImpersonationContext) {
   const store = await cookies();
-  store.set(STASH_COOKIE, JSON.stringify(stashed), {
+  const payload: Stash = { cookies: stashedCookies, context };
+  store.set(STASH_COOKIE, JSON.stringify(payload), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -50,12 +65,16 @@ async function setStash(stashed: StashedCookie[]) {
   });
 }
 
-async function readStash(): Promise<StashedCookie[] | null> {
+async function readStash(): Promise<Stash | null> {
   const store = await cookies();
   const raw = store.get(STASH_COOKIE)?.value;
   if (!raw) return null;
   try {
-    return JSON.parse(raw) as StashedCookie[];
+    const parsed = JSON.parse(raw);
+    // Legacy format (pre-attribution fix): a bare array of StashedCookies
+    // with no context object. Wrap it so callers always see a Stash shape.
+    if (Array.isArray(parsed)) return { cookies: parsed as StashedCookie[] };
+    return parsed as Stash;
   } catch {
     return null;
   }
@@ -113,7 +132,10 @@ export async function impersonateStaff(email: string): Promise<ImpersonateResult
     return { error: result.error };
   }
 
-  await setStash(stash);
+  await setStash(stash, {
+    actor: { organizationId: ctx.organization.id, userId: ctx.user.id, email: ctx.user.email ?? null },
+    target: { type: "staff_user", id: user.id, email },
+  });
   await logAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
@@ -182,7 +204,10 @@ export async function impersonateCustomer(customerId: string): Promise<Impersona
     return { error: result.error };
   }
 
-  await setStash(stash);
+  await setStash(stash, {
+    actor: { organizationId: ctx.organization.id, userId: ctx.user.id, email: ctx.user.email ?? null },
+    target: { type: "customer", id: customer.id, email: customer.email },
+  });
   await logAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
@@ -204,18 +229,30 @@ export async function exitImpersonation(): Promise<void> {
 
   await clearAuthCookies();
   const store = await cookies();
-  for (const c of stash) {
+  for (const c of stash.cookies) {
     store.set(c.name, c.value, { path: "/" });
   }
   await clearStash();
 
-  // We can't read ctx here — the impersonating session was just cleared
-  // and the original cookies are now in place but RSC won't re-evaluate
-  // until the redirect. Log as actor-unknown; the start event already
-  // carries the actor.
-  await logAudit({
-    action: "impersonation.stop",
-  });
+  // Actor + target identity were captured into the stash cookie at
+  // impersonation start, so we can attribute the stop event even though the
+  // impersonated session's auth cookies have just been cleared and the
+  // restored RSC context hasn't re-evaluated yet. Legacy stashes (written
+  // before this fix) carry no context — fall back to an unattributed entry
+  // so sessions started before deploy can still be exited without error.
+  if (stash.context) {
+    await logAudit({
+      organizationId: stash.context.actor.organizationId,
+      actorUserId: stash.context.actor.userId,
+      actorEmail: stash.context.actor.email,
+      action: "impersonation.stop",
+      entityType: stash.context.target.type,
+      entityId: stash.context.target.id,
+      metadata: { target_email: stash.context.target.email },
+    });
+  } else {
+    await logAudit({ action: "impersonation.stop" });
+  }
 
   revalidatePath("/", "layout");
   redirect("/staff/dev");
@@ -223,5 +260,5 @@ export async function exitImpersonation(): Promise<void> {
 
 export async function isImpersonating(): Promise<boolean> {
   const stash = await readStash();
-  return !!stash && stash.length > 0;
+  return !!stash && stash.cookies.length > 0;
 }
