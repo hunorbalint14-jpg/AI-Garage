@@ -48,8 +48,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitest/coverage-v8": "^2.1.9",
-    "@vitest/ui": "^2.1.9",
+    "@vitest/coverage-v8": "^4.1.7",
+    "@vitest/ui": "^4.1.7",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "husky": "^9.1.7",
@@ -57,8 +57,7 @@
     "lint-staged": "^15.2.10",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^2.1.9"
+    "vitest": "^4.1.7"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

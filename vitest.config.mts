@@ -1,17 +1,17 @@
 import { defineConfig } from "vitest/config";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  // Vite 8 resolves tsconfig `paths` (the `@/…` alias) natively, replacing the
+  // vite-tsconfig-paths plugin.
+  resolve: { tsconfigPaths: true },
   test: {
     globals: true,
     environment: "node",
     setupFiles: ["./vitest.setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["**/node_modules/**", "**/.next/**", "supabase/**"],
-    environmentMatchGlobs: [
-      ["**/*.dom.test.tsx", "jsdom"],
-    ],
+    // Default env is node. For a DOM test, add `// @vitest-environment jsdom`
+    // at the top of that file — vitest 4 removed `environmentMatchGlobs`.
     coverage: {
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
