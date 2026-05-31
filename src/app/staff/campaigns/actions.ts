@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { draftBroadcastMessage } from "@/lib/ai-messages";
+import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 
 export type DraftBroadcastPreviewResult =
   | { error: string }
@@ -20,6 +21,9 @@ export async function draftBroadcastPreview(
 ): Promise<DraftBroadcastPreviewResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "campaigns")) return { error: "Permission denied." };
+
+  const limited = await enforceRateLimit("ai", ctx.user.id);
+  if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
 
   const admin = createAdminClient();
 

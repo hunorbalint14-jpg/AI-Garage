@@ -5,6 +5,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { structureVoiceNotes, type StructuredJob } from "@/lib/ai-job-from-voice";
+import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 
 export type StructureResult = { error: string } | { success: true; data: StructuredJob };
 
@@ -16,6 +17,9 @@ export async function structureTranscript(
   if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   if (!transcript?.trim()) return { error: "Transcript is empty." };
   if (transcript.length > 8000) return { error: "Transcript too long (max 8000 chars)." };
+
+  const limited = await enforceRateLimit("ai", ctx.user.id);
+  if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
 
   const admin = createAdminClient();
   const { data: job } = await admin
