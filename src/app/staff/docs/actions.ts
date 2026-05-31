@@ -21,8 +21,8 @@ export type CreateShareActionResult =
 
 export async function createShareAction(formData: FormData): Promise<CreateShareActionResult> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner") {
-    return { ok: false, error: "Only org owners can mint share links." };
+  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
+    return { ok: false, error: "Only owners or admins can mint share links." };
   }
 
   const docKey = String(formData.get("doc_key") ?? "");
@@ -96,8 +96,8 @@ export async function createShareAction(formData: FormData): Promise<CreateShare
 
 export async function revokeShareAction(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const ctx = await requireStaffContext();
-  if (ctx.orgRole !== "owner") {
-    return { ok: false, error: "Only org owners can revoke share links." };
+  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
+    return { ok: false, error: "Only owners or admins can revoke share links." };
   }
   try {
     await revokeShare({
