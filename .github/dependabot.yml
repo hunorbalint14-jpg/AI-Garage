@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # npm dependencies. Security updates are raised immediately by Dependabot
+  # regardless of this schedule; the weekly run handles routine version bumps.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      # Collapse routine minor/patch bumps into one PR to cut review noise.
+      # Major bumps stay separate so breaking changes get individual scrutiny.
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    # Pinned exactly today; let Dependabot widen as needed but flag majors.
+    labels:
+      - "dependencies"
+
+  # Keep GitHub Actions (CI workflow) pinned to current versions.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"
