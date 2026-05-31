@@ -58,9 +58,12 @@ describe("encryption", () => {
   it("decrypt fails on tampered ciphertext (auth tag mismatch)", async () => {
     const { encrypt, decrypt } = await import("./encryption");
     const cipher = encrypt("secret");
-    // Flip one char in the ciphertext segment.
+    // Flip the first char of the ciphertext segment to a guaranteed-different
+    // one. Replacing with a fixed "A" was a no-op ~1/64 of the time (when the
+    // char was already "A"), making the test flaky.
     const parts = cipher.split(":");
-    parts[parts.length - 1] = parts[parts.length - 1].replace(/^./, "A");
+    const seg = parts[parts.length - 1];
+    parts[parts.length - 1] = (seg[0] === "A" ? "B" : "A") + seg.slice(1);
     expect(() => decrypt(parts.join(":"))).toThrow();
   });
 });
