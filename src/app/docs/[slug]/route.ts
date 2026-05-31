@@ -97,10 +97,24 @@ function gatePage(reason: VerifyReason): NextResponse {
   <link rel="icon" href="/brand/icon/aigarage-favicon.svg" type="image/svg+xml" />
   <link rel="icon" href="/brand/icon/png/favicon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="/brand/icon/png/apple-touch-icon.png" sizes="180x180" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
+    /* Self-hosted fonts (public/fonts) — keeps this gate page on the same
+       font-src 'self' CSP as the rest of the app, no Google Fonts CDN. Both
+       are variable fonts, so one file per family covers every weight. */
+    @font-face {
+      font-family: "Space Grotesk";
+      font-style: normal;
+      font-weight: 300 700;
+      font-display: swap;
+      src: url(/fonts/space-grotesk-latin.woff2) format("woff2");
+    }
+    @font-face {
+      font-family: "JetBrains Mono";
+      font-style: normal;
+      font-weight: 100 800;
+      font-display: swap;
+      src: url(/fonts/jetbrains-mono-latin.woff2) format("woff2");
+    }
     :root {
       --aig-green: #22c55e;
       --aig-ink: #0b0d11;
