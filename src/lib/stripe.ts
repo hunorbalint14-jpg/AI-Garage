@@ -5,7 +5,7 @@ if (!process.env.STRIPE_SECRET_KEY && process.env.NODE_ENV === "production") {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_placeholder", {
-  apiVersion: "2026-04-22.dahlia",
+  apiVersion: "2026-05-27.dahlia",
   typescript: true,
 });
 
