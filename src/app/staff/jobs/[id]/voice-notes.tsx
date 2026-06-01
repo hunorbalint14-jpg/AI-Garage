@@ -36,6 +36,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
     if (typeof window === "undefined") return;
     const w = window as unknown as { SpeechRecognition?: SpeechRecognitionConstructor; webkitSpeechRecognition?: SpeechRecognitionConstructor };
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only feature detection at mount
     setSupported(!!SR);
   }, []);
 

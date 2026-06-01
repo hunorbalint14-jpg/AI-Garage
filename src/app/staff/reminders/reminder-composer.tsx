@@ -291,7 +291,7 @@ export function ReminderComposer({
                   marginBottom: 4,
                 }}
               >
-                // QUEUE · {pendingQueue.length} PENDING
+                {"// QUEUE · "}{pendingQueue.length} PENDING
               </div>
               <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)" }}>
                 Ready to send
@@ -312,7 +312,7 @@ export function ReminderComposer({
                   textAlign: "center",
                 }}
               >
-                // ALL SENT
+                {"// ALL SENT"}
               </div>
             ) : (
               pendingQueue.map((v) => {
@@ -324,6 +324,7 @@ export function ReminderComposer({
                 const dayColor = dueDaysColor(primaryDays, accent);
                 const lastSentDays = v.lastReminderAt
                   ? Math.floor(
+                      // eslint-disable-next-line react-hooks/purity -- relative "days ago" label; render-fresh time not needed
                       (Date.now() - new Date(v.lastReminderAt).getTime()) / (1000 * 60 * 60 * 24),
                     )
                   : null;
@@ -424,7 +425,7 @@ export function ReminderComposer({
           <>
             {history.length === 0 ? (
               <div style={{ padding: "20px 16px", fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", textAlign: "center" }}>
-                // NO MESSAGES SENT YET
+                {"// NO MESSAGES SENT YET"}
               </div>
             ) : (
               history.map((h) => {
@@ -497,13 +498,13 @@ export function ReminderComposer({
               letterSpacing: "0.1em",
             }}
           >
-            // SELECT A MESSAGE FROM HISTORY
+            {"// SELECT A MESSAGE FROM HISTORY"}
           </div>
         )}
         {mode === "history" && selectedHistory && (
           <div style={{ padding: "24px 32px", flex: 1 }}>
             <div style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", letterSpacing: "0.16em", marginBottom: 4 }}>
-              // SENT MESSAGE · READ ONLY
+              {"// SENT MESSAGE · READ ONLY"}
             </div>
             <h2 style={{ fontSize: 22, fontWeight: 600, margin: "8px 0 4px", color: "var(--foreground)" }}>
               {selectedHistory.customerName ?? "Customer"}
@@ -560,7 +561,7 @@ export function ReminderComposer({
             )}
 
             {!selectedHistory.emailText && !selectedHistory.smsText && (
-              <div style={{ fontFamily: mono, fontSize: 12, color: "var(--muted-foreground)" }}>// MESSAGE TEXT NOT STORED</div>
+              <div style={{ fontFamily: mono, fontSize: 12, color: "var(--muted-foreground)" }}>{"// MESSAGE TEXT NOT STORED"}</div>
             )}
           </div>
         )}
@@ -576,14 +577,14 @@ export function ReminderComposer({
               letterSpacing: "0.1em",
             }}
           >
-            // SELECT A VEHICLE FROM THE QUEUE
+            {"// SELECT A VEHICLE FROM THE QUEUE"}
           </div>
         ) : mode === "queue" && selected ? (
           <div style={{ padding: "24px 32px", flex: 1 }}>
             {/* Draft header */}
             <div style={{ marginBottom: 4 }}>
               <span style={{ fontFamily: mono, fontSize: 10, color: accent, letterSpacing: "0.16em" }}>
-                // DRAFT {String(draftIndex).padStart(2, "0")} OF {String(pendingQueue.length).padStart(2, "0")}
+                {"// DRAFT "}{String(draftIndex).padStart(2, "0")} OF {String(pendingQueue.length).padStart(2, "0")}
               </span>
               {" "}
               <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)" }}>
@@ -622,7 +623,7 @@ export function ReminderComposer({
                     marginBottom: 10,
                   }}
                 >
-                  // TONE · PICK A STARTING POINT
+                  {"// TONE · PICK A STARTING POINT"}
                 </div>
                 <div
                   style={{
@@ -701,7 +702,7 @@ export function ReminderComposer({
                   letterSpacing: "0.1em",
                 }}
               >
-                // CLAUDE IS DRAFTING…
+                {"// CLAUDE IS DRAFTING…"}
               </div>
             )}
 
@@ -735,7 +736,7 @@ export function ReminderComposer({
                     marginBottom: 10,
                   }}
                 >
-                  // EDIT BEFORE SEND
+                  {"// EDIT BEFORE SEND"}
                 </div>
 
                 {/* Channel tabs */}
@@ -943,7 +944,7 @@ export function ReminderComposer({
                     marginBottom: 6,
                   }}
                 >
-                  // SENT ✓
+                  {"// SENT ✓"}
                 </div>
                 <div style={{ fontSize: 14, color: "var(--foreground)" }}>
                   Reminder sent via{" "}
@@ -987,7 +988,7 @@ export function ReminderComposer({
         {mode === "history" && selectedHistory ? (
           <>
             <div style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)", letterSpacing: "0.16em", marginBottom: 6 }}>
-              // SENT REMINDER
+              {"// SENT REMINDER"}
             </div>
             <div style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginBottom: 2 }}>
               {selectedHistory.customerName ?? "Unknown"}
@@ -1019,7 +1020,7 @@ export function ReminderComposer({
               letterSpacing: "0.14em",
             }}
           >
-            // SELECT A VEHICLE
+            {"// SELECT A VEHICLE"}
           </div>
         ) : (
           <>
@@ -1032,7 +1033,7 @@ export function ReminderComposer({
                 marginBottom: 6,
               }}
             >
-              // CUSTOMER CARD
+              {"// CUSTOMER CARD"}
             </div>
             <div style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginBottom: 2 }}>
               {selected.customerName ?? "Unknown"}
@@ -1194,6 +1195,7 @@ export function ReminderComposer({
                 </div>
                 <div style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", marginTop: 2 }}>
                   {Math.floor(
+                    // eslint-disable-next-line react-hooks/purity -- relative "days ago" label; render-fresh time not needed
                     (Date.now() - new Date(selected.lastReminderAt).getTime()) /
                       (1000 * 60 * 60 * 24),
                   )}

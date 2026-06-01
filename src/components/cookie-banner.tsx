@@ -10,6 +10,7 @@ export function CookieBanner() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time client-only mount check (localStorage); SSR-safe by design
     if (!localStorage.getItem(STORAGE_KEY)) setShow(true);
   }, []);
 
