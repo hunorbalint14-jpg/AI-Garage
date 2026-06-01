@@ -48,6 +48,9 @@ export type AuditAction =
   | "invoice.mark_paid"
   | "invoice.delete"
   | "invoice.dunning_sent"
+  // Reviews
+  | "review.requested"
+  | "review.submitted"
   // Services / products (pricing trail)
   | "service.upsert"
   | "service.toggle_active"

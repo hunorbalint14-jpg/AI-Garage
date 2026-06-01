@@ -10,6 +10,7 @@ import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { estimateLabourTime } from "@/lib/ai-labour";
 import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
+import { enqueueReviewRequest } from "@/lib/review-links";
 
 export type LabourEstimateResult = { error: string } | { hours: number; note: string };
 
@@ -148,7 +149,7 @@ export async function completeJob(jobId: string): Promise<UpdateJobResult> {
 
   const { data: job } = await admin
     .from("jobs")
-    .select("id, location_id, booking_id, status")
+    .select("id, location_id, booking_id, status, customer_id, customer:customers(email)")
     .eq("id", jobId)
     .maybeSingle();
 
@@ -168,6 +169,17 @@ export async function completeJob(jobId: string): Promise<UpdateJobResult> {
   if (job.booking_id) {
     await admin.from("bookings").update({ status: "complete" }).eq("id", job.booking_id);
   }
+
+  // Queue a post-job review request (emailed next morning by the
+  // review_requests cron). Fire-and-forget — never blocks completion.
+  const jobRow = job as unknown as { customer_id: string | null; customer: { email: string | null } | null };
+  void enqueueReviewRequest({
+    jobId,
+    locationId: ctx.location.id,
+    organizationId: ctx.organization.id,
+    customerId: jobRow.customer_id,
+    customerEmail: jobRow.customer?.email ?? null,
+  });
 
   revalidatePath(`/staff/jobs/${jobId}`);
   revalidatePath("/staff/bookings");
