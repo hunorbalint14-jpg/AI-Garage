@@ -125,7 +125,7 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
               </Button>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              The token is hashed in the database. If you lose this URL, you'll need to revoke this
+              The token is hashed in the database. If you lose this URL, you&apos;ll need to revoke this
               link and mint a new one.
             </p>
           </div>

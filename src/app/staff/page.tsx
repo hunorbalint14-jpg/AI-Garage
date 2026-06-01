@@ -233,7 +233,7 @@ function TodaySchedule({
 
         {bookings.length === 0 && (
           <div style={{ width: "100%", padding: "32px 22px", textAlign: "center", color: "var(--muted-foreground)", fontFamily: mono, fontSize: 12 }}>
-            // NO BOOKINGS TODAY
+            {"// NO BOOKINGS TODAY"}
           </div>
         )}
       </div>
@@ -978,7 +978,7 @@ export default async function StaffDashboard() {
               fontSize: 12,
             }}
           >
-            // NO VEHICLES DUE WITHIN 60 DAYS
+            {"// NO VEHICLES DUE WITHIN 60 DAYS"}
           </div>
         ) : (
           <div style={{ overflowX: "auto" }}>

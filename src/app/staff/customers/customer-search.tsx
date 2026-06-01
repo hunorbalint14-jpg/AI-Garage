@@ -11,6 +11,7 @@ export function CustomerSearch({ initialQ }: { initialQ: string }) {
   const [value, setValue] = useState(initialQ);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resync the editable input when the q prop changes via navigation
     setValue(initialQ);
   }, [initialQ]);
 

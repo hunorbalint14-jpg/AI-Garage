@@ -27,12 +27,11 @@ jobs:
       - name: Test
         run: npm run test:coverage
 
-      # Lint is reported but doesn't block CI yet — the codebase has a backlog
-      # of pre-existing Next.js 16 strict-mode warnings/errors. Tighten this
-      # to a hard gate once the backlog is cleared.
+      # Hard gate — lint errors (and a crashing linter) fail CI now that the
+      # backlog is cleared. Warnings stay advisory: `eslint` exits 0 on
+      # warnings; add --max-warnings 0 later to gate those too.
       - name: Lint
         run: npx eslint src/
-        continue-on-error: true
 
       - name: Upload coverage artifact
         if: always()

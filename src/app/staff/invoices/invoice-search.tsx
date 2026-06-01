@@ -10,6 +10,7 @@ export function InvoiceSearch({ initialQ }: { initialQ: string }) {
   const [, startTransition] = useTransition();
   const [value, setValue] = useState(initialQ);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- resync the editable input when the q prop changes via navigation
   useEffect(() => { setValue(initialQ); }, [initialQ]);
 
   function handleChange(q: string) {
