@@ -25,6 +25,7 @@ const TASK_ROUTE: Record<string, string> = {
   service_reminders: "/api/cron/reminders",
   tax_reminders: "/api/cron/reminders",
   weekly_digest: "/api/cron/digest",
+  invoice_dunning: "/api/cron/dunning",
 };
 
 export async function GET(request: NextRequest) {
