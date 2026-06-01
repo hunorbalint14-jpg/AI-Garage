@@ -32,6 +32,7 @@ const TASK_META: Record<TaskType, { label: string; description: string; audience
   service_reminders: { label: "Service reminders",  description: "Remind customers when their vehicle service is due.",                          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
   tax_reminders:     { label: "Road tax reminders", description: "Alert customers when their road tax (VED) renewal is due.",                    audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
   invoice_dunning:   { label: "Overdue invoice reminders", description: "Email customers an escalating reminder (with a Pay-now link) when an invoice is overdue, until it's paid.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false },
+  review_requests:   { label: "Review requests", description: "After a job is completed, email the customer for feedback — happy ratings go to your Google review page, unhappy ones are flagged privately to staff.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false },
   weekly_digest:     { label: "Weekly staff digest","description": "Email org owners/admins a summary of upcoming MOTs and services.",            audience: "staff",    hasRemindDays: false, hasChannels: false, hasWindowDays: true  },
 };
 

@@ -5,7 +5,8 @@ export type StaffNotificationKind =
   | "quote.approved"
   | "quote.declined"
   | "quote.rebooked"
-  | "quote.deposit_paid";
+  | "quote.deposit_paid"
+  | "review.low_score";
 
 export type StaffNotification = {
   id: string;
