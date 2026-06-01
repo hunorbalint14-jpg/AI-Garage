@@ -1,11 +1,14 @@
 import type { NextConfig } from "next";
 
-// Starter CSP shipped in Report-Only mode (Phase 1) so violations are logged
-// without breaking Next inline scripts, Stripe.js, or Supabase. Tune against
-// reports, then promote to an enforced `Content-Security-Policy` in Phase 4.
-// Violations POST here so we can review real traffic before flipping to an
-// enforced policy. `report-to` (Reporting API) + `report-uri` (legacy) cover
-// both browser generations.
+// Enforced CSP, promoted from Report-Only after reviewing real prod traffic
+// (Supabase media, Google fonts, and the Vercel Live toolbar were the only
+// real violations — all resolved). It still reports violations via report-to
+// (Reporting API) + report-uri (legacy) so we keep visibility on anything it
+// now blocks.
+//
+// 'unsafe-inline' is intentionally retained for script-src/style-src for now —
+// removing it via per-request nonces is the next hardening step (a nonce makes
+// browsers ignore 'unsafe-inline', so it can't be added incrementally).
 const CSP_REPORT_ENDPOINT = "/api/csp-report";
 
 // The Vercel Live feedback/comments toolbar is injected on PREVIEW deployments
@@ -18,7 +21,7 @@ const LIVE = "https://vercel.live";
 const LIVE_PUSHER = "wss://ws-us3.pusher.com https://sockjs-us3.pusher.com";
 const live = (extra: string) => (IS_PREVIEW ? ` ${extra}` : "");
 
-const CSP_REPORT_ONLY = [
+const CSP = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://js.stripe.com${live(LIVE)}`,
   `style-src 'self' 'unsafe-inline'${live(LIVE)}`,
@@ -26,7 +29,8 @@ const CSP_REPORT_ONLY = [
   // Quote/DVI videos stream from Supabase Storage signed URLs via <video>.
   "media-src 'self' blob: https://*.supabase.co",
   `font-src 'self' data:${live(`${LIVE} https://assets.vercel.com`)}`,
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com${live(`${LIVE} ${LIVE_PUSHER}`)}`,
+  // *.sentry.io: the browser Sentry SDK posts events to its ingest host.
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.sentry.io${live(`${LIVE} ${LIVE_PUSHER}`)}`,
   `frame-src https://js.stripe.com https://hooks.stripe.com${live(LIVE)}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",
@@ -44,7 +48,7 @@ const SECURITY_HEADERS = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   // Names the `csp-endpoint` group referenced by the CSP `report-to` directive.
   { key: "Reporting-Endpoints", value: `csp-endpoint="${CSP_REPORT_ENDPOINT}"` },
-  { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
+  { key: "Content-Security-Policy", value: CSP },
 ];
 
 const nextConfig: NextConfig = {
