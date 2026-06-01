@@ -44,6 +44,53 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient();
   console.log("[stripe-webhook] event", { type: event.type, id: event.id });
 
+  // Idempotency: claim this event id before any work. Stripe delivers events
+  // at-least-once (retries + occasional duplicates), so a repeat delivery hits
+  // the PK conflict and is acknowledged without re-running side effects that
+  // aren't themselves idempotent (Xero payment/payout pushes, booking-invoice
+  // generation + email).
+  const { error: claimErr } = await admin
+    .from("stripe_webhook_events")
+    .insert({ id: event.id, type: event.type });
+  if (claimErr) {
+    if (claimErr.code === "23505") {
+      console.log("[stripe-webhook] duplicate event ignored", { id: event.id, type: event.type });
+      return NextResponse.json({ received: true, duplicate: true });
+    }
+    // Fail open on any other claim error so a transient table issue doesn't
+    // drop a real payment event — the handlers below are mostly idempotent.
+    console.error("[stripe-webhook] idempotency claim failed (continuing)", {
+      id: event.id,
+      error: claimErr.message,
+    });
+  }
+
+  try {
+    await handleStripeEvent(admin, event);
+  } catch (err) {
+    // Processing threw — release the claim so Stripe's retry reprocesses it.
+    console.error("[stripe-webhook] processing failed; releasing claim for retry", {
+      id: event.id,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    await admin.from("stripe_webhook_events").delete().eq("id", event.id);
+    return NextResponse.json({ error: "processing failed" }, { status: 500 });
+  }
+
+  await admin
+    .from("stripe_webhook_events")
+    .update({ processed_at: new Date().toISOString() })
+    .eq("id", event.id);
+
+  return NextResponse.json({ received: true });
+}
+
+// Routes a verified, de-duplicated Stripe event to its side effects. Throwing
+// here releases the idempotency claim (see POST) so Stripe's retry reprocesses.
+async function handleStripeEvent(
+  admin: ReturnType<typeof createAdminClient>,
+  event: Stripe.Event,
+) {
   switch (event.type) {
     case "account.updated": {
       const account = event.data.object as Stripe.Account;
@@ -262,6 +309,4 @@ export async function POST(request: NextRequest) {
       break;
     }
   }
-
-  return NextResponse.json({ received: true });
 }
