@@ -6,11 +6,12 @@ import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
 
-export type TaskType = "mot_reminders" | "service_reminders" | "tax_reminders" | "weekly_digest";
+export type TaskType = "mot_reminders" | "service_reminders" | "tax_reminders" | "weekly_digest" | "invoice_dunning";
 
 export type TaskSettings =
   | { remind_days_before: number; channels: string[] }
-  | { window_days: number };
+  | { window_days: number }
+  | { cadence_days: number[]; channels: string[] };
 
 type ActionResult = { error: string } | { success: true };
 
@@ -18,11 +19,12 @@ const REMINDER_TYPES: TaskType[] = ["mot_reminders", "service_reminders", "tax_r
 
 export async function ensureDefaultTasks(locationId: string) {
   const admin = createAdminClient();
-  const allTypes: TaskType[] = [...REMINDER_TYPES, "weekly_digest"];
+  const allTypes: TaskType[] = [...REMINDER_TYPES, "invoice_dunning", "weekly_digest"];
   const defaults: Record<TaskType, { settings: object; frequency: Frequency; hour: number; day_of_week: number | null }> = {
     mot_reminders:     { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
     service_reminders: { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
     tax_reminders:     { settings: { remind_days_before: 30, channels: ["email", "sms"] },             frequency: "daily",  hour: 9, day_of_week: null },
+    invoice_dunning:   { settings: { cadence_days: [1, 7, 14], channels: ["email"] },                  frequency: "daily",  hour: 9, day_of_week: null },
     weekly_digest:     { settings: { window_days: 30 },                                                 frequency: "weekly", hour: 8, day_of_week: 1 },
   };
   await admin.from("scheduled_tasks").upsert(
@@ -119,6 +121,7 @@ export async function runTaskNow(taskType: TaskType): Promise<ActionResult> {
     mot_reminders:     "/api/cron/reminders",
     service_reminders: "/api/cron/reminders",
     tax_reminders:     "/api/cron/reminders",
+    invoice_dunning:   "/api/cron/dunning",
     weekly_digest:     "/api/cron/digest",
   };
 
