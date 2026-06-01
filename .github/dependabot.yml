@@ -23,6 +23,11 @@ updates:
       # major bumps; minor/patch within the current major still flow.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # ESLint 10 crashes eslint-config-next@16's bundled eslint-plugin-react
+      # (removed context.getFilename()). Stay on eslint 9 until next/eslint-config
+      # ships an eslint-10-compatible release. Skip major bumps.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
 
   # Keep GitHub Actions (CI workflow) pinned to current versions.
   - package-ecosystem: "github-actions"
