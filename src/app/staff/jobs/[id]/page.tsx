@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
+import { labourEstimateMinutes } from "@/lib/time-tracking";
 import { TechnicianSelector } from "@/components/staff/technician-selector";
 import { assignJobTechnician } from "../actions";
 import { JobDetail } from "./job-detail";
+import { JobTimeTracking, type TimeEntryView } from "./job-time-tracking";
 
 type Job = {
   id: string;
@@ -39,7 +41,7 @@ export default async function JobDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [jobRes, itemsRes, productsRes, quotesRes, staff] = await Promise.all([
+  const [jobRes, itemsRes, productsRes, quotesRes, staff, timeRes] = await Promise.all([
     admin
       .from("jobs")
       .select(
@@ -66,6 +68,11 @@ export default async function JobDetailPage({
       .eq("job_id", id)
       .order("created_at", { ascending: false }),
     listLocationStaff(ctx.location.id, ctx.organization.id),
+    admin
+      .from("job_time_entries")
+      .select("id, user_id, started_at, ended_at, duration_minutes")
+      .eq("job_id", id)
+      .order("started_at", { ascending: true }),
   ]);
 
   const job = jobRes.data as Job | null;
@@ -92,6 +99,20 @@ export default async function JobDetailPage({
     decline_reason: string | null;
   }[];
 
+  // Time-tracking view: resolve assignee/worker names from the staff list.
+  const staffNames = new Map(staff.map((s) => [s.id, s.name]));
+  const timeEntries: TimeEntryView[] = (
+    (timeRes.data ?? []) as { id: string; user_id: string; started_at: string; ended_at: string | null; duration_minutes: number | null }[]
+  ).map((e) => ({
+    id: e.id,
+    userId: e.user_id,
+    userName: staffNames.get(e.user_id) ?? "Staff",
+    startedAt: e.started_at,
+    endedAt: e.ended_at,
+    durationMinutes: e.duration_minutes,
+  }));
+  const estimateMinutes = labourEstimateMinutes(items);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -114,6 +135,13 @@ export default async function JobDetailPage({
           assignAction={assignJobTechnician}
         />
       </section>
+
+      <JobTimeTracking
+        jobId={job.id}
+        entries={timeEntries}
+        estimateMinutes={estimateMinutes}
+        currentUserId={ctx.user.id}
+      />
 
       <JobDetail job={job} items={items} products={products} quotes={quotes} />
     </div>

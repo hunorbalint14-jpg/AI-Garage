@@ -13,8 +13,92 @@ import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 import { enqueueReviewRequest } from "@/lib/review-links";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { logAudit } from "@/lib/audit";
+import { durationMinutes } from "@/lib/time-tracking";
 
 export type LabourEstimateResult = { error: string } | { hours: number; note: string };
+
+export type ClockResult = { error: string } | { success: true };
+
+// Clock the current staff member onto a job. One open entry per user — they
+// must clock out of any current job first. Any location member can track time.
+export async function clockIn(jobId: string): Promise<ClockResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  const { data: job } = await admin
+    .from("jobs")
+    .select("id, location_id")
+    .eq("id", jobId)
+    .maybeSingle();
+  if (!job || job.location_id !== ctx.location.id) return { error: "Job not found." };
+
+  const { data: openRows } = await admin
+    .from("job_time_entries")
+    .select("id")
+    .eq("user_id", ctx.user.id)
+    .is("ended_at", null)
+    .limit(1);
+  if (openRows && openRows.length > 0) {
+    return { error: "You're already clocked in. Clock out of your current job first." };
+  }
+
+  const { error } = await admin.from("job_time_entries").insert({
+    job_id: jobId,
+    location_id: ctx.location.id,
+    user_id: ctx.user.id,
+  });
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "job.clock_in",
+    entityType: "job",
+    entityId: jobId,
+  });
+
+  revalidatePath(`/staff/jobs/${jobId}`);
+  return { success: true };
+}
+
+// Clock out: stamp ended_at + duration. Only the entry's own owner may close it.
+export async function clockOut(entryId: string): Promise<ClockResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  const { data: entry } = await admin
+    .from("job_time_entries")
+    .select("id, job_id, user_id, location_id, started_at, ended_at")
+    .eq("id", entryId)
+    .maybeSingle();
+  if (!entry || entry.location_id !== ctx.location.id || entry.user_id !== ctx.user.id) {
+    return { error: "Time entry not found." };
+  }
+  if (entry.ended_at) return { error: "Already clocked out." };
+
+  const endedAt = new Date().toISOString();
+  const mins = durationMinutes(entry.started_at, endedAt);
+
+  const { error } = await admin
+    .from("job_time_entries")
+    .update({ ended_at: endedAt, duration_minutes: mins })
+    .eq("id", entryId);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "job.clock_out",
+    entityType: "job",
+    entityId: entry.job_id,
+    metadata: { entry_id: entryId, duration_minutes: mins },
+  });
+
+  revalidatePath(`/staff/jobs/${entry.job_id}`);
+  return { success: true };
+}
 
 export type AssignTechnicianResult = { error: string } | { success: true };
 
