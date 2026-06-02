@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext } from "@/lib/portal-auth";
 import { AnimatedBackground } from "@/components/animated-background";
 import { CustomerSignOutButton } from "./sign-out-button";
+import { PortalNav } from "./portal-nav";
 
 type Vehicle = {
   id: string;
@@ -153,6 +154,10 @@ export default async function CustomerDashboard() {
           </div>
         </div>
       </header>
+
+      <div className="relative z-10 mx-auto max-w-2xl px-6">
+        <PortalNav orgColor={orgColor} />
+      </div>
 
       <main className="relative z-10 mx-auto max-w-2xl px-6 py-10 flex flex-col gap-10">
         <div>
