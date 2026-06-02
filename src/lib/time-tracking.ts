@@ -18,6 +18,25 @@ export function labourEstimateMinutes(items: { type: string; quantity: number }[
   return Math.round(hours * 60);
 }
 
+export type TimeEntryState = {
+  status: string;
+  active_minutes: number;
+  segment_started_at: string | null;
+  duration_minutes: number | null;
+};
+
+// Active worked minutes for an entry as of `nowIso`:
+//  - completed → the stored (possibly overridden) duration
+//  - running   → banked active_minutes + the current open segment
+//  - paused    → just the banked active_minutes
+export function liveActiveMinutes(entry: TimeEntryState, nowIso: string): number {
+  if (entry.status === "completed") return entry.duration_minutes ?? entry.active_minutes ?? 0;
+  if (entry.status === "running" && entry.segment_started_at) {
+    return entry.active_minutes + durationMinutes(entry.segment_started_at, nowIso);
+  }
+  return entry.active_minutes;
+}
+
 // "2h 30m" / "45m" / "3h". 0 → "0m".
 export function formatMinutes(total: number): string {
   const t = Math.max(0, Math.round(total));

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
-import { labourEstimateMinutes } from "@/lib/time-tracking";
+import { labourEstimateMinutes, liveActiveMinutes } from "@/lib/time-tracking";
 import { TechnicianSelector } from "@/components/staff/technician-selector";
 import { assignJobTechnician } from "../actions";
 import { JobDetail } from "./job-detail";
@@ -70,7 +70,7 @@ export default async function JobDetailPage({
     listLocationStaff(ctx.location.id, ctx.organization.id),
     admin
       .from("job_time_entries")
-      .select("id, user_id, started_at, ended_at, duration_minutes")
+      .select("id, user_id, started_at, ended_at, duration_minutes, status, active_minutes, segment_started_at")
       .eq("job_id", id)
       .order("started_at", { ascending: true }),
   ]);
@@ -99,17 +99,29 @@ export default async function JobDetailPage({
     decline_reason: string | null;
   }[];
 
-  // Time-tracking view: resolve assignee/worker names from the staff list.
+  // Time-tracking view: resolve worker names + compute active minutes now.
   const staffNames = new Map(staff.map((s) => [s.id, s.name]));
+  const isManager = ctx.orgRole === "owner" || ctx.orgRole === "admin";
+  const now = new Date().toISOString();
   const timeEntries: TimeEntryView[] = (
-    (timeRes.data ?? []) as { id: string; user_id: string; started_at: string; ended_at: string | null; duration_minutes: number | null }[]
+    (timeRes.data ?? []) as {
+      id: string;
+      user_id: string;
+      duration_minutes: number | null;
+      status: string;
+      active_minutes: number;
+      segment_started_at: string | null;
+    }[]
   ).map((e) => ({
     id: e.id,
     userId: e.user_id,
     userName: staffNames.get(e.user_id) ?? "Staff",
-    startedAt: e.started_at,
-    endedAt: e.ended_at,
-    durationMinutes: e.duration_minutes,
+    status: e.status,
+    minutes: liveActiveMinutes(
+      { status: e.status, active_minutes: e.active_minutes, segment_started_at: e.segment_started_at, duration_minutes: e.duration_minutes },
+      now,
+    ),
+    canAdjust: e.user_id === ctx.user.id || isManager,
   }));
   const estimateMinutes = labourEstimateMinutes(items);
 

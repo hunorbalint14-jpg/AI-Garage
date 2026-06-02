@@ -42,10 +42,15 @@ export async function clockIn(jobId: string): Promise<ClockResult> {
     return { error: "You're already clocked in. Clock out of your current job first." };
   }
 
+  const nowIso = new Date().toISOString();
   const { error } = await admin.from("job_time_entries").insert({
     job_id: jobId,
     location_id: ctx.location.id,
     user_id: ctx.user.id,
+    status: "running",
+    active_minutes: 0,
+    started_at: nowIso,
+    segment_started_at: nowIso,
   });
   if (error) return { error: error.message };
 
@@ -62,27 +67,120 @@ export async function clockIn(jobId: string): Promise<ClockResult> {
   return { success: true };
 }
 
-// Clock out: stamp ended_at + duration. Only the entry's own owner may close it.
-export async function clockOut(entryId: string): Promise<ClockResult> {
+const TIME_ENTRY_SELECT =
+  "id, job_id, user_id, location_id, started_at, ended_at, status, active_minutes, segment_started_at";
+
+type TimeEntryRow = {
+  id: string;
+  job_id: string;
+  user_id: string;
+  location_id: string;
+  started_at: string;
+  ended_at: string | null;
+  status: string;
+  active_minutes: number;
+  segment_started_at: string | null;
+};
+
+// Owner-only fetch of a time entry scoped to the caller's location.
+async function loadOwnEntry(
+  entryId: string,
+  ctx: Awaited<ReturnType<typeof requireStaffContext>>,
+): Promise<TimeEntryRow | null> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("job_time_entries").select(TIME_ENTRY_SELECT).eq("id", entryId).maybeSingle();
+  const entry = data as TimeEntryRow | null;
+  if (!entry || entry.location_id !== ctx.location.id || entry.user_id !== ctx.user.id) return null;
+  return entry;
+}
+
+// Pause: bank the current running segment, leave the entry open (paused) so
+// idle time between pause and resume isn't counted.
+export async function pauseClock(entryId: string): Promise<ClockResult> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
+  const entry = await loadOwnEntry(entryId, ctx);
+  if (!entry) return { error: "Time entry not found." };
+  if (entry.status !== "running" || !entry.segment_started_at) return { error: "Not currently running." };
 
-  const { data: entry } = await admin
+  const banked = entry.active_minutes + durationMinutes(entry.segment_started_at, new Date().toISOString());
+  const { error } = await admin
     .from("job_time_entries")
-    .select("id, job_id, user_id, location_id, started_at, ended_at")
-    .eq("id", entryId)
-    .maybeSingle();
-  if (!entry || entry.location_id !== ctx.location.id || entry.user_id !== ctx.user.id) {
-    return { error: "Time entry not found." };
-  }
-  if (entry.ended_at) return { error: "Already clocked out." };
+    .update({ status: "paused", active_minutes: banked, segment_started_at: null })
+    .eq("id", entryId);
+  if (error) return { error: error.message };
 
-  const endedAt = new Date().toISOString();
-  const mins = durationMinutes(entry.started_at, endedAt);
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "job.clock_pause",
+    entityType: "job",
+    entityId: entry.job_id,
+    metadata: { entry_id: entryId, active_minutes: banked },
+  });
+
+  revalidatePath(`/staff/jobs/${entry.job_id}`);
+  return { success: true };
+}
+
+// Resume a paused entry — start a new active segment.
+export async function resumeClock(entryId: string): Promise<ClockResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+  const entry = await loadOwnEntry(entryId, ctx);
+  if (!entry) return { error: "Time entry not found." };
+  if (entry.status !== "paused") return { error: "Entry is not paused." };
+
+  // Don't let a user run two clocks at once.
+  const { data: openRows } = await admin
+    .from("job_time_entries")
+    .select("id")
+    .eq("user_id", ctx.user.id)
+    .eq("status", "running")
+    .limit(1);
+  if (openRows && openRows.length > 0) {
+    return { error: "You're already running another clock. Pause or clock out of it first." };
+  }
 
   const { error } = await admin
     .from("job_time_entries")
-    .update({ ended_at: endedAt, duration_minutes: mins })
+    .update({ status: "running", segment_started_at: new Date().toISOString() })
+    .eq("id", entryId);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "job.clock_resume",
+    entityType: "job",
+    entityId: entry.job_id,
+    metadata: { entry_id: entryId },
+  });
+
+  revalidatePath(`/staff/jobs/${entry.job_id}`);
+  return { success: true };
+}
+
+// Clock out: bank any running segment, mark completed. Only the owner.
+export async function clockOut(entryId: string): Promise<ClockResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+  const entry = await loadOwnEntry(entryId, ctx);
+  if (!entry) return { error: "Time entry not found." };
+  if (entry.status === "completed" || entry.ended_at) return { error: "Already clocked out." };
+
+  const endedAt = new Date().toISOString();
+  const finalSegment =
+    entry.status === "running" && entry.segment_started_at
+      ? durationMinutes(entry.segment_started_at, endedAt)
+      : 0;
+  const total = entry.active_minutes + finalSegment;
+
+  const { error } = await admin
+    .from("job_time_entries")
+    .update({ status: "completed", ended_at: endedAt, duration_minutes: total, active_minutes: total, segment_started_at: null })
     .eq("id", entryId);
   if (error) return { error: error.message };
 
@@ -93,7 +191,55 @@ export async function clockOut(entryId: string): Promise<ClockResult> {
     action: "job.clock_out",
     entityType: "job",
     entityId: entry.job_id,
-    metadata: { entry_id: entryId, duration_minutes: mins },
+    metadata: { entry_id: entryId, duration_minutes: total },
+  });
+
+  revalidatePath(`/staff/jobs/${entry.job_id}`);
+  return { success: true };
+}
+
+// Manual duration override (whole minutes). Fixes inflated entries — a
+// forgotten punch-out, or on-call elapsed time that wasn't active work. The
+// entry owner OR an org owner/admin may adjust; bounded to a sane range.
+const MAX_ENTRY_MINUTES = 24 * 60;
+
+export async function adjustEntryDuration(entryId: string, minutes: number): Promise<ClockResult> {
+  const ctx = await requireStaffContext();
+  const admin = createAdminClient();
+
+  if (!Number.isFinite(minutes) || minutes < 0 || minutes > MAX_ENTRY_MINUTES) {
+    return { error: `Enter a duration between 0 and ${MAX_ENTRY_MINUTES} minutes.` };
+  }
+  const mins = Math.round(minutes);
+
+  const { data } = await admin.from("job_time_entries").select(TIME_ENTRY_SELECT).eq("id", entryId).maybeSingle();
+  const entry = data as TimeEntryRow | null;
+  if (!entry || entry.location_id !== ctx.location.id) return { error: "Time entry not found." };
+
+  const isOwner = entry.user_id === ctx.user.id;
+  const isManager = ctx.orgRole === "owner" || ctx.orgRole === "admin";
+  if (!isOwner && !isManager) return { error: "You can only adjust your own time." };
+
+  const { error } = await admin
+    .from("job_time_entries")
+    .update({
+      status: "completed",
+      duration_minutes: mins,
+      active_minutes: mins,
+      segment_started_at: null,
+      ended_at: entry.ended_at ?? new Date().toISOString(),
+    })
+    .eq("id", entryId);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "job.time_adjust",
+    entityType: "job",
+    entityId: entry.job_id,
+    metadata: { entry_id: entryId, minutes: mins, target_user_id: entry.user_id },
   });
 
   revalidatePath(`/staff/jobs/${entry.job_id}`);

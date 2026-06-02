@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { durationMinutes, labourEstimateMinutes, formatMinutes } from "./time-tracking";
+import { durationMinutes, labourEstimateMinutes, formatMinutes, liveActiveMinutes } from "./time-tracking";
 
 describe("durationMinutes", () => {
   it("rounds to whole minutes", () => {
@@ -33,6 +33,28 @@ describe("labourEstimateMinutes", () => {
   it("returns 0 when there are no labour lines", () => {
     expect(labourEstimateMinutes([{ type: "part", quantity: 3 }])).toBe(0);
     expect(labourEstimateMinutes([])).toBe(0);
+  });
+});
+
+describe("liveActiveMinutes", () => {
+  const now = "2026-06-02T12:00:00Z";
+
+  it("returns the stored duration for completed entries (override-aware)", () => {
+    expect(
+      liveActiveMinutes({ status: "completed", active_minutes: 300, segment_started_at: null, duration_minutes: 20 }, now),
+    ).toBe(20);
+  });
+
+  it("adds the open segment to banked minutes for running entries", () => {
+    expect(
+      liveActiveMinutes({ status: "running", active_minutes: 15, segment_started_at: "2026-06-02T11:30:00Z", duration_minutes: null }, now),
+    ).toBe(45); // 15 banked + 30 live
+  });
+
+  it("returns only banked minutes when paused", () => {
+    expect(
+      liveActiveMinutes({ status: "paused", active_minutes: 25, segment_started_at: null, duration_minutes: null }, now),
+    ).toBe(25);
   });
 });
 
