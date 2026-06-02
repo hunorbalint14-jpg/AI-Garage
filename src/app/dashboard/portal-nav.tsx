@@ -11,6 +11,7 @@ const TABS: { href: string; label: string; exact?: boolean }[] = [
   { href: "/dashboard", label: "Overview", exact: true },
   { href: "/dashboard/history", label: "History" },
   { href: "/dashboard/quotes", label: "Quotes" },
+  { href: "/dashboard/documents", label: "Documents" },
 ];
 
 export function PortalNav({ orgColor }: { orgColor: string }) {
