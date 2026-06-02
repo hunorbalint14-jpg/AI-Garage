@@ -122,3 +122,36 @@ export async function requireOwnedInvoice(
   }
   return invoice;
 }
+
+export type PortalJob = {
+  id: string;
+  status: string;
+  description: string | null;
+  notes: string | null;
+  completed_at: string | null;
+  created_at: string | null;
+  customer_id: string | null;
+  vehicle_id: string | null;
+  location_id: string;
+};
+
+// Fetch a job and assert it belongs to this customer at this location.
+// notFound() (404) on any miss — same non-leaking rule as requireOwnedInvoice.
+export async function requireOwnedJob(
+  customerId: string,
+  locationId: string,
+  jobId: string,
+): Promise<PortalJob> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("jobs")
+    .select("id, status, description, notes, completed_at, created_at, customer_id, vehicle_id, location_id")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  const job = data as PortalJob | null;
+  if (!job || job.customer_id !== customerId || job.location_id !== locationId) {
+    notFound();
+  }
+  return job;
+}
