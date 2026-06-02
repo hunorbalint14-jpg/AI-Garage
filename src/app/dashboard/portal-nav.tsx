@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 const TABS: { href: string; label: string; exact?: boolean }[] = [
   { href: "/dashboard", label: "Overview", exact: true },
   { href: "/dashboard/history", label: "History" },
+  { href: "/dashboard/quotes", label: "Quotes" },
 ];
 
 export function PortalNav({ orgColor }: { orgColor: string }) {

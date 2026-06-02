@@ -26,6 +26,7 @@ export type PortalOrganization = {
 
 export type PortalLocation = {
   id: string;
+  slug: string;
   name: string;
   organization: PortalOrganization;
 };
@@ -61,7 +62,7 @@ export async function getPortalContext(): Promise<PortalContext> {
 
   const { data: location } = (await admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name, primary_color, logo_url, phone)")
+    .select("id, slug, name, organization:organizations(id, name, primary_color, logo_url, phone)")
     .eq("slug", slug)
     .maybeSingle()) as { data: PortalLocation | null };
   if (!location?.organization) redirect("/");
@@ -154,4 +155,60 @@ export async function requireOwnedJob(
     notFound();
   }
   return job;
+}
+
+export type PortalQuote = {
+  id: string;
+  source: "job" | "standalone";
+  job_id: string | null;
+  location_id: string;
+  customer_id: string;
+  status: string;
+};
+
+// Resolve a quote (job_quotes or standalone_quotes) by id and assert this
+// customer owns it at this location. job_quotes are owned via their parent
+// job's customer; standalone_quotes carry customer_id directly. notFound()
+// (404) on any miss — never leak another customer's / tenant's quote.
+export async function requireOwnedQuote(
+  customerId: string,
+  locationId: string,
+  quoteId: string,
+): Promise<PortalQuote> {
+  const admin = createAdminClient();
+
+  const { data: jq } = await admin
+    .from("job_quotes")
+    .select("id, job_id, location_id, status, job:jobs(customer_id, location_id)")
+    .eq("id", quoteId)
+    .maybeSingle();
+  if (jq) {
+    // PostgREST returns the to-one `job` embed as a single object at runtime,
+    // but supabase-js types it as an array — cast through unknown.
+    const row = jq as unknown as {
+      id: string;
+      job_id: string;
+      location_id: string;
+      status: string;
+      job: { customer_id: string | null; location_id: string } | null;
+    };
+    if (row.location_id === locationId && row.job?.customer_id === customerId) {
+      return { id: row.id, source: "job", job_id: row.job_id, location_id: row.location_id, customer_id: customerId, status: row.status };
+    }
+    notFound();
+  }
+
+  const { data: sq } = await admin
+    .from("standalone_quotes")
+    .select("id, location_id, customer_id, status")
+    .eq("id", quoteId)
+    .maybeSingle();
+  if (sq) {
+    const row = sq as { id: string; location_id: string; customer_id: string | null; status: string };
+    if (row.location_id === locationId && row.customer_id === customerId) {
+      return { id: row.id, source: "standalone", job_id: null, location_id: row.location_id, customer_id: customerId, status: row.status };
+    }
+  }
+
+  notFound();
 }
