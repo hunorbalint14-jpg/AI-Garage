@@ -3,9 +3,11 @@ import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
+import { labourEstimateMinutes, liveActiveMinutes } from "@/lib/time-tracking";
 import { TechnicianSelector } from "@/components/staff/technician-selector";
 import { assignJobTechnician } from "../actions";
 import { JobDetail } from "./job-detail";
+import { JobTimeTracking, type TimeEntryView } from "./job-time-tracking";
 
 type Job = {
   id: string;
@@ -39,7 +41,7 @@ export default async function JobDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [jobRes, itemsRes, productsRes, quotesRes, staff] = await Promise.all([
+  const [jobRes, itemsRes, productsRes, quotesRes, staff, timeRes] = await Promise.all([
     admin
       .from("jobs")
       .select(
@@ -66,6 +68,11 @@ export default async function JobDetailPage({
       .eq("job_id", id)
       .order("created_at", { ascending: false }),
     listLocationStaff(ctx.location.id, ctx.organization.id),
+    admin
+      .from("job_time_entries")
+      .select("id, user_id, started_at, ended_at, duration_minutes, status, active_minutes, segment_started_at")
+      .eq("job_id", id)
+      .order("started_at", { ascending: true }),
   ]);
 
   const job = jobRes.data as Job | null;
@@ -92,6 +99,32 @@ export default async function JobDetailPage({
     decline_reason: string | null;
   }[];
 
+  // Time-tracking view: resolve worker names + compute active minutes now.
+  const staffNames = new Map(staff.map((s) => [s.id, s.name]));
+  const isManager = ctx.orgRole === "owner" || ctx.orgRole === "admin";
+  const now = new Date().toISOString();
+  const timeEntries: TimeEntryView[] = (
+    (timeRes.data ?? []) as {
+      id: string;
+      user_id: string;
+      duration_minutes: number | null;
+      status: string;
+      active_minutes: number;
+      segment_started_at: string | null;
+    }[]
+  ).map((e) => ({
+    id: e.id,
+    userId: e.user_id,
+    userName: staffNames.get(e.user_id) ?? "Staff",
+    status: e.status,
+    minutes: liveActiveMinutes(
+      { status: e.status, active_minutes: e.active_minutes, segment_started_at: e.segment_started_at, duration_minutes: e.duration_minutes },
+      now,
+    ),
+    canAdjust: e.user_id === ctx.user.id || isManager,
+  }));
+  const estimateMinutes = labourEstimateMinutes(items);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -114,6 +147,13 @@ export default async function JobDetailPage({
           assignAction={assignJobTechnician}
         />
       </section>
+
+      <JobTimeTracking
+        jobId={job.id}
+        entries={timeEntries}
+        estimateMinutes={estimateMinutes}
+        currentUserId={ctx.user.id}
+      />
 
       <JobDetail job={job} items={items} products={products} quotes={quotes} />
     </div>

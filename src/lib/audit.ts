@@ -34,6 +34,9 @@ export type AuditAction =
   | "job.assign"
   | "job.clock_in"
   | "job.clock_out"
+  | "job.clock_pause"
+  | "job.clock_resume"
+  | "job.time_adjust"
   // Passkeys
   | "passkey.register"
   | "passkey.revoke"
