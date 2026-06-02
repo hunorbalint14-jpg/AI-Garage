@@ -114,7 +114,6 @@ export default async function StaffLayout({
   return (
     <>
       <ColorSchemeSync dark={true} />
-      {showMfaNudge && <MfaNudge hasPasskey={mfaHasPasskey} />}
       <NotificationsBell unreadCount={unreadCount} recent={recentNotifications} />
       <StaffShell
         brandColor={brandColor}
@@ -130,6 +129,7 @@ export default async function StaffLayout({
         currentSlug={ctx.location.slug}
         role={role}
       >
+        {showMfaNudge && <MfaNudge hasPasskey={mfaHasPasskey} />}
         {children}
       </StaffShell>
     </>
