@@ -313,6 +313,18 @@ export async function resetStaffMfa(userId: string): Promise<StaffActionResult> 
     await admin.auth.admin.mfa.deleteFactor({ userId, id: factor.id });
   }
 
+  // Also remove WebAuthn passkeys — our owner/admin MFA step-up is passkey-based
+  // and separate from Supabase TOTP factors, so a reset must clear both or it's a
+  // no-op for passkey-protected users. They'll be re-prompted to enrol next login.
+  const { data: passkeys } = await admin
+    .from("webauthn_credentials")
+    .select("id")
+    .eq("user_id", userId);
+  const passkeyCount = (passkeys ?? []).length;
+  if (passkeyCount > 0) {
+    await admin.from("webauthn_credentials").delete().eq("user_id", userId);
+  }
+
   await logAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
@@ -320,7 +332,7 @@ export async function resetStaffMfa(userId: string): Promise<StaffActionResult> 
     action: "staff.mfa_reset",
     entityType: "auth_user",
     entityId: userId,
-    metadata: { factor_count: factors.length },
+    metadata: { factor_count: factors.length, passkey_count: passkeyCount },
   });
 
   revalidatePath("/staff/staff-members");
