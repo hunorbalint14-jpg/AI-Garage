@@ -124,6 +124,15 @@ export default async function StaffMembersPage() {
   const { data: { users: authUsers } } = await admin.auth.admin.listUsers({ perPage: 1000 });
   const userMap = new Map(authUsers.map((u) => [u.id, u]));
 
+  // A registered passkey counts as MFA too — our owner/admin step-up uses
+  // WebAuthn (webauthn_credentials), which is separate from Supabase Auth's
+  // built-in TOTP factors. Without this the badge reads "No MFA" for a
+  // passkey-protected owner.
+  const { data: passkeyRows } = allUserIds.length
+    ? await admin.from("webauthn_credentials").select("user_id").in("user_id", allUserIds)
+    : { data: [] as { user_id: string }[] };
+  const passkeyUserIds = new Set((passkeyRows ?? []).map((r) => (r as { user_id: string }).user_id));
+
   // Build StaffEntry list
   const entriesMap = new Map<string, StaffEntry>();
 
@@ -150,7 +159,9 @@ export default async function StaffMembersPage() {
       fullName: (authUser.user_metadata?.full_name as string | null) ?? null,
       lastSignIn: authUser.last_sign_in_at ?? null,
       isCurrentUser: userId === ctx.user.id,
-      hasMfa: (authUser.factors ?? []).filter((f: { status: string }) => f.status === "verified").length > 0,
+      hasMfa:
+        (authUser.factors ?? []).filter((f: { status: string }) => f.status === "verified").length > 0 ||
+        passkeyUserIds.has(userId),
       orgRole: orgUser ? (orgUser.role as "owner" | "admin") : null,
       locationEntries: locEntries,
     });
