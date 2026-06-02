@@ -28,6 +28,7 @@ export type AuditAction =
   | "auth.login"
   | "auth.login_failed"
   | "auth.logout"
+  | "auth.mfa_verified"
   // Passkeys
   | "passkey.register"
   | "passkey.revoke"
