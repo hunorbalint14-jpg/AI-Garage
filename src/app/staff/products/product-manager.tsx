@@ -315,7 +315,9 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
             <div
               ref={menuRef}
               style={{ position: "fixed", top: menuPos.top, left: menuPos.left, width: 192 }}
-              className="z-50 rounded-md border bg-popover text-popover-foreground shadow-lg"
+              // Portaled to <body>, outside StaffShell's `.dark` wrapper — carry
+              // `dark` so the popover tokens resolve to the staff dark theme.
+              className="dark z-50 rounded-md border bg-popover text-popover-foreground shadow-lg"
             >
               {SUPPLIERS.map((s) => (
                 <a
