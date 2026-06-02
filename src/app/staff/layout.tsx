@@ -7,6 +7,8 @@ import { listRecentNotifications, unreadNotificationCount } from "@/lib/staff-no
 import { headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
 import { isDpaAccepted } from "@/lib/dpa";
+import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa } from "@/lib/mfa";
+import { MfaNudge } from "@/components/staff/mfa-nudge";
 
 export default async function StaffLayout({
   children,
@@ -65,6 +67,26 @@ export default async function StaffLayout({
     redirect("/staff/dpa-acceptance");
   }
 
+  // Owner/admin MFA gate. Mirrors the DPA gate above. When OWNER_MFA_ENFORCED
+  // is on, owners/admins who haven't cleared a passkey step-up this session are
+  // sent to /staff/mfa; otherwise we just surface a nudge banner.
+  const onMfaPage =
+    pathname.startsWith("/staff/mfa") || pathname.startsWith("/staff/login");
+  let showMfaNudge = false;
+  let mfaHasPasskey = false;
+  if (mfaAppliesToRole(ctx.orgRole) && !onMfaPage) {
+    const verified = await hasVerifiedMfa(ctx.user.id);
+    if (!verified) {
+      const { count } = await admin
+        .from("webauthn_credentials")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", ctx.user.id);
+      mfaHasPasskey = (count ?? 0) > 0;
+      if (isOwnerMfaEnforced()) redirect("/staff/mfa");
+      showMfaNudge = true;
+    }
+  }
+
   const brandColor =
     (org as { primary_color: string } | null)?.primary_color ?? "#6366f1";
   const orgLogoUrl =
@@ -107,6 +129,7 @@ export default async function StaffLayout({
         currentSlug={ctx.location.slug}
         role={role}
       >
+        {showMfaNudge && <MfaNudge hasPasskey={mfaHasPasskey} />}
         {children}
       </StaffShell>
     </>
