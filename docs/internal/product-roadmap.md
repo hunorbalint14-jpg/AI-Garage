@@ -15,44 +15,35 @@ This is a living document — tick items as they ship, link the PR.
 
 ## Phase 0 — Foundations (S) — *de-risk before expanding*
 
-- ⏸️ **Error tracking** — Sentry (or chosen vendor). Wrap server actions + route
-  handlers + a client error boundary; release/version tagging; no-op when the
-  DSN env var is unset (same graceful pattern as the rate limiter). _Decision
-  pending: vendor._
-- ⬜ **CSP → enforce** — review the collected `Content-Security-Policy-Report-Only`
-  data, add a nonce (or hash) path for the remaining inline scripts, then flip to
-  an enforced `Content-Security-Policy`. Files: [next.config.ts](../../next.config.ts),
-  [csp-report.ts](../../src/lib/csp-report.ts).
-- ⬜ **Stripe webhook idempotency** — a `processed_stripe_events` table keyed by
-  `event.id`; dedupe at the top of [webhooks/stripe](../../src/app/api/webhooks/stripe).
-  Build this **before** any feature that adds payment events (dunning, refunds,
-  plans). The deposit path is already partially idempotent via `deposit_paid_at`.
+- ✅ **Error tracking** — **Sentry** (server + edge + client, env-gated). Shipped #194, #195.
+- ✅ **CSP → enforce** — promoted Report-Only → enforced `Content-Security-Policy`;
+  fonts self-hosted, Supabase media allowed, Vercel Live preview-gated, violation
+  reporting kept. Shipped #188 (+ #180, #179). Nonce path for inline scripts deferred.
+- ✅ **Stripe webhook idempotency** — `stripe_webhook_events` ledger keyed by
+  `event.id`, claim-first dedupe at the top of [webhooks/stripe](../../src/app/api/webhooks/stripe). Shipped #184.
 
 ## Phase 1 — Retention quick wins (S–M) — *reuse reminders + comms + job lifecycle*
 
-- ⬜ **Invoice dunning** — new reminder kind for overdue invoices; escalating
-  schedule via [cron/reminders](../../src/app/api/cron/reminders); "Pay now" link
-  (reuses the Stripe pay flow). Respects contact prefs.
-- ⬜ **Post-job review funnel** — on job → complete, send a feedback request;
-  public feedback page; high scores routed to a Google review link, low scores
-  routed privately to the garage (protects public rating).
+- ✅ **Invoice dunning** — escalating overdue-payment reminders (cron) with a
+  "Pay now" link; stops once paid. Shipped #190.
+- ✅ **Post-job review funnel** — on job complete, request feedback; ≥4★ → Google
+  review, <4★ → private staff alert. Shipped #191.
 
 ## Phase 2 — Customer portal expansion (M) — *shared customer auth + ownership + portal UI*
 
-- ⬜ **Service history + DVI** — read-only past jobs, DVI reports/photos in the
-  portal. Data already exists (`dvi_v2`, `job_items`). Owner-gated like the
-  invoice page.
-- ⬜ **Quotes in portal** — session-authenticated review / approve / decline /
-  cancel; reuse the `approveQuote`/`declineQuote` core via an ownership-gated
-  entry point (raw token is unrecoverable — sha256 only). Keep the token link for
-  account-less customers. See [quote/[slug]/actions.ts](../../src/app/quote/[slug]/actions.ts).
-- ⬜ **Document vault** — invoices archive, MOT certificates, service records.
-- ⬜ **Reminder / contact-preference management** — customer opt-in/out.
+- ✅ **Service history + DVI** — read-only past jobs + DVI reports (signed-URL
+  video) + tyre checks; owner-gated via `getPortalContext`/`requireOwned*`. Shipped #196 (foundation), #197.
+- ✅ **Quotes in portal** — session-authenticated approve / decline / deposit via
+  **isolated** owner actions (token revenue path untouched; reuses `applyApprovedItems`
+  + the existing Stripe webhook). Token link still works for account-less customers. Shipped #198.
+- ✅ **Document vault** — invoices, DVI reports, service records + per-vehicle GOV.UK
+  MOT link (no cert storage). Shipped #199.
+- ✅ **Contact-preference management** — customer marketing email/SMS opt-in/out. Shipped #200.
 
 ## Phase 3 — Operations: scheduling & labour (M–L) — *builds on jobs + bays; feeds Phase 5 reporting*
 
-- ⬜ **Technician assignment** — assign jobs/bookings to staff; per-technician
-  schedule view alongside the bay model.
+- 🟡 **Technician assignment** — assign bookings + jobs to staff; "by technician"
+  filter on the existing schedule. In progress (PR1).
 - ⬜ **Time tracking** — clock-in/out per job → labour actual vs estimate; feeds
   [ai-labour.ts](../../src/lib/ai-labour.ts) and Phase 5 productivity reporting.
 
@@ -78,7 +69,9 @@ This is a living document — tick items as they ship, link the PR.
 
 ## Cross-cutting (continuous)
 
-- ⬜ **MFA for owners** — slot at the Phase 1/2 boundary (security).
+- ✅ **MFA for owners** — passkey step-up for owners + admins, behind the
+  `OWNER_MFA_ENFORCED` flag (nudge-first). Shipped #201. _Flip the flag to enforce
+  once owners have enrolled._
 - ⬜ **E2E tests (Playwright)** — start in Phase 0; expand each phase to cover new
   critical flows (booking, pay, quote-approve, dunning). Today only lib unit
   tests exist (vitest).
@@ -96,5 +89,8 @@ This is a living document — tick items as they ship, link the PR.
 | Date | Decision | Status |
 |---|---|---|
 | 2026-06-01 | Roadmap sequenced into 7 phases | ✅ agreed |
-| — | Error-tracking vendor (Sentry vs other) | ⏸️ pending |
+| 2026-06-02 | Error-tracking vendor → **Sentry** | ✅ done (#194/#195) |
+| 2026-06-02 | Phase 2 quotes via **isolated** owner actions (don't touch the token revenue path) | ✅ done (#198) |
+| 2026-06-02 | Owner MFA **nudge-first** behind `OWNER_MFA_ENFORCED`; scope = owners + admins | ✅ done (#201) |
+| — | Flip `OWNER_MFA_ENFORCED=true` once owners have enrolled | ⏸️ pending |
 | — | SaaS tenant billing vs platform-fee-only (Phase 6) | ⏸️ pending |

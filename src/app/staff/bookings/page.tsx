@@ -2,9 +2,11 @@ import Link from "next/link";
 import { CalendarPlus } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listLocationStaff } from "@/lib/staff-directory";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/staff/page-header";
 import { BookingCalendar } from "./booking-calendar";
+import { AssigneeFilter } from "./assignee-filter";
 import {
   type BookingRow,
   STATUS_STYLE,
@@ -18,16 +20,19 @@ import {
 } from "./calendar-grid";
 
 const BOOKING_SELECT =
-  "id, scheduled_at, duration_minutes, type, status, notes, customer:customers(id, full_name), vehicle:vehicles(registration)";
+  "id, scheduled_at, duration_minutes, type, status, notes, assigned_to, customer:customers(id, full_name), vehicle:vehicles(registration)";
 
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; view?: string; month?: string }>;
+  searchParams: Promise<{ filter?: string; view?: string; month?: string; assignee?: string }>;
 }) {
-  const { filter = "upcoming", view = "calendar", month } = await searchParams;
+  const { filter = "upcoming", view = "calendar", month, assignee = "" } = await searchParams;
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
+
+  const staff = await listLocationStaff(ctx.location.id, ctx.organization.id);
+  const nameMap = new Map(staff.map((s) => [s.id, s.name]));
 
   return (
     <div className="flex flex-col gap-6">
@@ -47,37 +52,42 @@ export default async function BookingsPage({
         }
       />
 
-      {/* View toggle */}
-      <div className="flex gap-2 text-sm">
-        {[
-          { key: "calendar", label: "Calendar", href: "/staff/bookings" },
-          { key: "list", label: "List", href: "/staff/bookings?view=list" },
-        ].map((v) => (
-          <Link
-            key={v.key}
-            href={v.href}
-            className={`rounded-md px-3 py-1.5 ${
-              view === v.key ? "bg-primary text-primary-foreground" : "hover:bg-muted"
-            }`}
-          >
-            {v.label}
-          </Link>
-        ))}
+      {/* View toggle + technician filter */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-2 text-sm">
+          {[
+            { key: "calendar", label: "Calendar", href: "/staff/bookings" },
+            { key: "list", label: "List", href: "/staff/bookings?view=list" },
+          ].map((v) => (
+            <Link
+              key={v.key}
+              href={v.href}
+              className={`rounded-md px-3 py-1.5 ${
+                view === v.key ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+              }`}
+            >
+              {v.label}
+            </Link>
+          ))}
+        </div>
+        <AssigneeFilter staff={staff} current={assignee} />
       </div>
 
       {view === "list"
-        ? await renderListView({ filter, locationId: ctx.location.id, admin })
-        : await renderCalendarView({ month, locationId: ctx.location.id, admin })}
+        ? await renderListView({ filter, assignee, locationId: ctx.location.id, admin, nameMap })
+        : await renderCalendarView({ month, assignee, locationId: ctx.location.id, admin })}
     </div>
   );
 }
 
 async function renderCalendarView({
   month,
+  assignee,
   locationId,
   admin,
 }: {
   month?: string;
+  assignee: string;
   locationId: string;
   admin: ReturnType<typeof createAdminClient>;
 }) {
@@ -87,12 +97,15 @@ async function renderCalendarView({
   const gridEnd = new Date(grid[41]);
   gridEnd.setDate(gridEnd.getDate() + 1); // exclusive upper bound
 
-  const { data } = (await admin
+  let query = admin
     .from("bookings")
     .select(BOOKING_SELECT)
     .eq("location_id", locationId)
     .gte("scheduled_at", gridStart.toISOString())
-    .lt("scheduled_at", gridEnd.toISOString())
+    .lt("scheduled_at", gridEnd.toISOString());
+  if (assignee) query = query.eq("assigned_to", assignee);
+
+  const { data } = (await query
     .order("scheduled_at", { ascending: true })
     .limit(500)) as { data: BookingRow[] | null };
 
@@ -111,12 +124,16 @@ async function renderCalendarView({
 
 async function renderListView({
   filter,
+  assignee,
   locationId,
   admin,
+  nameMap,
 }: {
   filter: string;
+  assignee: string;
   locationId: string;
   admin: ReturnType<typeof createAdminClient>;
+  nameMap: Map<string, string>;
 }) {
   const now = new Date().toISOString();
 
@@ -124,6 +141,8 @@ async function renderListView({
     .from("bookings")
     .select(BOOKING_SELECT)
     .eq("location_id", locationId);
+
+  if (assignee) query = query.eq("assigned_to", assignee);
 
   if (filter === "upcoming") {
     query = query.gte("scheduled_at", now).order("scheduled_at", { ascending: true });
@@ -179,6 +198,7 @@ async function renderListView({
                 <th className="px-4 py-2 font-medium">Customer</th>
                 <th className="px-4 py-2 font-medium">Vehicle</th>
                 <th className="px-4 py-2 font-medium">Type</th>
+                <th className="px-4 py-2 font-medium">Technician</th>
                 <th className="px-4 py-2 font-medium">Duration</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2" />
@@ -206,6 +226,9 @@ async function renderListView({
                   </td>
                   <td className="px-4 py-2 font-mono">{b.vehicle?.registration ?? "—"}</td>
                   <td className="px-4 py-2">{typeLabel(b.type)}</td>
+                  <td className="px-4 py-2 text-muted-foreground">
+                    {b.assigned_to ? (nameMap.get(b.assigned_to) ?? "—") : "—"}
+                  </td>
                   <td className="px-4 py-2 text-muted-foreground">{b.duration_minutes} min</td>
                   <td className="px-4 py-2">
                     <span

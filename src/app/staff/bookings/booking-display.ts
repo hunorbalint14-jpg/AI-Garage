@@ -8,6 +8,7 @@ export type BookingRow = {
   type: string;
   status: string;
   notes: string | null;
+  assigned_to: string | null;
   customer: { id: string; full_name: string | null } | null;
   vehicle: { registration: string } | null;
 };

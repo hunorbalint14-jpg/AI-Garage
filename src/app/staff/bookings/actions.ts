@@ -8,6 +8,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { isBayFreeAt } from "@/lib/bay-availability";
+import { listLocationStaff } from "@/lib/staff-directory";
+import { logAudit } from "@/lib/audit";
 
 export type BookingType = "mot" | "service" | "repair" | "diagnostic" | "other";
 export type BookingStatus = "scheduled" | "in_progress" | "complete" | "cancelled" | "no_show";
@@ -373,6 +375,54 @@ export async function assignBay(bookingId: string, bayId: string | null): Promis
   if (error) return { error: error.message };
 
   revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff");
+  return { success: true };
+}
+
+export type AssignTechnicianResult = { error: string } | { success: true };
+
+// Validate that a candidate assignee is actually staff at this location/org,
+// so an owner can't assign a user from another tenant. Shared by booking + job.
+async function isAssignableStaff(
+  userId: string,
+  locationId: string,
+  organizationId: string,
+): Promise<boolean> {
+  const staff = await listLocationStaff(locationId, organizationId);
+  return staff.some((s) => s.id === userId);
+}
+
+export async function assignBookingTechnician(
+  bookingId: string,
+  userId: string | null,
+): Promise<AssignTechnicianResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  if (userId && !(await isAssignableStaff(userId, ctx.location.id, ctx.organization.id))) {
+    return { error: "Staff member not found at this location." };
+  }
+
+  const { error } = await admin
+    .from("bookings")
+    .update({ assigned_to: userId })
+    .eq("id", bookingId)
+    .eq("location_id", ctx.location.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "booking.assign",
+    entityType: "booking",
+    entityId: bookingId,
+    metadata: { assigned_to: userId },
+  });
+
+  revalidatePath(`/staff/bookings/${bookingId}`);
+  revalidatePath("/staff/bookings");
   revalidatePath("/staff");
   return { success: true };
 }

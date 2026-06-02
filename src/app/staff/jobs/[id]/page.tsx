@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listLocationStaff } from "@/lib/staff-directory";
+import { TechnicianSelector } from "@/components/staff/technician-selector";
+import { assignJobTechnician } from "../actions";
 import { JobDetail } from "./job-detail";
 
 type Job = {
@@ -13,6 +16,7 @@ type Job = {
   completed_at: string | null;
   location_id: string;
   booking_id: string | null;
+  assigned_to: string | null;
   customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
   vehicle: { id: string; registration: string; make: string | null; model: string | null; year: number | null } | null;
 };
@@ -35,11 +39,11 @@ export default async function JobDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [jobRes, itemsRes, productsRes, quotesRes] = await Promise.all([
+  const [jobRes, itemsRes, productsRes, quotesRes, staff] = await Promise.all([
     admin
       .from("jobs")
       .select(
-        "id, status, description, notes, created_at, completed_at, location_id, booking_id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
+        "id, status, description, notes, created_at, completed_at, location_id, booking_id, assigned_to, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -61,6 +65,7 @@ export default async function JobDetailPage({
       )
       .eq("job_id", id)
       .order("created_at", { ascending: false }),
+    listLocationStaff(ctx.location.id, ctx.organization.id),
   ]);
 
   const job = jobRes.data as Job | null;
@@ -97,6 +102,18 @@ export default async function JobDetailPage({
           ← Back to {job.booking_id ? "booking" : "bookings"}
         </Link>
       </div>
+
+      <section className="rounded-lg border p-4">
+        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          Assigned technician
+        </h2>
+        <TechnicianSelector
+          entityId={job.id}
+          staff={staff}
+          currentUserId={job.assigned_to}
+          assignAction={assignJobTechnician}
+        />
+      </section>
 
       <JobDetail job={job} items={items} products={products} quotes={quotes} />
     </div>

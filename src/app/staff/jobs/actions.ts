@@ -11,8 +11,49 @@ import { sendWhatsApp } from "@/lib/whatsapp";
 import { estimateLabourTime } from "@/lib/ai-labour";
 import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 import { enqueueReviewRequest } from "@/lib/review-links";
+import { listLocationStaff } from "@/lib/staff-directory";
+import { logAudit } from "@/lib/audit";
 
 export type LabourEstimateResult = { error: string } | { hours: number; note: string };
+
+export type AssignTechnicianResult = { error: string } | { success: true };
+
+export async function assignJobTechnician(
+  jobId: string,
+  userId: string | null,
+): Promise<AssignTechnicianResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  if (userId) {
+    const staff = await listLocationStaff(ctx.location.id, ctx.organization.id);
+    if (!staff.some((s) => s.id === userId)) {
+      return { error: "Staff member not found at this location." };
+    }
+  }
+
+  const { error } = await admin
+    .from("jobs")
+    .update({ assigned_to: userId })
+    .eq("id", jobId)
+    .eq("location_id", ctx.location.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "job.assign",
+    entityType: "job",
+    entityId: jobId,
+    metadata: { assigned_to: userId },
+  });
+
+  revalidatePath(`/staff/jobs/${jobId}`);
+  revalidatePath("/staff");
+  return { success: true };
+}
 
 export async function suggestLabourTime(
   description: string,
