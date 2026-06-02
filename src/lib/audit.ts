@@ -29,6 +29,11 @@ export type AuditAction =
   | "auth.login_failed"
   | "auth.logout"
   | "auth.mfa_verified"
+  // Scheduling / labour (Phase 3)
+  | "booking.assign"
+  | "job.assign"
+  | "job.clock_in"
+  | "job.clock_out"
   // Passkeys
   | "passkey.register"
   | "passkey.revoke"

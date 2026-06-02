@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listLocationStaff } from "@/lib/staff-directory";
+import { TechnicianSelector } from "@/components/staff/technician-selector";
+import { assignBookingTechnician } from "../actions";
 import { BookingActions } from "./booking-actions";
 import { BaySelector } from "./bay-selector";
 
@@ -14,6 +17,7 @@ type Booking = {
   notes: string | null;
   created_at: string;
   bay_id: string | null;
+  assigned_to: string | null;
   customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
   vehicle: { id: string; registration: string; make: string | null; model: string | null; year: number | null } | null;
   location_id: string;
@@ -49,11 +53,11 @@ export default async function BookingDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [bookingRes, jobRes, baysRes] = await Promise.all([
+  const [bookingRes, jobRes, baysRes, staff] = await Promise.all([
     admin
       .from("bookings")
       .select(
-        "id, scheduled_at, duration_minutes, type, status, notes, created_at, location_id, bay_id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
+        "id, scheduled_at, duration_minutes, type, status, notes, created_at, location_id, bay_id, assigned_to, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -68,6 +72,7 @@ export default async function BookingDetailPage({
       .eq("location_id", ctx.location.id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true }),
+    listLocationStaff(ctx.location.id, ctx.organization.id),
   ]);
 
   const booking = bookingRes.data as Booking | null;
@@ -155,12 +160,26 @@ export default async function BookingDetailPage({
         </section>
       )}
 
-      <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Bay assignment
-        </h2>
-        <BaySelector bookingId={booking.id} bays={bays} currentBayId={booking.bay_id} />
-      </section>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <section className="rounded-lg border p-4">
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Bay assignment
+          </h2>
+          <BaySelector bookingId={booking.id} bays={bays} currentBayId={booking.bay_id} />
+        </section>
+
+        <section className="rounded-lg border p-4">
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Technician
+          </h2>
+          <TechnicianSelector
+            entityId={booking.id}
+            staff={staff}
+            currentUserId={booking.assigned_to}
+            assignAction={assignBookingTechnician}
+          />
+        </section>
+      </div>
 
       {job && (
         <section className="rounded-lg border p-4 bg-muted/20">
