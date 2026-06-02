@@ -1,11 +1,9 @@
-import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import Link from "next/link";
 import { Car, AlertCircle, Clock, CheckCircle, CalendarDays, Receipt } from "lucide-react";
 import { BookingCard } from "./booking-card";
 import { DiagnosticPanel } from "./diagnostic-panel";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPortalContext } from "@/lib/portal-auth";
 import { AnimatedBackground } from "@/components/animated-background";
 import { CustomerSignOutButton } from "./sign-out-button";
 
@@ -85,41 +83,9 @@ function typeLabel(t: string) {
 }
 
 export default async function CustomerDashboard() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const headersList = await headers();
-  const slug = headersList.get("x-tenant-slug");
-  if (!slug) redirect("/");
+  const { user, location, customer } = await getPortalContext();
 
   const admin = createAdminClient();
-
-  const { data: location } = await admin
-    .from("locations")
-    .select("id, name, organization:organizations(id, name, primary_color, logo_url)")
-    .eq("slug", slug)
-    .maybeSingle() as {
-    data: {
-      id: string;
-      name: string;
-      organization: { id: string; name: string; primary_color: string; logo_url: string | null } | null;
-    } | null;
-  };
-
-  if (!location || !location.organization) redirect("/");
-
-  const { data: customer } = await admin
-    .from("customers")
-    .select("id, full_name, user_id")
-    .eq("location_id", location.id)
-    .eq("email", user.email ?? "")
-    .maybeSingle();
-
-  if (customer && !customer.user_id) {
-    await admin.from("customers").update({ user_id: user.id }).eq("id", customer.id);
-  }
-
   const now = new Date().toISOString();
 
   const [vehiclesRes, invoicesRes, bookingsRes] = customer

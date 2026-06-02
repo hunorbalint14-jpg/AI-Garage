@@ -1,26 +1,9 @@
-import { redirect, notFound } from "next/navigation";
-import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPortalContext, requireOwnedInvoice } from "@/lib/portal-auth";
 import { AnimatedBackground } from "@/components/animated-background";
 import { CustomerSignOutButton } from "../../dashboard/sign-out-button";
-
-type Invoice = {
-  id: string;
-  invoice_number: string;
-  status: string;
-  subtotal: number;
-  vat_rate: number;
-  vat_amount: number;
-  total: number;
-  issued_at: string;
-  due_at: string;
-  paid_at: string | null;
-  notes: string | null;
-  customer_id: string;
-  job_id: string | null;
-};
 
 type JobItem = { id: string; description: string; type: string; quantity: number; unit_price: number };
 
@@ -39,42 +22,12 @@ export default async function CustomerInvoicePage({
 }) {
   const { id } = await params;
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const headersList = await headers();
-  const slug = headersList.get("x-tenant-slug");
-  if (!slug) redirect("/");
-
-  const admin = createAdminClient();
-
-  const { data: location } = await admin
-    .from("locations")
-    .select("id, name, organization:organizations(id, name, primary_color, logo_url, phone)")
-    .eq("slug", slug)
-    .maybeSingle() as {
-    data: { id: string; name: string; organization: { id: string; name: string; primary_color: string; logo_url: string | null; phone: string | null } | null } | null;
-  };
-  if (!location?.organization) redirect("/");
-
-  const { data: customer } = await admin
-    .from("customers")
-    .select("id, full_name")
-    .eq("location_id", location.id)
-    .eq("email", user.email ?? "")
-    .maybeSingle();
+  const { location, customer } = await getPortalContext();
   if (!customer) notFound();
 
-  const { data: inv } = await admin
-    .from("invoices")
-    .select("id, invoice_number, status, subtotal, vat_rate, vat_amount, total, issued_at, due_at, paid_at, notes, customer_id, job_id")
-    .eq("id", id)
-    .maybeSingle();
+  const invoice = await requireOwnedInvoice(customer.id, location.id, id);
 
-  const invoice = inv as Invoice | null;
-  if (!invoice || invoice.customer_id !== customer.id) notFound();
-
+  const admin = createAdminClient();
   const itemsRes = invoice.job_id
     ? await admin.from("job_items").select("id, description, type, quantity, unit_price").eq("job_id", invoice.job_id).order("created_at", { ascending: true })
     : { data: [] };
