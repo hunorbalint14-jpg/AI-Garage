@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Search, Trash2, ShoppingCart, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -141,6 +142,43 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
   const [reorder, setReorder] = useState(product.reorder_at ?? 0);
   const [pending, startTransition] = useTransition();
   const [supplierOpen, setSupplierOpen] = useState(false);
+  // The "Order" menu is portaled to <body> with fixed positioning so it escapes
+  // the table's overflow-x clip (otherwise it's cut off when there are few rows).
+  const orderBtnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  function toggleSupplier() {
+    if (supplierOpen) {
+      setSupplierOpen(false);
+      return;
+    }
+    const r = orderBtnRef.current?.getBoundingClientRect();
+    if (r) {
+      const width = 192; // w-48
+      const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+      setMenuPos({ top: r.bottom + 4, left });
+    }
+    setSupplierOpen(true);
+  }
+
+  useEffect(() => {
+    if (!supplierOpen) return;
+    const close = () => setSupplierOpen(false);
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (orderBtnRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setSupplierOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [supplierOpen]);
 
   function savePrice(next: number) {
     if (next === product.unit_price) return;
@@ -261,32 +299,39 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
           )}
         </div>
       </td>
-      <td className="px-3 py-2 relative">
+      <td className="px-3 py-2">
         <button
+          ref={orderBtnRef}
           type="button"
-          onClick={() => setSupplierOpen((v) => !v)}
+          onClick={toggleSupplier}
           className="inline-flex items-center gap-1 rounded border px-2 py-1 text-xs hover:bg-muted"
         >
           <ShoppingCart className="h-3 w-3" />
           Order
           <ChevronDown className="h-3 w-3" />
         </button>
-        {supplierOpen && (
-          <div className="absolute right-0 z-10 mt-1 w-48 rounded-md border bg-popover text-popover-foreground shadow-lg">
-            {SUPPLIERS.map((s) => (
-              <a
-                key={s.id}
-                href={s.searchUrl(product.sku || product.name)}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setSupplierOpen(false)}
-                className="block px-3 py-2 text-xs hover:bg-muted"
-              >
-                {s.name} →
-              </a>
-            ))}
-          </div>
-        )}
+        {supplierOpen && menuPos &&
+          createPortal(
+            <div
+              ref={menuRef}
+              style={{ position: "fixed", top: menuPos.top, left: menuPos.left, width: 192 }}
+              className="z-50 rounded-md border bg-popover text-popover-foreground shadow-lg"
+            >
+              {SUPPLIERS.map((s) => (
+                <a
+                  key={s.id}
+                  href={s.searchUrl(product.sku || product.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setSupplierOpen(false)}
+                  className="block px-3 py-2 text-xs hover:bg-muted"
+                >
+                  {s.name} →
+                </a>
+              ))}
+            </div>,
+            document.body,
+          )}
       </td>
       {canEdit && (
         <td className="px-3 py-2 text-right">
