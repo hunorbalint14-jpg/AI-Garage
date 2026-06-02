@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 // Enforced CSP, promoted from Report-Only after reviewing real prod traffic
 // (Supabase media, Google fonts, and the Vercel Live toolbar were the only
@@ -75,4 +76,9 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Wrap with Sentry so server errors (onRequestError) reliably flush before the
+// Vercel serverless function suspends. silent: true because source-map upload
+// is skipped without SENTRY_AUTH_TOKEN — keeps the build log clean.
+export default withSentryConfig(nextConfig, {
+  silent: true,
+});
