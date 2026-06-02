@@ -14,6 +14,26 @@ import { enqueueReviewRequest } from "@/lib/review-links";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { logAudit } from "@/lib/audit";
 import { durationMinutes } from "@/lib/time-tracking";
+import { applyStockDelta } from "@/lib/stock";
+
+// Sum product-linked part quantities for a job → Map<product_id, qty>. Used to
+// move stock on completion/reopen.
+async function jobPartQtyByProduct(
+  admin: ReturnType<typeof createAdminClient>,
+  jobId: string,
+): Promise<Map<string, number>> {
+  const { data } = await admin
+    .from("job_items")
+    .select("product_id, quantity")
+    .eq("job_id", jobId)
+    .eq("type", "part")
+    .not("product_id", "is", null);
+  const byProduct = new Map<string, number>();
+  for (const p of (data ?? []) as { product_id: string; quantity: number }[]) {
+    byProduct.set(p.product_id, (byProduct.get(p.product_id) ?? 0) + Number(p.quantity || 0));
+  }
+  return byProduct;
+}
 
 export type LabourEstimateResult = { error: string } | { hours: number; note: string };
 
@@ -320,6 +340,7 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
 
   const quantity = parseFloat(quantityStr || "1");
   const unitPrice = parseFloat(unitPriceStr || "0");
+  const productIdRaw = (formData.get("productId") as string | null)?.trim() || null;
 
   if (Number.isNaN(quantity) || quantity <= 0) return { error: "Quantity must be greater than 0." };
   if (Number.isNaN(unitPrice) || unitPrice < 0) return { error: "Unit price must be 0 or greater." };
@@ -333,9 +354,21 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
   if (!job || job.location_id !== ctx.location.id) return { error: "Job not found." };
   if (job.status !== "open") return { error: "Cannot add items to a completed job." };
 
+  // Only link a product that belongs to this location (guards cross-tenant ids).
+  let productId: string | null = null;
+  if (productIdRaw) {
+    const { data: prod } = await admin
+      .from("products")
+      .select("id")
+      .eq("id", productIdRaw)
+      .eq("location_id", ctx.location.id)
+      .maybeSingle();
+    productId = prod ? productIdRaw : null;
+  }
+
   const { data, error } = await admin
     .from("job_items")
-    .insert({ job_id: jobId, description, type, quantity, unit_price: unitPrice })
+    .insert({ job_id: jobId, description, type, quantity, unit_price: unitPrice, product_id: productId })
     .select("id")
     .single();
 
@@ -436,6 +469,22 @@ export async function completeJob(jobId: string): Promise<UpdateJobResult> {
 
   if (error) return { error: error.message };
 
+  // Decrement stock for product-linked parts — they're now consumed. Best-effort
+  // (applyStockDelta never throws), so it can't block completion.
+  const consumed = await jobPartQtyByProduct(admin, jobId);
+  for (const [productId, qty] of consumed) {
+    await applyStockDelta(admin, {
+      productId,
+      locationId: ctx.location.id,
+      delta: -Math.round(qty),
+      reason: "job_consumption",
+      organizationId: ctx.organization.id,
+      actorUserId: ctx.user.id,
+      actorEmail: ctx.user.email ?? null,
+      jobId,
+    });
+  }
+
   // Mark linked booking as complete
   if (job.booking_id) {
     await admin.from("bookings").update({ status: "complete" }).eq("id", job.booking_id);
@@ -479,6 +528,22 @@ export async function reopenJob(jobId: string): Promise<UpdateJobResult> {
     .eq("id", jobId);
 
   if (error) return { error: error.message };
+
+  // Credit stock back for product-linked parts — mirror of the consumption on
+  // completion, so reopening a job returns its parts to the shelf.
+  const restored = await jobPartQtyByProduct(admin, jobId);
+  for (const [productId, qty] of restored) {
+    await applyStockDelta(admin, {
+      productId,
+      locationId: ctx.location.id,
+      delta: Math.round(qty),
+      reason: "job_reopen",
+      organizationId: ctx.organization.id,
+      actorUserId: ctx.user.id,
+      actorEmail: ctx.user.email ?? null,
+      jobId,
+    });
+  }
 
   if (job.booking_id) {
     await admin.from("bookings").update({ status: "in_progress" }).eq("id", job.booking_id);

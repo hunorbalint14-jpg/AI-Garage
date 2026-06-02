@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createProduct, updateProduct, deleteProduct, adjustStock } from "./actions";
 import { PRODUCT_CATEGORIES, SUPPLIERS } from "./constants";
+import { isLowStock } from "@/lib/inventory";
 
 type Product = {
   id: string;
@@ -17,6 +18,7 @@ type Product = {
   unit_price: number;
   cost_price: number | null;
   stock_qty: number;
+  reorder_at: number | null;
   active: boolean;
 };
 
@@ -26,18 +28,22 @@ const fmt = (n: number) =>
 export function ProductManager({ products, canEdit }: { products: Product[]; canEdit: boolean }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("all");
+  const [lowOnly, setLowOnly] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (category !== "all" && p.category !== category) return false;
+      if (lowOnly && !isLowStock(p.stock_qty, p.reorder_at)) return false;
       if (query) {
         const q = query.toLowerCase();
         if (!p.name.toLowerCase().includes(q) && !p.sku?.toLowerCase().includes(q) && !p.supplier?.toLowerCase().includes(q)) return false;
       }
       return true;
     });
-  }, [products, query, category]);
+  }, [products, query, category, lowOnly]);
+
+  const lowCount = useMemo(() => products.filter((p) => isLowStock(p.stock_qty, p.reorder_at)).length, [products]);
 
   const totalStockValue = products.reduce((sum, p) => sum + (p.cost_price ?? 0) * p.stock_qty, 0);
 
@@ -46,7 +52,7 @@ export function ProductManager({ products, canEdit }: { products: Product[]; can
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Stat label="Products" value={String(products.length)} />
         <Stat label="In stock" value={String(products.reduce((s, p) => s + (p.stock_qty > 0 ? 1 : 0), 0))} />
-        <Stat label="Low stock" value={String(products.filter((p) => p.stock_qty === 0).length)} accent="text-amber-600" />
+        <Stat label="Low stock" value={String(products.filter((p) => isLowStock(p.stock_qty, p.reorder_at)).length)} accent="text-amber-600" />
         <Stat label="Stock value" value={fmt(totalStockValue)} />
       </div>
 
@@ -71,6 +77,14 @@ export function ProductManager({ products, canEdit }: { products: Product[]; can
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => setLowOnly((v) => !v)}
+          aria-pressed={lowOnly}
+          className={`rounded-md border px-3 py-2 text-sm transition-colors ${lowOnly ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "hover:bg-muted"}`}
+        >
+          Low stock{lowCount > 0 ? ` (${lowCount})` : ""}
+        </button>
         {canEdit && (
           <Button onClick={() => setShowAdd((v) => !v)} className="ml-auto">
             <Plus className="mr-1.5 h-4 w-4" />
@@ -91,13 +105,14 @@ export function ProductManager({ products, canEdit }: { products: Product[]; can
               <th className="px-3 py-2 font-medium text-right">Cost</th>
               <th className="px-3 py-2 font-medium text-right">Price</th>
               <th className="px-3 py-2 font-medium text-right">Stock</th>
+              <th className="px-3 py-2 font-medium text-right">Reorder at</th>
               <th className="px-3 py-2 font-medium">Order online</th>
               {canEdit && <th className="px-3 py-2" />}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">No products match.</td></tr>
+              <tr><td colSpan={9} className="p-8 text-center text-muted-foreground">No products match.</td></tr>
             ) : (
               filtered.map((p) => (
                 <ProductRow key={p.id} product={p} canEdit={canEdit} />
@@ -123,6 +138,7 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
   const [price, setPrice] = useState(product.unit_price);
   const [cost, setCost] = useState(product.cost_price ?? 0);
   const [sku, setSku] = useState(product.sku ?? "");
+  const [reorder, setReorder] = useState(product.reorder_at ?? 0);
   const [pending, startTransition] = useTransition();
   const [supplierOpen, setSupplierOpen] = useState(false);
 
@@ -138,6 +154,10 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
     if (next === (product.sku ?? "")) return;
     startTransition(async () => { await updateProduct(product.id, { sku: next || null }); });
   }
+  function saveReorder(next: number) {
+    if (next === (product.reorder_at ?? 0)) return;
+    startTransition(async () => { await updateProduct(product.id, { reorder_at: next }); });
+  }
 
   function handleDelete() {
     if (!confirm(`Delete "${product.name}"?`)) return;
@@ -148,7 +168,8 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
     startTransition(async () => { await adjustStock(product.id, delta); });
   }
 
-  const stockClass = product.stock_qty === 0 ? "text-red-600" : product.stock_qty < 3 ? "text-amber-600" : "";
+  const low = isLowStock(product.stock_qty, product.reorder_at);
+  const stockClass = product.stock_qty === 0 ? "text-red-600" : low ? "text-amber-600" : "";
 
   return (
     <tr className="border-t">
@@ -218,6 +239,27 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
         ) : (
           <span className={`tabular-nums ${stockClass}`}>{product.stock_qty}</span>
         )}
+      </td>
+      <td className="px-3 py-2 text-right">
+        <div className="inline-flex items-center gap-1.5">
+          {low && (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+              Low
+            </span>
+          )}
+          {canEdit ? (
+            <input
+              type="number"
+              min="0"
+              value={reorder}
+              onChange={(e) => setReorder(parseInt(e.target.value, 10) || 0)}
+              onBlur={() => saveReorder(reorder)}
+              className="w-16 rounded border bg-background px-2 py-1 text-right text-xs tabular-nums"
+            />
+          ) : (
+            <span className="tabular-nums text-muted-foreground">{product.reorder_at ?? "—"}</span>
+          )}
+        </div>
       </td>
       <td className="px-3 py-2 relative">
         <button
@@ -309,6 +351,10 @@ function AddProductForm({ onDone }: { onDone: () => void }) {
       <div>
         <Label htmlFor="stockQty">Stock</Label>
         <Input id="stockQty" name="stockQty" type="number" min="0" defaultValue={0} disabled={pending} />
+      </div>
+      <div>
+        <Label htmlFor="reorderAt">Reorder at</Label>
+        <Input id="reorderAt" name="reorderAt" type="number" min="0" placeholder="Low-stock threshold" disabled={pending} />
       </div>
       <div className="sm:col-span-2 flex gap-2">
         <Button type="submit" disabled={pending}>{pending ? "Adding…" : "Add product"}</Button>
