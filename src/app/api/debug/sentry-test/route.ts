@@ -1,16 +1,29 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// TEMPORARY — Sentry smoke test. Hitting GET /api/debug/sentry-test calls an
-// undefined function, throwing a ReferenceError so we can confirm that server
-// errors reach Sentry (forwarded by onRequestError in src/instrumentation.ts).
-// Test on a preview deployment, confirm the issue appears in Sentry, then DELETE
-// this route (close the PR — no merge needed).
-declare function __sentrySmokeTest_undefinedFn__(): void;
+// TEMPORARY — Sentry smoke test. GET /api/debug/sentry-test captures an error
+// explicitly, flushes before the serverless function suspends, and reports
+// whether the server DSN is even present. The JSON response tells us which side
+// is broken without guessing:
+//   hasServerDsn=false → SENTRY_DSN missing in this env (capture is a no-op)
+//   hasServerDsn=true + eventId set + still not in Sentry → wrong DSN / project / network
+// Delete this route + close the PR (no merge) once capture is confirmed.
+export async function GET() {
+  const hasServerDsn = !!process.env.SENTRY_DSN;
 
-export function GET() {
-  __sentrySmokeTest_undefinedFn__(); // ReferenceError at runtime → Sentry
-  return NextResponse.json({ ok: true });
+  const eventId = Sentry.captureException(
+    new Error("Sentry smoke test — manual server error"),
+  );
+  const flushed = await Sentry.flush(2000);
+
+  return NextResponse.json({
+    ok: true,
+    hasServerDsn,
+    environment: process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? null,
+    eventId: eventId ?? null,
+    flushed,
+  });
 }
