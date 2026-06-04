@@ -42,17 +42,17 @@ This is a living document — tick items as they ship, link the PR.
 
 ## Phase 3 — Operations: scheduling & labour (M–L) — *builds on jobs + bays; feeds Phase 5 reporting*
 
-- 🟡 **Technician assignment** — assign bookings + jobs to staff; "by technician"
-  filter on the existing schedule. In progress (PR1).
-- ⬜ **Time tracking** — clock-in/out per job → labour actual vs estimate; feeds
-  [ai-labour.ts](../../src/lib/ai-labour.ts) and Phase 5 productivity reporting.
+- ✅ **Technician assignment** — assign bookings + jobs to staff; "by technician"
+  filter on the schedule. Shipped #202.
+- ✅ **Time tracking** — clock in/out + pause/resume (active vs elapsed) + manual
+  override; labour actual vs estimate on the job card. Shipped #204.
 
 ## Phase 4 — Parts & stock (L) — *independent; extends `products`*
 
-- ⬜ **Inventory** — stock levels on products; low-stock alerts; job-parts
-  consumption decrements stock.
-- ⬜ **Suppliers & purchase orders** — supplier records, POs. Optional later: a UK
-  parts-catalogue feed (Euro Car Parts / GSF).
+- ✅ **Inventory** — job parts decrement stock on completion (credited on reopen);
+  `reorder_at` low-stock view/badge/filter. Shipped #205.
+- ✅ **Suppliers & purchase orders** — supplier CRUD; raise/order/receive POs;
+  receiving replenishes stock. Shipped #206. _UK parts-catalogue feed still later._
 
 ## Phase 5 — Financial depth (M–L) — *depends on Phase 0 idempotency + Phase 3 time data + Xero*
 

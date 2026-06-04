@@ -6,7 +6,7 @@
 import {
   LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt,
   TrendingUp, Building2, Wrench, Columns, UserCog, FlaskConical, Zap, Package,
-  Share2, FileText, ShieldCheck, Truck, ClipboardList,
+  Share2, FileText, ShieldCheck, Truck, ClipboardList, BarChart3,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PermissionKey } from "@/app/staff/staff-members/constants";
@@ -62,6 +62,7 @@ export const NAV_MODULES: NavModule[] = [
       { key: "revenue",  href: "/staff/revenue",  label: "Revenue",  icon: TrendingUp, permission: "revenue" },
       { key: "quotes",   href: "/staff/quotes",   label: "Quotes",   icon: FileText,   permission: "quotes_draft" },
       { key: "invoices", href: "/staff/invoices", label: "Invoices", icon: Receipt,    permission: "invoices" },
+      { key: "reports",  href: "/staff/reports",  label: "Reports",  icon: BarChart3,  permission: "reports" },
     ],
   },
   {
