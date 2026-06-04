@@ -40,3 +40,34 @@ jobs:
           name: coverage-${{ github.sha }}
           path: coverage/
           retention-days: 14
+
+  # Playwright smoke E2E — public, no-auth, DB-independent pages only. Runs the
+  # dev server with placeholder Supabase env (on localhost the host resolves to
+  # the root domain, so no tenant lookup hits a database). Separate job so a
+  # smoke flake doesn't block the hard gates above; promote to required once the
+  # authed/seeded flows land behind a test tenant.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      NEXT_PUBLIC_ROOT_DOMAIN: localhost:3000
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Run smoke E2E
+        run: npx playwright test
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report-${{ github.sha }}
+          path: playwright-report/
+          retention-days: 14
