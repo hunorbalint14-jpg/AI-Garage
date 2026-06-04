@@ -361,6 +361,8 @@ export function JobDetail({
         {isOpen && (
           <form onSubmit={handleAddItem} className="p-4 border-t flex flex-col gap-3 bg-muted/10">
             <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Add item</h3>
+            {/* Links the line to a catalogue product so completing the job decrements stock. */}
+            <input type="hidden" name="productId" value={productId} />
             {products.length > 0 && (
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="product-pick" className="text-xs">Pick from products</Label>
