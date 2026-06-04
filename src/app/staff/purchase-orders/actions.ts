@@ -5,6 +5,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
+import { applyStockDelta } from "@/lib/stock";
 
 type ActionResult = { error: string } | { success: true };
 
@@ -122,8 +123,10 @@ export async function receivePurchaseOrder(poId: string): Promise<ActionResult> 
     .eq("purchase_order_id", poId)
     .not("product_id", "is", null);
 
-  // Increment stock per product. (Mirrors the inventory applyStockDelta path;
-  // kept inline here so this PR doesn't depend on that branch.)
+  // Add each product-linked line back into stock via the shared helper — it
+  // clamps at zero, scopes to the location, and writes the product.stock_adjust
+  // audit row (reason po_receipt). The purchase_order.receive row below records
+  // the PO id + product count.
   const byProduct = new Map<string, number>();
   for (const it of (items ?? []) as { product_id: string; quantity: number }[]) {
     byProduct.set(it.product_id, (byProduct.get(it.product_id) ?? 0) + Number(it.quantity || 0));
@@ -131,24 +134,14 @@ export async function receivePurchaseOrder(poId: string): Promise<ActionResult> 
   for (const [productId, qty] of byProduct) {
     const delta = Math.round(qty);
     if (delta <= 0) continue;
-    const { data: prod } = await admin
-      .from("products")
-      .select("stock_qty")
-      .eq("id", productId)
-      .eq("location_id", ctx.location.id)
-      .maybeSingle();
-    if (!prod) continue;
-    const previous = (prod.stock_qty as number) ?? 0;
-    const newQty = Math.max(0, previous + delta);
-    await admin.from("products").update({ stock_qty: newQty }).eq("id", productId).eq("location_id", ctx.location.id);
-    await logAudit({
+    await applyStockDelta(admin, {
+      productId,
+      locationId: ctx.location.id,
+      delta,
+      reason: "po_receipt",
       organizationId: ctx.organization.id,
       actorUserId: ctx.user.id,
       actorEmail: ctx.user.email ?? null,
-      action: "product.stock_adjust",
-      entityType: "product",
-      entityId: productId,
-      metadata: { delta, previous_qty: previous, new_qty: newQty, reason: "po_receipt", purchase_order_id: poId },
     });
   }
 
