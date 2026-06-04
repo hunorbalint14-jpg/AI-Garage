@@ -72,9 +72,11 @@ This is a living document — tick items as they ship, link the PR.
 - ✅ **MFA for owners** — passkey step-up for owners + admins, behind the
   `OWNER_MFA_ENFORCED` flag (nudge-first). Shipped #201. _Flip the flag to enforce
   once owners have enrolled._
-- ⬜ **E2E tests (Playwright)** — start in Phase 0; expand each phase to cover new
-  critical flows (booking, pay, quote-approve, dunning). Today only lib unit
-  tests exist (vitest).
+- 🟡 **E2E tests (Playwright)** — smoke scaffold shipped (config + CI `e2e` job +
+  public, no-auth, DB-independent specs: home, staff-login, 404). Deeper authed
+  flows (booking, pay, quote-approve, dunning) are **pending a throwaway Supabase
+  test project + seed + CI secrets** the team provisions. Lib unit tests (vitest)
+  remain the bulk of coverage.
 
 ---
 
@@ -92,5 +94,6 @@ This is a living document — tick items as they ship, link the PR.
 | 2026-06-02 | Error-tracking vendor → **Sentry** | ✅ done (#194/#195) |
 | 2026-06-02 | Phase 2 quotes via **isolated** owner actions (don't touch the token revenue path) | ✅ done (#198) |
 | 2026-06-02 | Owner MFA **nudge-first** behind `OWNER_MFA_ENFORCED`; scope = owners + admins | ✅ done (#201) |
-| — | Flip `OWNER_MFA_ENFORCED=true` once owners have enrolled | ⏸️ pending |
+| — | Flip `OWNER_MFA_ENFORCED=true` once owners have enrolled | ⏸️ pending — **ops/env only** (Vercel), gated on owner enrolment; flipping early hard-blocks un-enrolled owners |
+| 2026-06-04 | E2E Playwright **smoke scaffold** (public no-auth specs + CI job); authed flows deferred to a test DB | ✅ done |
 | — | SaaS tenant billing vs platform-fee-only (Phase 6) | ⏸️ pending |
