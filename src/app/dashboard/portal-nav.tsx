@@ -12,6 +12,7 @@ const TABS: { href: string; label: string; exact?: boolean }[] = [
   { href: "/dashboard/history", label: "History" },
   { href: "/dashboard/quotes", label: "Quotes" },
   { href: "/dashboard/documents", label: "Documents" },
+  { href: "/dashboard/plans", label: "Plans" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
