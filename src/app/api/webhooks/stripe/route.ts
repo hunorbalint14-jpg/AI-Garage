@@ -6,6 +6,7 @@ import { generateInvoiceForPaidBooking } from "@/lib/booking-invoice";
 import { pushPaymentToXero, pushPayoutToXero } from "@/lib/xero-sync";
 import { applyQuoteDeposit } from "@/lib/quote-deposit";
 import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
+import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -267,19 +268,50 @@ async function handleStripeEvent(
       const charge = event.data.object as Stripe.Charge;
       const pi = typeof charge.payment_intent === "string" ? charge.payment_intent : null;
       if (!pi) break;
-      const { count } = await admin
+
+      const { data: inv } = await admin
         .from("invoices")
-        .update(
-          {
-            status: "sent",
-            paid_at: null,
-            stripe_paid_at: null,
-            stripe_paid_amount_pence: null,
-          },
-          { count: "exact" },
-        )
-        .eq("stripe_payment_intent_id", pi);
-      console.log("[stripe-webhook] charge.refunded", { pi, rowsUpdated: count });
+        .select("id, location_id, customer_id, vat_rate")
+        .eq("stripe_payment_intent_id", pi)
+        .maybeSingle();
+      if (!inv) {
+        console.log("[stripe-webhook] charge.refunded — no matching invoice", { pi });
+        break;
+      }
+      const invRow = inv as { id: string; location_id: string; customer_id: string | null; vat_rate: number };
+
+      // Record each Stripe refund as a credit note (idempotent on
+      // stripe_refund_id, so an in-app refund the staff action already wrote
+      // isn't duplicated). Covers refunds initiated in the Stripe dashboard too.
+      const refunds = charge.refunds?.data ?? [];
+      for (const r of refunds) {
+        await recordRefundCreditNote(admin, {
+          invoiceId: invRow.id,
+          locationId: invRow.location_id,
+          customerId: invRow.customer_id,
+          grossPence: r.amount,
+          vatRate: Number(invRow.vat_rate) || 0,
+          reason: "Stripe refund",
+          stripeRefundId: r.id,
+          createdBy: null,
+        });
+      }
+      // Fallback when the refund list isn't expanded on the event.
+      if (refunds.length === 0 && (charge.amount_refunded ?? 0) > 0) {
+        await recordRefundCreditNote(admin, {
+          invoiceId: invRow.id,
+          locationId: invRow.location_id,
+          customerId: invRow.customer_id,
+          grossPence: charge.amount_refunded,
+          vatRate: Number(invRow.vat_rate) || 0,
+          reason: "Stripe refund",
+          stripeRefundId: `charge_${charge.id}`,
+          createdBy: null,
+        });
+      }
+
+      await recomputeInvoiceRefundStatus(admin, invRow.id);
+      console.log("[stripe-webhook] charge.refunded reconciled", { pi, invoiceId: invRow.id });
       break;
     }
 

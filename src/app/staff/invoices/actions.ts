@@ -6,9 +6,10 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
-import { tenantPayUrl } from "@/lib/stripe";
+import { tenantPayUrl, stripe } from "@/lib/stripe";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
-import { pushInvoiceToXero, pushPaymentToXero } from "@/lib/xero-sync";
+import { pushInvoiceToXero, pushPaymentToXero, pushCreditNoteToXero } from "@/lib/xero-sync";
+import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 import { logAudit } from "@/lib/audit";
 
 export type CreateInvoiceResult = { error: string } | { success: true; invoiceId: string };
@@ -237,6 +238,106 @@ export async function markInvoicePaid(invoiceId: string): Promise<InvoiceActionR
     entityType: "invoice",
     entityId: invoiceId,
     metadata: { total: invoice.total, paid_at: paidAt },
+  });
+
+  revalidatePath(`/staff/invoices/${invoiceId}`);
+  revalidatePath("/staff/invoices");
+  revalidatePath("/staff/revenue");
+  return { success: true };
+}
+
+// Refund a paid invoice (full or partial). If it was paid online, issues a
+// Stripe refund on the org's Connect account; otherwise records a cash credit
+// note. Either way a credit_notes row is written, the invoice status moves to
+// part_refunded / refunded, and (online) a Xero credit note is pushed.
+export async function refundInvoice(
+  invoiceId: string,
+  args: { amountPence?: number; reason?: string },
+): Promise<InvoiceActionResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "invoices")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const { data: invoice } = await admin
+    .from("invoices")
+    .select("id, location_id, customer_id, total, vat_rate, status, stripe_payment_intent_id, stripe_paid_amount_pence")
+    .eq("id", invoiceId)
+    .eq("location_id", ctx.location.id)
+    .maybeSingle();
+  if (!invoice) return { error: "Invoice not found." };
+
+  type Inv = {
+    customer_id: string | null;
+    total: number;
+    vat_rate: number;
+    status: string;
+    stripe_payment_intent_id: string | null;
+    stripe_paid_amount_pence: number | null;
+  };
+  const inv = invoice as unknown as Inv;
+  if (inv.status !== "paid" && inv.status !== "part_refunded") {
+    return { error: "Only a paid invoice can be refunded." };
+  }
+
+  const paidPence = inv.stripe_paid_amount_pence ?? Math.round(Number(inv.total) * 100);
+  const { data: priorCns } = await admin.from("credit_notes").select("total").eq("invoice_id", invoiceId);
+  const priorRefundedPence = Math.round(
+    ((priorCns ?? []) as { total: number }[]).reduce((s, c) => s + (Number(c.total) || 0), 0) * 100,
+  );
+  const remainingPence = Math.max(0, paidPence - priorRefundedPence);
+
+  const grossPence = args.amountPence && args.amountPence > 0 ? Math.round(args.amountPence) : remainingPence;
+  if (grossPence <= 0) return { error: "Nothing left to refund." };
+  if (grossPence > remainingPence) return { error: "Refund exceeds the remaining paid amount." };
+  const reason = args.reason?.trim().slice(0, 500) || null;
+
+  // Online refund via Stripe if this invoice was paid through Stripe.
+  let stripeRefundId: string | null = null;
+  if (inv.stripe_payment_intent_id) {
+    const { data: org } = await admin
+      .from("organizations")
+      .select("stripe_account_id")
+      .eq("id", ctx.organization.id)
+      .maybeSingle();
+    const acct = (org as { stripe_account_id: string | null } | null)?.stripe_account_id;
+    if (!acct) return { error: "The garage's Stripe account isn't connected." };
+    try {
+      const refund = await stripe.refunds.create(
+        { payment_intent: inv.stripe_payment_intent_id, amount: grossPence, metadata: { invoice_id: invoiceId } },
+        { stripeAccount: acct },
+      );
+      stripeRefundId = refund.id;
+    } catch (err) {
+      return { error: `Stripe refund failed: ${(err as Error).message}` };
+    }
+  }
+
+  const { creditNoteId } = await recordRefundCreditNote(admin, {
+    invoiceId,
+    locationId: ctx.location.id,
+    customerId: inv.customer_id,
+    grossPence,
+    vatRate: Number(inv.vat_rate) || 0,
+    reason,
+    stripeRefundId,
+    createdBy: ctx.user.id,
+  });
+  await recomputeInvoiceRefundStatus(admin, invoiceId);
+
+  if (creditNoteId) {
+    pushCreditNoteToXero(creditNoteId).catch((err) =>
+      console.error("[invoices/refundInvoice] xero credit note push failed", err),
+    );
+  }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "invoice.refund",
+    entityType: "invoice",
+    entityId: invoiceId,
+    metadata: { gross_pence: grossPence, online: !!stripeRefundId, stripe_refund_id: stripeRefundId, credit_note_id: creditNoteId, reason },
   });
 
   revalidatePath(`/staff/invoices/${invoiceId}`);

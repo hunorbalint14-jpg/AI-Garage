@@ -18,8 +18,12 @@ type Invoice = {
   notes: string | null;
   location_id: string;
   job_id: string | null;
+  stripe_payment_intent_id: string | null;
+  stripe_paid_amount_pence: number | null;
   customer: { id: string; full_name: string | null; email: string | null } | null;
 };
+
+type CreditNote = { id: string; credit_number: string | null; reason: string | null; total: number; created_at: string };
 
 type JobItem = {
   id: string;
@@ -34,6 +38,8 @@ const STATUS_STYLE: Record<string, string> = {
   sent: "bg-blue-100 text-blue-700",
   paid: "bg-green-100 text-green-700",
   overdue: "bg-red-100 text-red-700",
+  part_refunded: "bg-amber-100 text-amber-700",
+  refunded: "bg-purple-100 text-purple-700",
 };
 
 function fmt(n: number) {
@@ -52,7 +58,7 @@ export default async function InvoiceDetailPage({
   const [invoiceRes, orgRes] = await Promise.all([
     admin
       .from("invoices")
-      .select("id, invoice_number, status, subtotal, vat_rate, vat_amount, total, issued_at, due_at, paid_at, notes, location_id, job_id, customer:customers(id, full_name, email)")
+      .select("id, invoice_number, status, subtotal, vat_rate, vat_amount, total, issued_at, due_at, paid_at, notes, location_id, job_id, stripe_payment_intent_id, stripe_paid_amount_pence, customer:customers(id, full_name, email)")
       .eq("id", id)
       .maybeSingle(),
     admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
@@ -61,13 +67,22 @@ export default async function InvoiceDetailPage({
   const invoice = invoiceRes.data as Invoice | null;
   if (!invoice || invoice.location_id !== ctx.location.id) notFound();
 
-  const itemsRes = invoice.job_id
-    ? await admin.from("job_items").select("id, description, type, quantity, unit_price").eq("job_id", invoice.job_id).order("created_at", { ascending: true })
-    : { data: [] };
+  const [itemsRes, creditNotesRes] = await Promise.all([
+    invoice.job_id
+      ? admin.from("job_items").select("id, description, type, quantity, unit_price").eq("job_id", invoice.job_id).order("created_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    admin.from("credit_notes").select("id, credit_number, reason, total, created_at").eq("invoice_id", invoice.id).order("created_at", { ascending: true }),
+  ]);
 
   const items = (itemsRes.data ?? []) as JobItem[];
+  const creditNotes = (creditNotesRes.data ?? []) as CreditNote[];
+  const refundedTotal = creditNotes.reduce((s, c) => s + Number(c.total), 0);
+  const paidGross = invoice.stripe_paid_amount_pence != null ? invoice.stripe_paid_amount_pence / 100 : Number(invoice.total);
+  const refundablePence = invoice.status === "paid" || invoice.status === "part_refunded"
+    ? Math.max(0, Math.round((paidGross - refundedTotal) * 100))
+    : 0;
   const computedStatus =
-    invoice.status !== "paid" && new Date(invoice.due_at) < new Date() ? "overdue" : invoice.status;
+    invoice.status === "sent" && new Date(invoice.due_at) < new Date() ? "overdue" : invoice.status;
 
   const garageName = orgRes.data?.name ?? ctx.organization.name;
 
@@ -85,7 +100,7 @@ export default async function InvoiceDetailPage({
           <p className="text-sm text-muted-foreground mt-1">{garageName}</p>
         </div>
         <span className={`shrink-0 mt-1 inline-block rounded-full px-3 py-1 text-xs font-medium capitalize ${STATUS_STYLE[computedStatus] ?? ""}`}>
-          {computedStatus}
+          {computedStatus.replace(/_/g, " ")}
         </span>
       </div>
 
@@ -164,10 +179,31 @@ export default async function InvoiceDetailPage({
         </p>
       )}
 
+      {creditNotes.length > 0 && (
+        <div className="rounded-lg border p-4">
+          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">Refunds / credit notes</h2>
+          <ul className="flex flex-col gap-1.5 text-sm">
+            {creditNotes.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-3">
+                <span>
+                  <span className="font-mono text-xs">{c.credit_number ?? "Credit"}</span>
+                  <span className="ml-2 text-muted-foreground">{new Date(c.created_at).toLocaleDateString("en-GB")}{c.reason ? ` · ${c.reason}` : ""}</span>
+                </span>
+                <span className="tabular-nums text-red-600">− {fmt(Number(c.total))}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 border-t pt-2 text-sm text-muted-foreground">
+            Total refunded: <span className="font-semibold tabular-nums text-foreground">{fmt(refundedTotal)}</span>
+          </p>
+        </div>
+      )}
+
       <InvoiceActions
         invoiceId={invoice.id}
         status={computedStatus}
         hasCustomerEmail={!!invoice.customer?.email}
+        refundablePence={refundablePence}
       />
     </div>
   );

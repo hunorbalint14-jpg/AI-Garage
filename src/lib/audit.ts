@@ -57,6 +57,8 @@ export type AuditAction =
   | "invoice.mark_paid"
   | "invoice.delete"
   | "invoice.dunning_sent"
+  | "invoice.refund"
+  | "credit_note.create"
   // Reviews
   | "review.requested"
   | "review.submitted"
