@@ -7,6 +7,7 @@ import { pushPaymentToXero, pushPayoutToXero } from "@/lib/xero-sync";
 import { applyQuoteDeposit } from "@/lib/quote-deposit";
 import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
+import { recordSubscriptionFromStripe } from "@/lib/service-plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,6 +117,24 @@ async function handleStripeEvent(
 
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // Service-plan subscriptions: created on the connected account, so the
+      // event carries event.account. Retrieve the subscription and record it.
+      if (session.metadata?.kind === "service_plan" && session.subscription) {
+        const subId =
+          typeof session.subscription === "string" ? session.subscription : session.subscription.id;
+        if (event.account) {
+          const sub = await stripe.subscriptions.retrieve(subId, undefined, {
+            stripeAccount: event.account,
+          });
+          await recordSubscriptionFromStripe(admin, sub);
+          console.log("[stripe-webhook] service_plan subscription recorded", { subId });
+        } else {
+          console.error("[stripe-webhook] service_plan checkout missing event.account", { subId });
+        }
+        break;
+      }
+
       const invoiceId = session.metadata?.invoice_id;
       const bookingId = session.metadata?.booking_id;
       const quoteId = session.metadata?.quote_id;
@@ -312,6 +331,20 @@ async function handleStripeEvent(
 
       await recomputeInvoiceRefundStatus(admin, invRow.id);
       console.log("[stripe-webhook] charge.refunded reconciled", { pi, invoiceId: invRow.id });
+      break;
+    }
+
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      // Service-plan lifecycle on the connected account — keep our
+      // plan_subscriptions row's status / period / cancel flag in sync.
+      const sub = event.data.object as Stripe.Subscription;
+      await recordSubscriptionFromStripe(admin, sub);
+      console.log("[stripe-webhook] subscription synced", {
+        id: sub.id,
+        status: sub.status,
+        type: event.type,
+      });
       break;
     }
 

@@ -66,6 +66,11 @@ export type AuditAction =
   | "service.upsert"
   | "service.toggle_active"
   | "service.delete"
+  // Service plans (recurring memberships)
+  | "service_plan.upsert"
+  | "service_plan.delete"
+  | "plan.subscribe"
+  | "plan.cancel"
   | "product.create"
   | "product.update"
   | "product.delete"

@@ -62,7 +62,11 @@ This is a living document — tick items as they ship, link the PR.
 
 ## Phase 6 — Growth / monetization (L) — *largest; benefits from all prior infra*
 
-- ⬜ **Service plans** — customer recurring maintenance via Stripe subscriptions.
+- 🟡 **Service plans** — customer recurring maintenance via Stripe subscriptions.
+  PR1 shipped: staff define plans (monthly/annual), customer subscribes via Checkout
+  on the garage's connected account (platform fee skimmed), subscription status tracked
+  + cancel-at-period-end. **Billing + record only** — entitlements (member discount,
+  free MOT, auto-scheduled service) are the next PRs.
 - ⏸️ **SaaS tenant billing** — plans / seats / trials for garages themselves.
   _Decision pending: pursue platform-subscription revenue, or stay platform-fee
   only? Today's model is per-payment platform fee only._
@@ -96,4 +100,5 @@ This is a living document — tick items as they ship, link the PR.
 | 2026-06-02 | Owner MFA **nudge-first** behind `OWNER_MFA_ENFORCED`; scope = owners + admins | ✅ done (#201) |
 | — | Flip `OWNER_MFA_ENFORCED=true` once owners have enrolled | ⏸️ pending — **ops/env only** (Vercel), gated on owner enrolment; flipping early hard-blocks un-enrolled owners |
 | 2026-06-04 | E2E Playwright **smoke scaffold** (public no-auth specs + CI job); authed flows deferred to a test DB | ✅ done |
+| 2026-06-04 | Service plans PR1 = **billing + record only**, monthly+annual, on the garage's connected account; entitlements deferred | ✅ done |
 | — | SaaS tenant billing vs platform-fee-only (Phase 6) | ⏸️ pending |
