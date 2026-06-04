@@ -19,7 +19,7 @@ const TABS: { href: string; label: string; exact?: boolean }[] = [
 export function PortalNav({ orgColor }: { orgColor: string }) {
   const pathname = usePathname();
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-white/5">
+    <nav className="flex gap-1 overflow-x-auto border-b border-white/5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {TABS.map((t) => {
         const active = t.exact ? pathname === t.href : pathname.startsWith(t.href);
         return (
