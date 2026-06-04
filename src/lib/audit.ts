@@ -68,6 +68,14 @@ export type AuditAction =
   | "product.update"
   | "product.delete"
   | "product.stock_adjust"
+  // Suppliers & purchase orders
+  | "supplier.create"
+  | "supplier.update"
+  | "supplier.delete"
+  | "purchase_order.create"
+  | "purchase_order.update"
+  | "purchase_order.receive"
+  | "purchase_order.delete"
   // Staff access management
   | "staff.invite"
   | "staff.password_reset"
