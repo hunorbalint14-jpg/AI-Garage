@@ -1,6 +1,7 @@
 import {
   BankTransaction,
   Contact,
+  CreditNote,
   Invoice,
   LineAmountTypes,
   LineItem,
@@ -321,6 +322,97 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
     return created.invoiceID;
   } catch (err) {
     console.error("[xero-sync] createInvoice failed", err);
+    return null;
+  }
+}
+
+// Push a credit note (a refund) to Xero as an ACCRECCREDIT. Idempotent: if the
+// row already carries xero_credit_note_id it exits; otherwise it dedupes on the
+// Reference tag (our credit-note UUID) before creating. Created AUTHORISED but
+// NOT auto-allocated against the original invoice — the accountant allocates in
+// Xero. Best-effort; returns the Xero CreditNoteID or null.
+export async function pushCreditNoteToXero(creditNoteId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("credit_notes")
+    .select("id, location_id, customer_id, credit_number, reason, subtotal, xero_credit_note_id, location:locations(organization_id)")
+    .eq("id", creditNoteId)
+    .maybeSingle();
+
+  type CNRow = {
+    id: string;
+    location_id: string;
+    customer_id: string | null;
+    credit_number: string | null;
+    reason: string | null;
+    subtotal: number;
+    xero_credit_note_id: string | null;
+    location: { organization_id: string } | null;
+  };
+  const cn = data as unknown as CNRow | null;
+  if (!cn) return null;
+  if (cn.xero_credit_note_id) return cn.xero_credit_note_id;
+  if (!cn.customer_id) return null;
+  const orgId = cn.location?.organization_id;
+  if (!orgId) return null;
+
+  const conn = await getXeroClientForOrg(orgId);
+  if (!conn) return null;
+
+  const referenceTag = `AIG-CN-${cn.id}`;
+  try {
+    const existing = await conn.client.accountingApi.getCreditNotes(
+      conn.tenantId,
+      undefined,
+      `Reference=${xeroQuoteValue(referenceTag)}`,
+    );
+    const hit = existing.body.creditNotes?.[0];
+    if (hit?.creditNoteID) {
+      await admin
+        .from("credit_notes")
+        .update({ xero_credit_note_id: hit.creditNoteID, status: "synced" })
+        .eq("id", creditNoteId);
+      return hit.creditNoteID;
+    }
+  } catch (err) {
+    console.warn("[xero-sync] getCreditNotes by reference failed", err);
+  }
+
+  const contactId = await ensureXeroContact({ orgId, customerId: cn.customer_id });
+  if (!contactId) return null;
+
+  const lineItems: LineItem[] = [
+    {
+      description: cn.reason ? `Refund — ${cn.reason}` : `Refund ${cn.credit_number ?? ""}`.trim(),
+      quantity: 1,
+      unitAmount: Number(cn.subtotal),
+      taxType: "OUTPUT2",
+      accountCode: DEFAULT_SALES_ACCOUNT_CODE,
+    },
+  ];
+
+  const creditNote: CreditNote = {
+    type: CreditNote.TypeEnum.ACCRECCREDIT,
+    contact: { contactID: contactId },
+    reference: referenceTag,
+    date: new Date().toISOString().split("T")[0],
+    lineAmountTypes: LineAmountTypes.Exclusive,
+    lineItems,
+    status: CreditNote.StatusEnum.AUTHORISED,
+  };
+
+  try {
+    const res = await conn.client.accountingApi.createCreditNotes(conn.tenantId, { creditNotes: [creditNote] });
+    const created = res.body.creditNotes?.[0];
+    if (!created?.creditNoteID) return null;
+    await admin
+      .from("credit_notes")
+      .update({ xero_credit_note_id: created.creditNoteID, status: "synced" })
+      .eq("id", creditNoteId);
+    console.log("[xero-sync] credit note pushed", { creditNoteId, xeroCreditNoteId: created.creditNoteID });
+    return created.creditNoteID;
+  } catch (err) {
+    console.error("[xero-sync] createCreditNote failed", err);
     return null;
   }
 }
