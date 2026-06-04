@@ -14,6 +14,7 @@ type ProductRow = {
   unit_price: number;
   cost_price: number | null;
   stock_qty: number;
+  reorder_at: number | null;
   active: boolean;
 };
 
@@ -26,7 +27,7 @@ export default async function ProductsPage() {
 
   const { data, error } = await admin
     .from("products")
-    .select("id, name, category, sku, supplier, unit_price, cost_price, stock_qty, active")
+    .select("id, name, category, sku, supplier, unit_price, cost_price, stock_qty, reorder_at, active")
     .eq("location_id", ctx.location.id)
     .order("category", { ascending: true })
     .order("name", { ascending: true });

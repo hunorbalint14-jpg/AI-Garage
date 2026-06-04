@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEFAULT_PRODUCTS, PRODUCT_CATEGORIES } from "./constants";
 import { logAudit } from "@/lib/audit";
+import { applyStockDelta } from "@/lib/stock";
 
 type ActionResult = { error: string } | { success: true };
 
@@ -44,6 +45,7 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
   const unitPrice = parseFloat(formData.get("unitPrice") as string);
   const costPrice = parseFloat(formData.get("costPrice") as string);
   const stockQty = parseInt(formData.get("stockQty") as string, 10);
+  const reorderAt = parseInt(formData.get("reorderAt") as string, 10);
 
   if (!name) return { error: "Name is required." };
   if (!category || !PRODUCT_CATEGORIES.includes(category as never)) return { error: "Invalid category." };
@@ -61,6 +63,7 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
       unit_price: unitPrice,
       cost_price: Number.isNaN(costPrice) ? null : costPrice,
       stock_qty: Number.isNaN(stockQty) ? 0 : stockQty,
+      reorder_at: Number.isNaN(reorderAt) ? null : reorderAt,
     })
     .select("id")
     .single();
@@ -82,7 +85,7 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
 
 export async function updateProduct(
   productId: string,
-  fields: { unit_price?: number; cost_price?: number | null; stock_qty?: number; sku?: string | null; supplier?: string | null; active?: boolean },
+  fields: { unit_price?: number; cost_price?: number | null; stock_qty?: number; reorder_at?: number | null; sku?: string | null; supplier?: string | null; active?: boolean },
 ): Promise<ActionResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "products")) {
@@ -142,31 +145,16 @@ export async function adjustStock(productId: string, delta: number): Promise<Act
   if (!hasPermission(ctx, "products")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
-  const { data } = await admin
-    .from("products")
-    .select("stock_qty")
-    .eq("id", productId)
-    .eq("location_id", ctx.location.id)
-    .maybeSingle();
-  if (!data) return { error: "Product not found." };
-
-  const newQty = Math.max(0, (data.stock_qty as number) + delta);
-  const { error } = await admin
-    .from("products")
-    .update({ stock_qty: newQty })
-    .eq("id", productId)
-    .eq("location_id", ctx.location.id);
-  if (error) return { error: error.message };
-
-  await logAudit({
+  const res = await applyStockDelta(admin, {
+    productId,
+    locationId: ctx.location.id,
+    delta,
+    reason: "manual",
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
-    action: "product.stock_adjust",
-    entityType: "product",
-    entityId: productId,
-    metadata: { delta, previous_qty: data.stock_qty, new_qty: newQty },
   });
+  if (!res.ok) return { error: "Product not found or update failed." };
 
   revalidatePath("/staff/products");
   return { success: true };
