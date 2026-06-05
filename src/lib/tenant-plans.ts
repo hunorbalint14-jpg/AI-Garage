@@ -82,6 +82,19 @@ export function tenantHasFeature(org: Pick<OrgBilling, "tenant_plan">, key: Feat
   return tierFor(org).features[key];
 }
 
+// Gate a premium feature: the org's tier must include it AND billing must be in
+// good standing (so a lapsed/past-grace tenant loses premium features but keeps
+// core trading). Used by server actions + page banners.
+export function entitledTo(org: OrgBilling, key: FeatureKey, now: Date = new Date()): boolean {
+  return tenantHasFeature(org, key) && tenantBillingActive(org, now);
+}
+
+export const UPGRADE_MESSAGE: Record<FeatureKey, string> = {
+  xero: "Xero sync is a Pro feature. Upgrade your plan in Settings → Billing.",
+  campaigns: "Campaigns are a Pro feature. Upgrade your plan in Settings → Billing.",
+  automations: "Automations are a Pro feature. Upgrade your plan in Settings → Billing.",
+};
+
 // Resolve the env-configured Stripe Price id for a tier + interval (null when not
 // configured or for the free Starter tier).
 export function tenantPriceId(tier: TierKey, interval: "month" | "year"): string | null {

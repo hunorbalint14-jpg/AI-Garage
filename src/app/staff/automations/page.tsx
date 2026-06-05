@@ -1,5 +1,7 @@
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { FeatureGateBanner } from "@/components/staff/feature-gate-banner";
+import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
 import { ensureDefaultTasks, type TaskType } from "./actions";
 import { TaskCard } from "./task-card";
 
@@ -46,6 +48,8 @@ export default async function AutomationsPage() {
           Scheduled tasks that run automatically. Toggle, configure, or trigger manually.
         </p>
       </div>
+
+      {!entitledTo(ctx.tenantBilling, "automations") && <FeatureGateBanner message={UPGRADE_MESSAGE.automations} />}
 
       {error && <p className="text-sm text-red-600">Failed to load: {error.message}</p>}
 

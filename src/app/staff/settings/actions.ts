@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSlug } from "@/lib/slug";
 import { logAudit } from "@/lib/audit";
+import { tierFor, tenantBillingActive, TIERS } from "@/lib/tenant-plans";
 
 export type UpdateOrgResult = { error: string } | { success: true };
 
@@ -128,6 +129,19 @@ export async function addLocation(
   if (slugError) return { error: slugError };
 
   const admin = createAdminClient();
+
+  // Tier location limit (lapsed/past-grace tenants fall back to the Starter cap).
+  const maxLocations = tenantBillingActive(ctx.tenantBilling)
+    ? tierFor(ctx.tenantBilling).maxLocations
+    : TIERS.starter.maxLocations;
+  const { count: locationCount } = await admin
+    .from("locations")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", ctx.organization.id);
+  if ((locationCount ?? 0) >= maxLocations) {
+    const allowed = maxLocations === Number.POSITIVE_INFINITY ? "unlimited" : maxLocations;
+    return { error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. Upgrade in Settings → Billing to add more.` };
+  }
 
   const { data: existing } = await admin
     .from("locations")
