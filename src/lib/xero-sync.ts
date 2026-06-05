@@ -124,7 +124,7 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
   const { data: invoice } = await admin
     .from("invoices")
     .select(
-      "id, location_id, customer_id, job_id, booking_id, invoice_number, subtotal, vat_rate, vat_amount, total, issued_at, due_at, notes, status, xero_invoice_id, location:locations(organization_id)",
+      "id, location_id, customer_id, job_id, booking_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, issued_at, due_at, notes, status, xero_invoice_id, location:locations(organization_id)",
     )
     .eq("id", invoiceId)
     .maybeSingle();
@@ -140,6 +140,8 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
     vat_rate: number;
     vat_amount: number;
     total: number;
+    discount_amount: number;
+    discount_description: string | null;
     issued_at: string;
     due_at: string;
     notes: string | null;
@@ -270,6 +272,19 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
         accountCode: DEFAULT_SALES_ACCOUNT_CODE,
       },
     ];
+  }
+
+  // Member discount: represent it as a single negative line (same OUTPUT2 tax
+  // so Xero's VAT lands on the discounted net, matching our stored total). Works
+  // for both percent + fixed discounts without parsing the type.
+  if (Number(inv.discount_amount) > 0) {
+    lineItems.push({
+      description: inv.discount_description ?? "Member discount",
+      quantity: 1,
+      unitAmount: -Number(inv.discount_amount),
+      taxType: "OUTPUT2",
+      accountCode: DEFAULT_SALES_ACCOUNT_CODE,
+    });
   }
 
   // Always AUTHORISED — once we've created an invoice row in our DB it's

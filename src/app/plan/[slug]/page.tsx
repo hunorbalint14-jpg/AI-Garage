@@ -51,7 +51,7 @@ export default async function PlanInvitePage({
   const [planRes, locRes] = await Promise.all([
     admin
       .from("service_plans")
-      .select("id, name, description, price_monthly_pence, price_annual_pence, active")
+      .select("id, name, description, price_monthly_pence, price_annual_pence, active, discount_type, discount_value")
       .eq("id", invite.service_plan_id)
       .maybeSingle(),
     admin
@@ -69,6 +69,8 @@ export default async function PlanInvitePage({
         price_monthly_pence: number | null;
         price_annual_pence: number | null;
         active: boolean;
+        discount_type: "none" | "percent" | "fixed";
+        discount_value: number;
       }
     | null;
   const loc = locRes.data as unknown as {
@@ -89,12 +91,19 @@ export default async function PlanInvitePage({
   const color = org.primary_color;
   const monthly = fmt(plan.price_monthly_pence);
   const annual = fmt(plan.price_annual_pence);
+  const perk =
+    plan.discount_type === "percent" && plan.discount_value > 0
+      ? `${plan.discount_value}% off your invoices`
+      : plan.discount_type === "fixed" && plan.discount_value > 0
+        ? `${fmt(Math.round(plan.discount_value * 100))} off your invoices`
+        : null;
 
   return (
     <Shell color={color}>
       <p className="text-xs uppercase tracking-wider text-gray-500">{org.name}</p>
       <h1 className="mt-1 text-2xl font-bold">{plan.name}</h1>
       {plan.description && <p className="mt-2 text-sm text-gray-400">{plan.description}</p>}
+      {perk && <p className="mt-2 text-sm font-medium" style={{ color }}>{perk}</p>}
 
       <div className="mt-4 mb-6 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-300">
         {monthly && <span>{monthly} / month</span>}

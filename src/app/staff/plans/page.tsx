@@ -14,7 +14,7 @@ export default async function PlansPage() {
     admin
       .from("service_plans")
       .select(
-        "id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active",
+        "id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active, discount_type, discount_value",
       )
       .eq("location_id", ctx.location.id)
       .order("active", { ascending: false })

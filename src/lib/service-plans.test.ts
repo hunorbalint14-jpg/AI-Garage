@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { planPriceForInterval, subscriptionStatusLabel, isSubscriptionLive } from "./service-plans";
+import {
+  planPriceForInterval,
+  subscriptionStatusLabel,
+  isSubscriptionLive,
+  computeMemberDiscount,
+  applyInvoiceTotals,
+} from "./service-plans";
 
 describe("planPriceForInterval", () => {
   const plan = {
@@ -47,5 +53,40 @@ describe("isSubscriptionLive", () => {
     expect(isSubscriptionLive("trialing")).toBe(true);
     expect(isSubscriptionLive("past_due")).toBe(false);
     expect(isSubscriptionLive("canceled")).toBe(false);
+  });
+});
+
+describe("computeMemberDiscount", () => {
+  it("returns 0 for none / non-positive / zero base", () => {
+    expect(computeMemberDiscount(100, { type: "none", value: 0 })).toBe(0);
+    expect(computeMemberDiscount(100, { type: "percent", value: 0 })).toBe(0);
+    expect(computeMemberDiscount(0, { type: "percent", value: 10 })).toBe(0);
+  });
+  it("computes a percentage", () => {
+    expect(computeMemberDiscount(100, { type: "percent", value: 10 })).toBe(10);
+    expect(computeMemberDiscount(33.33, { type: "percent", value: 10 })).toBe(3.33);
+  });
+  it("applies a fixed amount, clamped to the base", () => {
+    expect(computeMemberDiscount(100, { type: "fixed", value: 15 })).toBe(15);
+    expect(computeMemberDiscount(100, { type: "fixed", value: 150 })).toBe(100);
+  });
+});
+
+describe("applyInvoiceTotals", () => {
+  it("charges VAT on the discounted net", () => {
+    expect(applyInvoiceTotals({ subtotal: 100, discountAmount: 10, vatRate: 20 })).toEqual({
+      vatAmount: 18,
+      total: 108,
+    });
+    expect(applyInvoiceTotals({ subtotal: 100, discountAmount: 15, vatRate: 20 })).toEqual({
+      vatAmount: 17,
+      total: 102,
+    });
+  });
+  it("with no discount equals the plain VAT calc", () => {
+    expect(applyInvoiceTotals({ subtotal: 100, discountAmount: 0, vatRate: 20 })).toEqual({
+      vatAmount: 20,
+      total: 120,
+    });
   });
 });

@@ -17,6 +17,8 @@ export type InvoiceHtmlArgs = {
   vatRate: number;
   vatAmount: number;
   total: number;
+  discountAmount?: number;
+  discountDescription?: string | null;
   notes: string | null;
   payUrl: string | null;
 };
@@ -24,9 +26,18 @@ export type InvoiceHtmlArgs = {
 export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
   const {
     invoiceNumber, issuedAt, dueAt, garageName, garagePhone, garageEmail,
-    logoUrl, brandColor, customerName, items, subtotal, vatRate, vatAmount, total, notes, payUrl,
+    logoUrl, brandColor, customerName, items, subtotal, vatRate, vatAmount, total,
+    discountAmount, discountDescription, notes, payUrl,
   } = args;
   const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+  const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const discountRow =
+    discountAmount && discountAmount > 0
+      ? `<tr>
+                <td style="padding:8px 0;color:#6b7280;font-size:14px">${escapeHtml(discountDescription ?? "Discount")}</td>
+                <td align="right" style="padding:8px 0;color:#15803d;font-size:14px">− ${fmt(discountAmount)}</td>
+              </tr>`
+      : "";
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
   const onBrand = (() => {
@@ -147,6 +158,7 @@ export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
                 <td style="padding:8px 0;color:#6b7280;font-size:14px">Subtotal</td>
                 <td align="right" style="padding:8px 0;color:#374151;font-size:14px">${fmt(subtotal)}</td>
               </tr>
+              ${discountRow}
               <tr>
                 <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">VAT (${vatRate}%)</td>
                 <td align="right" style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#374151;font-size:14px">${fmt(vatAmount)}</td>

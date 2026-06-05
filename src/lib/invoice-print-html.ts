@@ -12,6 +12,8 @@ export type InvoicePrintData = {
   vat_rate: number;
   vat_amount: number;
   total: number;
+  discount_amount?: number;
+  discount_description?: string | null;
   issued_at: string;
   due_at: string;
   paid_at: string | null;
@@ -166,6 +168,10 @@ export function buildInvoicePrintHtml(args: {
       <td colspan="4" style="text-align:right;color:#6b7280">Subtotal</td>
       <td class="num">${fmt(invoice.subtotal)}</td>
     </tr>
+    ${invoice.discount_amount && invoice.discount_amount > 0 ? `<tr>
+      <td colspan="4" style="text-align:right;color:#6b7280">${esc(invoice.discount_description ?? "Discount")}</td>
+      <td class="num" style="color:#15803d">− ${fmt(invoice.discount_amount)}</td>
+    </tr>` : ""}
     <tr>
       <td colspan="4" style="text-align:right;color:#6b7280">VAT (${invoice.vat_rate}%)</td>
       <td class="num">${fmt(invoice.vat_amount)}</td>

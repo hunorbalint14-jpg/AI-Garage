@@ -69,6 +69,10 @@ This is a living document — tick items as they ship, link the PR.
   free MOT, auto-scheduled service) are the next PRs.
   PR2 shipped: staff send a tokenised subscribe link (email/SMS, `/plan/[slug]`) from
   the customer page so they can enrol customers who aren't in the portal yet.
+  PR3a shipped (first **entitlement**): a plan grants a **member discount** (percent or
+  fixed £, staff's choice), auto-applied to a member's job invoices and reflected on every
+  surface (UI / email / PDF / Xero). PR3b next: **included services × N** consumed allowance
+  (needs `job_items.service_id` groundwork).
 - ⏸️ **SaaS tenant billing** — plans / seats / trials for garages themselves.
   _Decision pending: pursue platform-subscription revenue, or stay platform-fee
   only? Today's model is per-payment platform fee only._
