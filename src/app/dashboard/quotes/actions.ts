@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createStaffNotification } from "@/lib/staff-notifications";
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
+import { effectiveFeePercent } from "@/lib/tenant-plans";
 
 // Owner-authenticated quote responses for the logged-in customer portal.
 //
@@ -28,6 +29,10 @@ type OrgRow = {
   stripe_account_id: string | null;
   stripe_charges_enabled: boolean | null;
   quote_deposit_pct: number | null;
+  tenant_plan: string | null;
+  tenant_subscription_status: string | null;
+  tenant_current_period_end: string | null;
+  tenant_trial_end: string | null;
 };
 
 function approvedTotals(items: { quantity: number; unit_price: number }[]) {
@@ -42,7 +47,7 @@ async function loadOrg(locationId: string): Promise<OrgRow | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("locations")
-    .select("organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct)")
+    .select("organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)")
     .eq("id", locationId)
     .maybeSingle();
   return ((data as { organization: OrgRow | null } | null)?.organization ?? null);
@@ -181,7 +186,7 @@ export async function approveQuoteAsOwner(quoteId: string): Promise<OwnerApprove
               },
             },
           ],
-          payment_intent_data: { application_fee_amount: platformFeePence(amountPence), metadata: { [metaKey]: q.id } },
+          payment_intent_data: { application_fee_amount: platformFeePence(amountPence, effectiveFeePercent(org)), metadata: { [metaKey]: q.id } },
           metadata: { [metaKey]: q.id },
           success_url: `${tenantOrigin(location.slug)}/dashboard/quotes/${q.id}?deposit=success`,
           cancel_url: `${tenantOrigin(location.slug)}/dashboard/quotes/${q.id}`,

@@ -78,6 +78,12 @@ export function tierFeePercent(org: Pick<OrgBilling, "tenant_plan">): number {
   return tierFor(org).feePercent;
 }
 
+// The platform fee % to actually charge: the tier's rate while billing is in
+// good standing, else the Starter rate (a lapsed tier loses its lower fee).
+export function effectiveFeePercent(org: OrgBilling, now: Date = new Date()): number {
+  return tenantBillingActive(org, now) ? tierFor(org).feePercent : TIERS.starter.feePercent;
+}
+
 export function tenantHasFeature(org: Pick<OrgBilling, "tenant_plan">, key: FeatureKey): boolean {
   return tierFor(org).features[key];
 }

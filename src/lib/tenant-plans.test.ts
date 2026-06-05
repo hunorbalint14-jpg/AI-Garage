@@ -7,6 +7,7 @@ import {
   tenantPriceId,
   tierForStripePrice,
   tenantBillingActive,
+  effectiveFeePercent,
 } from "./tenant-plans";
 
 describe("tierFor / tierFeePercent / tenantHasFeature", () => {
@@ -61,6 +62,16 @@ describe("tenantBillingActive", () => {
     expect(tenantBillingActive({ tenant_plan: "pro", tenant_subscription_status: "past_due", tenant_current_period_end: past, tenant_trial_end: null }, now)).toBe(true);
     // period end far in the past → grace expired
     expect(tenantBillingActive({ tenant_plan: "pro", tenant_subscription_status: "past_due", tenant_current_period_end: "2026-05-01T00:00:00Z", tenant_trial_end: null }, now)).toBe(false);
+  });
+});
+
+describe("effectiveFeePercent", () => {
+  const now = new Date("2026-06-05T00:00:00Z");
+  it("charges the tier fee while billing is in good standing", () => {
+    expect(effectiveFeePercent({ tenant_plan: "growth", tenant_subscription_status: "active", tenant_current_period_end: null, tenant_trial_end: null }, now)).toBe(1.0);
+  });
+  it("falls back to the Starter fee when a paid tier has lapsed past grace", () => {
+    expect(effectiveFeePercent({ tenant_plan: "growth", tenant_subscription_status: "canceled", tenant_current_period_end: "2026-05-01T00:00:00Z", tenant_trial_end: null }, now)).toBe(2.0);
   });
 });
 
