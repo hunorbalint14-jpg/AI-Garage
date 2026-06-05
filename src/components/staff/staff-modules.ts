@@ -6,7 +6,7 @@
 import {
   LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt,
   TrendingUp, Building2, Wrench, Columns, UserCog, FlaskConical, Zap, Package,
-  Share2, FileText, ShieldCheck, Truck, ClipboardList, BarChart3, Repeat,
+  Share2, FileText, ShieldCheck, Truck, ClipboardList, BarChart3, Repeat, CreditCard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PermissionKey } from "@/app/staff/staff-members/constants";
@@ -82,6 +82,7 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { key: "team",     href: "/staff/staff-members", label: "Team",       icon: UserCog,      permission: "staff_manage" },
       { key: "settings", href: "/staff/settings",     label: "Settings",   icon: Settings },
+      { key: "billing",  href: "/staff/settings/billing", label: "Billing", icon: CreditCard, adminOnly: true },
       { key: "audit",    href: "/staff/audit-log",    label: "Audit log",  icon: ShieldCheck,  permission: "audit_log" },
       { key: "docs",     href: "/staff/docs",         label: "Doc shares", icon: Share2,       adminOnly: true },
       { key: "dev",      href: "/staff/dev",          label: "Dev tools",  icon: FlaskConical, adminOnly: true },

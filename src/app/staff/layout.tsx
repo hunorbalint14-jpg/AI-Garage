@@ -9,6 +9,23 @@ import { redirect } from "next/navigation";
 import { isDpaAccepted } from "@/lib/dpa";
 import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa } from "@/lib/mfa";
 import { MfaNudge } from "@/components/staff/mfa-nudge";
+import { TenantBillingNudge } from "@/components/staff/tenant-billing-nudge";
+
+type BillingNudge = { reason: "past_due" | "trial_ending"; date: string | null };
+
+function computeBillingNudge(
+  org: { tenant_subscription_status?: string | null; tenant_trial_end?: string | null } | null,
+  eligible: boolean,
+): BillingNudge | null {
+  if (!eligible || !org) return null;
+  if (org.tenant_subscription_status === "past_due") return { reason: "past_due", date: null };
+  const trialEnd = org.tenant_trial_end ? new Date(org.tenant_trial_end) : null;
+  const now = new Date();
+  if (trialEnd && trialEnd > now && trialEnd.getTime() - now.getTime() < 7 * 24 * 60 * 60 * 1000) {
+    return { reason: "trial_ending", date: trialEnd.toLocaleDateString("en-GB", { day: "numeric", month: "long" }) };
+  }
+  return null;
+}
 
 export default async function StaffLayout({
   children,
@@ -50,7 +67,7 @@ export default async function StaffLayout({
 
   const { data: org } = await admin
     .from("organizations")
-    .select("primary_color, logo_url, dpa_version")
+    .select("primary_color, logo_url, dpa_version, tenant_subscription_status, tenant_trial_end")
     .eq("id", ctx.organization.id)
     .single();
 
@@ -86,6 +103,12 @@ export default async function StaffLayout({
       showMfaNudge = true;
     }
   }
+
+  // Owner billing nudge: payment past-due, or a Pro trial ending within 7 days.
+  const billingNudge = computeBillingNudge(
+    org as { tenant_subscription_status?: string | null; tenant_trial_end?: string | null } | null,
+    ctx.orgRole === "owner" && !pathname.startsWith("/staff/settings/billing"),
+  );
 
   const brandColor =
     (org as { primary_color: string } | null)?.primary_color ?? "#6366f1";
@@ -130,6 +153,7 @@ export default async function StaffLayout({
         role={role}
       >
         {showMfaNudge && <MfaNudge hasPasskey={mfaHasPasskey} />}
+        {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} />}
         {children}
       </StaffShell>
     </>

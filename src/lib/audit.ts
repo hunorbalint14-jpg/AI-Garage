@@ -72,6 +72,9 @@ export type AuditAction =
   | "plan.subscribe"
   | "plan.cancel"
   | "plan.invite_sent"
+  // SaaS tenant billing
+  | "tenant.subscribe"
+  | "tenant.cancel"
   | "product.create"
   | "product.update"
   | "product.delete"

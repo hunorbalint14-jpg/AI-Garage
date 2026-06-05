@@ -8,6 +8,7 @@ import { applyQuoteDeposit } from "@/lib/quote-deposit";
 import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 import { recordSubscriptionFromStripe } from "@/lib/service-plans";
+import { recordTenantSubscription } from "@/lib/tenant-plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -117,6 +118,17 @@ async function handleStripeEvent(
 
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
+
+      // Tenant (SaaS) subscriptions live on the PLATFORM account — no
+      // event.account, retrieve without a connected-account option.
+      if (session.metadata?.kind === "tenant_billing" && session.subscription) {
+        const subId =
+          typeof session.subscription === "string" ? session.subscription : session.subscription.id;
+        const sub = await stripe.subscriptions.retrieve(subId);
+        await recordTenantSubscription(admin, sub);
+        console.log("[stripe-webhook] tenant subscription recorded", { subId });
+        break;
+      }
 
       // Service-plan subscriptions: created on the connected account, so the
       // event carries event.account. Retrieve the subscription and record it.
@@ -345,14 +357,20 @@ async function handleStripeEvent(
 
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
-      // Service-plan lifecycle on the connected account — keep our
-      // plan_subscriptions row's status / period / cancel flag in sync.
       const sub = event.data.object as Stripe.Subscription;
-      await recordSubscriptionFromStripe(admin, sub);
+      if (sub.metadata?.kind === "tenant_billing") {
+        // Tenant (SaaS) subscription on the platform account → sync the org tier.
+        await recordTenantSubscription(admin, sub);
+      } else {
+        // Service-plan lifecycle on the connected account — keep our
+        // plan_subscriptions row's status / period / cancel flag in sync.
+        await recordSubscriptionFromStripe(admin, sub);
+      }
       console.log("[stripe-webhook] subscription synced", {
         id: sub.id,
         status: sub.status,
         type: event.type,
+        kind: sub.metadata?.kind ?? "service_plan",
       });
       break;
     }
