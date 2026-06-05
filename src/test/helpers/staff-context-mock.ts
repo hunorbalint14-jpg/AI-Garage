@@ -7,6 +7,12 @@ export function mockStaffContext(overrides: Partial<StaffContext> = {}): StaffCo
     user: { id: "u_test", email: "test@garage.test", fullName: "Test User" },
     organization: { id: "o_test", slug: "test-garage", name: "Test Garage" },
     location: { id: "l_test", slug: "test-garage", name: "Test Garage" },
+    tenantBilling: {
+      tenant_plan: "growth",
+      tenant_subscription_status: "active",
+      tenant_current_period_end: null,
+      tenant_trial_end: null,
+    },
     orgRole: "owner",
     locationRole: null,
     locationPermissions: null,

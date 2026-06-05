@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { makeXeroClient } from "@/lib/xero";
 import { signOAuthState } from "@/lib/oauth-state";
+import { entitledTo, type OrgBilling } from "@/lib/tenant-plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,6 +29,16 @@ export async function GET(request: NextRequest) {
 
   if (!orgUser || (orgUser.role !== "owner" && orgUser.role !== "admin")) {
     return NextResponse.redirect(new URL("/staff/settings?xero=forbidden", request.url));
+  }
+
+  // Xero sync is a Pro-tier feature.
+  const { data: orgBilling } = await admin
+    .from("organizations")
+    .select("tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end")
+    .eq("id", orgUser.organization_id)
+    .maybeSingle();
+  if (!entitledTo((orgBilling ?? { tenant_plan: "starter" }) as OrgBilling, "xero")) {
+    return NextResponse.redirect(new URL("/staff/settings/billing?upgrade=xero", request.url));
   }
 
   // Build a signed state token carrying the orgId + userId. The callback

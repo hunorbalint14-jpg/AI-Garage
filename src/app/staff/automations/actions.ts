@@ -5,6 +5,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
+import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
 
 export type TaskType = "mot_reminders" | "service_reminders" | "tax_reminders" | "weekly_digest" | "invoice_dunning" | "review_requests";
 
@@ -55,6 +56,9 @@ export async function updateSchedule(
   if (!hasPermission(ctx, "automations")) {
     return { error: "Permission denied." };
   }
+  if (!entitledTo(ctx.tenantBilling, "automations")) {
+    return { error: UPGRADE_MESSAGE.automations };
+  }
   if (hour < 0 || hour > 23) return { error: "Hour must be 0–23." };
   if (frequency === "weekly" && (dayOfWeek === null || dayOfWeek < 0 || dayOfWeek > 6)) {
     return { error: "Day of week required for weekly tasks." };
@@ -77,6 +81,9 @@ export async function toggleTask(taskId: string, enabled: boolean): Promise<Acti
   if (!hasPermission(ctx, "automations")) {
     return { error: "Permission denied." };
   }
+  if (!entitledTo(ctx.tenantBilling, "automations")) {
+    return { error: UPGRADE_MESSAGE.automations };
+  }
   const admin = createAdminClient();
   const { error } = await admin
     .from("scheduled_tasks")
@@ -93,6 +100,9 @@ export async function updateTaskSettings(taskId: string, settings: TaskSettings)
   if (!hasPermission(ctx, "automations")) {
     return { error: "Permission denied." };
   }
+  if (!entitledTo(ctx.tenantBilling, "automations")) {
+    return { error: UPGRADE_MESSAGE.automations };
+  }
   const admin = createAdminClient();
   const { error } = await admin
     .from("scheduled_tasks")
@@ -108,6 +118,9 @@ export async function runTaskNow(taskType: TaskType): Promise<ActionResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "automations")) {
     return { error: "Permission denied." };
+  }
+  if (!entitledTo(ctx.tenantBilling, "automations")) {
+    return { error: UPGRADE_MESSAGE.automations };
   }
   const secret = process.env.CRON_SECRET;
   if (!secret) return { error: "CRON_SECRET not configured." };

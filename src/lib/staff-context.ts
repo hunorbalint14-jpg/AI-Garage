@@ -5,11 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveTenantFromHost } from "@/lib/tenant";
 import { type Permissions, normalisePermissions } from "@/app/staff/staff-members/constants";
+import { type OrgBilling } from "@/lib/tenant-plans";
 
 export type StaffContext = {
   user: { id: string; email: string | undefined; fullName: string | null };
   organization: { id: string; slug: string; name: string };
   location: { id: string; slug: string; name: string };
+  // Org-level SaaS billing snapshot (tier + status) for tenant feature gating.
+  tenantBilling: OrgBilling;
   // Org-level role gives access across all locations in the org. Null if the
   // user only has direct location membership.
   orgRole: "owner" | "admin" | null;
@@ -49,6 +52,10 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
       id: string;
       slug: string;
       name: string;
+      tenant_plan: string | null;
+      tenant_subscription_status: string | null;
+      tenant_current_period_end: string | null;
+      tenant_trial_end: string | null;
     } | null;
   };
 
@@ -59,7 +66,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
   const { data: location } = (await admin
     .from("locations")
     .select(
-      "id, slug, name, organization_id, organization:organizations(id, slug, name)",
+      "id, slug, name, organization_id, organization:organizations(id, slug, name, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
     )
     .eq("slug", slug)
     .maybeSingle()) as { data: LocationWithOrg | null };
@@ -107,6 +114,12 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     },
     organization: location.organization,
     location: { id: location.id, slug: location.slug, name: location.name },
+    tenantBilling: {
+      tenant_plan: location.organization.tenant_plan,
+      tenant_subscription_status: location.organization.tenant_subscription_status,
+      tenant_current_period_end: location.organization.tenant_current_period_end,
+      tenant_trial_end: location.organization.tenant_trial_end,
+    },
     orgRole,
     locationRole,
     locationPermissions,
