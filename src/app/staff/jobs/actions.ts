@@ -341,6 +341,7 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
   const quantity = parseFloat(quantityStr || "1");
   const unitPrice = parseFloat(unitPriceStr || "0");
   const productIdRaw = (formData.get("productId") as string | null)?.trim() || null;
+  const serviceIdRaw = (formData.get("serviceId") as string | null)?.trim() || null;
 
   if (Number.isNaN(quantity) || quantity <= 0) return { error: "Quantity must be greater than 0." };
   if (Number.isNaN(unitPrice) || unitPrice < 0) return { error: "Unit price must be 0 or greater." };
@@ -366,9 +367,22 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
     productId = prod ? productIdRaw : null;
   }
 
+  // Likewise only link a catalogue service from this location (lets the plan
+  // included-services allowance recognise the line later).
+  let serviceId: string | null = null;
+  if (serviceIdRaw) {
+    const { data: svc } = await admin
+      .from("services")
+      .select("id")
+      .eq("id", serviceIdRaw)
+      .eq("location_id", ctx.location.id)
+      .maybeSingle();
+    serviceId = svc ? serviceIdRaw : null;
+  }
+
   const { data, error } = await admin
     .from("job_items")
-    .insert({ job_id: jobId, description, type, quantity, unit_price: unitPrice, product_id: productId })
+    .insert({ job_id: jobId, description, type, quantity, unit_price: unitPrice, product_id: productId, service_id: serviceId })
     .select("id")
     .single();
 
