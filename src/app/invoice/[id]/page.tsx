@@ -126,6 +126,14 @@ export default async function CustomerInvoicePage({
                 <td colSpan={3} className="px-4 py-2 text-right text-gray-400">Subtotal</td>
                 <td className="px-4 py-2 text-right tabular-nums">{fmt(invoice.subtotal)}</td>
               </tr>
+              {invoice.membership_credit_amount > 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-2 text-right text-gray-400">
+                    {invoice.membership_credit_description ?? "Included in membership"}
+                  </td>
+                  <td className="px-4 py-2 text-right tabular-nums text-green-400">− {fmt(invoice.membership_credit_amount)}</td>
+                </tr>
+              )}
               {invoice.discount_amount > 0 && (
                 <tr>
                   <td colSpan={3} className="px-4 py-2 text-right text-gray-400">

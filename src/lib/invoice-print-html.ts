@@ -14,6 +14,8 @@ export type InvoicePrintData = {
   total: number;
   discount_amount?: number;
   discount_description?: string | null;
+  membership_credit_amount?: number;
+  membership_credit_description?: string | null;
   issued_at: string;
   due_at: string;
   paid_at: string | null;
@@ -168,6 +170,10 @@ export function buildInvoicePrintHtml(args: {
       <td colspan="4" style="text-align:right;color:#6b7280">Subtotal</td>
       <td class="num">${fmt(invoice.subtotal)}</td>
     </tr>
+    ${invoice.membership_credit_amount && invoice.membership_credit_amount > 0 ? `<tr>
+      <td colspan="4" style="text-align:right;color:#6b7280">${esc(invoice.membership_credit_description ?? "Included in membership")}</td>
+      <td class="num" style="color:#15803d">− ${fmt(invoice.membership_credit_amount)}</td>
+    </tr>` : ""}
     ${invoice.discount_amount && invoice.discount_amount > 0 ? `<tr>
       <td colspan="4" style="text-align:right;color:#6b7280">${esc(invoice.discount_description ?? "Discount")}</td>
       <td class="num" style="color:#15803d">− ${fmt(invoice.discount_amount)}</td>

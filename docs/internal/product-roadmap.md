@@ -71,8 +71,13 @@ This is a living document — tick items as they ship, link the PR.
   the customer page so they can enrol customers who aren't in the portal yet.
   PR3a shipped (first **entitlement**): a plan grants a **member discount** (percent or
   fixed £, staff's choice), auto-applied to a member's job invoices and reflected on every
-  surface (UI / email / PDF / Xero). PR3b next: **included services × N** consumed allowance
-  (needs `job_items.service_id` groundwork).
+  surface (UI / email / PDF / Xero).
+  PR3b groundwork shipped: `job_items.service_id` links lines to the catalogue (#216).
+  PR3b shipped: **included services × N** consumed allowance — a plan bundles catalogue
+  services per billing period; a member's job invoice covers them (£0) up to the quota
+  (membership credit), then the discount applies to the rest; usage tracked per
+  subscription period (resets on renewal, no cron). Customer-facing "includes X" marketing
+  copy on plan cards deferred (members see the credit on their invoice).
 - ⏸️ **SaaS tenant billing** — plans / seats / trials for garages themselves.
   _Decision pending: pursue platform-subscription revenue, or stay platform-fee
   only? Today's model is per-payment platform fee only._

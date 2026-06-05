@@ -19,6 +19,8 @@ export type InvoiceHtmlArgs = {
   total: number;
   discountAmount?: number;
   discountDescription?: string | null;
+  membershipCreditAmount?: number;
+  membershipCreditDescription?: string | null;
   notes: string | null;
   payUrl: string | null;
 };
@@ -27,16 +29,21 @@ export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
   const {
     invoiceNumber, issuedAt, dueAt, garageName, garagePhone, garageEmail,
     logoUrl, brandColor, customerName, items, subtotal, vatRate, vatAmount, total,
-    discountAmount, discountDescription, notes, payUrl,
+    discountAmount, discountDescription, membershipCreditAmount, membershipCreditDescription, notes, payUrl,
   } = args;
   const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
   const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const adjustmentRow = (label: string, amount: number) => `<tr>
+                <td style="padding:8px 0;color:#6b7280;font-size:14px">${escapeHtml(label)}</td>
+                <td align="right" style="padding:8px 0;color:#15803d;font-size:14px">− ${fmt(amount)}</td>
+              </tr>`;
+  const creditRow =
+    membershipCreditAmount && membershipCreditAmount > 0
+      ? adjustmentRow(membershipCreditDescription ?? "Included in membership", membershipCreditAmount)
+      : "";
   const discountRow =
     discountAmount && discountAmount > 0
-      ? `<tr>
-                <td style="padding:8px 0;color:#6b7280;font-size:14px">${escapeHtml(discountDescription ?? "Discount")}</td>
-                <td align="right" style="padding:8px 0;color:#15803d;font-size:14px">− ${fmt(discountAmount)}</td>
-              </tr>`
+      ? adjustmentRow(discountDescription ?? "Discount", discountAmount)
       : "";
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
@@ -158,6 +165,7 @@ export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
                 <td style="padding:8px 0;color:#6b7280;font-size:14px">Subtotal</td>
                 <td align="right" style="padding:8px 0;color:#374151;font-size:14px">${fmt(subtotal)}</td>
               </tr>
+              ${creditRow}
               ${discountRow}
               <tr>
                 <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">VAT (${vatRate}%)</td>

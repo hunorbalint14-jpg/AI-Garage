@@ -11,7 +11,8 @@ import { buildInvoiceHtml } from "@/lib/invoice-html";
 import { pushInvoiceToXero, pushPaymentToXero, pushCreditNoteToXero } from "@/lib/xero-sync";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 import {
-  memberDiscountForCustomer,
+  getMemberBenefits,
+  computeCoverage,
   computeMemberDiscount,
   applyInvoiceTotals,
   discountDescription,
@@ -33,7 +34,7 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
       .maybeSingle(),
     admin
       .from("job_items")
-      .select("id, description, type, quantity, unit_price")
+      .select("id, description, type, quantity, unit_price, service_id")
       .eq("job_id", jobId),
   ]);
 
@@ -42,24 +43,69 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   if (job.status === "open") return { error: "Complete the job before creating an invoice." };
   if (job.status === "invoiced") return { error: "Invoice already exists for this job." };
 
-  const items = itemsRes.data ?? [];
+  const items = (itemsRes.data ?? []) as {
+    id: string; description: string; type: string; quantity: number; unit_price: number; service_id: string | null;
+  }[];
 
   const subtotal = items.reduce((sum, i) => sum + Number(i.quantity) * Number(i.unit_price), 0);
   const vatRate = 20;
 
-  // Member discount — if the customer has a live plan subscription that grants a
-  // discount, take it off pre-VAT (VAT then charged on the discounted net).
+  // Membership benefits — included-service allowance covers matching lines (£0)
+  // up to the per-period quota; the plan discount then applies to the rest.
+  let membershipCredit = 0;
+  let membershipCreditDescription: string | null = null;
+  let usageWrites: { service_id: string; covered_qty: number }[] = [];
+  let memberSubscriptionId: string | null = null;
+  let memberPeriodEnd: string | null = null;
   let discountAmount = 0;
   let discountDescriptionText: string | null = null;
-  if (job.customer_id) {
-    const member = await memberDiscountForCustomer(admin, job.customer_id, ctx.location.id);
-    if (member) {
-      const cfg = { type: member.type, value: member.value };
-      discountAmount = computeMemberDiscount(subtotal, cfg);
-      if (discountAmount > 0) discountDescriptionText = discountDescription(member.planName, cfg);
+
+  const benefits = job.customer_id
+    ? await getMemberBenefits(admin, job.customer_id, ctx.location.id)
+    : null;
+
+  if (benefits) {
+    // Coverage (needs a current period to track usage against).
+    if (benefits.included.length > 0 && benefits.currentPeriodEnd) {
+      const bundle = new Map(benefits.included.map((i) => [i.service_id, i.quantity_per_period]));
+      const { data: used } = await admin
+        .from("plan_service_usage")
+        .select("service_id, covered_qty")
+        .eq("plan_subscription_id", benefits.subscriptionId)
+        .eq("period_end", benefits.currentPeriodEnd);
+      const usedMap = new Map<string, number>();
+      for (const u of (used ?? []) as { service_id: string; covered_qty: number }[]) {
+        usedMap.set(u.service_id, (usedMap.get(u.service_id) ?? 0) + Number(u.covered_qty));
+      }
+      const remaining = new Map<string, number>();
+      for (const [sid, qpp] of bundle) remaining.set(sid, Math.max(0, qpp - (usedMap.get(sid) ?? 0)));
+
+      const { coveredValue, perService } = computeCoverage(
+        items.map((i) => ({ service_id: i.service_id, quantity: Number(i.quantity), unit_price: Number(i.unit_price) })),
+        remaining,
+      );
+      if (coveredValue > 0) {
+        membershipCredit = coveredValue;
+        membershipCreditDescription = `${benefits.planName} – included services`;
+        memberSubscriptionId = benefits.subscriptionId;
+        memberPeriodEnd = benefits.currentPeriodEnd;
+        usageWrites = [...perService.entries()].map(([service_id, covered_qty]) => ({ service_id, covered_qty }));
+      }
+    }
+
+    // Discount on the amount still payable after membership coverage.
+    if (benefits.discount) {
+      const base = Math.max(0, subtotal - membershipCredit);
+      discountAmount = computeMemberDiscount(base, benefits.discount);
+      if (discountAmount > 0) discountDescriptionText = discountDescription(benefits.planName, benefits.discount);
     }
   }
-  const { vatAmount, total } = applyInvoiceTotals({ subtotal, discountAmount, vatRate });
+
+  const { vatAmount, total } = applyInvoiceTotals({
+    subtotal: Math.max(0, subtotal - membershipCredit),
+    discountAmount,
+    vatRate,
+  });
 
   // Generate invoice number
   const { count } = await admin
@@ -85,6 +131,8 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
       total,
       discount_amount: discountAmount,
       discount_description: discountDescriptionText,
+      membership_credit_amount: membershipCredit,
+      membership_credit_description: membershipCreditDescription,
       issued_at: today.toISOString().split("T")[0],
       due_at: due.toISOString().split("T")[0],
     })
@@ -94,6 +142,20 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   if (error) return { error: error.message };
 
   await admin.from("jobs").update({ status: "invoiced" }).eq("id", jobId);
+
+  // Record consumed allowance against this period so it can't be claimed twice.
+  // Deleting the invoice (reopen) cascades these away via invoice_id FK.
+  if (usageWrites.length > 0 && memberSubscriptionId && memberPeriodEnd) {
+    await admin.from("plan_service_usage").insert(
+      usageWrites.map((u) => ({
+        plan_subscription_id: memberSubscriptionId,
+        service_id: u.service_id,
+        invoice_id: invoice.id,
+        period_end: memberPeriodEnd,
+        covered_qty: u.covered_qty,
+      })),
+    );
+  }
 
   // Fire-and-forget: push to Xero. Logs internally, never blocks the
   // staff response.
@@ -108,7 +170,7 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
     action: "invoice.create",
     entityType: "invoice",
     entityId: invoice.id,
-    metadata: { invoice_number: invoiceNumber, job_id: jobId, total, discount_amount: discountAmount },
+    metadata: { invoice_number: invoiceNumber, job_id: jobId, total, discount_amount: discountAmount, membership_credit_amount: membershipCredit },
   });
 
   revalidatePath(`/staff/jobs/${jobId}`);
@@ -127,7 +189,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
   const [invoiceRes, orgRes] = await Promise.all([
     admin
       .from("invoices")
-      .select("id, location_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, issued_at, due_at, notes, customer:customers(full_name, email), job:jobs(id)")
+      .select("id, location_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, membership_credit_amount, membership_credit_description, issued_at, due_at, notes, customer:customers(full_name, email), job:jobs(id)")
       .eq("id", invoiceId)
       .maybeSingle(),
     admin
@@ -141,6 +203,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     id: string; location_id: string; invoice_number: string;
     subtotal: number; vat_rate: number; vat_amount: number; total: number;
     discount_amount: number; discount_description: string | null;
+    membership_credit_amount: number; membership_credit_description: string | null;
     issued_at: string; due_at: string; notes: string | null;
     customer: { full_name: string | null; email: string | null } | null;
     job: { id: string } | null;
@@ -183,6 +246,8 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     total: invoice.total,
     discountAmount: invoice.discount_amount,
     discountDescription: invoice.discount_description,
+    membershipCreditAmount: invoice.membership_credit_amount,
+    membershipCreditDescription: invoice.membership_credit_description,
     notes: invoice.notes,
     payUrl,
   });

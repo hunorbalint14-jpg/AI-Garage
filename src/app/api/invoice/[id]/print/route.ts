@@ -15,6 +15,8 @@ type Invoice = {
   total: number;
   discount_amount: number;
   discount_description: string | null;
+  membership_credit_amount: number;
+  membership_credit_description: string | null;
   issued_at: string;
   due_at: string;
   paid_at: string | null;
@@ -46,7 +48,7 @@ export async function GET(
   const [invoiceRes, orgRes] = await Promise.all([
     admin
       .from("invoices")
-      .select("id, invoice_number, status, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, issued_at, due_at, paid_at, notes, location_id, job_id, customer:customers(full_name, email, phone)")
+      .select("id, invoice_number, status, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, membership_credit_amount, membership_credit_description, issued_at, due_at, paid_at, notes, location_id, job_id, customer:customers(full_name, email, phone)")
       .eq("id", id)
       .maybeSingle(),
     admin

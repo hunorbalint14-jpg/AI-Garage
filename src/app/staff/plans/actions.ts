@@ -35,6 +35,40 @@ function parseDiscount(formData: FormData): { discount_type: "none" | "percent" 
 
 type Admin = ReturnType<typeof createAdminClient>;
 
+// Replace a plan's included-services bundle from the form's JSON field. Only
+// keeps services that belong to this location; dedupes by service; clamps qty.
+async function syncPlanItems(admin: Admin, locationId: string, planId: string, formData: FormData) {
+  let parsed: unknown = [];
+  try {
+    parsed = JSON.parse((formData.get("includedServices") as string | null) ?? "[]");
+  } catch {
+    parsed = [];
+  }
+  const byId = new Map<string, number>();
+  if (Array.isArray(parsed)) {
+    for (const x of parsed) {
+      const sid = (x as { service_id?: unknown }).service_id;
+      const qty = Number((x as { quantity_per_period?: unknown }).quantity_per_period);
+      if (typeof sid === "string" && Number.isFinite(qty) && qty > 0) {
+        byId.set(sid, Math.max(1, Math.round(qty)));
+      }
+    }
+  }
+
+  const ids = [...byId.keys()];
+  let allowed = new Set<string>();
+  if (ids.length) {
+    const { data } = await admin.from("services").select("id").eq("location_id", locationId).in("id", ids);
+    allowed = new Set((data ?? []).map((s) => (s as { id: string }).id));
+  }
+
+  await admin.from("service_plan_items").delete().eq("service_plan_id", planId);
+  const rows = ids
+    .filter((id) => allowed.has(id))
+    .map((id) => ({ service_plan_id: planId, service_id: id, quantity_per_period: byId.get(id)! }));
+  if (rows.length) await admin.from("service_plan_items").insert(rows);
+}
+
 // Best-effort: create the plan's Stripe Product + Price(s) on the connected
 // account if the garage has finished Stripe onboarding. Failure isn't fatal —
 // prices are also ensured lazily at subscribe time.
@@ -79,6 +113,8 @@ export async function upsertServicePlan(formData: FormData, planId?: string): Pr
       .eq("location_id", ctx.location.id);
     if (error) return { error: error.message };
 
+    await syncPlanItems(admin, ctx.location.id, planId, formData);
+
     await logAudit({
       organizationId: ctx.organization.id,
       actorUserId: ctx.user.id,
@@ -116,6 +152,7 @@ export async function upsertServicePlan(formData: FormData, planId?: string): Pr
     .single();
   if (error || !data) return { error: error?.message ?? "Could not create the plan." };
 
+  await syncPlanItems(admin, ctx.location.id, data.id, formData);
   await tryEnsurePrices(admin, ctx.organization.id, data as ServicePlanRow);
 
   await logAudit({
