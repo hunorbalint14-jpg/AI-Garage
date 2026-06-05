@@ -14,6 +14,8 @@ type Invoice = {
   total: number;
   discount_amount: number;
   discount_description: string | null;
+  membership_credit_amount: number;
+  membership_credit_description: string | null;
   issued_at: string;
   due_at: string;
   paid_at: string | null;
@@ -60,7 +62,7 @@ export default async function InvoiceDetailPage({
   const [invoiceRes, orgRes] = await Promise.all([
     admin
       .from("invoices")
-      .select("id, invoice_number, status, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, issued_at, due_at, paid_at, notes, location_id, job_id, stripe_payment_intent_id, stripe_paid_amount_pence, customer:customers(id, full_name, email)")
+      .select("id, invoice_number, status, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, membership_credit_amount, membership_credit_description, issued_at, due_at, paid_at, notes, location_id, job_id, stripe_payment_intent_id, stripe_paid_amount_pence, customer:customers(id, full_name, email)")
       .eq("id", id)
       .maybeSingle(),
     admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
@@ -151,6 +153,14 @@ export default async function InvoiceDetailPage({
               <td colSpan={4} className="px-4 py-2 text-right text-muted-foreground">Subtotal</td>
               <td className="px-4 py-2 text-right tabular-nums">{fmt(invoice.subtotal)}</td>
             </tr>
+            {invoice.membership_credit_amount > 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-2 text-right text-muted-foreground">
+                  {invoice.membership_credit_description ?? "Included in membership"}
+                </td>
+                <td className="px-4 py-2 text-right tabular-nums text-green-700">− {fmt(invoice.membership_credit_amount)}</td>
+              </tr>
+            )}
             {invoice.discount_amount > 0 && (
               <tr>
                 <td colSpan={4} className="px-4 py-2 text-right text-muted-foreground">

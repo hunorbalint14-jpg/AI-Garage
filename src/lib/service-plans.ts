@@ -279,3 +279,89 @@ export async function memberDiscountForCustomer(
   }
   return best;
 }
+
+export type IncludedService = { service_id: string; quantity_per_period: number };
+
+export type MemberBenefits = {
+  subscriptionId: string;
+  currentPeriodEnd: string | null;
+  planName: string;
+  discount: DiscountConfig | null;
+  included: IncludedService[];
+};
+
+// The benefits a customer is entitled to from their current membership at this
+// location: the live subscription, its plan's discount, and its included-service
+// bundle. Picks the newest live (active/trialing) subscription that has a plan.
+export async function getMemberBenefits(
+  admin: Admin,
+  customerId: string,
+  locationId: string,
+): Promise<MemberBenefits | null> {
+  const { data } = await admin
+    .from("plan_subscriptions")
+    .select(
+      "id, status, current_period_end, created_at, service_plan:service_plans(id, name, discount_type, discount_value)",
+    )
+    .eq("customer_id", customerId)
+    .eq("location_id", locationId)
+    .in("status", ["active", "trialing"])
+    .order("created_at", { ascending: false });
+
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    current_period_end: string | null;
+    service_plan: { id: string; name: string; discount_type: string; discount_value: number } | null;
+  }[];
+
+  const row = rows.find((r) => r.service_plan);
+  if (!row || !row.service_plan) return null;
+  const sp = row.service_plan;
+
+  const { data: itemRows } = await admin
+    .from("service_plan_items")
+    .select("service_id, quantity_per_period")
+    .eq("service_plan_id", sp.id);
+  const included = (itemRows ?? []).map((i) => ({
+    service_id: (i as { service_id: string }).service_id,
+    quantity_per_period: Number((i as { quantity_per_period: number }).quantity_per_period),
+  }));
+
+  const discount =
+    sp.discount_type !== "none" && Number(sp.discount_value) > 0
+      ? { type: sp.discount_type as DiscountType, value: Number(sp.discount_value) }
+      : null;
+
+  return {
+    subscriptionId: row.id,
+    currentPeriodEnd: row.current_period_end,
+    planName: sp.name,
+    discount,
+    included,
+  };
+}
+
+export type CoverableLine = { service_id: string | null; quantity: number; unit_price: number };
+
+// Greedily cover invoice lines against the remaining included-service allowance
+// for the period. `remaining` is qty left per service_id this period. Returns the
+// £ value covered and the units covered per service (for the usage ledger).
+export function computeCoverage(
+  lines: CoverableLine[],
+  remaining: Map<string, number>,
+): { coveredValue: number; perService: Map<string, number> } {
+  const left = new Map(remaining);
+  const perService = new Map<string, number>();
+  let coveredValue = 0;
+  for (const line of lines) {
+    if (!line.service_id) continue;
+    const rem = left.get(line.service_id);
+    if (rem == null || rem <= 0) continue;
+    const cover = Math.min(line.quantity, rem);
+    if (cover <= 0) continue;
+    coveredValue = round2(coveredValue + cover * line.unit_price);
+    left.set(line.service_id, rem - cover);
+    perService.set(line.service_id, (perService.get(line.service_id) ?? 0) + cover);
+  }
+  return { coveredValue, perService };
+}

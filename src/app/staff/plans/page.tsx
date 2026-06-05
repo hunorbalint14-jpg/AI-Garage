@@ -3,14 +3,14 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
-import { PlansManager, type PlanRow } from "./plans-manager";
+import { PlansManager, type PlanRow, type ServiceOption } from "./plans-manager";
 
 export default async function PlansPage() {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "services")) redirect("/staff");
 
   const admin = createAdminClient();
-  const [plansRes, orgRes, subsRes] = await Promise.all([
+  const [plansRes, orgRes, subsRes, servicesRes] = await Promise.all([
     admin
       .from("service_plans")
       .select(
@@ -29,6 +29,12 @@ export default async function PlansPage() {
       .select("service_plan_id, status")
       .eq("location_id", ctx.location.id)
       .in("status", ["active", "trialing", "past_due"]),
+    admin
+      .from("services")
+      .select("id, name")
+      .eq("location_id", ctx.location.id)
+      .eq("active", true)
+      .order("name", { ascending: true }),
   ]);
 
   const counts = new Map<string, number>();
@@ -36,9 +42,26 @@ export default async function PlansPage() {
     if (s.service_plan_id) counts.set(s.service_plan_id, (counts.get(s.service_plan_id) ?? 0) + 1);
   }
 
-  const plans = ((plansRes.data ?? []) as Omit<PlanRow, "subscriberCount">[]).map((p) => ({
+  const planIds = ((plansRes.data ?? []) as { id: string }[]).map((p) => p.id);
+  const { data: itemRows } = planIds.length
+    ? await admin
+        .from("service_plan_items")
+        .select("service_plan_id, service_id, quantity_per_period")
+        .in("service_plan_id", planIds)
+    : { data: [] };
+  const includedByPlan = new Map<string, { service_id: string; quantity_per_period: number }[]>();
+  for (const it of (itemRows ?? []) as { service_plan_id: string; service_id: string; quantity_per_period: number }[]) {
+    const list = includedByPlan.get(it.service_plan_id) ?? [];
+    list.push({ service_id: it.service_id, quantity_per_period: Number(it.quantity_per_period) });
+    includedByPlan.set(it.service_plan_id, list);
+  }
+
+  const services = (servicesRes.data ?? []) as ServiceOption[];
+
+  const plans = ((plansRes.data ?? []) as Omit<PlanRow, "subscriberCount" | "included">[]).map((p) => ({
     ...p,
     subscriberCount: counts.get(p.id) ?? 0,
+    included: includedByPlan.get(p.id) ?? [],
   }));
 
   const org = orgRes.data as { stripe_account_id: string | null; stripe_charges_enabled: boolean | null } | null;
@@ -57,7 +80,7 @@ export default async function PlansPage() {
         </div>
       )}
 
-      <PlansManager plans={plans} />
+      <PlansManager plans={plans} services={services} />
     </div>
   );
 }

@@ -124,7 +124,7 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
   const { data: invoice } = await admin
     .from("invoices")
     .select(
-      "id, location_id, customer_id, job_id, booking_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, issued_at, due_at, notes, status, xero_invoice_id, location:locations(organization_id)",
+      "id, location_id, customer_id, job_id, booking_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, membership_credit_amount, membership_credit_description, issued_at, due_at, notes, status, xero_invoice_id, location:locations(organization_id)",
     )
     .eq("id", invoiceId)
     .maybeSingle();
@@ -142,6 +142,8 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
     total: number;
     discount_amount: number;
     discount_description: string | null;
+    membership_credit_amount: number;
+    membership_credit_description: string | null;
     issued_at: string;
     due_at: string;
     notes: string | null;
@@ -272,6 +274,18 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
         accountCode: DEFAULT_SALES_ACCOUNT_CODE,
       },
     ];
+  }
+
+  // Membership credit (covered included services): a single negative OUTPUT2
+  // line so Xero's VAT lands on the same net we charged.
+  if (Number(inv.membership_credit_amount) > 0) {
+    lineItems.push({
+      description: inv.membership_credit_description ?? "Included in membership",
+      quantity: 1,
+      unitAmount: -Number(inv.membership_credit_amount),
+      taxType: "OUTPUT2",
+      accountCode: DEFAULT_SALES_ACCOUNT_CODE,
+    });
   }
 
   // Member discount: represent it as a single negative line (same OUTPUT2 tax

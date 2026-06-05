@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { upsertServicePlan, togglePlanActive, deleteServicePlan } from "./actions";
 
+export type ServiceOption = { id: string; name: string };
+
+export type IncludedItem = { service_id: string; quantity_per_period: number };
+
 export type PlanRow = {
   id: string;
   name: string;
@@ -17,6 +21,7 @@ export type PlanRow = {
   active: boolean;
   discount_type: "none" | "percent" | "fixed";
   discount_value: number;
+  included: IncludedItem[];
   subscriberCount: number;
 };
 
@@ -36,7 +41,8 @@ function discountLabel(plan: Pick<PlanRow, "discount_type" | "discount_value">):
 
 type ActionResult = { error: string } | { success: true };
 
-export function PlansManager({ plans }: { plans: PlanRow[] }) {
+export function PlansManager({ plans, services }: { plans: PlanRow[]; services: ServiceOption[] }) {
+  const serviceName = new Map(services.map((s) => [s.id, s.name]));
   const [editing, setEditing] = useState<string | null>(null); // plan id, "new", or null
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -60,7 +66,7 @@ export function PlansManager({ plans }: { plans: PlanRow[] }) {
     <div className="flex flex-col gap-4">
       <div>
         {editing === "new" ? (
-          <PlanForm onSubmit={(e) => handleSubmit(e)} onCancel={() => setEditing(null)} pending={pending} />
+          <PlanForm services={services} onSubmit={(e) => handleSubmit(e)} onCancel={() => setEditing(null)} pending={pending} />
         ) : (
           <Button
             onClick={() => {
@@ -86,6 +92,7 @@ export function PlansManager({ plans }: { plans: PlanRow[] }) {
               <PlanForm
                 key={p.id}
                 plan={p}
+                services={services}
                 onSubmit={(e) => handleSubmit(e, p.id)}
                 onCancel={() => setEditing(null)}
                 pending={pending}
@@ -94,6 +101,7 @@ export function PlansManager({ plans }: { plans: PlanRow[] }) {
               <PlanCard
                 key={p.id}
                 plan={p}
+                serviceName={serviceName}
                 pending={pending}
                 onEdit={() => {
                   setError(null);
@@ -114,12 +122,14 @@ export function PlansManager({ plans }: { plans: PlanRow[] }) {
 
 function PlanCard({
   plan,
+  serviceName,
   pending,
   onEdit,
   onToggle,
   onDelete,
 }: {
   plan: PlanRow;
+  serviceName: Map<string, string>;
   pending: boolean;
   onEdit: () => void;
   onToggle: () => void;
@@ -153,6 +163,16 @@ function PlanCard({
 
       {discountLabel(plan) && <p className="text-xs font-medium text-green-700">{discountLabel(plan)}</p>}
 
+      {plan.included.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Includes{" "}
+          {plan.included
+            .map((i) => `${i.quantity_per_period}× ${serviceName.get(i.service_id) ?? "service"}`)
+            .join(", ")}{" "}
+          per period
+        </p>
+      )}
+
       <div className="text-xs text-muted-foreground">
         {plan.subscriberCount} active subscriber{plan.subscriberCount === 1 ? "" : "s"}
         {!priced && <span className="ml-2 text-amber-600">· Stripe price pending</span>}
@@ -175,16 +195,32 @@ function PlanCard({
 
 function PlanForm({
   plan,
+  services,
   onSubmit,
   onCancel,
   pending,
 }: {
   plan?: PlanRow;
+  services: ServiceOption[];
   onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;
   pending: boolean;
 }) {
   const isEdit = !!plan;
+  const [included, setIncluded] = useState<IncludedItem[]>(plan?.included ?? []);
+
+  function addIncluded() {
+    const used = new Set(included.map((i) => i.service_id));
+    const next = services.find((s) => !used.has(s.id));
+    if (next) setIncluded([...included, { service_id: next.id, quantity_per_period: 1 }]);
+  }
+  function updateIncluded(idx: number, patch: Partial<IncludedItem>) {
+    setIncluded(included.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  }
+  function removeIncluded(idx: number) {
+    setIncluded(included.filter((_, i) => i !== idx));
+  }
+
   return (
     <form onSubmit={onSubmit} className="rounded-lg border p-4 flex flex-col gap-3 sm:col-span-2">
       <div className="flex flex-col gap-1">
@@ -263,6 +299,49 @@ function PlanForm({
           />
         </div>
       </div>
+
+      {services.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <input type="hidden" name="includedServices" value={JSON.stringify(included)} />
+          <p className="text-xs text-muted-foreground">Included services (covered free, per billing period)</p>
+          {included.map((it, idx) => (
+            <div key={idx} className="flex flex-wrap items-end gap-2">
+              <select
+                value={it.service_id}
+                onChange={(e) => updateIncluded(idx, { service_id: e.target.value })}
+                disabled={pending}
+                className="rounded-md border bg-transparent px-3 py-2 text-sm"
+              >
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <Input
+                type="number"
+                min="1"
+                step="1"
+                value={String(it.quantity_per_period)}
+                onChange={(e) => updateIncluded(idx, { quantity_per_period: Math.max(1, parseInt(e.target.value || "1", 10)) })}
+                disabled={pending}
+                className="w-20"
+                aria-label="Quantity per period"
+              />
+              <Button type="button" variant="outline" onClick={() => removeIncluded(idx)} disabled={pending}>
+                Remove
+              </Button>
+            </div>
+          ))}
+          {included.length < services.length && (
+            <div>
+              <Button type="button" variant="outline" onClick={addIncluded} disabled={pending}>
+                Add included service
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>

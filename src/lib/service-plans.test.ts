@@ -5,6 +5,7 @@ import {
   isSubscriptionLive,
   computeMemberDiscount,
   applyInvoiceTotals,
+  computeCoverage,
 } from "./service-plans";
 
 describe("planPriceForInterval", () => {
@@ -88,5 +89,29 @@ describe("applyInvoiceTotals", () => {
       vatAmount: 20,
       total: 120,
     });
+  });
+});
+
+describe("computeCoverage", () => {
+  it("covers included lines up to the remaining allowance", () => {
+    const lines = [
+      { service_id: "mot", quantity: 1, unit_price: 40 },
+      { service_id: "oil", quantity: 3, unit_price: 30 },
+      { service_id: null, quantity: 2, unit_price: 10 }, // non-catalogue line
+    ];
+    const remaining = new Map([
+      ["mot", 1],
+      ["oil", 2],
+    ]);
+    const { coveredValue, perService } = computeCoverage(lines, remaining);
+    // 1 MOT (£40) + 2 of 3 oil (£60) covered; the 3rd oil + the loose line aren't
+    expect(coveredValue).toBe(100);
+    expect(perService.get("mot")).toBe(1);
+    expect(perService.get("oil")).toBe(2);
+  });
+  it("covers nothing when the allowance is exhausted or service not included", () => {
+    const lines = [{ service_id: "oil", quantity: 2, unit_price: 30 }];
+    expect(computeCoverage(lines, new Map([["oil", 0]])).coveredValue).toBe(0);
+    expect(computeCoverage(lines, new Map()).coveredValue).toBe(0);
   });
 });
