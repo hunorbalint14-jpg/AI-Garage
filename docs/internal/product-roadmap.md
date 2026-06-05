@@ -78,9 +78,13 @@ This is a living document — tick items as they ship, link the PR.
   (membership credit), then the discount applies to the rest; usage tracked per
   subscription period (resets on renewal, no cron). Customer-facing "includes X" marketing
   copy on plan cards deferred (members see the credit on their invoice).
-- ⏸️ **SaaS tenant billing** — plans / seats / trials for garages themselves.
-  _Decision pending: pursue platform-subscription revenue, or stay platform-fee
-  only? Today's model is per-payment platform fee only._
+- 🟡 **SaaS tenant billing** — **decided: hybrid** — keep the per-payment platform fee
+  **and** sell flat per-org tiers (Starter free / Pro / Growth) that unlock features and
+  lower the fee; lapses handled soft + grace.
+  PR1 shipped: org billing columns + `tenant-plans.ts` tier config + owner Billing page
+  (Checkout + Stripe Billing Portal on the **platform** account) + webhook `tenant_billing`
+  branch + an owner nudge. Tracking only — no gating yet (nudge-first).
+  PR2 next: feature gating by tier + soft enforcement after grace. PR3: tier-based fee.
 
 ## Cross-cutting (continuous)
 
@@ -112,4 +116,4 @@ This is a living document — tick items as they ship, link the PR.
 | — | Flip `OWNER_MFA_ENFORCED=true` once owners have enrolled | ⏸️ pending — **ops/env only** (Vercel), gated on owner enrolment; flipping early hard-blocks un-enrolled owners |
 | 2026-06-04 | E2E Playwright **smoke scaffold** (public no-auth specs + CI job); authed flows deferred to a test DB | ✅ done |
 | 2026-06-04 | Service plans PR1 = **billing + record only**, monthly+annual, on the garage's connected account; entitlements deferred | ✅ done |
-| — | SaaS tenant billing vs platform-fee-only (Phase 6) | ⏸️ pending |
+| 2026-06-05 | SaaS tenant billing = **hybrid** (per-payment fee + flat per-org tiers, Starter free); soft+grace enforcement | ✅ decided |
