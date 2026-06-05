@@ -88,6 +88,14 @@ export default async function PlanInvitePage({
     );
   }
 
+  const { data: itemRows } = await admin
+    .from("service_plan_items")
+    .select("quantity_per_period, service:services(name)")
+    .eq("service_plan_id", plan.id);
+  const included = ((itemRows ?? []) as unknown as { quantity_per_period: number; service: { name: string } | null }[]).map(
+    (it) => `${it.quantity_per_period}× ${it.service?.name ?? "service"}`,
+  );
+
   const color = org.primary_color;
   const monthly = fmt(plan.price_monthly_pence);
   const annual = fmt(plan.price_annual_pence);
@@ -104,6 +112,9 @@ export default async function PlanInvitePage({
       <h1 className="mt-1 text-2xl font-bold">{plan.name}</h1>
       {plan.description && <p className="mt-2 text-sm text-gray-400">{plan.description}</p>}
       {perk && <p className="mt-2 text-sm font-medium" style={{ color }}>{perk}</p>}
+      {included.length > 0 && (
+        <p className="mt-2 text-sm text-gray-400">Includes {included.join(", ")} per period</p>
+      )}
 
       <div className="mt-4 mb-6 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-300">
         {monthly && <span>{monthly} / month</span>}

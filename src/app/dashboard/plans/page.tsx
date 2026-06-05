@@ -75,6 +75,24 @@ export default async function PlansPage({
   const subs = (subsRes.data ?? []) as SubRow[];
   const planName = new Map(plans.map((p) => [p.id, p.name]));
 
+  const planIds = plans.map((p) => p.id);
+  const { data: itemRows } = planIds.length
+    ? await admin
+        .from("service_plan_items")
+        .select("service_plan_id, quantity_per_period, service:services(name)")
+        .in("service_plan_id", planIds)
+    : { data: [] };
+  const includedByPlan = new Map<string, string[]>();
+  for (const it of (itemRows ?? []) as unknown as {
+    service_plan_id: string;
+    quantity_per_period: number;
+    service: { name: string } | null;
+  }[]) {
+    const list = includedByPlan.get(it.service_plan_id) ?? [];
+    list.push(`${it.quantity_per_period}× ${it.service?.name ?? "service"}`);
+    includedByPlan.set(it.service_plan_id, list);
+  }
+
   const liveByPlan = new Map<string, SubRow>();
   for (const s of subs) {
     if (s.service_plan_id && isSubscriptionLive(s.status) && !liveByPlan.has(s.service_plan_id)) {
@@ -153,6 +171,11 @@ export default async function PlansPage({
                     {discountLabel(p) && (
                       <p className="mt-2 text-sm font-medium" style={{ color: org.primary_color }}>
                         {discountLabel(p)}
+                      </p>
+                    )}
+                    {(includedByPlan.get(p.id)?.length ?? 0) > 0 && (
+                      <p className="mt-2 text-sm text-gray-400">
+                        Includes {includedByPlan.get(p.id)!.join(", ")} per period
                       </p>
                     )}
                   </div>
