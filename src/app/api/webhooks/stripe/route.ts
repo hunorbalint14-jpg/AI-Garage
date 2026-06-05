@@ -128,7 +128,16 @@ async function handleStripeEvent(
             stripeAccount: event.account,
           });
           await recordSubscriptionFromStripe(admin, sub);
-          console.log("[stripe-webhook] service_plan subscription recorded", { subId });
+
+          // Mark the originating staff invite (if any) as redeemed.
+          const inviteId = session.metadata?.plan_invite_id;
+          if (inviteId) {
+            await admin
+              .from("plan_invites")
+              .update({ status: "subscribed", subscribed_at: new Date().toISOString() })
+              .eq("id", inviteId);
+          }
+          console.log("[stripe-webhook] service_plan subscription recorded", { subId, inviteId });
         } else {
           console.error("[stripe-webhook] service_plan checkout missing event.account", { subId });
         }

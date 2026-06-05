@@ -71,6 +71,7 @@ export type AuditAction =
   | "service_plan.delete"
   | "plan.subscribe"
   | "plan.cancel"
+  | "plan.invite_sent"
   | "product.create"
   | "product.update"
   | "product.delete"
