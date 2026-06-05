@@ -84,7 +84,9 @@ This is a living document — tick items as they ship, link the PR.
   PR1 shipped: org billing columns + `tenant-plans.ts` tier config + owner Billing page
   (Checkout + Stripe Billing Portal on the **platform** account) + webhook `tenant_billing`
   branch + an owner nudge. Tracking only — no gating yet (nudge-first).
-  PR2 next: feature gating by tier + soft enforcement after grace. PR3: tier-based fee.
+  PR2 shipped: feature gating by tier — Xero / campaigns / automations gated to Pro+,
+  location count capped per tier; soft enforcement (lapsed past grace → premium off, core
+  kept) via `entitledTo` + `tenantBillingActive`. PR3: tier-based platform fee.
 
 ## Cross-cutting (continuous)
 

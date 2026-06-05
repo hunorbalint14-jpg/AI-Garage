@@ -10,6 +10,7 @@ import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { draftBroadcastMessage } from "@/lib/ai-messages";
 import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
+import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
 
 export type DraftBroadcastPreviewResult =
   | { error: string }
@@ -21,6 +22,7 @@ export async function draftBroadcastPreview(
 ): Promise<DraftBroadcastPreviewResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "campaigns")) return { error: "Permission denied." };
+  if (!entitledTo(ctx.tenantBilling, "campaigns")) return { error: UPGRADE_MESSAGE.campaigns };
 
   const limited = await enforceRateLimit("ai", ctx.user.id);
   if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
@@ -86,6 +88,7 @@ export async function sendBroadcast(
 ): Promise<SendBroadcastResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "campaigns")) return { error: "Permission denied." };
+  if (!entitledTo(ctx.tenantBilling, "campaigns")) return { error: UPGRADE_MESSAGE.campaigns };
 
   const admin = createAdminClient();
 

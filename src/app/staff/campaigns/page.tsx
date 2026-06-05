@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
+import { FeatureGateBanner } from "@/components/staff/feature-gate-banner";
+import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
 import { BroadcastForm } from "./broadcast-form";
 import { CampaignHistory, type CampaignDetail } from "./campaign-history";
 
@@ -138,6 +140,8 @@ export default async function CampaignsPage() {
         title="Campaigns"
         description="Send marketing messages, promotions, and announcements to all customers at this location."
       />
+
+      {!entitledTo(ctx.tenantBilling, "campaigns") && <FeatureGateBanner message={UPGRADE_MESSAGE.campaigns} />}
 
       <BroadcastForm hasCustomers={hasCustomers} />
 
