@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { verifyQuoteAccess, tenantQuoteUrl, type QuoteRecord } from "@/lib/quote-links";
 import { stripe, platformFeePence, tenantOrigin, publicOrigin } from "@/lib/stripe";
+import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { createStaffNotification } from "@/lib/staff-notifications";
 
 // Notify staff via both email AND in-app notification. The two surfaces are
@@ -216,8 +217,9 @@ export async function approveQuote(
   // Look up the org-level deposit policy + Stripe Connect details.
   // quote_deposit_pct is a v2 column; retry without it if the migration
   // hasn't run, so existing approve flow stays alive.
-  const fullLocSelect = "id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct)";
-  const v1LocSelect = "id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled)";
+  const TENANT_COLS = "tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end";
+  const fullLocSelect = `id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, ${TENANT_COLS})`;
+  const v1LocSelect = `id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, ${TENANT_COLS})`;
 
   let locRowData: unknown = null;
   const locFirst = await admin.from("locations").select(fullLocSelect).eq("id", verify.quote.location_id).maybeSingle();
@@ -236,6 +238,10 @@ export async function approveQuote(
       stripe_account_id: string | null;
       stripe_charges_enabled: boolean | null;
       quote_deposit_pct?: number | null;
+      tenant_plan: string | null;
+      tenant_subscription_status: string | null;
+      tenant_current_period_end: string | null;
+      tenant_trial_end: string | null;
     } | null;
   };
   const loc = locRowData as LocRow | null;
@@ -364,7 +370,7 @@ export async function approveQuote(
             },
           ],
           payment_intent_data: {
-            application_fee_amount: platformFeePence(amountPence),
+            application_fee_amount: platformFeePence(amountPence, effectiveFeePercent(org)),
             metadata: { quote_id: q.id },
           },
           metadata: { quote_id: q.id },
@@ -605,7 +611,7 @@ async function approveStandaloneQuote(
   // Org-level deposit policy + Stripe Connect.
   const { data: locRow } = await admin
     .from("locations")
-    .select("id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct)")
+    .select("id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)")
     .eq("id", verifyQuote.location_id)
     .maybeSingle();
   type LocRow = {
@@ -617,6 +623,10 @@ async function approveStandaloneQuote(
       stripe_account_id: string | null;
       stripe_charges_enabled: boolean | null;
       quote_deposit_pct: number | null;
+      tenant_plan: string | null;
+      tenant_subscription_status: string | null;
+      tenant_current_period_end: string | null;
+      tenant_trial_end: string | null;
     } | null;
   };
   const loc = locRow as LocRow | null;
@@ -679,7 +689,7 @@ async function approveStandaloneQuote(
             },
           ],
           payment_intent_data: {
-            application_fee_amount: platformFeePence(amountPence),
+            application_fee_amount: platformFeePence(amountPence, effectiveFeePercent(org)),
             metadata: { standalone_quote_id: q.id },
           },
           metadata: { standalone_quote_id: q.id },

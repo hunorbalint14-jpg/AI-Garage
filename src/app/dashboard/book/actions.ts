@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
+import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { bayCapacityAt } from "@/lib/bay-availability";
 
 export type BookingRequestResult =
@@ -28,7 +29,7 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
   const { data: locationRow } = await admin
     .from("locations")
     .select(
-      "id, name, organization:organizations(id, name, phone, stripe_account_id, stripe_charges_enabled)",
+      "id, name, organization:organizations(id, name, phone, stripe_account_id, stripe_charges_enabled, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -42,6 +43,10 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
       phone: string | null;
       stripe_account_id: string | null;
       stripe_charges_enabled: boolean | null;
+      tenant_plan: string | null;
+      tenant_subscription_status: string | null;
+      tenant_current_period_end: string | null;
+      tenant_trial_end: string | null;
     } | null;
   } | null;
   if (!location) return { error: "Location not found." };
@@ -152,7 +157,7 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
             },
           ],
           payment_intent_data: {
-            application_fee_amount: platformFeePence(amountPence),
+            application_fee_amount: platformFeePence(amountPence, effectiveFeePercent(location.organization!)),
             metadata: { booking_id: booking.id },
             receipt_email: cust.email ?? undefined,
           },

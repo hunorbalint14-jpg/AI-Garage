@@ -10,11 +10,12 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "sk_test_place
 });
 
 // Platform fee skimmed from every customer-to-garage payment.
-// Default 2% — override with STRIPE_PLATFORM_FEE_PERCENT in env.
+// Default 2% — override with STRIPE_PLATFORM_FEE_PERCENT in env, or pass a
+// tier-specific percent (higher SaaS tiers pay a lower fee — see tenant-plans).
 const PLATFORM_FEE_PERCENT = Number(process.env.STRIPE_PLATFORM_FEE_PERCENT ?? "2");
 
-export function platformFeePence(totalPence: number): number {
-  return Math.round((totalPence * PLATFORM_FEE_PERCENT) / 100);
+export function platformFeePence(totalPence: number, feePercent: number = PLATFORM_FEE_PERCENT): number {
+  return Math.round((totalPence * feePercent) / 100);
 }
 
 const PUBLIC_ORIGIN =

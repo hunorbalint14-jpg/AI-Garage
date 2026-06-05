@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe, platformFeePence, publicOrigin } from "@/lib/stripe";
+import { effectiveFeePercent } from "@/lib/tenant-plans";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export async function GET(
   const { data: invoice } = await admin
     .from("invoices")
     .select(
-      "id, invoice_number, status, total, location_id, customer:customers(full_name, email), location:locations(slug, organization:organizations(name, stripe_account_id, stripe_charges_enabled))",
+      "id, invoice_number, status, total, location_id, customer:customers(full_name, email), location:locations(slug, organization:organizations(name, stripe_account_id, stripe_charges_enabled, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -37,6 +38,10 @@ export async function GET(
         name: string;
         stripe_account_id: string | null;
         stripe_charges_enabled: boolean | null;
+        tenant_plan: string | null;
+        tenant_subscription_status: string | null;
+        tenant_current_period_end: string | null;
+        tenant_trial_end: string | null;
       } | null;
     } | null;
   };
@@ -84,7 +89,7 @@ export async function GET(
           },
         ],
         payment_intent_data: {
-          application_fee_amount: platformFeePence(amountPence),
+          application_fee_amount: platformFeePence(amountPence, effectiveFeePercent(org)),
           metadata: { invoice_id: inv.id },
           receipt_email: inv.customer?.email ?? undefined,
         },
