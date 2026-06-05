@@ -10,6 +10,9 @@ import { StaffDiagnostic } from "./staff-diagnostic";
 import { GdprPanel } from "./gdpr-panel";
 import { ReminderHistory, type ReminderHistoryItem } from "./reminder-history";
 import { PlanInvitePanel, type InvitePlanOption } from "./plan-invite-panel";
+import { CustomerTabs } from "./customer-tabs";
+import { MembershipsSection, type MembershipRow } from "./memberships-section";
+import { subscriptionStatusLabel, isSubscriptionLive } from "@/lib/service-plans";
 
 type Customer = {
   id: string;
@@ -75,7 +78,7 @@ export default async function CustomerDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [customerRes, vehiclesRes, remindersRes, plansRes] = await Promise.all([
+  const [customerRes, vehiclesRes, remindersRes, plansRes, membershipsRes] = await Promise.all([
     admin
       .from("customers")
       .select("id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
@@ -100,6 +103,12 @@ export default async function CustomerDetailPage({
       .eq("location_id", ctx.location.id)
       .eq("active", true)
       .order("name", { ascending: true }),
+    admin
+      .from("plan_subscriptions")
+      .select("id, status, interval, current_period_end, cancel_at_period_end, service_plan:service_plans(name, discount_type, discount_value)")
+      .eq("customer_id", id)
+      .eq("location_id", ctx.location.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   // Verify customer belongs to this location
@@ -116,6 +125,8 @@ export default async function CustomerDetailPage({
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];
   const planOptions = (plansRes.data ?? []) as InvitePlanOption[];
+  const memberships = (membershipsRes.data ?? []) as unknown as MembershipRow[];
+  const liveMembership = memberships.find((m) => isSubscriptionLive(m.status)) ?? null;
 
   // Group reminder rows by vehicle + type + 5-minute bucket so all channels
   // sent in one "Send reminder" action collapse into a single row.
@@ -185,151 +196,214 @@ export default async function CustomerDetailPage({
         </div>
       </div>
 
-      <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Contact
-        </h2>
-        <dl className="grid grid-cols-[120px_1fr] gap-y-1 text-sm">
-          <dt className="text-muted-foreground">Email</dt>
-          <dd>{customer.email ?? "—"}</dd>
-          <dt className="text-muted-foreground">Phone</dt>
-          <dd>{customer.phone ?? "—"}</dd>
-          <dt className="text-muted-foreground">Customer since</dt>
-          <dd>{formatDate(customer.created_at)}</dd>
-        </dl>
-      </section>
+      <CustomerTabs
+        tabs={[
+          {
+            key: "overview",
+            label: "Overview",
+            content: (
+              <div className="flex flex-col gap-6">
+                <section className="rounded-lg border p-4">
+                  <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                    Contact
+                  </h2>
+                  <dl className="grid grid-cols-[120px_1fr] gap-y-1 text-sm">
+                    <dt className="text-muted-foreground">Email</dt>
+                    <dd>{customer.email ?? "—"}</dd>
+                    <dt className="text-muted-foreground">Phone</dt>
+                    <dd>{customer.phone ?? "—"}</dd>
+                    <dt className="text-muted-foreground">Customer since</dt>
+                    <dd>{formatDate(customer.created_at)}</dd>
+                  </dl>
+                </section>
 
-      {planOptions.length > 0 && (
-        <PlanInvitePanel
-          customerId={customer.id}
-          plans={planOptions}
-          hasEmail={!!customer.email}
-          hasPhone={!!customer.phone}
-        />
-      )}
+                <section className="rounded-lg border p-4">
+                  <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                    At a glance
+                  </h2>
+                  <dl className="grid grid-cols-[120px_1fr] gap-y-1 text-sm">
+                    <dt className="text-muted-foreground">Vehicles</dt>
+                    <dd>{vehicles.length}</dd>
+                    <dt className="text-muted-foreground">Membership</dt>
+                    <dd>
+                      {liveMembership
+                        ? `${liveMembership.service_plan?.name ?? "Plan"} · ${subscriptionStatusLabel(liveMembership.status)}`
+                        : "None"}
+                    </dd>
+                    <dt className="text-muted-foreground">Marketing</dt>
+                    <dd>
+                      {[
+                        customer.marketing_email_consent ? "Email" : null,
+                        customer.marketing_sms_consent ? "SMS" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" + ") || "Opted out"}
+                    </dd>
+                  </dl>
+                </section>
+              </div>
+            ),
+          },
+          {
+            key: "vehicles",
+            label: "Vehicles",
+            content: (
+              <div className="flex flex-col gap-6">
+                <section>
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold">Vehicles</h2>
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link href={`/staff/customers/${customer.id}/vehicles/new`}>
+                          Add vehicle
+                        </Link>
+                      }
+                    />
+                  </div>
 
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Vehicles</h2>
-          <Button
-            nativeButton={false}
-            render={
-              <Link href={`/staff/customers/${customer.id}/vehicles/new`}>
-                Add vehicle
-              </Link>
-            }
-          />
-        </div>
+                  {vehicles.length === 0 ? (
+                    <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                      No vehicles on file for this customer yet.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto rounded-lg border">
+                      <table className="w-full min-w-[700px] text-sm">
+                        <thead className="bg-muted/50 text-left">
+                          <tr>
+                            <th className="px-4 py-2 font-medium">Registration</th>
+                            <th className="px-4 py-2 font-medium">Vehicle</th>
+                            <th className="px-4 py-2 font-medium">Year</th>
+                            <th className="px-4 py-2 font-medium">MOT expiry</th>
+                            <th className="px-4 py-2 font-medium">Service due</th>
+                            <th className="px-4 py-2 font-medium">Road tax</th>
+                            <th className="px-4 py-2 font-medium">Reminders</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {vehicles.map((v) => (
+                            <tr key={v.id} className="border-t align-top">
+                              <td className="px-4 py-2 font-mono">{v.registration}</td>
+                              <td className="px-4 py-2">
+                                {[v.make, v.model].filter(Boolean).join(" ") || "—"}
+                              </td>
+                              <td className="px-4 py-2">{v.year ?? "—"}</td>
+                              <td className={`px-4 py-2 ${dueDateClass(v.mot_expiry)}`}>
+                                {formatDate(v.mot_expiry)}
+                              </td>
+                              <td className={`px-4 py-2 ${dueDateClass(v.service_due)}`}>
+                                {formatDate(v.service_due)}
+                              </td>
+                              <td className={`px-4 py-2 ${dueDateClass(v.tax_due_date)}`}>
+                                {formatDate(v.tax_due_date)}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex flex-col gap-2">
+                                  <ReminderButton
+                                    vehicleId={v.id}
+                                    reminderType="mot"
+                                    disabled={!v.mot_expiry || (!customer.email && !customer.phone)}
+                                  />
+                                  <ReminderButton
+                                    vehicleId={v.id}
+                                    reminderType="service"
+                                    disabled={!v.service_due || (!customer.email && !customer.phone)}
+                                  />
+                                  <div className="flex gap-2 text-xs pt-1 border-t">
+                                    <Link
+                                      href={`/staff/customers/${customer.id}/vehicles/${v.id}/edit`}
+                                      className="underline text-muted-foreground"
+                                    >
+                                      Edit
+                                    </Link>
+                                    <DeleteVehicleButton
+                                      vehicleId={v.id}
+                                      customerId={customer.id}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
 
-        {vehicles.length === 0 ? (
-          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            No vehicles on file for this customer yet.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full min-w-[700px] text-sm">
-              <thead className="bg-muted/50 text-left">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Registration</th>
-                  <th className="px-4 py-2 font-medium">Vehicle</th>
-                  <th className="px-4 py-2 font-medium">Year</th>
-                  <th className="px-4 py-2 font-medium">MOT expiry</th>
-                  <th className="px-4 py-2 font-medium">Service due</th>
-                  <th className="px-4 py-2 font-medium">Road tax</th>
-                  <th className="px-4 py-2 font-medium">Reminders</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vehicles.map((v) => (
-                  <tr key={v.id} className="border-t align-top">
-                    <td className="px-4 py-2 font-mono">{v.registration}</td>
-                    <td className="px-4 py-2">
-                      {[v.make, v.model].filter(Boolean).join(" ") || "—"}
-                    </td>
-                    <td className="px-4 py-2">{v.year ?? "—"}</td>
-                    <td className={`px-4 py-2 ${dueDateClass(v.mot_expiry)}`}>
-                      {formatDate(v.mot_expiry)}
-                    </td>
-                    <td className={`px-4 py-2 ${dueDateClass(v.service_due)}`}>
-                      {formatDate(v.service_due)}
-                    </td>
-                    <td className={`px-4 py-2 ${dueDateClass(v.tax_due_date)}`}>
-                      {formatDate(v.tax_due_date)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col gap-2">
-                        <ReminderButton
-                          vehicleId={v.id}
-                          reminderType="mot"
-                          disabled={!v.mot_expiry || (!customer.email && !customer.phone)}
-                        />
-                        <ReminderButton
-                          vehicleId={v.id}
-                          reminderType="service"
-                          disabled={!v.service_due || (!customer.email && !customer.phone)}
-                        />
-                        <div className="flex gap-2 text-xs pt-1 border-t">
-                          <Link
-                            href={`/staff/customers/${customer.id}/vehicles/${v.id}/edit`}
-                            className="underline text-muted-foreground"
-                          >
-                            Edit
-                          </Link>
-                          <DeleteVehicleButton
-                            vehicleId={v.id}
-                            customerId={customer.id}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    <span className="text-red-600 font-semibold">Red</span> = due within
+                    30 days or overdue.{" "}
+                    <span className="text-amber-600 font-medium">Amber</span> = due within
+                    60 days. Reminders send to all available channels (email + SMS + WhatsApp). MOT and service only.
+                    Buttons disabled if no date set or no contact details on file.
+                  </p>
+                </section>
 
-        <p className="mt-2 text-xs text-muted-foreground">
-          <span className="text-red-600 font-semibold">Red</span> = due within
-          30 days or overdue.{" "}
-          <span className="text-amber-600 font-medium">Amber</span> = due within
-          60 days. Reminders send to all available channels (email + SMS + WhatsApp). MOT and service only.
-          Buttons disabled if no date set or no contact details on file.
-        </p>
-      </section>
-
-      <DraftMessagePanel
-        customerId={customer.id}
-        hasEmail={!!customer.email}
-        hasPhone={!!customer.phone}
+                {vehicles.length > 0 && (
+                  <StaffDiagnostic vehicles={vehicles.map((v) => ({ id: v.id, registration: v.registration, make: v.make, model: v.model }))} />
+                )}
+              </div>
+            ),
+          },
+          {
+            key: "memberships",
+            label: "Memberships",
+            content: (
+              <div className="flex flex-col gap-6">
+                <MembershipsSection memberships={memberships} />
+                {planOptions.length > 0 && (
+                  <PlanInvitePanel
+                    customerId={customer.id}
+                    plans={planOptions}
+                    hasEmail={!!customer.email}
+                    hasPhone={!!customer.phone}
+                  />
+                )}
+              </div>
+            ),
+          },
+          {
+            key: "comms",
+            label: "Comms",
+            content: (
+              <div className="flex flex-col gap-6">
+                <DraftMessagePanel
+                  customerId={customer.id}
+                  hasEmail={!!customer.email}
+                  hasPhone={!!customer.phone}
+                />
+                {reminderItems.length > 0 && (
+                  <section className="flex flex-col gap-2">
+                    <h2 className="text-lg font-semibold">Reminder history</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Each row is one reminder send. Click to expand and see the message
+                      body for each channel. Channel icons are green when sent
+                      successfully, red on failure.
+                    </p>
+                    <ReminderHistory items={reminderItems} />
+                  </section>
+                )}
+              </div>
+            ),
+          },
+          {
+            key: "compliance",
+            label: "Compliance",
+            content: (
+              <GdprPanel
+                customerId={customer.id}
+                customerName={customer.full_name ?? "this customer"}
+                emailConsent={customer.marketing_email_consent}
+                smsConsent={customer.marketing_sms_consent}
+                consentUpdatedAt={customer.consent_updated_at}
+                anonymizedAt={customer.anonymized_at}
+                canErase={ctx.orgRole === "owner" || ctx.orgRole === "admin"}
+                isOwner={ctx.orgRole === "owner"}
+              />
+            ),
+          },
+        ]}
       />
-
-      <GdprPanel
-        customerId={customer.id}
-        customerName={customer.full_name ?? "this customer"}
-        emailConsent={customer.marketing_email_consent}
-        smsConsent={customer.marketing_sms_consent}
-        consentUpdatedAt={customer.consent_updated_at}
-        anonymizedAt={customer.anonymized_at}
-        canErase={ctx.orgRole === "owner" || ctx.orgRole === "admin"}
-        isOwner={ctx.orgRole === "owner"}
-      />
-
-      {vehicles.length > 0 && (
-        <StaffDiagnostic vehicles={vehicles.map((v) => ({ id: v.id, registration: v.registration, make: v.make, model: v.model }))} />
-      )}
-
-      {reminderItems.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold">Reminder history</h2>
-          <p className="text-xs text-muted-foreground">
-            Each row is one reminder send. Click to expand and see the message
-            body for each channel. Channel icons are green when sent
-            successfully, red on failure.
-          </p>
-          <ReminderHistory items={reminderItems} />
-        </section>
-      )}
     </div>
   );
 }
