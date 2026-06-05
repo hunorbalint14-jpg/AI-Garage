@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { signInCustomer, sendCustomerMagicLink } from "./actions";
 
 type Mode = "magic-link" | "password";
@@ -106,10 +107,11 @@ export function CustomerLoginForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
+          className="inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
           style={{ backgroundColor: primaryColor, boxShadow: `0 8px 16px -8px ${primaryColor}60` }}
         >
-          {pending ? "Working…" : mode === "magic-link" ? "Email me a link" : "Sign in"}
+          {pending && <AigSpinner />}
+          {mode === "magic-link" ? "Email me a link" : "Sign in"}
         </button>
 
         <p className="text-center text-xs text-gray-400">

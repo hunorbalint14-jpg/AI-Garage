@@ -20,11 +20,11 @@ export function UpgradeButtons({ tier }: { tier: "pro" | "growth" }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => go("month")} disabled={pending}>
-          {pending ? "…" : "Choose monthly"}
+        <Button onClick={() => go("month")} loading={pending}>
+          Choose monthly
         </Button>
-        <Button variant="outline" onClick={() => go("year")} disabled={pending}>
-          {pending ? "…" : "Annual"}
+        <Button variant="outline" onClick={() => go("year")} loading={pending}>
+          Annual
         </Button>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -47,8 +47,8 @@ export function ManageBillingButton() {
 
   return (
     <div className="flex flex-col gap-1">
-      <Button variant="outline" onClick={go} disabled={pending}>
-        {pending ? "Opening…" : "Manage billing"}
+      <Button variant="outline" onClick={go} loading={pending}>
+        Manage billing
       </Button>
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>

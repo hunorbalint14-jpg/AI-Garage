@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { acceptPlanInvite } from "./actions";
 import type { PlanInterval } from "@/lib/service-plans";
 
@@ -36,19 +37,21 @@ export function SubscribeButtons({
           <button
             onClick={() => go("month")}
             disabled={pending}
-            className="rounded-xl px-6 py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
             style={{ backgroundColor: orgColor, boxShadow: `0 12px 24px -8px ${orgColor}60` }}
           >
-            {pending ? "…" : `Subscribe ${monthly}/mo`}
+            {pending && <AigSpinner />}
+            {`Subscribe ${monthly}/mo`}
           </button>
         )}
         {annual && (
           <button
             onClick={() => go("year")}
             disabled={pending}
-            className="rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-60"
           >
-            {pending ? "…" : `${annual}/yr`}
+            {pending && <AigSpinner />}
+            {`${annual}/yr`}
           </button>
         )}
       </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { startAuthentication } from "@simplewebauthn/browser";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { signInStaff } from "./actions";
 
 export function StaffLoginForm({
@@ -118,10 +119,11 @@ export function StaffLoginForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
+          className="inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
           style={{ backgroundColor: btnColor, boxShadow: `0 8px 16px -8px ${btnColor}60` }}
         >
-          {pending ? "Signing in…" : "Sign in"}
+          {pending && <AigSpinner />}
+          Sign in
         </button>
 
         <div className="flex items-center gap-2 my-1">

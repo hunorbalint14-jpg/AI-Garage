@@ -91,8 +91,8 @@ export function PlanInvitePanel({
             />
             SMS
           </label>
-          <Button onClick={send} disabled={pending}>
-            {pending ? "Sending…" : "Send invite"}
+          <Button onClick={send} loading={pending}>
+            Send invite
           </Button>
         </div>
       )}

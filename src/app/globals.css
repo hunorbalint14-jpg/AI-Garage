@@ -288,3 +288,72 @@
 .dark .bg-white {
   background-color: rgb(255 255 255 / 0.04);
 }
+
+/* ============================================================
+   AIGarage loading spinners (brand kit: AIGarage-brand/spinner).
+   Inline spinner inherits text colour via currentColor; the
+   full-screen loader is the on-dark FrameG mark. Both hold a
+   finished static mark under prefers-reduced-motion.
+   ============================================================ */
+
+/* Inline spinner — sizes to font-size, inherits text colour. */
+.aig-spin-inline {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+  color: currentColor;
+  flex: none;
+}
+.aig-spin-inline path {
+  stroke-dasharray: 100;
+  animation: aig-trace-inline 1.5s ease-in-out infinite;
+}
+@keyframes aig-trace-inline {
+  0%   { stroke-dashoffset: 100; }
+  46%  { stroke-dashoffset: 0; }
+  54%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -100; }
+}
+
+/* Full-screen loader. */
+.aig-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(120% 120% at 50% 38%, #14171d 0%, #0b0d11 62%);
+}
+.aig-mark {
+  width: clamp(96px, 16vw, 168px);
+  height: auto;
+  filter: drop-shadow(0 0 22px rgba(34, 197, 94, 0.14));
+}
+.aig-mark .g {
+  stroke-dasharray: 100;
+  animation: aig-trace-draw 1.9s ease-in-out infinite;
+}
+@keyframes aig-trace-draw {
+  0%   { stroke-dashoffset: 100; }
+  44%  { stroke-dashoffset: 0; }
+  56%  { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -100; }
+}
+.aig-mark .tongue,
+.aig-mark .ai {
+  animation: aig-trace-fill 1.9s ease-in-out infinite;
+}
+@keyframes aig-trace-fill {
+  0%, 40%   { opacity: 0; }
+  52%, 60%  { opacity: 1; }
+  74%, 100% { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aig-spin-inline path,
+  .aig-mark * { animation: none !important; }
+  .aig-spin-inline path,
+  .aig-mark .g { stroke-dashoffset: 0 !important; }
+  .aig-mark .tongue,
+  .aig-mark .ai { opacity: 1 !important; }
+}
