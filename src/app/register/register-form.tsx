@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { registerCustomer } from "./actions";
 import { createClient } from "@/lib/supabase/client";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
@@ -79,9 +80,10 @@ export function RegisterForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
+          className="inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
           style={{ backgroundColor: primaryColor, boxShadow: `0 8px 16px -8px ${primaryColor}60` }}
         >
+          {pending && <AigSpinner />}
           {pending ? "Creating account…" : "Create account"}
         </button>
 

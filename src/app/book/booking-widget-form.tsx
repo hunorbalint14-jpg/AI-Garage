@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { submitWidgetBooking } from "./actions";
 
 type Service = {
@@ -286,9 +287,10 @@ export function BookingWidgetForm({
       <button
         type="submit"
         disabled={pending || services.length === 0}
-        className="mt-1 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: orgColor }}
       >
+        {pending && <AigSpinner />}
         {pending
           ? willPayNow
             ? "Redirecting to payment…"

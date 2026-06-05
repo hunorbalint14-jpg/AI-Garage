@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { signUpGarage } from "./actions";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 
@@ -96,8 +97,9 @@ export function SignupForm() {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60 shadow-lg shadow-indigo-900/50"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60 shadow-lg shadow-indigo-900/50"
         >
+          {pending && <AigSpinner />}
           {pending ? "Creating your garage…" : "Create garage"}
         </button>
 

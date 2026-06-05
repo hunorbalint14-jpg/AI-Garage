@@ -67,8 +67,8 @@ export function InvoiceActions({ invoiceId, status, hasCustomerEmail, refundable
       <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Actions</h2>
       <div className="flex flex-wrap gap-2">
         {!isPaid && hasCustomerEmail && (
-          <Button onClick={() => handle(() => sendInvoice(invoiceId), "Invoice sent.")} disabled={pending}>
-            {pending ? "Sending…" : "Send to customer"}
+          <Button onClick={() => handle(() => sendInvoice(invoiceId), "Invoice sent.")} loading={pending}>
+            Send to customer
           </Button>
         )}
         {!isPaid && (
@@ -107,7 +107,7 @@ export function InvoiceActions({ invoiceId, status, hasCustomerEmail, refundable
               <label htmlFor="refund-reason" className="text-xs text-muted-foreground">Reason (optional)</label>
               <Input id="refund-reason" value={refundReason} onChange={(e) => setRefundReason(e.target.value)} placeholder="e.g. goodwill / overcharge" disabled={pending} />
             </div>
-            <Button onClick={handleRefund} disabled={pending}>{pending ? "Refunding…" : "Issue refund"}</Button>
+            <Button onClick={handleRefund} loading={pending}>Issue refund</Button>
             <Button variant="outline" onClick={() => setRefunding(false)} disabled={pending}>Cancel</Button>
           </div>
         </div>
