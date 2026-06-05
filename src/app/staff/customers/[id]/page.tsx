@@ -9,6 +9,7 @@ import { DraftMessagePanel } from "./draft-message-panel";
 import { StaffDiagnostic } from "./staff-diagnostic";
 import { GdprPanel } from "./gdpr-panel";
 import { ReminderHistory, type ReminderHistoryItem } from "./reminder-history";
+import { PlanInvitePanel, type InvitePlanOption } from "./plan-invite-panel";
 
 type Customer = {
   id: string;
@@ -74,7 +75,7 @@ export default async function CustomerDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [customerRes, vehiclesRes, remindersRes] = await Promise.all([
+  const [customerRes, vehiclesRes, remindersRes, plansRes] = await Promise.all([
     admin
       .from("customers")
       .select("id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
@@ -93,6 +94,12 @@ export default async function CustomerDetailPage({
       .eq("customer_id", id)
       .order("sent_at", { ascending: false })
       .limit(200),
+    admin
+      .from("service_plans")
+      .select("id, name")
+      .eq("location_id", ctx.location.id)
+      .eq("active", true)
+      .order("name", { ascending: true }),
   ]);
 
   // Verify customer belongs to this location
@@ -108,6 +115,7 @@ export default async function CustomerDetailPage({
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];
+  const planOptions = (plansRes.data ?? []) as InvitePlanOption[];
 
   // Group reminder rows by vehicle + type + 5-minute bucket so all channels
   // sent in one "Send reminder" action collapse into a single row.
@@ -190,6 +198,15 @@ export default async function CustomerDetailPage({
           <dd>{formatDate(customer.created_at)}</dd>
         </dl>
       </section>
+
+      {planOptions.length > 0 && (
+        <PlanInvitePanel
+          customerId={customer.id}
+          plans={planOptions}
+          hasEmail={!!customer.email}
+          hasPhone={!!customer.phone}
+        />
+      )}
 
       <section>
         <div className="mb-3 flex items-center justify-between">

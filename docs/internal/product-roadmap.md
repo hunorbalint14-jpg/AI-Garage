@@ -67,6 +67,8 @@ This is a living document — tick items as they ship, link the PR.
   on the garage's connected account (platform fee skimmed), subscription status tracked
   + cancel-at-period-end. **Billing + record only** — entitlements (member discount,
   free MOT, auto-scheduled service) are the next PRs.
+  PR2 shipped: staff send a tokenised subscribe link (email/SMS, `/plan/[slug]`) from
+  the customer page so they can enrol customers who aren't in the portal yet.
 - ⏸️ **SaaS tenant billing** — plans / seats / trials for garages themselves.
   _Decision pending: pursue platform-subscription revenue, or stay platform-fee
   only? Today's model is per-payment platform fee only._
