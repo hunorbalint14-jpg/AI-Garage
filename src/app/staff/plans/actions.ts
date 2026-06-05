@@ -21,6 +21,18 @@ function parsePence(v: FormDataEntryValue | null): number | null {
   return Math.round(f * 100);
 }
 
+// Read the member-discount config from the form. Normalises to 'none' when the
+// value is zero/blank; clamps a percentage to 100.
+function parseDiscount(formData: FormData): { discount_type: "none" | "percent" | "fixed"; discount_value: number } {
+  const type = (formData.get("discountType") as string | null) ?? "none";
+  const raw = parseFloat((formData.get("discountValue") as string | null)?.trim() || "0");
+  const value = Number.isFinite(raw) && raw > 0 ? raw : 0;
+  if (value <= 0) return { discount_type: "none", discount_value: 0 };
+  if (type === "percent") return { discount_type: "percent", discount_value: Math.min(100, value) };
+  if (type === "fixed") return { discount_type: "fixed", discount_value: value };
+  return { discount_type: "none", discount_value: 0 };
+}
+
 type Admin = ReturnType<typeof createAdminClient>;
 
 // Best-effort: create the plan's Stripe Product + Price(s) on the connected
@@ -57,10 +69,12 @@ export async function upsertServicePlan(formData: FormData, planId?: string): Pr
   const description = (formData.get("description") as string | null)?.trim() || null;
   if (!name) return { error: "Plan name is required." };
 
+  const discount = parseDiscount(formData);
+
   if (planId) {
     const { error } = await admin
       .from("service_plans")
-      .update({ name, description })
+      .update({ name, description, ...discount })
       .eq("id", planId)
       .eq("location_id", ctx.location.id);
     if (error) return { error: error.message };
@@ -72,7 +86,7 @@ export async function upsertServicePlan(formData: FormData, planId?: string): Pr
       action: "service_plan.upsert",
       entityType: "service_plan",
       entityId: planId,
-      metadata: { mode: "update", name },
+      metadata: { mode: "update", name, ...discount },
     });
     revalidatePath("/staff/plans");
     return { success: true };
@@ -92,10 +106,12 @@ export async function upsertServicePlan(formData: FormData, planId?: string): Pr
       description,
       price_monthly_pence: monthly,
       price_annual_pence: annual,
+      discount_type: discount.discount_type,
+      discount_value: discount.discount_value,
       created_by: ctx.user.id,
     })
     .select(
-      "id, location_id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active",
+      "id, location_id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active, discount_type, discount_value",
     )
     .single();
   if (error || !data) return { error: error?.message ?? "Could not create the plan." };
@@ -131,7 +147,7 @@ export async function togglePlanActive(planId: string, active: boolean): Promise
     .eq("id", planId)
     .eq("location_id", ctx.location.id)
     .select(
-      "id, location_id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active",
+      "id, location_id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active, discount_type, discount_value",
     )
     .single();
   if (error || !data) return { error: error?.message ?? "Plan not found." };

@@ -10,6 +10,12 @@ import { tenantPayUrl, stripe } from "@/lib/stripe";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
 import { pushInvoiceToXero, pushPaymentToXero, pushCreditNoteToXero } from "@/lib/xero-sync";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
+import {
+  memberDiscountForCustomer,
+  computeMemberDiscount,
+  applyInvoiceTotals,
+  discountDescription,
+} from "@/lib/service-plans";
 import { logAudit } from "@/lib/audit";
 
 export type CreateInvoiceResult = { error: string } | { success: true; invoiceId: string };
@@ -40,8 +46,20 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
 
   const subtotal = items.reduce((sum, i) => sum + Number(i.quantity) * Number(i.unit_price), 0);
   const vatRate = 20;
-  const vatAmount = subtotal * (vatRate / 100);
-  const total = subtotal + vatAmount;
+
+  // Member discount — if the customer has a live plan subscription that grants a
+  // discount, take it off pre-VAT (VAT then charged on the discounted net).
+  let discountAmount = 0;
+  let discountDescriptionText: string | null = null;
+  if (job.customer_id) {
+    const member = await memberDiscountForCustomer(admin, job.customer_id, ctx.location.id);
+    if (member) {
+      const cfg = { type: member.type, value: member.value };
+      discountAmount = computeMemberDiscount(subtotal, cfg);
+      if (discountAmount > 0) discountDescriptionText = discountDescription(member.planName, cfg);
+    }
+  }
+  const { vatAmount, total } = applyInvoiceTotals({ subtotal, discountAmount, vatRate });
 
   // Generate invoice number
   const { count } = await admin
@@ -65,6 +83,8 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
       vat_rate: vatRate,
       vat_amount: vatAmount,
       total,
+      discount_amount: discountAmount,
+      discount_description: discountDescriptionText,
       issued_at: today.toISOString().split("T")[0],
       due_at: due.toISOString().split("T")[0],
     })
@@ -88,7 +108,7 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
     action: "invoice.create",
     entityType: "invoice",
     entityId: invoice.id,
-    metadata: { invoice_number: invoiceNumber, job_id: jobId, total },
+    metadata: { invoice_number: invoiceNumber, job_id: jobId, total, discount_amount: discountAmount },
   });
 
   revalidatePath(`/staff/jobs/${jobId}`);
@@ -107,7 +127,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
   const [invoiceRes, orgRes] = await Promise.all([
     admin
       .from("invoices")
-      .select("id, location_id, invoice_number, subtotal, vat_rate, vat_amount, total, issued_at, due_at, notes, customer:customers(full_name, email), job:jobs(id)")
+      .select("id, location_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, issued_at, due_at, notes, customer:customers(full_name, email), job:jobs(id)")
       .eq("id", invoiceId)
       .maybeSingle(),
     admin
@@ -120,6 +140,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
   type InvoiceRow = {
     id: string; location_id: string; invoice_number: string;
     subtotal: number; vat_rate: number; vat_amount: number; total: number;
+    discount_amount: number; discount_description: string | null;
     issued_at: string; due_at: string; notes: string | null;
     customer: { full_name: string | null; email: string | null } | null;
     job: { id: string } | null;
@@ -160,6 +181,8 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     vatRate: invoice.vat_rate,
     vatAmount: invoice.vat_amount,
     total: invoice.total,
+    discountAmount: invoice.discount_amount,
+    discountDescription: invoice.discount_description,
     notes: invoice.notes,
     payUrl,
   });

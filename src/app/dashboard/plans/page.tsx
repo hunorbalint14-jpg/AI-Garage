@@ -11,7 +11,16 @@ type PlanRow = {
   description: string | null;
   price_monthly_pence: number | null;
   price_annual_pence: number | null;
+  discount_type: "none" | "percent" | "fixed";
+  discount_value: number;
 };
+
+function discountLabel(p: { discount_type: string; discount_value: number }): string | null {
+  if (p.discount_type === "percent" && p.discount_value > 0) return `${p.discount_value}% off your invoices`;
+  if (p.discount_type === "fixed" && p.discount_value > 0)
+    return `${new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(p.discount_value)} off your invoices`;
+  return null;
+}
 type SubRow = {
   id: string;
   service_plan_id: string | null;
@@ -50,7 +59,7 @@ export default async function PlansPage({
   const [plansRes, subsRes] = await Promise.all([
     admin
       .from("service_plans")
-      .select("id, name, description, price_monthly_pence, price_annual_pence")
+      .select("id, name, description, price_monthly_pence, price_annual_pence, discount_type, discount_value")
       .eq("location_id", location.id)
       .eq("active", true)
       .order("name", { ascending: true }),
@@ -141,6 +150,11 @@ export default async function PlansPage({
                       <h3 className="font-semibold">{p.name}</h3>
                     </div>
                     {p.description && <p className="mt-2 text-sm text-gray-400">{p.description}</p>}
+                    {discountLabel(p) && (
+                      <p className="mt-2 text-sm font-medium" style={{ color: org.primary_color }}>
+                        {discountLabel(p)}
+                      </p>
+                    )}
                   </div>
                   {live ? (
                     <p className="text-sm font-medium" style={{ color: org.primary_color }}>

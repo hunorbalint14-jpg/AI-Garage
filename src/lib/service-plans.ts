@@ -22,7 +22,50 @@ export type ServicePlanRow = {
   stripe_price_monthly_id: string | null;
   stripe_price_annual_id: string | null;
   active: boolean;
+  discount_type: DiscountType;
+  discount_value: number;
 };
+
+export type DiscountType = "none" | "percent" | "fixed";
+export type DiscountConfig = { type: DiscountType; value: number };
+
+function round2(n: number): number {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+// The discount amount a config takes off a given base (pre-VAT). Percent →
+// base*value/100; fixed → value clamped to the base; none / non-positive → 0.
+export function computeMemberDiscount(base: number, cfg: DiscountConfig): number {
+  if (base <= 0 || cfg.value <= 0) return 0;
+  if (cfg.type === "percent") return round2((base * cfg.value) / 100);
+  if (cfg.type === "fixed") return round2(Math.min(cfg.value, base));
+  return 0;
+}
+
+// Recompute VAT + total after a discount. VAT is charged on the discounted net.
+export function applyInvoiceTotals({
+  subtotal,
+  discountAmount,
+  vatRate,
+}: {
+  subtotal: number;
+  discountAmount: number;
+  vatRate: number;
+}): { vatAmount: number; total: number } {
+  const net = round2(subtotal - discountAmount);
+  const vatAmount = round2((net * vatRate) / 100);
+  const total = round2(net + vatAmount);
+  return { vatAmount, total };
+}
+
+// A short human label for an applied discount, e.g. "Gold plan – 10%".
+export function discountDescription(planName: string, cfg: DiscountConfig): string {
+  const suffix =
+    cfg.type === "percent"
+      ? `${cfg.value}%`
+      : new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(cfg.value);
+  return `${planName} – ${suffix}`;
+}
 
 // Which pence amount + Stripe price id back a given interval. Null when the plan
 // isn't priced for that interval.
@@ -192,4 +235,47 @@ export async function recordSubscriptionFromStripe(
     console.error("[service-plans] recordSubscriptionFromStripe threw", err);
     return { ok: false };
   }
+}
+
+export type MemberDiscount = {
+  type: "percent" | "fixed";
+  value: number;
+  planName: string;
+  subscriptionId: string;
+};
+
+// The best discount a customer is entitled to from any of their live
+// (active/trialing) plan subscriptions at this location, or null. Percent vs
+// fixed are ranked on a nominal £100 base so the more generous one wins.
+export async function memberDiscountForCustomer(
+  admin: Admin,
+  customerId: string,
+  locationId: string,
+): Promise<MemberDiscount | null> {
+  const { data } = await admin
+    .from("plan_subscriptions")
+    .select("id, status, service_plan:service_plans(name, discount_type, discount_value)")
+    .eq("customer_id", customerId)
+    .eq("location_id", locationId)
+    .in("status", ["active", "trialing"]);
+
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    status: string;
+    service_plan: { name: string; discount_type: string; discount_value: number } | null;
+  }[];
+
+  let best: MemberDiscount | null = null;
+  let bestNominal = 0;
+  for (const r of rows) {
+    const sp = r.service_plan;
+    if (!sp || sp.discount_type === "none" || !(Number(sp.discount_value) > 0)) continue;
+    const value = Number(sp.discount_value);
+    const nominal = sp.discount_type === "percent" ? value : Math.min(value, 100);
+    if (nominal > bestNominal) {
+      bestNominal = nominal;
+      best = { type: sp.discount_type as "percent" | "fixed", value, planName: sp.name, subscriptionId: r.id };
+    }
+  }
+  return best;
 }

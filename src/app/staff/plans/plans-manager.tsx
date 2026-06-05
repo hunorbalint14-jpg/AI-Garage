@@ -15,6 +15,8 @@ export type PlanRow = {
   stripe_price_monthly_id: string | null;
   stripe_price_annual_id: string | null;
   active: boolean;
+  discount_type: "none" | "percent" | "fixed";
+  discount_value: number;
   subscriberCount: number;
 };
 
@@ -22,6 +24,15 @@ const fmt = (pence: number | null) =>
   pence == null
     ? null
     : new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(pence / 100);
+
+const fmtPounds = (n: number) =>
+  new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+
+function discountLabel(plan: Pick<PlanRow, "discount_type" | "discount_value">): string | null {
+  if (plan.discount_type === "percent" && plan.discount_value > 0) return `${plan.discount_value}% member discount`;
+  if (plan.discount_type === "fixed" && plan.discount_value > 0) return `${fmtPounds(plan.discount_value)} member discount`;
+  return null;
+}
 
 type ActionResult = { error: string } | { success: true };
 
@@ -140,6 +151,8 @@ function PlanCard({
         {y && <span>{y}/yr</span>}
       </div>
 
+      {discountLabel(plan) && <p className="text-xs font-medium text-green-700">{discountLabel(plan)}</p>}
+
       <div className="text-xs text-muted-foreground">
         {plan.subscriberCount} active subscriber{plan.subscriberCount === 1 ? "" : "s"}
         {!priced && <span className="ml-2 text-amber-600">· Stripe price pending</span>}
@@ -215,6 +228,41 @@ function PlanForm({
           </div>
         </div>
       )}
+
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="plan-discount-type" className="text-xs text-muted-foreground">
+            Member discount
+          </label>
+          <select
+            id="plan-discount-type"
+            name="discountType"
+            defaultValue={plan?.discount_type ?? "none"}
+            disabled={pending}
+            className="rounded-md border bg-transparent px-3 py-2 text-sm"
+          >
+            <option value="none">None</option>
+            <option value="percent">Percentage</option>
+            <option value="fixed">Fixed £</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label htmlFor="plan-discount-value" className="text-xs text-muted-foreground">
+            Value (% or £)
+          </label>
+          <Input
+            id="plan-discount-value"
+            name="discountValue"
+            type="number"
+            step="0.01"
+            min="0"
+            defaultValue={plan && plan.discount_value > 0 ? String(plan.discount_value) : ""}
+            placeholder="0"
+            disabled={pending}
+            className="w-28"
+          />
+        </div>
+      </div>
 
       <div className="flex gap-2">
         <Button type="submit" disabled={pending}>

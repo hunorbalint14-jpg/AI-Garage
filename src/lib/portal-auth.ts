@@ -92,6 +92,8 @@ export type PortalInvoice = {
   vat_rate: number;
   vat_amount: number;
   total: number;
+  discount_amount: number;
+  discount_description: string | null;
   issued_at: string;
   due_at: string;
   paid_at: string | null;
@@ -112,7 +114,7 @@ export async function requireOwnedInvoice(
   const { data } = await admin
     .from("invoices")
     .select(
-      "id, invoice_number, status, subtotal, vat_rate, vat_amount, total, issued_at, due_at, paid_at, notes, customer_id, job_id, location_id",
+      "id, invoice_number, status, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, issued_at, due_at, paid_at, notes, customer_id, job_id, location_id",
     )
     .eq("id", invoiceId)
     .maybeSingle();
