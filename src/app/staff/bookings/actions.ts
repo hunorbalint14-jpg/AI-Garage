@@ -253,6 +253,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
         type: "labour",
         quantity: 1,
         unit_price: Number(service.price ?? 0),
+        service_id: booking.service_id,
       });
     }
   }

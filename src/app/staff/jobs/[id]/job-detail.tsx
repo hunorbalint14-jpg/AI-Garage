@@ -40,6 +40,13 @@ type Product = {
   category: string;
 };
 
+type Service = {
+  id: string;
+  name: string;
+  price: number | null;
+  category: string;
+};
+
 const STATUS_STYLE: Record<string, string> = {
   open: "bg-blue-100 text-blue-700",
   complete: "bg-green-100 text-green-700",
@@ -54,11 +61,13 @@ export function JobDetail({
   job,
   items,
   products,
+  services,
   quotes,
 }: {
   job: Job;
   items: JobItem[];
   products: Product[];
+  services: Service[];
   quotes: QuoteSummary[];
 }) {
   const router = useRouter();
@@ -73,16 +82,30 @@ export function JobDetail({
   const [itemQty, setItemQty] = useState("1");
   const [itemUnitPrice, setItemUnitPrice] = useState("0");
   const [productId, setProductId] = useState("");
+  const [serviceId, setServiceId] = useState("");
   const [labourHint, setLabourHint] = useState<string | null>(null);
 
   function handleProductPick(id: string) {
     setProductId(id);
     if (!id) return;
+    setServiceId(""); // a line is a product OR a service, not both
     const p = products.find((x) => x.id === id);
     if (!p) return;
     setItemDesc(p.name);
     setItemType("part");
     setItemUnitPrice(String(p.unit_price));
+    setLabourHint(null);
+  }
+
+  function handleServicePick(id: string) {
+    setServiceId(id);
+    if (!id) return;
+    setProductId("");
+    const s = services.find((x) => x.id === id);
+    if (!s) return;
+    setItemDesc(s.name);
+    setItemType("labour");
+    setItemUnitPrice(String(s.price ?? 0));
     setLabourHint(null);
   }
 
@@ -110,6 +133,7 @@ export function JobDetail({
         setItemQty("1");
         setItemUnitPrice("0");
         setProductId("");
+        setServiceId("");
         setLabourHint(null);
       }
     });
@@ -361,27 +385,50 @@ export function JobDetail({
         {isOpen && (
           <form onSubmit={handleAddItem} className="p-4 border-t flex flex-col gap-3 bg-muted/10">
             <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Add item</h3>
-            {/* Links the line to a catalogue product so completing the job decrements stock. */}
+            {/* Links the line to a catalogue product (decrements stock on complete)
+                or a service (recognised by plan included-services allowances). */}
             <input type="hidden" name="productId" value={productId} />
-            {products.length > 0 && (
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="product-pick" className="text-xs">Pick from products</Label>
-                <select
-                  id="product-pick"
-                  value={productId}
-                  onChange={(e) => handleProductPick(e.target.value)}
-                  disabled={pending}
-                  className={inputClass}
-                >
-                  <option value="">— Custom item / no product —</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {formatGBP(p.unit_price)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+            <input type="hidden" name="serviceId" value={serviceId} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {products.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="product-pick" className="text-xs">Pick from products</Label>
+                  <select
+                    id="product-pick"
+                    value={productId}
+                    onChange={(e) => handleProductPick(e.target.value)}
+                    disabled={pending}
+                    className={inputClass}
+                  >
+                    <option value="">— Custom item / no product —</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} · {formatGBP(p.unit_price)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {services.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="service-pick" className="text-xs">Pick from services</Label>
+                  <select
+                    id="service-pick"
+                    value={serviceId}
+                    onChange={(e) => handleServicePick(e.target.value)}
+                    disabled={pending}
+                    className={inputClass}
+                  >
+                    <option value="">— Custom item / no service —</option>
+                    {services.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}{s.price != null ? ` · ${formatGBP(s.price)}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_140px_100px_120px_auto] gap-2 items-end">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="description-new" className="text-xs">Description</Label>
@@ -395,8 +442,9 @@ export function JobDetail({
                   onChange={(e) => {
                     setItemDesc(e.target.value);
                     setLabourHint(null);
-                    // Manual edit detaches from any picked product.
+                    // Manual edit detaches from any picked product / service.
                     if (productId) setProductId("");
+                    if (serviceId) setServiceId("");
                   }}
                 />
               </div>
