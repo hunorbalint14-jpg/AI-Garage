@@ -120,10 +120,11 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
               <Button
                 type="button"
                 variant="outline"
-                disabled={!registration.trim() || lookupPending}
+                disabled={!registration.trim()}
+                loading={lookupPending}
                 onClick={handleLookup}
               >
-                {lookupPending ? "Looking up…" : "Refresh DVLA"}
+                Refresh DVLA
               </Button>
             </div>
             {lookupHint && <p className="text-xs text-green-700">{lookupHint}</p>}
@@ -184,10 +185,11 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
               type="button"
               variant="outline"
               size="sm"
-              disabled={recallPending || !registration.trim()}
+              disabled={!registration.trim()}
+              loading={recallPending}
               onClick={handleRecallCheck}
             >
-              {recallPending ? "Checking…" : "Check DVSA safety recalls"}
+              Check DVSA safety recalls
             </Button>
             {recallError && <span className="text-xs text-red-600">{recallError}</span>}
           </div>

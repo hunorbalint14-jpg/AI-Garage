@@ -106,10 +106,11 @@ export function VehicleForm({ customerId }: { customerId: string }) {
               <Button
                 type="button"
                 variant="outline"
-                disabled={!registration.trim() || lookupPending}
+                disabled={!registration.trim()}
+                loading={lookupPending}
                 onClick={handleLookup}
               >
-                {lookupPending ? "Looking up…" : "Lookup"}
+                Lookup
               </Button>
             </div>
             {lookupHint && <p className="text-xs text-green-700">{lookupHint}</p>}
