@@ -512,7 +512,7 @@ export function JobDetail({
                   }}
                 />
               </div>
-              <Button type="submit" disabled={pending}>{pending ? "Adding…" : "Add"}</Button>
+              <Button type="submit" loading={pending}>Add</Button>
             </div>
             {labourHint && (
               <p className={`text-xs ${labourHint.startsWith("Error") ? "text-red-600" : "text-green-700"}`}>
@@ -533,8 +533,8 @@ export function JobDetail({
           )}
           {!isOpen && !isInvoiced && (
             <>
-              <Button onClick={handleCreateAndSendInvoice} disabled={pending}>
-                {pending ? "Working…" : "Create & send invoice"}
+              <Button onClick={handleCreateAndSendInvoice} loading={pending}>
+                Create & send invoice
               </Button>
               <Button variant="outline" onClick={handleCreateInvoice} disabled={pending}>
                 Create invoice (draft)

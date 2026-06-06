@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { submitReview } from "./actions";
 
 export function ReviewForm({ token, accent }: { token: string; accent: string }) {
@@ -84,10 +85,11 @@ export function ReviewForm({ token, accent }: { token: string; accent: string })
         type="button"
         onClick={handleSubmit}
         disabled={pending}
-        className="rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-60"
         style={{ backgroundColor: accent }}
       >
-        {pending ? "Submitting…" : "Submit feedback"}
+        {pending && <AigSpinner />}
+        Submit feedback
       </button>
     </div>
   );

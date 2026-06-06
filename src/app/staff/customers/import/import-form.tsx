@@ -73,8 +73,8 @@ export function ImportForm() {
             className="text-sm file:mr-3 file:rounded file:border file:border-black/20 dark:file:border-white/25 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:font-medium"
           />
           <div>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Importing…" : "Import"}
+            <Button type="submit" loading={pending}>
+              Import
             </Button>
           </div>
         </form>

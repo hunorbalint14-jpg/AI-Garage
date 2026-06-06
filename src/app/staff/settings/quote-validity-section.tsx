@@ -54,7 +54,7 @@ export function QuoteValiditySection({
             className="w-32"
           />
         </div>
-        <Button type="submit" disabled={pending || !canManage}>{pending ? "Saving…" : "Save"}</Button>
+        <Button type="submit" disabled={!canManage} loading={pending}>Save</Button>
       </form>
 
       {!canManage && (

@@ -76,8 +76,8 @@ export function EditCustomerForm({ customer }: { customer: Customer }) {
             />
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" disabled={pending} className="self-start">
-            {pending ? "Saving…" : "Save changes"}
+          <Button type="submit" loading={pending} className="self-start">
+            Save changes
           </Button>
         </form>
       </CardContent>

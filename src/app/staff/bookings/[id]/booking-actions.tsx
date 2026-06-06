@@ -63,8 +63,8 @@ export function BookingActions({ bookingId, status, hasJob, jobId }: Props) {
       <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Actions</h2>
       <div className="flex flex-wrap gap-2">
         {!hasJob && !isFinal && (
-          <Button onClick={handleStart} disabled={pending}>
-            {pending ? "Starting…" : "Start work (create job card)"}
+          <Button onClick={handleStart} loading={pending}>
+            Start work (create job card)
           </Button>
         )}
         {hasJob && jobId && (

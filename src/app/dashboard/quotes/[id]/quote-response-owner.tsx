@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { useRouter } from "next/navigation";
 import { approveQuoteAsOwner, declineQuoteAsOwner } from "../actions";
 
@@ -52,10 +53,11 @@ export function QuoteResponseOwner({ quoteId, orgColor }: { quoteId: string; org
             type="button"
             onClick={approve}
             disabled={pending}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
             style={{ backgroundColor: orgColor }}
           >
-            {pending ? "Working…" : "Approve quote"}
+            {pending && <AigSpinner />}
+            Approve quote
           </button>
           <button
             type="button"
@@ -85,9 +87,10 @@ export function QuoteResponseOwner({ quoteId, orgColor }: { quoteId: string; org
               type="button"
               onClick={decline}
               disabled={pending}
-              className="flex-1 rounded-xl bg-red-500/80 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-50"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-500/80 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-red-500 disabled:opacity-50"
             >
-              {pending ? "Working…" : "Confirm decline"}
+              {pending && <AigSpinner />}
+              Confirm decline
             </button>
             <button
               type="button"

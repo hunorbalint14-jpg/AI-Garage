@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { requestPasswordReset } from "./actions";
 
 export function ForgotPasswordForm() {
@@ -67,9 +68,10 @@ export function ForgotPasswordForm() {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
         >
-          {pending ? "Sending…" : "Send reset link"}
+          {pending && <AigSpinner />}
+          Send reset link
         </button>
         <p className="text-center text-xs text-gray-400">
           <a href="/login" className="underline hover:text-white">

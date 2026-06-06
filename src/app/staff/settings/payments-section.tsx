@@ -89,8 +89,8 @@ export function PaymentsSection({
 
       {status === "disconnected" && (
         <div>
-          <Button onClick={handleConnect} disabled={!canManage || pending}>
-            {pending ? "Opening Stripe…" : "Connect Stripe"}
+          <Button onClick={handleConnect} disabled={!canManage} loading={pending}>
+            Connect Stripe
           </Button>
           {!canManage && (
             <p className="mt-2 text-xs text-muted-foreground">
@@ -102,8 +102,8 @@ export function PaymentsSection({
 
       {status === "incomplete" && (
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleConnect} disabled={!canManage || pending}>
-            {pending ? "Opening Stripe…" : "Continue Stripe setup"}
+          <Button onClick={handleConnect} disabled={!canManage} loading={pending}>
+            Continue Stripe setup
           </Button>
           <Button variant="outline" onClick={handleRefresh} disabled={pending}>
             Refresh status

@@ -38,10 +38,11 @@ export function ReminderButton({ vehicleId, reminderType, disabled }: Props) {
         type="button"
         size="xs"
         variant="outline"
-        disabled={disabled || pending}
+        disabled={disabled}
+        loading={pending}
         onClick={handleClick}
       >
-        {pending ? "Sending…" : `Send ${label} reminder`}
+        {`Send ${label} reminder`}
       </Button>
       {status === "success" && (
         <span className="text-xs text-green-700">{message}</span>

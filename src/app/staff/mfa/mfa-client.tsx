@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 
 async function postJson(url: string, body?: unknown): Promise<Record<string, unknown>> {
@@ -56,9 +57,10 @@ export function MfaClient({ hasPasskey, canSkip }: { hasPasskey: boolean; canSki
         type="button"
         onClick={run}
         disabled={pending}
-        className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
       >
-        {pending ? "Working…" : hasPasskey ? "Verify with passkey" : "Set up passkey"}
+        {pending && <AigSpinner />}
+        {hasPasskey ? "Verify with passkey" : "Set up passkey"}
       </button>
 
       {canSkip && (

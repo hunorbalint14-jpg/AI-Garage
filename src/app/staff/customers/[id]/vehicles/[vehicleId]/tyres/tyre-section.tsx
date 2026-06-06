@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { saveTyreCheck, deleteTyreCheck } from "./actions";
 
 type TyreCheck = {
@@ -146,9 +147,10 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
           <button
             type="submit"
             disabled={pending}
-            className="self-start rounded-lg border border-transparent bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 self-start rounded-lg border border-transparent bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
           >
-            {pending ? "Saving…" : "Save tyre check"}
+            {pending && <AigSpinner />}
+            Save tyre check
           </button>
         </form>
       )}
