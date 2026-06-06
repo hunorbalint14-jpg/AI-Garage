@@ -5,6 +5,7 @@ import { DiagnosticPanel } from "./diagnostic-panel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext } from "@/lib/portal-auth";
 import { AnimatedBackground } from "@/components/animated-background";
+import { NavProgressProvider, NavProgressOverlay } from "@/components/nav-progress";
 import { CustomerSignOutButton } from "./sign-out-button";
 import { PortalNav } from "./portal-nav";
 
@@ -123,6 +124,7 @@ export default async function CustomerDashboard() {
   const logoUrl = location.organization.logo_url;
 
   return (
+    <NavProgressProvider>
     <div className="relative min-h-screen bg-[#050c1a] text-white overflow-x-hidden">
       <AnimatedBackground brandColor={orgColor} />
 
@@ -287,6 +289,9 @@ export default async function CustomerDashboard() {
           </section>
         )}
       </main>
+
+      <NavProgressOverlay />
     </div>
+    </NavProgressProvider>
   );
 }

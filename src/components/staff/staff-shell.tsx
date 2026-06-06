@@ -1,7 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  NavProgressProvider,
+  NavProgressOverlay,
+  TrackedLink as Link,
+} from "@/components/nav-progress";
 import { useMemo, useState } from "react";
 import { Search, ChevronLeft, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -70,6 +74,7 @@ export function StaffShell({
   }
 
   return (
+    <NavProgressProvider>
     <div className="flex h-screen overflow-hidden bg-[#0e1014] text-[#e6e8eb] dark">
       {/* ─────────────────────────── RAIL ─────────────────────────── */}
       <aside className="hidden sm:flex w-[64px] shrink-0 flex-col items-center border-r border-[#2a2f37] bg-[#0a0c0f] py-3 z-20">
@@ -236,7 +241,9 @@ export function StaffShell({
           onClose={() => setSheetOpen(false)}
         />
       )}
+      <NavProgressOverlay />
     </div>
+    </NavProgressProvider>
   );
 }
 

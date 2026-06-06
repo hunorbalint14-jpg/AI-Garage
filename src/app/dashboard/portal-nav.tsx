@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { TrackedLink as Link } from "@/components/nav-progress";
 
 // Shared tab bar for the logged-in customer portal. Tabs are added here as each
 // destination ships — keep this list to routes that actually exist so we never

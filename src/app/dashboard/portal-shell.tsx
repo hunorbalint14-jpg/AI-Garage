@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AnimatedBackground } from "@/components/animated-background";
+import { NavProgressProvider, NavProgressOverlay } from "@/components/nav-progress";
 import type { PortalOrganization } from "@/lib/portal-auth";
 import { CustomerSignOutButton } from "./sign-out-button";
 import { PortalNav } from "./portal-nav";
@@ -11,6 +12,7 @@ import { PortalNav } from "./portal-nav";
 // top-level tab (e.g. an individual invoice) keep their own back-link layout.
 export function PortalShell({ org, children }: { org: PortalOrganization; children: ReactNode }) {
   return (
+    <NavProgressProvider>
     <div className="relative min-h-screen overflow-x-hidden bg-[#050c1a] text-white">
       <AnimatedBackground brandColor={org.primary_color} />
 
@@ -41,6 +43,9 @@ export function PortalShell({ org, children }: { org: PortalOrganization; childr
       <main className="relative z-10 mx-auto flex max-w-2xl flex-col gap-8 px-6 py-8">
         {children}
       </main>
+
+      <NavProgressOverlay />
     </div>
+    </NavProgressProvider>
   );
 }
