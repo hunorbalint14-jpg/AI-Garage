@@ -9,6 +9,7 @@ import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 import { recordSubscriptionFromStripe } from "@/lib/service-plans";
 import { recordTenantSubscription } from "@/lib/tenant-plans";
+import { sendTenantSubscriptionReceipt, sendServicePlanReceipt } from "@/lib/subscription-receipts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,6 +127,7 @@ async function handleStripeEvent(
           typeof session.subscription === "string" ? session.subscription : session.subscription.id;
         const sub = await stripe.subscriptions.retrieve(subId);
         await recordTenantSubscription(admin, sub);
+        await sendTenantSubscriptionReceipt(sub);
         console.log("[stripe-webhook] tenant subscription recorded", { subId });
         break;
       }
@@ -140,6 +142,7 @@ async function handleStripeEvent(
             stripeAccount: event.account,
           });
           await recordSubscriptionFromStripe(admin, sub);
+          await sendServicePlanReceipt(admin, sub);
 
           // Mark the originating staff invite (if any) as redeemed.
           const inviteId = session.metadata?.plan_invite_id;
