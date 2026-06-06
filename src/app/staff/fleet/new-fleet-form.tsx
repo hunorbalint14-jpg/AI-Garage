@@ -57,7 +57,7 @@ export function NewFleetForm() {
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2 pt-1">
-            <Button type="submit" disabled={pending}>{pending ? "Creating…" : "Create"}</Button>
+            <Button type="submit" loading={pending}>Create</Button>
             <Button type="button" variant="outline" onClick={() => { setOpen(false); setError(null); }}>Cancel</Button>
           </div>
         </form>

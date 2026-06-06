@@ -106,10 +106,11 @@ export function VehicleForm({ customerId }: { customerId: string }) {
               <Button
                 type="button"
                 variant="outline"
-                disabled={!registration.trim() || lookupPending}
+                disabled={!registration.trim()}
+                loading={lookupPending}
                 onClick={handleLookup}
               >
-                {lookupPending ? "Looking up…" : "Lookup"}
+                Lookup
               </Button>
             </div>
             {lookupHint && <p className="text-xs text-green-700">{lookupHint}</p>}
@@ -162,8 +163,8 @@ export function VehicleForm({ customerId }: { customerId: string }) {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save vehicle"}
+          <Button type="submit" loading={pending}>
+            Save vehicle
           </Button>
         </form>
       </CardContent>

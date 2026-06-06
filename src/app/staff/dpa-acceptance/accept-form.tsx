@@ -36,8 +36,8 @@ export function AcceptForm() {
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-2">
-        <Button onClick={handleAccept} disabled={!checked || pending}>
-          {pending ? "Accepting…" : "Accept and continue"}
+        <Button onClick={handleAccept} disabled={!checked} loading={pending}>
+          Accept and continue
         </Button>
       </div>
     </div>

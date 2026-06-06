@@ -92,8 +92,8 @@ export function BayManager({ bays }: { bays: Bay[] }) {
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div>
-          <Button type="submit" size="sm" disabled={pending}>
-            {pending ? "Adding…" : "Add bay"}
+          <Button type="submit" size="sm" loading={pending}>
+            Add bay
           </Button>
         </div>
       </form>

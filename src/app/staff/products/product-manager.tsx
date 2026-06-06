@@ -404,7 +404,7 @@ function AddProductForm({ onDone }: { onDone: () => void }) {
         <Input id="reorderAt" name="reorderAt" type="number" min="0" placeholder="Low-stock threshold" disabled={pending} />
       </div>
       <div className="sm:col-span-2 flex gap-2">
-        <Button type="submit" disabled={pending}>{pending ? "Adding…" : "Add product"}</Button>
+        <Button type="submit" loading={pending}>Add product</Button>
         <Button type="button" variant="outline" onClick={onDone}>Cancel</Button>
       </div>
       {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}

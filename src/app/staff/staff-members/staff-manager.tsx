@@ -598,10 +598,10 @@ export function StaffManager({
                       <div className="flex gap-2">
                         <Button
                           size="sm"
-                          disabled={pending}
+                          loading={pending}
                           onClick={() => saveEdit(entry.userId, loc.locationId, loc.motTester, loc.motQcReviewer)}
                         >
-                          {pending ? "Saving…" : "Save changes"}
+                          Save changes
                         </Button>
                         <Button variant="outline" size="sm" onClick={cancelEdit} disabled={pending}>
                           Cancel
@@ -639,8 +639,8 @@ export function StaffManager({
                 disabled={pending}
               />
             </div>
-            <Button type="submit" size="sm" disabled={pending || newPassword.length < 8}>
-              {pending ? "Saving…" : "Set password"}
+            <Button type="submit" size="sm" disabled={newPassword.length < 8} loading={pending}>
+              Set password
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">Staff member can change this after logging in.</p>
@@ -897,8 +897,8 @@ export function StaffManager({
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           <div className="flex gap-2">
-            <Button type="submit" disabled={pending || !invite.email}>
-              {pending ? "Sending invite…" : "Send invite"}
+            <Button type="submit" disabled={!invite.email} loading={pending}>
+              Send invite
             </Button>
             <Button
               type="button"

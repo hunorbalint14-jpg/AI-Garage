@@ -97,10 +97,11 @@ export function LogoUploader({
               type="button"
               variant="outline"
               onClick={handlePick}
-              disabled={!canEdit || pending}
+              disabled={!canEdit}
+              loading={pending}
             >
               <Upload className="mr-1.5 h-4 w-4" />
-              {pending ? "Uploading…" : url ? "Replace" : "Upload"}
+              {url ? "Replace" : "Upload"}
             </Button>
             {url && canEdit && (
               <Button

@@ -81,7 +81,7 @@ function ServiceForm({ service, onDone }: { service?: ServiceRow; onDone: () => 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>{pending ? "Saving…" : service ? "Save changes" : "Add service"}</Button>
+        <Button type="submit" loading={pending}>{service ? "Save changes" : "Add service"}</Button>
         <Button type="button" variant="outline" onClick={onDone} disabled={pending}>Cancel</Button>
       </div>
     </form>

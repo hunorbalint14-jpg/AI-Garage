@@ -70,8 +70,8 @@ export function XeroSection({ connected, tenantName, connectedAt, canManage }: P
             <Button onClick={handleConnect} variant="outline" disabled={pending}>
               Reconnect / switch organisation
             </Button>
-            <Button onClick={handleDisconnect} variant="destructive" disabled={pending}>
-              {pending ? "Disconnecting…" : "Disconnect"}
+            <Button onClick={handleDisconnect} variant="destructive" loading={pending}>
+              Disconnect
             </Button>
           </div>
         </div>

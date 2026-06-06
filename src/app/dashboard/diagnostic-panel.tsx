@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import Link from "next/link";
 import { runCustomerDiagnostic } from "./diagnostic-actions";
 import type { DiagnosisResult } from "@/lib/ai-diagnostic";
@@ -88,10 +89,11 @@ export function DiagnosticPanel({ vehicles, orgColor }: Props) {
           type="button"
           onClick={handleDiagnose}
           disabled={pending || !symptom.trim()}
-          className="self-start rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center justify-center gap-2 self-start rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
           style={{ backgroundColor: orgColor }}
         >
-          {pending ? "Diagnosing…" : "Get AI diagnosis"}
+          {pending && <AigSpinner />}
+          Get AI diagnosis
         </button>
 
         {error && <p className="text-sm text-red-400">{error}</p>}

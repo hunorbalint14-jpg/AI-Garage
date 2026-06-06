@@ -80,9 +80,10 @@ export function CancelButton({ subscriptionId }: { subscriptionId: string }) {
       <button
         onClick={go}
         disabled={pending}
-        className="text-sm text-gray-400 underline transition-colors hover:text-white disabled:opacity-60"
+        className="inline-flex items-center gap-1 text-sm text-gray-400 underline transition-colors hover:text-white disabled:opacity-60"
       >
-        {pending ? "Cancelling…" : "Cancel plan"}
+        {pending && <AigSpinner />}
+        Cancel plan
       </button>
       {error && <p className="mt-1 text-sm text-red-400">{error}</p>}
     </div>

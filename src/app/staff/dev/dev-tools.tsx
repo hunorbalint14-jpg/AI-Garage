@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { impersonateStaff, impersonateCustomer } from "./actions";
 import type { DevCustomer, DevStaff } from "./page";
 
@@ -41,9 +42,10 @@ function StaffRow({ member }: { member: DevStaff }) {
         <button
           onClick={handleImpersonate}
           disabled={pending}
-          className="shrink-0 rounded border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+          className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
         >
-          {pending ? "Switching…" : "Log in as"}
+          {pending && <AigSpinner />}
+          Log in as
         </button>
       </div>
       {error && <p className="text-xs text-red-600">{error}</p>}
@@ -87,9 +89,10 @@ function CustomerRow({ customer }: { customer: DevCustomer }) {
           <button
             onClick={handleImpersonate}
             disabled={pending}
-            className="shrink-0 rounded border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
+            className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded border border-border bg-muted/50 px-3 py-1.5 text-xs font-medium hover:bg-muted disabled:opacity-50 transition-colors"
           >
-            {pending ? "Switching…" : customer.hasAuth ? "Log in as" : "Set up & log in"}
+            {pending && <AigSpinner />}
+            {customer.hasAuth ? "Log in as" : "Set up & log in"}
           </button>
         )}
       </div>

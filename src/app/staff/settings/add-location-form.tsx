@@ -87,8 +87,8 @@ export function AddLocationForm() {
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Creating…" : "Create location"}
+        <Button type="submit" size="sm" loading={pending}>
+          Create location
         </Button>
         <Button
           type="button"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition, useState } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { useRouter } from "next/navigation";
 import { deleteCustomer, deleteVehicle } from "../actions";
 import { Button } from "@/components/ui/button";
@@ -30,10 +31,10 @@ export function DeleteCustomerButton({ customerId }: { customerId: string }) {
         type="button"
         variant="destructive"
         size="sm"
-        disabled={pending}
+        loading={pending}
         onClick={handleClick}
       >
-        {pending ? "Deleting…" : confirming ? "Confirm delete" : "Delete customer"}
+        {confirming ? "Confirm delete" : "Delete customer"}
       </Button>
       {confirming && !pending && (
         <button
@@ -71,11 +72,12 @@ export function DeleteVehicleButton({
   return (
     <div className="flex items-center gap-1">
       <button
-        className={`text-xs underline ${confirming ? "text-red-600 font-medium" : "text-muted-foreground"}`}
+        className={`inline-flex items-center gap-1 text-xs underline ${confirming ? "text-red-600 font-medium" : "text-muted-foreground"}`}
         disabled={pending}
         onClick={handleClick}
       >
-        {pending ? "Deleting…" : confirming ? "Confirm?" : "Delete"}
+        {pending && <AigSpinner />}
+        {confirming ? "Confirm?" : "Delete"}
       </button>
       {confirming && (
         <button

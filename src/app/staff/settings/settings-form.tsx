@@ -133,8 +133,8 @@ export function SettingsForm({
         {saved && <p className="text-sm text-green-700">Saved — reloading…</p>}
 
         {canEdit ? (
-          <Button type="submit" disabled={pending} className="self-start">
-            {pending ? "Saving…" : "Save changes"}
+          <Button type="submit" loading={pending} className="self-start">
+            Save changes
           </Button>
         ) : (
           <p className="text-sm text-muted-foreground">

@@ -94,7 +94,7 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
           <div className="flex flex-col gap-1.5"><Label>Notes</Label><Input name="notes" defaultValue={company.notes ?? ""} disabled={pending} /></div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">
-            <Button type="submit" size="sm" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+            <Button type="submit" size="sm" loading={pending}>Save</Button>
             <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
           </div>
         </form>
@@ -177,8 +177,8 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
                 </option>
               ))}
             </select>
-            <Button size="sm" onClick={handleAddCustomer} disabled={!selectedCustomerId || pending}>
-              {pending ? "Adding…" : "Add"}
+            <Button size="sm" onClick={handleAddCustomer} disabled={!selectedCustomerId} loading={pending}>
+              Add
             </Button>
           </div>
         )}
