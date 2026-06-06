@@ -253,7 +253,7 @@ function NewPOForm({ suppliers, products, onDone }: { suppliers: POSupplier[]; p
         <span className="text-sm text-muted-foreground">Total: <span className="font-medium tabular-nums text-foreground">{fmt(total)}</span></span>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onDone} disabled={pending}>Cancel</Button>
-          <Button type="button" onClick={submit} disabled={pending}>{pending ? "Creating…" : "Create order"}</Button>
+          <Button type="button" onClick={submit} loading={pending}>Create order</Button>
         </div>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}

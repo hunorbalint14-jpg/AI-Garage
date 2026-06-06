@@ -75,8 +75,8 @@ export function BusinessHoursForm({
           </select>
         </div>
         {canEdit && (
-          <Button type="submit" disabled={pending} className="self-end">
-            {pending ? "Saving…" : "Save"}
+          <Button type="submit" loading={pending} className="self-end">
+            Save
           </Button>
         )}
         {error && <p className="w-full text-sm text-red-600">{error}</p>}

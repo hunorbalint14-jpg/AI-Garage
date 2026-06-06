@@ -125,8 +125,8 @@ export function GdprPanel({
             Last updated: {new Date(consentUpdatedAt).toLocaleString("en-GB")}
           </p>
         )}
-        <Button onClick={handleSaveConsent} disabled={pending} className="self-start">
-          {pending ? "Saving…" : saved ? "Saved" : "Save consent"}
+        <Button onClick={handleSaveConsent} loading={pending} className="self-start">
+          {saved ? "Saved" : "Save consent"}
         </Button>
       </div>
 

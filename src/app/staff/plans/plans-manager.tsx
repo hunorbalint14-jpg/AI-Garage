@@ -344,8 +344,8 @@ function PlanForm({
       )}
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? "Saving…" : isEdit ? "Save" : "Create plan"}
+        <Button type="submit" loading={pending}>
+          {isEdit ? "Save" : "Create plan"}
         </Button>
         <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
           Cancel

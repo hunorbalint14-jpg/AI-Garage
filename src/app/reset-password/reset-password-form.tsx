@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { updatePassword } from "./actions";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 
@@ -74,9 +75,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-indigo-500 disabled:opacity-60"
         >
-          {pending ? "Updating…" : "Update password"}
+          {pending && <AigSpinner />}
+          Update password
         </button>
       </form>
     </div>

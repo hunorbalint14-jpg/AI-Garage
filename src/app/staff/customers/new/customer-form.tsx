@@ -70,8 +70,8 @@ export function CustomerForm() {
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save customer"}
+          <Button type="submit" loading={pending}>
+            Save customer
           </Button>
         </form>
       </CardContent>

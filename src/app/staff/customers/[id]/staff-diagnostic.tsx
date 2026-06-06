@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { runStaffDiagnostic } from "./diagnostic-action";
 import type { DiagnosisResult } from "@/lib/ai-diagnostic";
 
@@ -80,9 +81,10 @@ export function StaffDiagnostic({ vehicles }: { vehicles: Vehicle[] }) {
         type="button"
         onClick={handleDiagnose}
         disabled={pending || !symptom.trim()}
-        className="self-start rounded-lg border border-transparent bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+        className="inline-flex items-center justify-center gap-1.5 self-start rounded-lg border border-transparent bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
       >
-        {pending ? "Diagnosing…" : "Run diagnosis"}
+        {pending && <AigSpinner />}
+        Run diagnosis
       </button>
 
       {error && <p className="text-sm text-red-600">{error}</p>}

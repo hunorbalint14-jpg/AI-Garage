@@ -173,8 +173,8 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" disabled={pending} className="self-start">
-            {pending ? "Saving…" : "Save changes"}
+          <Button type="submit" loading={pending} className="self-start">
+            Save changes
           </Button>
         </form>
 

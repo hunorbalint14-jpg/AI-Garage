@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { Check, X, Calendar } from "lucide-react";
 import { approveQuote, declineQuote, declineAndRebook } from "./actions";
 
@@ -170,9 +171,10 @@ export function QuoteResponse({
             type="button"
             onClick={handleDeclineSubmit}
             disabled={pending}
-            className="flex-1 rounded-md bg-slate-800 text-white px-4 py-3 text-sm font-medium disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-slate-800 text-white px-4 py-3 text-sm font-medium disabled:opacity-50"
           >
-            {pending ? "Sending…" : "Confirm decline"}
+            {pending && <AigSpinner />}
+            Confirm decline
           </button>
           <button
             type="button"

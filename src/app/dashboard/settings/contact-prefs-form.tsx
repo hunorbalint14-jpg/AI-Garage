@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { Check } from "lucide-react";
 import { updateContactPreferences } from "./actions";
 
@@ -103,10 +104,11 @@ export function ContactPrefsForm({
           type="button"
           onClick={save}
           disabled={pending || !dirty}
-          className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
           style={{ backgroundColor: orgColor }}
         >
-          {pending ? "Saving…" : "Save preferences"}
+          {pending && <AigSpinner />}
+          Save preferences
         </button>
         {saved && !dirty && (
           <span className="flex items-center gap-1 text-sm text-green-400">

@@ -156,7 +156,7 @@ export function TemplateEditor({
                     pending={pending}
                   />
                   <div className="mt-3 flex gap-2">
-                    <Button type="submit" size="sm" disabled={pending}>{pending ? "Saving…" : "Save"}</Button>
+                    <Button type="submit" size="sm" loading={pending}>Save</Button>
                     <Button type="button" variant="outline" size="sm" onClick={cancel} disabled={pending}>Cancel</Button>
                   </div>
                 </form>
@@ -175,8 +175,8 @@ export function TemplateEditor({
               <form onSubmit={submit}>
                 <DraftFields draft={draft} setDraft={setDraft} togglePerm={togglePerm} pending={pending} />
                 <div className="mt-3 flex gap-2">
-                  <Button type="submit" size="sm" disabled={pending || !draft.label.trim()}>
-                    {pending ? "Creating…" : "Create template"}
+                  <Button type="submit" size="sm" disabled={!draft.label.trim()} loading={pending}>
+                    Create template
                   </Button>
                   <Button type="button" variant="outline" size="sm" onClick={cancel} disabled={pending}>Cancel</Button>
                 </div>

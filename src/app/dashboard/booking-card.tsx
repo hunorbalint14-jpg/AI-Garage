@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { AigSpinner } from "@/components/ui/aig-spinner";
 import { cancelCustomerBooking, rescheduleCustomerBooking } from "./booking-actions";
 
 type Booking = {
@@ -95,10 +96,11 @@ export function BookingCard({ booking, orgColor }: Props) {
               type="button"
               onClick={handleReschedule}
               disabled={pending}
-              className="rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: orgColor }}
             >
-              {pending ? "Saving…" : "Confirm reschedule"}
+              {pending && <AigSpinner />}
+              Confirm reschedule
             </button>
             <button
               type="button"
@@ -126,9 +128,10 @@ export function BookingCard({ booking, orgColor }: Props) {
             type="button"
             onClick={handleCancel}
             disabled={pending}
-            className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
           >
-            {pending ? "Cancelling…" : "Cancel booking"}
+            {pending && <AigSpinner />}
+            Cancel booking
           </button>
         </div>
       )}

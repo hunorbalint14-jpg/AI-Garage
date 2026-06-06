@@ -246,8 +246,8 @@ export function BookingForm({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-2 pt-2">
-        <Button type="submit" disabled={pending || !customerId}>
-          {pending ? "Creating…" : "Create booking"}
+        <Button type="submit" disabled={!customerId} loading={pending}>
+          Create booking
         </Button>
         <Button
           type="button"
