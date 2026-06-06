@@ -90,17 +90,19 @@ export default async function StaffLayout({
   const onMfaPage =
     pathname.startsWith("/staff/mfa") || pathname.startsWith("/staff/login");
   let showMfaNudge = false;
-  let mfaHasPasskey = false;
   if (mfaAppliesToRole(ctx.orgRole) && !onMfaPage) {
     const verified = await hasVerifiedMfa(ctx.user.id);
     if (!verified) {
+      if (isOwnerMfaEnforced()) redirect("/staff/mfa");
+      // Nudge only those who haven't enrolled a passkey yet. `verified` is a
+      // per-session step-up flag, so once MFA is set up we must check for an
+      // actual credential — otherwise the banner returns on every reload even
+      // though there's nothing left to set up.
       const { count } = await admin
         .from("webauthn_credentials")
         .select("id", { count: "exact", head: true })
         .eq("user_id", ctx.user.id);
-      mfaHasPasskey = (count ?? 0) > 0;
-      if (isOwnerMfaEnforced()) redirect("/staff/mfa");
-      showMfaNudge = true;
+      showMfaNudge = (count ?? 0) === 0;
     }
   }
 
@@ -152,7 +154,7 @@ export default async function StaffLayout({
         currentSlug={ctx.location.slug}
         role={role}
       >
-        {showMfaNudge && <MfaNudge hasPasskey={mfaHasPasskey} />}
+        {showMfaNudge && <MfaNudge />}
         {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} />}
         {children}
       </StaffShell>
