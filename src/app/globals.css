@@ -323,7 +323,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(120% 120% at 50% 38%, #14171d 0%, #0b0d11 62%);
+  /* Translucent dark veil over whatever is behind, not a hard black wall. */
+  background: radial-gradient(120% 120% at 50% 38%, rgba(20, 23, 29, 0.68) 0%, rgba(11, 13, 17, 0.58) 62%);
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
 }
 .aig-mark {
   width: clamp(96px, 16vw, 168px);
