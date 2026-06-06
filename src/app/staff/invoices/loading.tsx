@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/staff/skeleton";
+import { AigLoader } from "@/components/ui/aig-loader";
 
 export default function Loading() {
-  return <PageSkeleton />;
+  return <AigLoader />;
 }

@@ -1,5 +1,5 @@
-import { TableSkeleton } from "@/components/staff/skeleton";
+import { AigLoader } from "@/components/ui/aig-loader";
 
 export default function Loading() {
-  return <TableSkeleton rows={10} />;
+  return <AigLoader />;
 }
