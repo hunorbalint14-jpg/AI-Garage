@@ -83,7 +83,7 @@ export default async function CustomerInvoicePage({
           </span>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 grid grid-cols-3 gap-4 text-sm backdrop-blur-sm">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 grid grid-cols-1 gap-3 text-sm backdrop-blur-sm sm:grid-cols-3 sm:gap-4">
           <div>
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Bill to</p>
             <p className="font-semibold">{customer.full_name ?? "—"}</p>
@@ -100,7 +100,8 @@ export default async function CustomerInvoicePage({
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden backdrop-blur-sm">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[34rem] text-sm">
             <thead className="border-b border-white/10">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Description</th>
@@ -152,6 +153,7 @@ export default async function CustomerInvoicePage({
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
 
         {invoice.notes && (

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/staff/page-header";
 import { BookingCalendar } from "./booking-calendar";
 import { AssigneeFilter } from "./assignee-filter";
+import { StatusFilter } from "./status-filter";
 import {
   type BookingRow,
   STATUS_STYLE,
@@ -25,9 +26,9 @@ const BOOKING_SELECT =
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; view?: string; month?: string; assignee?: string }>;
+  searchParams: Promise<{ filter?: string; view?: string; month?: string; assignee?: string; status?: string }>;
 }) {
-  const { filter = "upcoming", view = "calendar", month, assignee = "" } = await searchParams;
+  const { filter = "upcoming", view = "calendar", month, assignee = "", status = "" } = await searchParams;
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
@@ -70,12 +71,15 @@ export default async function BookingsPage({
             </Link>
           ))}
         </div>
-        <AssigneeFilter staff={staff} current={assignee} />
+        <div className="flex items-center gap-2">
+          <StatusFilter current={status} />
+          <AssigneeFilter staff={staff} current={assignee} />
+        </div>
       </div>
 
       {view === "list"
-        ? await renderListView({ filter, assignee, locationId: ctx.location.id, admin, nameMap })
-        : await renderCalendarView({ month, assignee, locationId: ctx.location.id, admin })}
+        ? await renderListView({ filter, assignee, status, locationId: ctx.location.id, admin, nameMap })
+        : await renderCalendarView({ month, assignee, status, locationId: ctx.location.id, admin })}
     </div>
   );
 }
@@ -83,11 +87,13 @@ export default async function BookingsPage({
 async function renderCalendarView({
   month,
   assignee,
+  status,
   locationId,
   admin,
 }: {
   month?: string;
   assignee: string;
+  status: string;
   locationId: string;
   admin: ReturnType<typeof createAdminClient>;
 }) {
@@ -104,6 +110,7 @@ async function renderCalendarView({
     .gte("scheduled_at", gridStart.toISOString())
     .lt("scheduled_at", gridEnd.toISOString());
   if (assignee) query = query.eq("assigned_to", assignee);
+  if (status) query = query.eq("status", status);
 
   const { data } = (await query
     .order("scheduled_at", { ascending: true })
@@ -125,12 +132,14 @@ async function renderCalendarView({
 async function renderListView({
   filter,
   assignee,
+  status,
   locationId,
   admin,
   nameMap,
 }: {
   filter: string;
   assignee: string;
+  status: string;
   locationId: string;
   admin: ReturnType<typeof createAdminClient>;
   nameMap: Map<string, string>;
@@ -143,6 +152,7 @@ async function renderListView({
     .eq("location_id", locationId);
 
   if (assignee) query = query.eq("assigned_to", assignee);
+  if (status) query = query.eq("status", status);
 
   if (filter === "upcoming") {
     query = query.gte("scheduled_at", now).order("scheduled_at", { ascending: true });
