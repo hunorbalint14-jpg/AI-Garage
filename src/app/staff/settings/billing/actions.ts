@@ -49,6 +49,20 @@ export async function startTenantCheckout(
   const customerId = await ensureTenantCustomer(admin, ctx.organization.id, ctx.organization.name, ctx.user.email);
   if (!customerId) return { error: "Could not start billing. Please try again." };
 
+  // Never create a second subscription. If one is already live, send them to the
+  // billing portal to upgrade / downgrade / cancel instead.
+  try {
+    const existing = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
+    const hasLive = existing.data.some(
+      (s) => s.metadata?.kind === "tenant_billing" && ["active", "trialing", "past_due"].includes(s.status),
+    );
+    if (hasLive) {
+      return { error: "You already have an active subscription. Use “Manage billing” to change or cancel your plan." };
+    }
+  } catch (err) {
+    console.error("[tenant-billing] existing-subscription check failed", err);
+  }
+
   const origin = tenantOrigin(ctx.location.slug);
   const metadata = { kind: "tenant_billing", organization_id: ctx.organization.id, tier };
 

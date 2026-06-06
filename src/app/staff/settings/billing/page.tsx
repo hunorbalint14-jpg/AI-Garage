@@ -1,9 +1,12 @@
 import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { stripe } from "@/lib/stripe";
 import { PageHeader } from "@/components/staff/page-header";
-import { TIERS, tierFor, type TierKey, type OrgBilling } from "@/lib/tenant-plans";
+import { TIERS, tierFor, recordTenantSubscription, type TierKey, type OrgBilling } from "@/lib/tenant-plans";
 import { UpgradeButtons, ManageBillingButton } from "./billing-client";
+
+const LIVE_STATUSES = ["active", "trialing", "past_due"];
 
 const FEATURE_LABELS: Record<string, string> = {
   xero: "Xero accounting sync",
@@ -22,19 +25,48 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   if (ctx.orgRole !== "owner") redirect("/staff");
 
   const admin = createAdminClient();
+  const billingCols =
+    "tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end";
+
   const { data } = await admin
     .from("organizations")
-    .select("tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end")
+    .select(`${billingCols}, tenant_stripe_customer_id`)
     .eq("id", ctx.organization.id)
     .maybeSingle();
-  const org = (data ?? {
+  const customerId = (data as { tenant_stripe_customer_id: string | null } | null)?.tenant_stripe_customer_id ?? null;
+  let org = (data ?? {
     tenant_plan: "starter",
     tenant_subscription_status: null,
     tenant_current_period_end: null,
     tenant_trial_end: null,
   }) as OrgBilling;
 
+  // Self-heal: reconcile the tier straight from Stripe so the page is correct
+  // even if a platform-account webhook was missed/not yet configured.
+  if (customerId) {
+    try {
+      const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
+      const tenantSubs = subs.data.filter((s) => s.metadata?.kind === "tenant_billing");
+      const live =
+        tenantSubs.find((s) => LIVE_STATUSES.includes(s.status)) ??
+        tenantSubs.sort((a, b) => b.created - a.created)[0];
+      if (live) {
+        await recordTenantSubscription(admin, live);
+        const { data: fresh } = await admin
+          .from("organizations")
+          .select(billingCols)
+          .eq("id", ctx.organization.id)
+          .maybeSingle();
+        if (fresh) org = fresh as OrgBilling;
+      }
+    } catch (err) {
+      console.error("[billing] stripe reconcile failed", err);
+    }
+  }
+
   const current = tierFor(org);
+  const subscribed =
+    !!org.tenant_subscription_status && LIVE_STATUSES.includes(org.tenant_subscription_status);
   const trialActive = !!org.tenant_trial_end && new Date(org.tenant_trial_end) > new Date();
   const order: TierKey[] = ["starter", "pro", "growth"];
 
@@ -97,6 +129,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
 
               {isCurrent ? (
                 <span className="text-sm font-medium text-primary">Current plan</span>
+              ) : subscribed ? (
+                // Already on a paid plan — upgrades/downgrades/cancel go through
+                // the billing portal so we never create a second subscription.
+                <span className="text-xs text-muted-foreground">
+                  {key === "starter" ? "Cancel from the billing portal" : "Switch in the billing portal"}
+                </span>
               ) : key === "starter" ? (
                 <span className="text-xs text-muted-foreground">Manage from the billing portal</span>
               ) : (
