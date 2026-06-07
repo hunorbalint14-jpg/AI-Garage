@@ -405,7 +405,7 @@
 
       <div class="kpis">
         <div class="kpi"><div class="v">2&nbsp;<span class="accent">portals</span></div><div class="l">staff · customer</div></div>
-        <div class="kpi"><div class="v">22&nbsp;<span class="accent">tables</span></div><div class="l">tenant-scoped</div></div>
+        <div class="kpi"><div class="v">42&nbsp;<span class="accent">tables</span></div><div class="l">tenant-scoped</div></div>
         <div class="kpi"><div class="v">8&nbsp;<span class="accent">externals</span></div><div class="l">3rd-party APIs</div></div>
         <div class="kpi"><div class="v">3&nbsp;<span class="accent">channels</span></div><div class="l">email · sms · whatsapp</div></div>
       </div>
@@ -422,6 +422,10 @@
             <li><strong>Mid-job quotes (DVI)</strong> — mechanic records a short video of extra work found, customer approves or declines via a token-gated link.</li>
             <li><strong>Audit log</strong> — append-only trail of staff-sensitive actions (settings, GDPR, financial, integrations) visible to owners/admins.</li>
             <li><strong>Multi-location orgs</strong> — owners manage many garages under one organisation.</li>
+            <li><strong>Membership plans</strong> — recurring service plans (Stripe subscriptions) with member discounts + an included-service allowance.</li>
+            <li><strong>Platform billing</strong> — the garage's own AI Garage subscription: Starter / Pro / Growth tiers that set the platform fee and gate premium features.</li>
+            <li><strong>Refunds</strong> — Stripe refunds recorded as credit notes, mirrored to Xero.</li>
+            <li><strong>Stock &amp; purchasing</strong> — parts catalogue, suppliers and purchase orders; per-technician labour time tracking.</li>
           </ul>
         </div>
         <div>
@@ -1127,6 +1131,12 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <tr><td>Quote lifecycle</td><td><code>job_quotes</code> · <code>standalone_quotes</code></td><td><code>status · token_hash · slug · expires_at · sent_at · viewed_at · viewed_count · responded_at · approved_item_ids · decline_reason · deposit_pct · deposit_amount · deposit_required · deposit_paid_at · stripe_checkout_session_id · stripe_payment_intent_id</code> · standalone adds <code>organization_id · customer_message · converted_booking_id</code>; DVI adds <code>job_id · applied_job_item_ids</code></td></tr>
         <tr><td>RBAC</td><td><code>location_users</code> · <code>role_templates</code></td><td><code>role · permissions (jsonb) · template_id · mot_tester · mot_qc_reviewer</code> · <code>key · label · permissions · is_system · sort_order</code> (system rows have <code>organization_id IS NULL</code>)</td></tr>
         <tr><td>In-app notifications</td><td><code>staff_notifications</code></td><td><code>user_id · location_id · organization_id · kind · title · body · href · entity_type · entity_id · read_at</code></td></tr>
+        <tr><td>Platform billing</td><td><code>organizations</code></td><td><code>tenant_plan · tenant_subscription_status · tenant_stripe_customer_id · tenant_stripe_subscription_id · tenant_current_period_end · tenant_trial_end</code> (the garage's own AI Garage subscription — see §17)</td></tr>
+        <tr><td>Memberships</td><td><code>service_plans</code> · <code>plan_subscriptions</code> · <code>service_plan_items</code> · <code>plan_service_usage</code> · <code>plan_invites</code> · <code>invoices</code></td><td><code>discount_type · discount_value · stripe_price_monthly_id · stripe_price_annual_id · status · current_period_end · quantity_per_period · covered_qty · token_hash · subscribed_at</code> · invoice adds <code>membership_credit_amount · discount_amount</code></td></tr>
+        <tr><td>Refunds</td><td><code>credit_notes</code></td><td><code>invoice_id · credit_number · reason · stripe_refund_id</code> (unique) · <code>xero_credit_note_id · status</code></td></tr>
+        <tr><td>Stock &amp; purchasing</td><td><code>products</code> · <code>suppliers</code> · <code>purchase_orders</code> · <code>purchase_order_items</code></td><td><code>stock_qty · reorder_at · cost_price</code> · <code>supplier_id · reference · ordered_at · received_at · unit_cost</code></td></tr>
+        <tr><td>Labour time</td><td><code>job_time_entries</code></td><td><code>started_at · ended_at · active_minutes · segment_started_at · status</code></td></tr>
+        <tr><td>User prefs</td><td><code>staff_notification_prefs</code></td><td><code>weekly_digest</code> (per-user; no row = opted in)</td></tr>
       </table>
     </section>
 
@@ -1954,10 +1964,167 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
       </div>
     </section>
 
-    <!-- ============== 16. TESTING &amp; CI ============== -->
-    <section id="testing">
+    <!-- ============== 16. SERVICE PLANS &amp; MEMBERSHIPS ============== -->
+    <section id="service-plans">
       <div class="sec-head">
         <div class="num">16</div>
+        <h2>Service plans &amp; memberships</h2>
+        <div class="tag">stripe subscriptions · connected account</div>
+      </div>
+
+      <p class="lede2">Each garage can sell recurring <strong>membership plans</strong> (e.g. "Service Club") billed as Stripe subscriptions on the garage's own <strong>Connect</strong> account. Plans bundle discounts and a quota of included services; benefits apply automatically when the customer is next invoiced. Lives in <code>src/lib/service-plans.ts</code>.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Data model</h3>
+          <ul>
+            <li><code>service_plans</code> — name, monthly/annual price, <code>discount_type</code>/<code>discount_value</code>, and the mirrored Stripe <code>product</code>/<code>price</code> ids. Created on the connected account.</li>
+            <li><code>service_plan_items</code> — included services + <code>quantity_per_period</code> (the consumed-allowance bundle).</li>
+            <li><code>plan_subscriptions</code> — a customer's live subscription (status, interval, period end, cancel-at-period-end). Upserted from Stripe by <code>stripe_subscription_id</code>.</li>
+            <li><code>plan_invites</code> — token-gated invite (<code>slug</code> + <code>sha256(token)</code>) a staff member sends so a customer can self-subscribe; marked <code>subscribed</code> on completion.</li>
+            <li><code>plan_service_usage</code> — allowance consumed per period, optionally tagged with the <code>invoice_id</code> it was applied to.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Benefits at invoice time</h3>
+          <ul>
+            <li><code>memberDiscountForCustomer()</code> / <code>getMemberBenefits()</code> resolve the best live membership.</li>
+            <li>Invoices carry <code>discount_amount</code>/<code>discount_description</code> (member discount) and <code>membership_credit_amount</code>/<code>_description</code> (an included service consumed for free) — both shown on the customer invoice.</li>
+            <li>Consuming an included service writes a <code>plan_service_usage</code> row so the quota can't be double-spent in a period.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Lifecycle</h3>
+      <ul>
+        <li>Staff create/price a plan in <code>/staff/plans</code>; Stripe product + prices are mirrored onto the connected account.</li>
+        <li>Staff invite a customer (<code>/staff/customers/[id]</code> → plan-invite panel) → token email → customer checks out on the garage's Connect account.</li>
+        <li>Webhook <code>checkout.session.completed</code> with <code>metadata.kind = "service_plan"</code> (carries <code>event.account</code>) → <code>recordSubscriptionFromStripe()</code> + the invite is marked redeemed + a <strong>garage-branded receipt</strong> emails the customer.</li>
+        <li><code>customer.subscription.updated/deleted</code> on the connected account keeps the row's status/period in sync.</li>
+      </ul>
+
+      <div class="note">
+        <span class="label">Two Stripe surfaces</span>
+        Membership subscriptions are on the <strong>connected (garage) account</strong> — distinct from the platform SaaS tiers in §17, which bill the garage on the <strong>platform account</strong>. The webhook routes the two by <code>metadata.kind</code> and the presence of <code>event.account</code>.
+      </div>
+    </section>
+
+    <!-- ============== 17. PLATFORM BILLING ============== -->
+    <section id="platform-billing">
+      <div class="sec-head">
+        <div class="num">17</div>
+        <h2>Platform billing (SaaS tiers)</h2>
+        <div class="tag">hybrid · platform account</div>
+      </div>
+
+      <p class="lede2">The garage's own subscription to AI Garage. A <strong>hybrid model</strong>: a per-payment platform fee <em>plus</em> a flat monthly/annual tier. Config + helpers live in <code>src/lib/tenant-plans.ts</code>; there is no separate table — state hangs off <code>organizations.tenant_*</code> columns.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Tiers (<code>TIERS</code>)</h3>
+          <table class="tbl dense">
+            <tr><td>Starter</td><td>free · 2.0% fee · 1 location</td></tr>
+            <tr><td>Pro</td><td>£49/mo · 1.5% fee · 3 locations · Xero/campaigns/automations</td></tr>
+            <tr><td>Growth</td><td>£99/mo · 1.0% fee · ∞ locations · all features</td></tr>
+          </table>
+          <p>Prices map to Stripe Prices via <code>STRIPE_TENANT_PRICE_{PRO,GROWTH}_{MONTHLY,ANNUAL}</code> env ids.</p>
+        </div>
+        <div>
+          <h3>Enforcement</h3>
+          <ul>
+            <li><code>effectiveFeePercent(org)</code> — the tier's rate while in good standing, else the Starter rate (a lapsed tier loses its discount).</li>
+            <li><code>entitledTo(org, feature)</code> — gates Xero / campaigns / automations.</li>
+            <li><code>tenantBillingActive()</code> — soft + grace (<code>TENANT_BILLING_GRACE_DAYS</code> = 7) so a <code>past_due</code> tenant keeps core trading inside the window.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Checkout, portal &amp; sync</h3>
+      <ul>
+        <li>Owners subscribe via Checkout, or change plan / cancel via the Stripe <strong>Billing Portal</strong>; <code>startTenantCheckout</code> refuses to create a second subscription when one is already live.</li>
+        <li>Webhooks (<code>checkout.session.completed</code>, <code>customer.subscription.updated/deleted</code> with <code>metadata.kind = "tenant_billing"</code>, no <code>event.account</code>) call <code>recordTenantSubscription()</code>. Tier is derived from the <strong>price id</strong> (authoritative — survives portal plan switches), falling back to the checkout-stamped <code>metadata.tier</code>.</li>
+        <li>The billing page <strong>self-heals</strong>: on load it lists the customer's subscriptions from Stripe and records the live one, so the tier is correct even if a webhook was missed.</li>
+        <li>An <strong>owner receipt</strong> emails on subscribe and on a paid↔paid switch; the page shows an upgrade-success modal on return.</li>
+      </ul>
+    </section>
+
+    <!-- ============== 18. REFUNDS &amp; CREDIT NOTES ============== -->
+    <section id="credit-notes">
+      <div class="sec-head">
+        <div class="num">18</div>
+        <h2>Refunds &amp; credit notes</h2>
+        <div class="tag">stripe refunds · xero</div>
+      </div>
+
+      <p class="lede2">Refunding a paid invoice records a <code>credit_notes</code> row and reflects it on the invoice + in Xero. Helpers in <code>src/lib/credit-notes.ts</code>.</p>
+
+      <ul>
+        <li>Staff issue a full/partial refund from the invoice actions; Stripe processes the refund on the connected account.</li>
+        <li>Webhook <code>charge.refunded</code> → <code>recordRefundCreditNote()</code> (idempotent on <code>stripe_refund_id</code>, which is unique) + <code>recomputeInvoiceRefundStatus()</code> updates the invoice.</li>
+        <li><code>credit_notes</code> stores <code>invoice_id</code>, <code>credit_number</code>, <code>reason</code>, amounts, and the <code>xero_credit_note_id</code> once mirrored to Xero.</li>
+      </ul>
+    </section>
+
+    <!-- ============== 19. INVENTORY, PURCHASING &amp; LABOUR ============== -->
+    <section id="inventory">
+      <div class="sec-head">
+        <div class="num">19</div>
+        <h2>Inventory, purchasing &amp; labour</h2>
+        <div class="tag">stock · suppliers · time</div>
+      </div>
+
+      <div class="cols-2">
+        <div>
+          <h3>Stock &amp; purchasing</h3>
+          <ul>
+            <li><code>products</code> — parts catalogue with <code>stock_qty</code>, <code>cost_price</code> and a <code>reorder_at</code> low-stock threshold.</li>
+            <li><code>suppliers</code> + <code>purchase_orders</code> + <code>purchase_order_items</code> — raise a PO, receive it to increment stock. Items can reference a <code>product_id</code>.</li>
+            <li>Job + quote line items carry an optional <code>product_id</code> so parts usage ties back to stock, and a <code>service_id</code> so catalogue services map to the membership allowance.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Labour time</h3>
+          <ul>
+            <li><code>job_time_entries</code> — per-technician labour clock against a job: start / pause / resume / stop, with <code>active_minutes</code> excluding paused spans.</li>
+            <li>Surfaced on the job detail page; feeds labour reporting.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 20. USER ACCOUNT &amp; NOTIFICATIONS ============== -->
+    <section id="account">
+      <div class="sec-head">
+        <div class="num">20</div>
+        <h2>User account &amp; notifications</h2>
+        <div class="tag">personal · per-user</div>
+      </div>
+
+      <p class="lede2">Personal settings, distinct from the org-wide <code>/staff/settings</code>. Reached from the avatar menu in the rail (<code>UserMenu</code>) → <code>/staff/account</code> with Profile / Security / Notifications tabs.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Account</h3>
+          <ul>
+            <li><strong>Profile</strong> — edit display name (<code>auth user_metadata.full_name</code>); sign-in email is read-only.</li>
+            <li><strong>Security</strong> — per-user passkeys + in-app password change (verifies the current password via a throwaway client, then sets the new one with the admin client; the live session is untouched).</li>
+            <li><strong>Notifications</strong> — email preference toggles.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Notifications</h3>
+          <ul>
+            <li><code>staff_notifications</code> — in-app alerts (the rail bell), e.g. a DVI quote response.</li>
+            <li><code>staff_notification_prefs</code> — per-user email toggles. The weekly digest cron skips opted-out users; <strong>no row = opted in</strong>, so a missing pref fails safe.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 21. TESTING &amp; CI ============== -->
+    <section id="testing">
+      <div class="sec-head">
+        <div class="num">21</div>
         <h2>Testing &amp; CI</h2>
         <div class="tag">vitest · github-actions · pre-commit</div>
       </div>
@@ -2021,7 +2188,7 @@ it("denies without my_perm", async () =&gt; {
     <!-- ============== 17. SECURITY ============== -->
     <section id="security">
       <div class="sec-head">
-        <div class="num">17</div>
+        <div class="num">22</div>
         <h2>Security &amp; compliance</h2>
         <div class="tag">rls · gdpr · pci</div>
       </div>
@@ -2075,7 +2242,7 @@ it("denies without my_perm", async () =&gt; {
 
       <div class="note warn">
         <span class="label">Open follow-ups</span>
-        Vercel Cron health alerting to PagerDuty / Slack. In-app staff notifications (for DVI quote responses). Auto-orphan-video GC pass on the <code>job-quote-videos</code> bucket.
+        Vercel Cron health alerting to PagerDuty / Slack. Auto-orphan-video GC pass on the <code>job-quote-videos</code> bucket. Per-staff notification toggles beyond the weekly digest (booking / quote email alerts) once those senders exist.
       </div>
     </section>
 
@@ -2083,7 +2250,7 @@ it("denies without my_perm", async () =&gt; {
     <footer style="margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--aig-rule); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3);">
       <div>
         <img src="/brand/aigarage-mark-on-brand.svg" alt="" style="height: 18px; vertical-align: middle; margin-right: 8px;" />
-        AI Garage · technical reference · revision 05
+        AI Garage · technical reference · revision 06
       </div>
       <div>end of document</div>
     </footer>
