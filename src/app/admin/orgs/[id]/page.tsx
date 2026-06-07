@@ -72,7 +72,16 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
           <h1 className="mt-1 text-lg font-semibold">{orgRow.name}</h1>
           <p className="font-mono text-xs text-[#5a6170]">{orgRow.slug}</p>
         </div>
-        <AutoRefresh />
+        <div className="flex items-center gap-3">
+          {/* Full navigation (not next/link) — crosses to the tenant subdomain. */}
+          <a
+            href={`/admin/orgs/${id}/open`}
+            className="rounded-lg border border-[#2a5a3a] bg-[#13301f] px-3 py-1.5 text-xs font-semibold text-[#5fdd9d] hover:bg-[#163a26]"
+          >
+            Open portal as admin ↗
+          </a>
+          <AutoRefresh />
+        </div>
       </div>
 
       {/* Billing + integrations */}

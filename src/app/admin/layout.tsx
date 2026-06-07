@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { isPlatformAdmin } from "@/lib/platform-admin";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { signOutPlatformAdmin } from "./login/actions";
 
 // The platform-operator dashboard reads across ALL tenants via the service-role
@@ -22,7 +22,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  const allowed = isPlatformAdmin(user?.email);
+  const allowed = await isPlatformAdminUser(user);
 
   if (isLoginRoute) {
     // Already a valid operator? Skip the login screen.
@@ -47,6 +47,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </Link>
               <Link href="/admin/ai" className="text-[#9aa1ad] hover:text-white">
                 AI usage
+              </Link>
+              <Link href="/admin/admins" className="text-[#9aa1ad] hover:text-white">
+                Admins
               </Link>
             </nav>
           </div>
