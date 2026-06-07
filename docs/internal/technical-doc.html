@@ -405,7 +405,7 @@
 
       <div class="kpis">
         <div class="kpi"><div class="v">2&nbsp;<span class="accent">portals</span></div><div class="l">staff · customer</div></div>
-        <div class="kpi"><div class="v">22&nbsp;<span class="accent">tables</span></div><div class="l">tenant-scoped</div></div>
+        <div class="kpi"><div class="v">42&nbsp;<span class="accent">tables</span></div><div class="l">tenant-scoped</div></div>
         <div class="kpi"><div class="v">8&nbsp;<span class="accent">externals</span></div><div class="l">3rd-party APIs</div></div>
         <div class="kpi"><div class="v">3&nbsp;<span class="accent">channels</span></div><div class="l">email · sms · whatsapp</div></div>
       </div>
@@ -422,6 +422,10 @@
             <li><strong>Mid-job quotes (DVI)</strong> — mechanic records a short video of extra work found, customer approves or declines via a token-gated link.</li>
             <li><strong>Audit log</strong> — append-only trail of staff-sensitive actions (settings, GDPR, financial, integrations) visible to owners/admins.</li>
             <li><strong>Multi-location orgs</strong> — owners manage many garages under one organisation.</li>
+            <li><strong>Membership plans</strong> — recurring service plans (Stripe subscriptions) with member discounts + an included-service allowance.</li>
+            <li><strong>Platform billing</strong> — the garage's own AI Garage subscription: Starter / Pro / Growth tiers that set the platform fee and gate premium features.</li>
+            <li><strong>Refunds</strong> — Stripe refunds recorded as credit notes, mirrored to Xero.</li>
+            <li><strong>Stock &amp; purchasing</strong> — parts catalogue, suppliers and purchase orders; per-technician labour time tracking.</li>
           </ul>
         </div>
         <div>
@@ -832,286 +836,185 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <div class="tag">postgres · rls</div>
       </div>
 
-      <p class="lede2">28 tables, most tenant-scoped via <code>location_id</code>. Org-scoped tables: <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> (required <code>organization_id</code>) plus <code>role_templates</code> + <code>staff_notifications</code> (nullable <code>organization_id</code>). <code>standalone_quotes</code> carries both <code>location_id</code> and a denormalised <code>organization_id</code>. The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
+      <p class="lede2">42 tables, most tenant-scoped via <code>location_id</code>. Org-scoped tables: <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> (required <code>organization_id</code>) plus <code>role_templates</code> + <code>staff_notifications</code> (nullable <code>organization_id</code>). <code>standalone_quotes</code> carries both <code>location_id</code> and a denormalised <code>organization_id</code>. The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
 
       <div class="bp">
         <div class="caption"><span class="ref">FIG&nbsp;05·A</span><span>entity relationship diagram</span></div>
-        <svg viewBox="0 0 1400 860" role="img" aria-label="Entity relationship diagram">
-          <defs>
-            <marker id="erd-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#0b0d11" />
-            </marker>
-            <marker id="erd-arrow-thin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#5b6270" />
-            </marker>
-            <marker id="erd-dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5">
-              <circle cx="5" cy="5" r="3.2" fill="#0b0d11" />
-            </marker>
-          </defs>
-          <!-- groups -->
-          <g class="d-label-mute">
-            <text x="20" y="22" class="d-eyebrow">TENANCY</text>
-            <text x="300" y="22" class="d-eyebrow">PEOPLE</text>
-            <text x="580" y="22" class="d-eyebrow">VEHICLE OPS</text>
-            <text x="860" y="22" class="d-eyebrow">COMMERCE</text>
-            <text x="1140" y="22" class="d-eyebrow">QUOTES &amp; RBAC</text>
-          </g>
 
-          <!-- TENANCY column -->
-          <g>
-            <rect x="20" y="40" width="240" height="90" class="d-fill-white d-stroke-green" />
-            <text x="32" y="60" class="d-title">organizations</text>
-            <text x="32" y="78" class="d-label-mute">id · slug · name · primary_color</text>
-            <text x="32" y="92" class="d-label-mute">custom_domain · portal_theme</text>
-            <text x="32" y="106" class="d-label-mute">stripe_account_id · xero_*</text>
-            <text x="32" y="120" class="d-label-mute">dpa_accepted_*</text>
+        <p>Rendered from the same definitions as <code>public/SupabaseDBERD.md</code>. The <strong>domain map</strong> shows how all 42 tables cluster off <code>locations</code>; the per-domain diagrams detail the foreign keys. Cardinality is Mermaid notation (<code>||--o{</code> one&#8209;to&#8209;many, <code>|o--o|</code> optional).</p>
 
-            <rect x="20" y="148" width="240" height="74" class="d-fill-white d-stroke" />
-            <text x="32" y="168" class="d-title">locations</text>
-            <text x="32" y="186" class="d-label-mute">id · slug · name</text>
-            <text x="32" y="200" class="d-label-mute">organization_id ⟶</text>
-            <text x="32" y="214" class="d-label-mute">business_hours_start/end</text>
+        <div class="mermaid">
+graph LR
+  organizations(["organizations"]) --> locations(["locations"])
+  subgraph IDENTITY["1 Identity and tenancy"]
+    org_users
+    location_users
+    role_templates
+    webauthn_credentials
+    staff_notification_prefs
+  end
+  subgraph CRM["2 Customers and vehicles"]
+    customers
+    vehicles
+    fleet_companies
+    tyre_checks
+  end
+  subgraph SCHED["3 Scheduling and work"]
+    bookings
+    bays
+    services
+    jobs
+    job_items
+    job_time_entries
+  end
+  subgraph QUOTES["4 Quotes"]
+    job_quotes
+    standalone_quotes
+  end
+  subgraph MONEY["5 Invoicing and payments"]
+    invoices
+    credit_notes
+    review_requests
+    reminders
+    scheduled_tasks
+  end
+  subgraph STOCK["6 Inventory and purchasing"]
+    products
+    suppliers
+    purchase_orders
+  end
+  subgraph PLANS["7 Memberships and plans"]
+    service_plans
+    plan_subscriptions
+    plan_invites
+  end
+  subgraph SYS["8 Platform and system"]
+    audit_log
+    doc_shares
+    xero_payouts
+    stripe_webhook_events
+    staff_notifications
+    data_deletion_log
+  end
+  organizations --> IDENTITY
+  locations --> CRM
+  locations --> SCHED
+  locations --> QUOTES
+  locations --> MONEY
+  locations --> STOCK
+  locations --> PLANS
+  organizations --> SYS
+        </div>
 
-            <rect x="20" y="240" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="32" y="260" class="d-title">org_users</text>
-            <text x="32" y="278" class="d-label-mute">user_id · organization_id</text>
-            <text x="32" y="292" class="d-label-mute">role: owner | admin</text>
+        <h3>Relationships by domain</h3>
 
-            <rect x="20" y="318" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="32" y="338" class="d-title">location_users</text>
-            <text x="32" y="356" class="d-label-mute">user_id · location_id · role</text>
-            <text x="32" y="370" class="d-label-mute">permissions (jsonb)</text>
+        <p><strong>1 &middot; Identity &amp; tenancy</strong> — org owns locations; staff are org-wide or per-location (optionally a role template); passkeys + prefs hang off the identity.</p>
+        <div class="mermaid">
+erDiagram
+  organizations ||--o{ locations : "owns"
+  organizations ||--o{ org_users : "org staff"
+  organizations ||--o{ role_templates : "custom roles"
+  locations ||--o{ location_users : "location staff"
+  role_templates |o--o{ location_users : "grants"
+  auth_users ||--o{ org_users : "is"
+  auth_users ||--o{ location_users : "is"
+  auth_users ||--o{ webauthn_credentials : "passkeys"
+  auth_users ||--o| staff_notification_prefs : "prefs"
+        </div>
 
-            <rect x="20" y="396" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="32" y="416" class="d-title">scheduled_tasks</text>
-            <text x="32" y="434" class="d-label-mute">task_type · frequency · hour</text>
-            <text x="32" y="448" class="d-label-mute">enabled · settings (jsonb)</text>
+        <p><strong>2 &middot; Customers &amp; vehicles</strong> — customers belong to a location, may be grouped under a fleet, own vehicles, and link to auth once they use the portal.</p>
+        <div class="mermaid">
+erDiagram
+  locations ||--o{ customers : "has"
+  locations ||--o{ fleet_companies : "has"
+  fleet_companies ||--o{ customers : "groups"
+  customers ||--o{ vehicles : "owns"
+  vehicles ||--o{ tyre_checks : "checked"
+  auth_users |o--o{ customers : "portal login"
+        </div>
 
-            <rect x="20" y="474" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="32" y="494" class="d-title">bays</text>
-            <text x="32" y="512" class="d-label-mute">location_id · name · sort_order</text>
+        <p><strong>3 &middot; Scheduling &amp; work</strong> — a booking can spawn a job; jobs carry line items (optionally from a product/service) and labour time.</p>
+        <div class="mermaid">
+erDiagram
+  locations ||--o{ bookings : "schedules"
+  customers ||--o{ bookings : "books"
+  vehicles ||--o{ bookings : "for"
+  services |o--o{ bookings : "type"
+  bays |o--o{ bookings : "in"
+  bookings ||--o| jobs : "spawns"
+  customers ||--o{ jobs : "subject"
+  vehicles ||--o{ jobs : "for"
+  jobs ||--o{ job_items : "lines"
+  jobs ||--o{ job_time_entries : "labour"
+  products |o--o{ job_items : "stock"
+  services |o--o{ job_items : "from"
+        </div>
 
-            <rect x="20" y="552" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="32" y="572" class="d-title">webauthn_credentials</text>
-            <text x="32" y="590" class="d-label-mute">user_id · credential_id · public_key</text>
-            <text x="32" y="604" class="d-label-mute">counter · transports · device_name</text>
+        <p><strong>4 &middot; Quotes</strong> — video quotes attached to a job and standalone quotes raised for a customer/vehicle; both have line items, a standalone can convert to a booking.</p>
+        <div class="mermaid">
+erDiagram
+  jobs ||--o{ job_quotes : "video quote"
+  job_quotes ||--o{ job_quote_items : "lines"
+  customers ||--o{ standalone_quotes : "for"
+  vehicles |o--o{ standalone_quotes : "for"
+  standalone_quotes ||--o{ standalone_quote_items : "lines"
+  standalone_quotes |o--o| bookings : "converts to"
+        </div>
 
-            <rect x="20" y="630" width="240" height="74" class="d-fill-paper d-stroke" />
-            <text x="32" y="650" class="d-title">audit_log</text>
-            <text x="32" y="668" class="d-label-mute">organization_id · actor_user_id</text>
-            <text x="32" y="682" class="d-label-mute">action · entity_type · entity_id</text>
-            <text x="32" y="696" class="d-label-mute">metadata (jsonb) · ip · ua · ts</text>
+        <p><strong>5 &middot; Invoicing &amp; payments</strong> — an invoice bills a job or prepaid booking; credit notes record refunds; reviews/reminders/tasks drive comms; Xero payouts reconcile settlements.</p>
+        <div class="mermaid">
+erDiagram
+  locations ||--o{ invoices : "bills"
+  customers ||--o{ invoices : "billed"
+  jobs |o--o| invoices : "from job"
+  bookings |o--o| invoices : "prepay"
+  invoices ||--o{ credit_notes : "refunds"
+  jobs ||--o{ review_requests : "asks review"
+  customers ||--o{ reminders : "receives"
+  vehicles |o--o{ reminders : "about"
+  locations ||--o{ scheduled_tasks : "automates"
+  organizations ||--o{ xero_payouts : "reconciles"
+        </div>
 
-            <rect x="20" y="722" width="240" height="74" class="d-fill-paper d-stroke" />
-            <text x="32" y="742" class="d-title">doc_shares</text>
-            <text x="32" y="760" class="d-label-mute">organization_id · doc_key · slug</text>
-            <text x="32" y="774" class="d-label-mute">token_hash (sha-256) · expires_at</text>
-            <text x="32" y="788" class="d-label-mute">max_views · view_count · revoked_at</text>
-          </g>
+        <p><strong>6 &middot; Inventory &amp; purchasing</strong> — products are stock; suppliers receive purchase orders whose lines can reference a product.</p>
+        <div class="mermaid">
+erDiagram
+  locations ||--o{ products : "stocks"
+  locations ||--o{ suppliers : "buys from"
+  suppliers ||--o{ purchase_orders : "fulfils"
+  purchase_orders ||--o{ purchase_order_items : "lines"
+  products |o--o{ purchase_order_items : "of"
+        </div>
 
-          <!-- PEOPLE column -->
-          <g>
-            <rect x="300" y="40" width="240" height="100" class="d-fill-white d-stroke" />
-            <text x="312" y="60" class="d-title">customers</text>
-            <text x="312" y="78" class="d-label-mute">location_id · user_id (nullable)</text>
-            <text x="312" y="92" class="d-label-mute">full_name · email · phone</text>
-            <text x="312" y="106" class="d-label-mute">fleet_company_id</text>
-            <text x="312" y="120" class="d-label-mute">marketing_*_consent</text>
-            <text x="312" y="134" class="d-label-mute">anonymized_at · xero_contact_id</text>
+        <p><strong>7 &middot; Memberships &amp; plans</strong> — plans bundle included services; customers subscribe (often via a token invite); consumed allowance is tracked per period.</p>
+        <div class="mermaid">
+erDiagram
+  locations ||--o{ service_plans : "offers"
+  service_plans ||--o{ service_plan_items : "includes"
+  services ||--o{ service_plan_items : "of"
+  service_plans ||--o{ plan_subscriptions : "subscribed"
+  customers ||--o{ plan_subscriptions : "member"
+  service_plans ||--o{ plan_invites : "invited to"
+  customers |o--o{ plan_invites : "for"
+  plan_subscriptions ||--o{ plan_service_usage : "consumes"
+  services ||--o{ plan_service_usage : "of"
+  invoices |o--o{ plan_service_usage : "applied on"
+        </div>
 
-            <rect x="300" y="158" width="240" height="74" class="d-fill-white d-stroke" />
-            <text x="312" y="178" class="d-title">vehicles</text>
-            <text x="312" y="196" class="d-label-mute">customer_id · location_id</text>
-            <text x="312" y="210" class="d-label-mute">registration · make · model · year</text>
-            <text x="312" y="224" class="d-label-mute">mot_expiry · service_due · tax_due_date</text>
+        <p><strong>8 &middot; Platform &amp; system</strong> — audit trail, token-gated doc shares, the Stripe webhook idempotency ledger, in-app notifications, GDPR deletion log, password-reset tokens.</p>
+        <div class="mermaid">
+erDiagram
+  organizations |o--o{ audit_log : "audited"
+  organizations |o--o{ doc_shares : "scopes"
+  locations ||--o{ staff_notifications : "alerts"
+  auth_users |o--o{ staff_notifications : "for"
+  auth_users ||--o{ password_reset_tokens : "resets"
+  locations ||--o{ data_deletion_log : "erasures"
+        </div>
 
-            <rect x="300" y="248" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="312" y="268" class="d-title">fleet_companies</text>
-            <text x="312" y="286" class="d-label-mute">location_id · name · contact_*</text>
-
-            <rect x="300" y="324" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="312" y="344" class="d-title">tyre_checks</text>
-            <text x="312" y="362" class="d-label-mute">vehicle_id · nsf/osf/nsr/osr_depth</text>
-            <text x="312" y="376" class="d-label-mute">…_replaced (bool)</text>
-
-            <rect x="300" y="400" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="312" y="420" class="d-title">reminders</text>
-            <text x="312" y="438" class="d-label-mute">vehicle_id · customer_id · type</text>
-            <text x="312" y="452" class="d-label-mute">channel · status · sent_at · opened_at</text>
-
-            <rect x="300" y="476" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="312" y="496" class="d-title">data_deletion_log</text>
-            <text x="312" y="514" class="d-label-mute">customer_id · reason · deleted_at</text>
-            <text x="312" y="528" class="d-label-mute">customer_email_hash · requested_by</text>
-          </g>
-
-          <!-- VEHICLE OPS column -->
-          <g>
-            <rect x="580" y="40" width="240" height="80" class="d-fill-white d-stroke" />
-            <text x="592" y="60" class="d-title">bookings</text>
-            <text x="592" y="78" class="d-label-mute">scheduled_at · duration_minutes</text>
-            <text x="592" y="92" class="d-label-mute">customer_id · vehicle_id · bay_id · service_id</text>
-            <text x="592" y="106" class="d-label-mute">status · stripe_payment_intent_id · paid_at</text>
-
-            <rect x="580" y="138" width="240" height="74" class="d-fill-white d-stroke" />
-            <text x="592" y="158" class="d-title">jobs</text>
-            <text x="592" y="176" class="d-label-mute">customer_id · vehicle_id · booking_id</text>
-            <text x="592" y="190" class="d-label-mute">status · description · notes</text>
-            <text x="592" y="204" class="d-label-mute">completed_at</text>
-
-            <rect x="580" y="228" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="592" y="248" class="d-title">job_items</text>
-            <text x="592" y="266" class="d-label-mute">job_id · description · quantity</text>
-            <text x="592" y="280" class="d-label-mute">unit_price · type (labour | part)</text>
-
-            <rect x="580" y="304" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="592" y="324" class="d-title">services</text>
-            <text x="592" y="342" class="d-label-mute">name · category · price · duration_minutes</text>
-            <text x="592" y="356" class="d-label-mute">vat_included · active</text>
-
-            <rect x="580" y="380" width="240" height="60" class="d-fill-white d-stroke" />
-            <text x="592" y="400" class="d-title">products</text>
-            <text x="592" y="418" class="d-label-mute">name · sku · supplier · category</text>
-            <text x="592" y="432" class="d-label-mute">unit_price · cost_price · stock_qty</text>
-          </g>
-
-          <!-- COMMERCE column -->
-          <g>
-            <rect x="860" y="40" width="220" height="140" class="d-fill-white d-stroke" />
-            <text x="872" y="60" class="d-title">invoices</text>
-            <text x="872" y="78" class="d-label-mute">customer_id · job_id · booking_id</text>
-            <text x="872" y="92" class="d-label-mute">invoice_number · status</text>
-            <text x="872" y="106" class="d-label-mute">subtotal · vat_rate · vat_amount · total</text>
-            <text x="872" y="120" class="d-label-mute">issued_at · due_at · paid_at</text>
-            <text x="872" y="134" class="d-label-mute">stripe_checkout_session_id</text>
-            <text x="872" y="148" class="d-label-mute">stripe_payment_intent_id</text>
-            <text x="872" y="162" class="d-label-mute">xero_invoice_id · xero_payment_id</text>
-
-            <rect x="860" y="200" width="220" height="84" class="d-fill-paper d-stroke-green" />
-            <text x="872" y="220" class="d-title">xero_payouts</text>
-            <text x="872" y="238" class="d-label-mute">organization_id</text>
-            <text x="872" y="252" class="d-label-mute">stripe_payout_id (uniq w/ org)</text>
-            <text x="872" y="266" class="d-label-mute">xero_bank_transaction_id</text>
-            <text x="872" y="280" class="d-label-mute">amount_pence · arrival_date</text>
-          </g>
-
-          <!-- QUOTES & RBAC column -->
-          <g>
-            <rect x="1140" y="40" width="240" height="104" class="d-fill-white d-stroke" />
-            <text x="1152" y="60" class="d-title">job_quotes</text>
-            <text x="1152" y="78" class="d-label-mute">job_id · location_id · status</text>
-            <text x="1152" y="92" class="d-label-mute">token_hash · slug · video_path</text>
-            <text x="1152" y="106" class="d-label-mute">subtotal · vat · total · deposit_*</text>
-            <text x="1152" y="120" class="d-label-mute">approved_item_ids · applied_job_item_ids</text>
-            <text x="1152" y="134" class="d-label-mute">stripe_* · expires_at</text>
-
-            <rect x="1140" y="162" width="240" height="56" class="d-fill-white d-stroke" />
-            <text x="1152" y="182" class="d-title">job_quote_items</text>
-            <text x="1152" y="200" class="d-label-mute">quote_id · description · type</text>
-            <text x="1152" y="214" class="d-label-mute">quantity · unit_price · product_id</text>
-
-            <rect x="1140" y="236" width="240" height="118" class="d-fill-white d-stroke" />
-            <text x="1152" y="256" class="d-title">standalone_quotes</text>
-            <text x="1152" y="274" class="d-label-mute">location_id · organization_id</text>
-            <text x="1152" y="288" class="d-label-mute">customer_id · vehicle_id · status</text>
-            <text x="1152" y="302" class="d-label-mute">token_hash · slug · customer_message</text>
-            <text x="1152" y="316" class="d-label-mute">subtotal · vat · total · deposit_*</text>
-            <text x="1152" y="330" class="d-label-mute">approved_item_ids · stripe_*</text>
-            <text x="1152" y="344" class="d-label-mute">converted_booking_id ⟶</text>
-
-            <rect x="1140" y="372" width="240" height="56" class="d-fill-white d-stroke" />
-            <text x="1152" y="392" class="d-title">standalone_quote_items</text>
-            <text x="1152" y="410" class="d-label-mute">quote_id · description · type</text>
-            <text x="1152" y="424" class="d-label-mute">quantity · unit_price · product_id</text>
-
-            <rect x="1140" y="446" width="240" height="74" class="d-fill-white d-stroke" />
-            <text x="1152" y="466" class="d-title">role_templates</text>
-            <text x="1152" y="484" class="d-label-mute">organization_id (null = system)</text>
-            <text x="1152" y="498" class="d-label-mute">key · label · permissions (jsonb)</text>
-            <text x="1152" y="512" class="d-label-mute">is_system · sort_order</text>
-
-            <rect x="1140" y="538" width="240" height="74" class="d-fill-paper d-stroke" />
-            <text x="1152" y="558" class="d-title">staff_notifications</text>
-            <text x="1152" y="576" class="d-label-mute">user_id · location_id · organization_id</text>
-            <text x="1152" y="590" class="d-label-mute">kind · title · body · href</text>
-            <text x="1152" y="604" class="d-label-mute">entity_type · entity_id · read_at</text>
-          </g>
-
-          <!-- joins — arrows point parent → child (1 : many) -->
-          <g fill="none">
-            <!-- organizations → locations -->
-            <path d="M 140 130 L 140 145" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- locations → location_users -->
-            <path d="M 160 222 L 160 315" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- locations → scheduled_tasks -->
-            <path d="M 100 222 L 100 393" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- locations → bays -->
-            <path d="M 130 222 L 130 471" class="d-stroke" marker-end="url(#erd-arrow)" />
-
-            <!-- organizations → org_users (curve) -->
-            <path d="M 245 95 C 285 95 285 265 268 265" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- organizations → audit_log (curve down right side of tenancy column) -->
-            <path d="M 245 95 C 285 95 285 660 268 660" class="d-stroke-thin" marker-end="url(#erd-arrow-thin)" />
-            <!-- organizations → doc_shares -->
-            <path d="M 245 95 C 290 95 290 755 268 755" class="d-stroke-thin" marker-end="url(#erd-arrow-thin)" />
-
-            <!-- customers → vehicles -->
-            <path d="M 420 140 L 420 155" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- customers → reminders -->
-            <path d="M 380 140 L 380 397" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
-            <!-- vehicles → tyre_checks -->
-            <path d="M 420 232 L 420 321" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- vehicles → reminders (dashed, nullable) -->
-            <path d="M 460 232 L 460 397" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
-            <!-- fleet_companies → customers (back-edge upward) -->
-            <path d="M 380 248 L 380 140" class="d-stroke-thin" marker-end="url(#erd-arrow-thin)" />
-
-            <!-- bookings → jobs (vertical) -->
-            <path d="M 700 120 L 700 135" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- jobs → job_items -->
-            <path d="M 700 212 L 700 225" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- services → bookings (parent to child) -->
-            <path d="M 660 304 L 660 120" class="d-stroke-thin" marker-end="url(#erd-arrow-thin)" />
-            <!-- customers → bookings -->
-            <path d="M 540 90 L 580 80" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- vehicles → bookings -->
-            <path d="M 540 195 L 580 90" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- bays → bookings (cross-column, nullable) -->
-            <path d="M 260 504 C 380 504 480 110 580 110" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
-
-            <!-- jobs → invoices -->
-            <path d="M 820 175 L 860 100" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- bookings → invoices (booking prepay path) -->
-            <path d="M 820 80 L 860 70" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- customers → invoices (nullable, dashed) -->
-            <path d="M 540 100 C 700 100 780 130 860 130" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
-
-            <!-- organizations → xero_payouts (cross-column) -->
-            <path d="M 245 95 C 600 95 760 220 860 220" class="d-stroke-green" marker-end="url(#erd-arrow)" />
-
-            <!-- jobs → job_quotes (cross-column to QUOTES&RBAC) -->
-            <path d="M 820 165 C 980 165 1000 92 1135 92" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- job_quotes → job_quote_items -->
-            <path d="M 1260 144 L 1260 159" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- customers → standalone_quotes (cross-column, far) -->
-            <path d="M 540 70 C 980 70 1000 295 1135 295" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- standalone_quotes → standalone_quote_items -->
-            <path d="M 1260 354 L 1260 369" class="d-stroke" marker-end="url(#erd-arrow)" />
-            <!-- standalone_quotes → bookings (converted_booking_id, nullable back-edge) -->
-            <path d="M 1140 320 C 980 320 900 110 820 100" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
-            <!-- role_templates → location_users (template_id, nullable, long back-edge) -->
-            <path d="M 1140 483 C 700 483 420 360 268 350" class="d-stroke-thin" stroke-dasharray="4 3" marker-end="url(#erd-arrow-thin)" />
-          </g>
-
-          <!-- legend annotations -->
-          <text x="20" y="820" class="d-label-mute">Tenant scope: every operational table carries <tspan class="d-label">location_id</tspan>; <tspan class="d-label">audit_log</tspan>, <tspan class="d-label">doc_shares</tspan> and <tspan class="d-label">xero_payouts</tspan> scope to <tspan class="d-label">organization_id</tspan>. RLS policies enforce membership.</text>
-          <text x="20" y="838" class="d-label-mute">Arrows run parent → child (1 : many). Dashed lines are nullable / optional FKs. Green = cross-domain link to Xero.</text>
-          <text x="20" y="856" class="d-label-mute">Auth: <tspan class="d-label">auth.users</tspan> is Supabase-managed; <tspan class="d-label">org_users</tspan>, <tspan class="d-label">location_users</tspan>, <tspan class="d-label">customers.user_id</tspan>, <tspan class="d-label">audit_log.actor_user_id</tspan>, <tspan class="d-label">doc_shares.created_by</tspan>, <tspan class="d-label">role_templates.created_by</tspan>, <tspan class="d-label">staff_notifications.user_id</tspan> all reference it.</text>
-        </svg>
-        <div class="legend">
-          <span><span class="sw green"></span>shared (org-scoped)</span>
-          <span><span class="sw"></span>required FK</span>
-          <span><span class="sw dash"></span>nullable FK</span>
+        <div class="note">
+          <span class="label">Not shown</span>
+          Platform (SaaS) billing has no table — the garage's own AI Garage subscription lives in <code>organizations.tenant_*</code> (see §17). Xero tokens are AES&#8209;256&#8209;GCM encrypted at the app layer; token-gated routes store only <code>sha256(token)</code>.
         </div>
       </div>
 
@@ -1127,6 +1030,12 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <tr><td>Quote lifecycle</td><td><code>job_quotes</code> · <code>standalone_quotes</code></td><td><code>status · token_hash · slug · expires_at · sent_at · viewed_at · viewed_count · responded_at · approved_item_ids · decline_reason · deposit_pct · deposit_amount · deposit_required · deposit_paid_at · stripe_checkout_session_id · stripe_payment_intent_id</code> · standalone adds <code>organization_id · customer_message · converted_booking_id</code>; DVI adds <code>job_id · applied_job_item_ids</code></td></tr>
         <tr><td>RBAC</td><td><code>location_users</code> · <code>role_templates</code></td><td><code>role · permissions (jsonb) · template_id · mot_tester · mot_qc_reviewer</code> · <code>key · label · permissions · is_system · sort_order</code> (system rows have <code>organization_id IS NULL</code>)</td></tr>
         <tr><td>In-app notifications</td><td><code>staff_notifications</code></td><td><code>user_id · location_id · organization_id · kind · title · body · href · entity_type · entity_id · read_at</code></td></tr>
+        <tr><td>Platform billing</td><td><code>organizations</code></td><td><code>tenant_plan · tenant_subscription_status · tenant_stripe_customer_id · tenant_stripe_subscription_id · tenant_current_period_end · tenant_trial_end</code> (the garage's own AI Garage subscription — see §17)</td></tr>
+        <tr><td>Memberships</td><td><code>service_plans</code> · <code>plan_subscriptions</code> · <code>service_plan_items</code> · <code>plan_service_usage</code> · <code>plan_invites</code> · <code>invoices</code></td><td><code>discount_type · discount_value · stripe_price_monthly_id · stripe_price_annual_id · status · current_period_end · quantity_per_period · covered_qty · token_hash · subscribed_at</code> · invoice adds <code>membership_credit_amount · discount_amount</code></td></tr>
+        <tr><td>Refunds</td><td><code>credit_notes</code></td><td><code>invoice_id · credit_number · reason · stripe_refund_id</code> (unique) · <code>xero_credit_note_id · status</code></td></tr>
+        <tr><td>Stock &amp; purchasing</td><td><code>products</code> · <code>suppliers</code> · <code>purchase_orders</code> · <code>purchase_order_items</code></td><td><code>stock_qty · reorder_at · cost_price</code> · <code>supplier_id · reference · ordered_at · received_at · unit_cost</code></td></tr>
+        <tr><td>Labour time</td><td><code>job_time_entries</code></td><td><code>started_at · ended_at · active_minutes · segment_started_at · status</code></td></tr>
+        <tr><td>User prefs</td><td><code>staff_notification_prefs</code></td><td><code>weekly_digest</code> (per-user; no row = opted in)</td></tr>
       </table>
     </section>
 
@@ -1954,10 +1863,167 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
       </div>
     </section>
 
-    <!-- ============== 16. TESTING &amp; CI ============== -->
-    <section id="testing">
+    <!-- ============== 16. SERVICE PLANS &amp; MEMBERSHIPS ============== -->
+    <section id="service-plans">
       <div class="sec-head">
         <div class="num">16</div>
+        <h2>Service plans &amp; memberships</h2>
+        <div class="tag">stripe subscriptions · connected account</div>
+      </div>
+
+      <p class="lede2">Each garage can sell recurring <strong>membership plans</strong> (e.g. "Service Club") billed as Stripe subscriptions on the garage's own <strong>Connect</strong> account. Plans bundle discounts and a quota of included services; benefits apply automatically when the customer is next invoiced. Lives in <code>src/lib/service-plans.ts</code>.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Data model</h3>
+          <ul>
+            <li><code>service_plans</code> — name, monthly/annual price, <code>discount_type</code>/<code>discount_value</code>, and the mirrored Stripe <code>product</code>/<code>price</code> ids. Created on the connected account.</li>
+            <li><code>service_plan_items</code> — included services + <code>quantity_per_period</code> (the consumed-allowance bundle).</li>
+            <li><code>plan_subscriptions</code> — a customer's live subscription (status, interval, period end, cancel-at-period-end). Upserted from Stripe by <code>stripe_subscription_id</code>.</li>
+            <li><code>plan_invites</code> — token-gated invite (<code>slug</code> + <code>sha256(token)</code>) a staff member sends so a customer can self-subscribe; marked <code>subscribed</code> on completion.</li>
+            <li><code>plan_service_usage</code> — allowance consumed per period, optionally tagged with the <code>invoice_id</code> it was applied to.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Benefits at invoice time</h3>
+          <ul>
+            <li><code>memberDiscountForCustomer()</code> / <code>getMemberBenefits()</code> resolve the best live membership.</li>
+            <li>Invoices carry <code>discount_amount</code>/<code>discount_description</code> (member discount) and <code>membership_credit_amount</code>/<code>_description</code> (an included service consumed for free) — both shown on the customer invoice.</li>
+            <li>Consuming an included service writes a <code>plan_service_usage</code> row so the quota can't be double-spent in a period.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Lifecycle</h3>
+      <ul>
+        <li>Staff create/price a plan in <code>/staff/plans</code>; Stripe product + prices are mirrored onto the connected account.</li>
+        <li>Staff invite a customer (<code>/staff/customers/[id]</code> → plan-invite panel) → token email → customer checks out on the garage's Connect account.</li>
+        <li>Webhook <code>checkout.session.completed</code> with <code>metadata.kind = "service_plan"</code> (carries <code>event.account</code>) → <code>recordSubscriptionFromStripe()</code> + the invite is marked redeemed + a <strong>garage-branded receipt</strong> emails the customer.</li>
+        <li><code>customer.subscription.updated/deleted</code> on the connected account keeps the row's status/period in sync.</li>
+      </ul>
+
+      <div class="note">
+        <span class="label">Two Stripe surfaces</span>
+        Membership subscriptions are on the <strong>connected (garage) account</strong> — distinct from the platform SaaS tiers in §17, which bill the garage on the <strong>platform account</strong>. The webhook routes the two by <code>metadata.kind</code> and the presence of <code>event.account</code>.
+      </div>
+    </section>
+
+    <!-- ============== 17. PLATFORM BILLING ============== -->
+    <section id="platform-billing">
+      <div class="sec-head">
+        <div class="num">17</div>
+        <h2>Platform billing (SaaS tiers)</h2>
+        <div class="tag">hybrid · platform account</div>
+      </div>
+
+      <p class="lede2">The garage's own subscription to AI Garage. A <strong>hybrid model</strong>: a per-payment platform fee <em>plus</em> a flat monthly/annual tier. Config + helpers live in <code>src/lib/tenant-plans.ts</code>; there is no separate table — state hangs off <code>organizations.tenant_*</code> columns.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Tiers (<code>TIERS</code>)</h3>
+          <table class="tbl dense">
+            <tr><td>Starter</td><td>free · 2.0% fee · 1 location</td></tr>
+            <tr><td>Pro</td><td>£49/mo · 1.5% fee · 3 locations · Xero/campaigns/automations</td></tr>
+            <tr><td>Growth</td><td>£99/mo · 1.0% fee · ∞ locations · all features</td></tr>
+          </table>
+          <p>Prices map to Stripe Prices via <code>STRIPE_TENANT_PRICE_{PRO,GROWTH}_{MONTHLY,ANNUAL}</code> env ids.</p>
+        </div>
+        <div>
+          <h3>Enforcement</h3>
+          <ul>
+            <li><code>effectiveFeePercent(org)</code> — the tier's rate while in good standing, else the Starter rate (a lapsed tier loses its discount).</li>
+            <li><code>entitledTo(org, feature)</code> — gates Xero / campaigns / automations.</li>
+            <li><code>tenantBillingActive()</code> — soft + grace (<code>TENANT_BILLING_GRACE_DAYS</code> = 7) so a <code>past_due</code> tenant keeps core trading inside the window.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Checkout, portal &amp; sync</h3>
+      <ul>
+        <li>Owners subscribe via Checkout, or change plan / cancel via the Stripe <strong>Billing Portal</strong>; <code>startTenantCheckout</code> refuses to create a second subscription when one is already live.</li>
+        <li>Webhooks (<code>checkout.session.completed</code>, <code>customer.subscription.updated/deleted</code> with <code>metadata.kind = "tenant_billing"</code>, no <code>event.account</code>) call <code>recordTenantSubscription()</code>. Tier is derived from the <strong>price id</strong> (authoritative — survives portal plan switches), falling back to the checkout-stamped <code>metadata.tier</code>.</li>
+        <li>The billing page <strong>self-heals</strong>: on load it lists the customer's subscriptions from Stripe and records the live one, so the tier is correct even if a webhook was missed.</li>
+        <li>An <strong>owner receipt</strong> emails on subscribe and on a paid↔paid switch; the page shows an upgrade-success modal on return.</li>
+      </ul>
+    </section>
+
+    <!-- ============== 18. REFUNDS &amp; CREDIT NOTES ============== -->
+    <section id="credit-notes">
+      <div class="sec-head">
+        <div class="num">18</div>
+        <h2>Refunds &amp; credit notes</h2>
+        <div class="tag">stripe refunds · xero</div>
+      </div>
+
+      <p class="lede2">Refunding a paid invoice records a <code>credit_notes</code> row and reflects it on the invoice + in Xero. Helpers in <code>src/lib/credit-notes.ts</code>.</p>
+
+      <ul>
+        <li>Staff issue a full/partial refund from the invoice actions; Stripe processes the refund on the connected account.</li>
+        <li>Webhook <code>charge.refunded</code> → <code>recordRefundCreditNote()</code> (idempotent on <code>stripe_refund_id</code>, which is unique) + <code>recomputeInvoiceRefundStatus()</code> updates the invoice.</li>
+        <li><code>credit_notes</code> stores <code>invoice_id</code>, <code>credit_number</code>, <code>reason</code>, amounts, and the <code>xero_credit_note_id</code> once mirrored to Xero.</li>
+      </ul>
+    </section>
+
+    <!-- ============== 19. INVENTORY, PURCHASING &amp; LABOUR ============== -->
+    <section id="inventory">
+      <div class="sec-head">
+        <div class="num">19</div>
+        <h2>Inventory, purchasing &amp; labour</h2>
+        <div class="tag">stock · suppliers · time</div>
+      </div>
+
+      <div class="cols-2">
+        <div>
+          <h3>Stock &amp; purchasing</h3>
+          <ul>
+            <li><code>products</code> — parts catalogue with <code>stock_qty</code>, <code>cost_price</code> and a <code>reorder_at</code> low-stock threshold.</li>
+            <li><code>suppliers</code> + <code>purchase_orders</code> + <code>purchase_order_items</code> — raise a PO, receive it to increment stock. Items can reference a <code>product_id</code>.</li>
+            <li>Job + quote line items carry an optional <code>product_id</code> so parts usage ties back to stock, and a <code>service_id</code> so catalogue services map to the membership allowance.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Labour time</h3>
+          <ul>
+            <li><code>job_time_entries</code> — per-technician labour clock against a job: start / pause / resume / stop, with <code>active_minutes</code> excluding paused spans.</li>
+            <li>Surfaced on the job detail page; feeds labour reporting.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 20. USER ACCOUNT &amp; NOTIFICATIONS ============== -->
+    <section id="account">
+      <div class="sec-head">
+        <div class="num">20</div>
+        <h2>User account &amp; notifications</h2>
+        <div class="tag">personal · per-user</div>
+      </div>
+
+      <p class="lede2">Personal settings, distinct from the org-wide <code>/staff/settings</code>. Reached from the avatar menu in the rail (<code>UserMenu</code>) → <code>/staff/account</code> with Profile / Security / Notifications tabs.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Account</h3>
+          <ul>
+            <li><strong>Profile</strong> — edit display name (<code>auth user_metadata.full_name</code>); sign-in email is read-only.</li>
+            <li><strong>Security</strong> — per-user passkeys + in-app password change (verifies the current password via a throwaway client, then sets the new one with the admin client; the live session is untouched).</li>
+            <li><strong>Notifications</strong> — email preference toggles.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Notifications</h3>
+          <ul>
+            <li><code>staff_notifications</code> — in-app alerts (the rail bell), e.g. a DVI quote response.</li>
+            <li><code>staff_notification_prefs</code> — per-user email toggles. The weekly digest cron skips opted-out users; <strong>no row = opted in</strong>, so a missing pref fails safe.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 21. TESTING &amp; CI ============== -->
+    <section id="testing">
+      <div class="sec-head">
+        <div class="num">21</div>
         <h2>Testing &amp; CI</h2>
         <div class="tag">vitest · github-actions · pre-commit</div>
       </div>
@@ -2021,7 +2087,7 @@ it("denies without my_perm", async () =&gt; {
     <!-- ============== 17. SECURITY ============== -->
     <section id="security">
       <div class="sec-head">
-        <div class="num">17</div>
+        <div class="num">22</div>
         <h2>Security &amp; compliance</h2>
         <div class="tag">rls · gdpr · pci</div>
       </div>
@@ -2075,7 +2141,7 @@ it("denies without my_perm", async () =&gt; {
 
       <div class="note warn">
         <span class="label">Open follow-ups</span>
-        Vercel Cron health alerting to PagerDuty / Slack. In-app staff notifications (for DVI quote responses). Auto-orphan-video GC pass on the <code>job-quote-videos</code> bucket.
+        Vercel Cron health alerting to PagerDuty / Slack. Auto-orphan-video GC pass on the <code>job-quote-videos</code> bucket. Per-staff notification toggles beyond the weekly digest (booking / quote email alerts) once those senders exist.
       </div>
     </section>
 
@@ -2083,12 +2149,16 @@ it("denies without my_perm", async () =&gt; {
     <footer style="margin-top: 96px; padding-top: 32px; border-top: 1px solid var(--aig-rule); display: flex; justify-content: space-between; align-items: center; font-family: var(--font-mono); font-size: 11px; color: var(--aig-ink-3);">
       <div>
         <img src="/brand/aigarage-mark-on-brand.svg" alt="" style="height: 18px; vertical-align: middle; margin-right: 8px;" />
-        AI Garage · technical reference · revision 05
+        AI Garage · technical reference · revision 06
       </div>
       <div>end of document</div>
     </footer>
   </main>
 </div>
 
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose", er: { useMaxWidth: true }, flowchart: { useMaxWidth: true } });
+  </script>
 </body>
 </html>
