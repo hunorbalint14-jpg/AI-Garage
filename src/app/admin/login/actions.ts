@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
-import { isPlatformAdmin } from "@/lib/platform-admin";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { logAudit } from "@/lib/audit";
 
 // Platform-operator sign-in. Same rate-limited password flow as staff login,
@@ -16,15 +16,6 @@ export async function signInPlatformAdmin(
 ): Promise<{ ok: true } | { error: string }> {
   const limited = await enforceRateLimit("login", email);
   if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
-
-  if (!isPlatformAdmin(email)) {
-    await logAudit({
-      action: "auth.login_failed",
-      actorEmail: email,
-      metadata: { portal: "platform", reason: "not_allowlisted" },
-    });
-    return { error: "Not authorised." };
-  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -41,10 +32,16 @@ export async function signInPlatformAdmin(
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Re-check after auth in case the password belongs to a non-operator whose
-  // email differs from the submitted one.
-  if (!isPlatformAdmin(user?.email)) {
+  // Authorise against the env allowlist OR the platform_admins table. A valid
+  // Supabase password for a non-operator account is signed straight back out.
+  if (!(await isPlatformAdminUser(user))) {
     await supabase.auth.signOut();
+    await logAudit({
+      action: "auth.login_failed",
+      actorUserId: user?.id ?? null,
+      actorEmail: user?.email ?? email,
+      metadata: { portal: "platform", reason: "not_authorised" },
+    });
     return { error: "Not authorised." };
   }
 
