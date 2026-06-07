@@ -239,6 +239,12 @@ export async function sendReminder(
     reminderType,
     dueDate: formattedDate,
   };
+  const aiCtx = {
+    locationId: ctx.location.id,
+    organizationId: ctx.organization.id,
+    userId: ctx.user.id,
+    feature: "reminder_send",
+  };
 
   const sentChannels: string[] = [];
   const bookingUrl = tenantBookingUrl(ctx.location.slug);
@@ -249,7 +255,7 @@ export async function sendReminder(
   if (customer.email) {
     let messageText: string;
     try {
-      messageText = await draftReminderMessage(draftInput);
+      messageText = await draftReminderMessage(draftInput, aiCtx);
     } catch {
       messageText = fallbackReminderMessage(draftInput);
     }
@@ -279,7 +285,7 @@ export async function sendReminder(
   if (customer.phone) {
     let smsText: string;
     try {
-      smsText = await draftSmsReminderMessage(draftInput);
+      smsText = await draftSmsReminderMessage(draftInput, aiCtx);
     } catch {
       smsText = fallbackSmsReminderMessage(draftInput);
     }
@@ -307,7 +313,7 @@ export async function sendReminder(
   if (customer.phone) {
     let waText: string;
     try {
-      waText = await draftSmsReminderMessage(draftInput);
+      waText = await draftSmsReminderMessage(draftInput, aiCtx);
     } catch {
       waText = fallbackSmsReminderMessage(draftInput);
     }
@@ -391,7 +397,15 @@ export async function draftMessagePreview(
   const garagePhone = org?.phone ?? null;
 
   try {
-    const drafted = await draftCustomMessage({ garageName, garagePhone, customerFirstName: firstName, topic });
+    const drafted = await draftCustomMessage(
+      { garageName, garagePhone, customerFirstName: firstName, topic },
+      {
+        locationId: ctx.location.id,
+        organizationId: ctx.organization.id,
+        userId: ctx.user.id,
+        feature: "message_draft",
+      },
+    );
     return {
       email: needsEmailDraft ? drafted.email : null,
       sms: wantsSms ? drafted.sms : null,

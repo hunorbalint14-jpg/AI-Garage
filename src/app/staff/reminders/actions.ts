@@ -9,8 +9,10 @@ import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import Anthropic from "@anthropic-ai/sdk";
 import { fallbackReminderMessage, fallbackSmsReminderMessage } from "@/lib/ai-messages";
+import { recordAiUsage } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
+const MODEL = "claude-haiku-4-5-20251001";
 
 const EMAIL_SYSTEM = `You draft short vehicle reminder emails for UK garages. British English. Under 120 words.
 Start with "Hi [first name]," — no subject line, no sign-off placeholder.
@@ -105,7 +107,7 @@ export async function draftReminderPreview(
   try {
     const [emailRes, smsRes] = await Promise.all([
       anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL,
         max_tokens: 300,
         system: [{ type: "text", text: EMAIL_SYSTEM, cache_control: { type: "ephemeral" } }],
         messages: [
@@ -116,7 +118,7 @@ export async function draftReminderPreview(
         ],
       }),
       anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL,
         max_tokens: 80,
         system: [{ type: "text", text: SMS_SYSTEM, cache_control: { type: "ephemeral" } }],
         messages: [
@@ -125,6 +127,24 @@ export async function draftReminderPreview(
             content: `Tone: ${toneNote}\n\nSMS ${label} reminder: customer ${firstName}, vehicle ${vehicle.registration}, due ${formattedDate}, from ${garageName}. Point them to the link below to book — no phone number, no URL.`,
           },
         ],
+      }),
+    ]);
+    await Promise.all([
+      recordAiUsage({
+        locationId: ctx.location.id,
+        organizationId: ctx.organization.id,
+        userId: ctx.user.id,
+        feature: "reminder_draft",
+        model: MODEL,
+        usage: emailRes.usage,
+      }),
+      recordAiUsage({
+        locationId: ctx.location.id,
+        organizationId: ctx.organization.id,
+        userId: ctx.user.id,
+        feature: "reminder_draft",
+        model: MODEL,
+        usage: smsRes.usage,
       }),
     ]);
 

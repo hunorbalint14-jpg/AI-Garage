@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
+const MODEL = "claude-haiku-4-5-20251001";
 
 const SYSTEM = `You are an assistant for UK garage mechanics. The mechanic dictates freeform notes about a job they just completed or are working on. Your task: extract a clean summary and a structured list of job line items.
 
@@ -33,17 +35,19 @@ export type StructuredJob = {
 export async function structureVoiceNotes(
   transcript: string,
   vehicleDescription?: string,
+  ctx?: AiUsageContext,
 ): Promise<StructuredJob> {
   const userMsg = vehicleDescription
     ? `Vehicle: ${vehicleDescription}\n\nMechanic notes:\n${transcript}`
     : `Mechanic notes:\n${transcript}`;
 
   const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: MODEL,
     max_tokens: 1000,
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: userMsg }],
   });
+  if (ctx) await recordAiUsage({ ...ctx, model: MODEL, usage: response.usage });
 
   const block = response.content[0];
   if (block.type !== "text") throw new Error("Unexpected response type");

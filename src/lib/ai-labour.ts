@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
+const MODEL = "claude-haiku-4-5-20251001";
 
 const SYSTEM = `You are a UK automotive labour time estimator.
 You MUST ALWAYS respond with ONLY a JSON object. Never write prose, never ask for clarification.
@@ -18,17 +20,19 @@ Rules:
 export async function estimateLabourTime(
   description: string,
   vehicleDescription?: string,
+  ctx?: AiUsageContext,
 ): Promise<{ hours: number; note: string }> {
   const userMsg = vehicleDescription
     ? `Vehicle: ${vehicleDescription}\nJob: ${description}`
     : `Job: ${description}`;
 
   const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: MODEL,
     max_tokens: 100,
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: userMsg }],
   });
+  if (ctx) await recordAiUsage({ ...ctx, model: MODEL, usage: response.usage });
 
   const block = response.content[0];
   if (block.type !== "text") throw new Error("Unexpected response type");

@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
+const MODEL = "claude-haiku-4-5-20251001";
 
 const EMAIL_REMINDER_SYSTEM = `You draft short, friendly vehicle reminder emails for UK garages.
 Write in British English. Keep messages under 120 words — warm but professional.
@@ -63,12 +65,13 @@ export type DraftCustomMessageInput = {
 
 export async function draftReminderMessage(
   input: DraftReminderInput,
+  ctx?: AiUsageContext,
 ): Promise<string> {
   const { garageName, customerFirstName, registration, vehicleDescription, reminderType, dueDate } = input;
   const label = reminderType === "mot" ? "MOT" : "service";
 
   const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: MODEL,
     max_tokens: 300,
     system: [{ type: "text", text: EMAIL_REMINDER_SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{
@@ -76,6 +79,7 @@ export async function draftReminderMessage(
       content: `Draft a ${label} reminder for:\n\nGarage: ${garageName}\nCustomer first name: ${customerFirstName}\nVehicle: ${vehicleDescription} (${registration})\n${label} due: ${dueDate}\n\nStart with "Hi ${customerFirstName},". End by inviting them to book using the button below — do not write a URL or phone number yourself.`,
     }],
   });
+  if (ctx) await recordAiUsage({ ...ctx, model: MODEL, usage: response.usage });
 
   const block = response.content[0];
   if (block.type !== "text") throw new Error("Unexpected response type from Claude");
@@ -84,12 +88,13 @@ export async function draftReminderMessage(
 
 export async function draftSmsReminderMessage(
   input: DraftReminderInput,
+  ctx?: AiUsageContext,
 ): Promise<string> {
   const { garageName, customerFirstName, registration, reminderType, dueDate } = input;
   const label = reminderType === "mot" ? "MOT" : "service";
 
   const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: MODEL,
     max_tokens: 80,
     system: [{ type: "text", text: SMS_REMINDER_SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{
@@ -97,6 +102,7 @@ export async function draftSmsReminderMessage(
       content: `SMS ${label} reminder: customer ${customerFirstName}, vehicle ${registration}, due ${dueDate}, from ${garageName}. End by pointing them to the booking link below — do not include a phone number or URL.`,
     }],
   });
+  if (ctx) await recordAiUsage({ ...ctx, model: MODEL, usage: response.usage });
 
   const block = response.content[0];
   if (block.type !== "text") throw new Error("Unexpected response type from Claude");
@@ -105,12 +111,13 @@ export async function draftSmsReminderMessage(
 
 export async function draftCustomMessage(
   input: DraftCustomMessageInput,
+  ctx?: AiUsageContext,
 ): Promise<{ email: string; sms: string }> {
   const { garageName, customerFirstName, topic } = input;
 
   const [emailRes, smsRes] = await Promise.all([
     anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: MODEL,
       max_tokens: 300,
       system: [{ type: "text", text: EMAIL_CUSTOM_SYSTEM, cache_control: { type: "ephemeral" } }],
       messages: [{
@@ -119,7 +126,7 @@ export async function draftCustomMessage(
       }],
     }),
     anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: MODEL,
       max_tokens: 80,
       system: [{ type: "text", text: SMS_CUSTOM_SYSTEM, cache_control: { type: "ephemeral" } }],
       messages: [{
@@ -128,6 +135,12 @@ export async function draftCustomMessage(
       }],
     }),
   ]);
+  if (ctx) {
+    await Promise.all([
+      recordAiUsage({ ...ctx, model: MODEL, usage: emailRes.usage }),
+      recordAiUsage({ ...ctx, model: MODEL, usage: smsRes.usage }),
+    ]);
+  }
 
   const emailBlock = emailRes.content[0];
   const smsBlock = smsRes.content[0];
@@ -148,12 +161,13 @@ export type DraftBroadcastInput = {
 
 export async function draftBroadcastMessage(
   input: DraftBroadcastInput,
+  ctx?: AiUsageContext,
 ): Promise<{ subject: string; email: string; sms: string }> {
   const { garageName, topic, needEmail, needSms } = input;
 
   const emailPromise = needEmail
     ? anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL,
         max_tokens: 400,
         system: [{
           type: "text",
@@ -184,7 +198,7 @@ Do not use the user's raw prompt as the subject — write a fresh, customer-faci
 
   const smsPromise = needSms
     ? anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
+        model: MODEL,
         max_tokens: 80,
         system: [{
           type: "text",
@@ -204,6 +218,13 @@ Call to action rules — STRICT:
     : Promise.resolve(null);
 
   const [emailRes, smsRes] = await Promise.all([emailPromise, smsPromise]);
+  if (ctx) {
+    await Promise.all(
+      [emailRes, smsRes]
+        .filter((r): r is NonNullable<typeof r> => r !== null)
+        .map((r) => recordAiUsage({ ...ctx, model: MODEL, usage: r.usage })),
+    );
+  }
 
   const fallbackSubject = `News from ${garageName}`;
   const fallbackBody = `Dear customer,\n\n${topic}\n\nRegards, ${garageName}`;

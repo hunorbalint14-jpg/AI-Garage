@@ -314,7 +314,12 @@ export async function suggestLabourTime(
   const limited = await enforceRateLimit("ai", ctx.user.id);
   if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
   try {
-    return await estimateLabourTime(description.trim(), vehicleDescription);
+    return await estimateLabourTime(description.trim(), vehicleDescription, {
+      locationId: ctx.location.id,
+      organizationId: ctx.organization.id,
+      userId: ctx.user.id,
+      feature: "labour_estimate",
+    });
   } catch {
     return { error: "Could not estimate — try a more specific description." };
   }

@@ -187,6 +187,9 @@ export async function GET(request: NextRequest) {
           reminderType,
           dueDate: formattedDate,
         };
+        // Automated (cron) AI drafts — attributed to the location; the overview
+        // view derives the org from location_id. No user (system-run).
+        const aiCtx = { locationId: location.id, feature: "reminder_auto" };
 
         // Email channel
         if (customer.email && allowedChannels.includes("email")) {
@@ -196,7 +199,7 @@ export async function GET(request: NextRequest) {
           } else {
             let messageText: string;
             try {
-              messageText = await draftReminderMessage(draftInput);
+              messageText = await draftReminderMessage(draftInput, aiCtx);
             } catch {
               messageText = fallbackReminderMessage(draftInput);
             }
@@ -235,7 +238,7 @@ export async function GET(request: NextRequest) {
           } else {
             let waText: string;
             try {
-              waText = await draftSmsReminderMessage(draftInput);
+              waText = await draftSmsReminderMessage(draftInput, aiCtx);
             } catch {
               waText = fallbackSmsReminderMessage(draftInput);
             }
@@ -272,7 +275,7 @@ export async function GET(request: NextRequest) {
           } else {
             let smsText: string;
             try {
-              smsText = await draftSmsReminderMessage(draftInput);
+              smsText = await draftSmsReminderMessage(draftInput, aiCtx);
             } catch {
               smsText = fallbackSmsReminderMessage(draftInput);
             }

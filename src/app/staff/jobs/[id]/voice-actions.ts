@@ -42,7 +42,12 @@ export async function structureTranscript(
     : undefined;
 
   try {
-    const data = await structureVoiceNotes(transcript, vehicleDesc ?? undefined);
+    const data = await structureVoiceNotes(transcript, vehicleDesc ?? undefined, {
+      locationId: ctx.location.id,
+      organizationId: ctx.organization.id,
+      userId: ctx.user.id,
+      feature: "voice_job",
+    });
     return { success: true, data };
   } catch (e) {
     return { error: `AI failed: ${(e as Error).message}` };
