@@ -916,10 +916,10 @@ erDiagram
   organizations ||--o{ role_templates : "custom roles"
   locations ||--o{ location_users : "location staff"
   role_templates |o--o{ location_users : "grants"
-  users["auth.users"] ||--o{ org_users : ""
-  users["auth.users"] ||--o{ location_users : ""
-  users["auth.users"] ||--o{ webauthn_credentials : "passkeys"
-  users["auth.users"] ||--o| staff_notification_prefs : "prefs"
+  auth_users ||--o{ org_users : "is"
+  auth_users ||--o{ location_users : "is"
+  auth_users ||--o{ webauthn_credentials : "passkeys"
+  auth_users ||--o| staff_notification_prefs : "prefs"
         </div>
 
         <p><strong>2 &middot; Customers &amp; vehicles</strong> — customers belong to a location, may be grouped under a fleet, own vehicles, and link to auth once they use the portal.</p>
@@ -930,7 +930,7 @@ erDiagram
   fleet_companies ||--o{ customers : "groups"
   customers ||--o{ vehicles : "owns"
   vehicles ||--o{ tyre_checks : "checked"
-  users["auth.users"] |o--o{ customers : "portal login"
+  auth_users |o--o{ customers : "portal login"
         </div>
 
         <p><strong>3 &middot; Scheduling &amp; work</strong> — a booking can spawn a job; jobs carry line items (optionally from a product/service) and labour time.</p>
@@ -1007,8 +1007,8 @@ erDiagram
   organizations |o--o{ audit_log : "audited"
   organizations |o--o{ doc_shares : "scopes"
   locations ||--o{ staff_notifications : "alerts"
-  users["auth.users"] |o--o{ staff_notifications : "for"
-  users["auth.users"] ||--o{ password_reset_tokens : "resets"
+  auth_users |o--o{ staff_notifications : "for"
+  auth_users ||--o{ password_reset_tokens : "resets"
   locations ||--o{ data_deletion_log : "erasures"
         </div>
 
