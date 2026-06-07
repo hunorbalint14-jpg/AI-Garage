@@ -113,7 +113,7 @@ export async function openBillingPortal(): Promise<BillingResult> {
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${tenantOrigin(ctx.location.slug)}/staff/settings/billing`,
+      return_url: `${tenantOrigin(ctx.location.slug)}/staff/settings/billing?upgraded=1`,
     });
     return { url: session.url };
   } catch (err) {

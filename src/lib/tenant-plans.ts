@@ -149,16 +149,16 @@ export async function recordTenantSubscription(admin: Admin, sub: Stripe.Subscri
     }
     const item = sub.items?.data?.[0];
     const priceId = item?.price?.id;
-    // Prefer the tier we stamped on the subscription at checkout — robust even
-    // if the STRIPE_TENANT_PRICE_* env ids don't match (e.g. test vs live, or
-    // not loaded at runtime). Fall back to mapping the Stripe price id.
+    // The price the customer is actually on is the source of truth: a Billing
+    // Portal plan switch (e.g. Pro → Growth) changes the price but NOT the tier
+    // we stamped in metadata at checkout. So map the price first, and only fall
+    // back to the stamped tier when the price id isn't recognised (e.g. a
+    // STRIPE_TENANT_PRICE_* env mismatch between test/live).
+    const priceTier = priceId ? tierForStripePrice(priceId) : null;
     const metaTier = sub.metadata?.tier;
-    const tier: TierKey | null =
-      metaTier === "starter" || metaTier === "pro" || metaTier === "growth"
-        ? metaTier
-        : priceId
-          ? tierForStripePrice(priceId)
-          : null;
+    const fallbackTier: TierKey | null =
+      metaTier === "starter" || metaTier === "pro" || metaTier === "growth" ? metaTier : null;
+    const tier: TierKey | null = priceTier ?? fallbackTier;
     const periodEndUnix = item?.current_period_end ?? null;
     const customerId = typeof sub.customer === "string" ? sub.customer : (sub.customer?.id ?? null);
     const ended = sub.status === "canceled" || sub.status === "incomplete_expired";
