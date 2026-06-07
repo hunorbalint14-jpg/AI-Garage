@@ -14,18 +14,20 @@ export function StaffLoginForm({
 }) {
   const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
-  const [pending, setPending] = useState(false);
+  // Which auth path is in flight, so only that button shows its spinner.
+  const [pendingAction, setPendingAction] = useState<null | "password" | "passkey">(null);
+  const pending = pendingAction !== null;
   const [error, setError] = useState<string | null>(null);
 
   const btnColor = accentColor ?? "#6366f1";
 
   async function handlePasskey() {
     setError(null);
-    setPending(true);
+    setPendingAction("passkey");
     try {
       if (typeof window === "undefined" || !window.PublicKeyCredential) {
         setError("This browser doesn't support passkeys.");
-        setPending(false);
+        setPendingAction(null);
         return;
       }
       const beginRes = await fetch("/api/auth/passkey/login/begin", { method: "POST" });
@@ -42,7 +44,7 @@ export function StaffLoginForm({
       const result = await completeRes.json();
       if (!completeRes.ok) {
         setError(result.error ?? `Failed: ${completeRes.status}`);
-        setPending(false);
+        setPendingAction(null);
         return;
       }
       window.location.href = result.redirect ?? "/staff";
@@ -53,19 +55,19 @@ export function StaffLoginForm({
       } else {
         setError(msg);
       }
-      setPending(false);
+      setPendingAction(null);
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setPending(true);
+    setPendingAction("password");
     setError(null);
 
     const result = await signInStaff(email, password);
     if ("error" in result) {
       setError(result.error);
-      setPending(false);
+      setPendingAction(null);
       return;
     }
     window.location.href = result.url;
@@ -122,7 +124,7 @@ export function StaffLoginForm({
           className="inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 shadow-lg"
           style={{ backgroundColor: btnColor, boxShadow: `0 8px 16px -8px ${btnColor}60` }}
         >
-          {pending && <AigSpinner />}
+          {pendingAction === "password" && <AigSpinner />}
           Sign in
         </button>
 
@@ -136,8 +138,9 @@ export function StaffLoginForm({
           type="button"
           onClick={handlePasskey}
           disabled={pending}
-          className="rounded-lg border border-white/20 bg-white/5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-white/20 bg-white/5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10 disabled:opacity-60"
         >
+          {pendingAction === "passkey" && <AigSpinner />}
           Sign in with passkey
         </button>
       </form>
