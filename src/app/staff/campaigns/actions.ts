@@ -47,13 +47,21 @@ export async function draftBroadcastPreview(
   const garagePhone = orgRes.data?.phone ?? null;
 
   try {
-    const drafted = await draftBroadcastMessage({
-      garageName,
-      garagePhone,
-      topic,
-      needEmail: channels.includes("email"),
-      needSms: channels.includes("sms"),
-    });
+    const drafted = await draftBroadcastMessage(
+      {
+        garageName,
+        garagePhone,
+        topic,
+        needEmail: channels.includes("email"),
+        needSms: channels.includes("sms"),
+      },
+      {
+        locationId: ctx.location.id,
+        organizationId: ctx.organization.id,
+        userId: ctx.user.id,
+        feature: "campaign_draft",
+      },
+    );
     return { ...drafted, emailCount, smsCount, whatsappCount };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

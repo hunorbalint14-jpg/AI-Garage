@@ -8,7 +8,11 @@ export async function proxy(request: NextRequest) {
   const extraHeaders: Record<string, string> = {
     "x-pathname": request.nextUrl.pathname,
   };
-  if (tenant.slug) {
+  if (tenant.isPlatformAdminHost) {
+    // Operator dashboard host — flag it for the /admin layout gate and never
+    // set a tenant slug (this host is tenant-less).
+    extraHeaders["x-platform-host"] = "1";
+  } else if (tenant.slug) {
     extraHeaders["x-tenant-slug"] = tenant.slug;
   }
 

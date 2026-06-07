@@ -32,32 +32,46 @@ describe("resolveTenantFromHost", () => {
 
   it("returns isRootDomain for bare root", async () => {
     const { resolveTenantFromHost } = await freshTenant();
-    expect(resolveTenantFromHost("ai-garage.co.uk")).toEqual({ slug: null, isRootDomain: true });
+    expect(resolveTenantFromHost("ai-garage.co.uk")).toEqual({ slug: null, isRootDomain: true, isPlatformAdminHost: false });
   });
 
   it("returns isRootDomain for www.root", async () => {
     const { resolveTenantFromHost } = await freshTenant();
-    expect(resolveTenantFromHost("www.ai-garage.co.uk")).toEqual({ slug: null, isRootDomain: true });
+    expect(resolveTenantFromHost("www.ai-garage.co.uk")).toEqual({ slug: null, isRootDomain: true, isPlatformAdminHost: false });
   });
 
   it("extracts slug from valid subdomain", async () => {
     const { resolveTenantFromHost } = await freshTenant();
-    expect(resolveTenantFromHost("acme.ai-garage.co.uk")).toEqual({ slug: "acme", isRootDomain: false });
+    expect(resolveTenantFromHost("acme.ai-garage.co.uk")).toEqual({ slug: "acme", isRootDomain: false, isPlatformAdminHost: false });
   });
 
   it("ignores port", async () => {
     const { resolveTenantFromHost } = await freshTenant();
-    expect(resolveTenantFromHost("acme.ai-garage.co.uk:443")).toEqual({ slug: "acme", isRootDomain: false });
+    expect(resolveTenantFromHost("acme.ai-garage.co.uk:443")).toEqual({ slug: "acme", isRootDomain: false, isPlatformAdminHost: false });
   });
 
   it("returns isRootDomain for unrelated domains", async () => {
     const { resolveTenantFromHost } = await freshTenant();
-    expect(resolveTenantFromHost("evil.com")).toEqual({ slug: null, isRootDomain: true });
+    expect(resolveTenantFromHost("evil.com")).toEqual({ slug: null, isRootDomain: true, isPlatformAdminHost: false });
   });
 
   it("returns isRootDomain when host is null", async () => {
     const { resolveTenantFromHost } = await freshTenant();
-    expect(resolveTenantFromHost(null)).toEqual({ slug: null, isRootDomain: true });
+    expect(resolveTenantFromHost(null)).toEqual({ slug: null, isRootDomain: true, isPlatformAdminHost: false });
+  });
+
+  it("flags the reserved admin subdomain, never treating it as a tenant", async () => {
+    const { resolveTenantFromHost } = await freshTenant();
+    expect(resolveTenantFromHost("admin.ai-garage.co.uk")).toEqual({
+      slug: null,
+      isRootDomain: false,
+      isPlatformAdminHost: true,
+    });
+    expect(resolveTenantFromHost("admin.ai-garage.co.uk:3000")).toEqual({
+      slug: null,
+      isRootDomain: false,
+      isPlatformAdminHost: true,
+    });
   });
 
   // PREVIEW_TENANT_SLUG is captured at module-load time, so dynamic test

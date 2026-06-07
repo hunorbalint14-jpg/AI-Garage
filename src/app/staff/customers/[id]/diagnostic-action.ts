@@ -17,7 +17,12 @@ export async function runStaffDiagnostic(
   if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
 
   try {
-    return await runDiagnostic(symptom, vehicleDescription);
+    return await runDiagnostic(symptom, vehicleDescription, {
+      locationId: ctx.location.id,
+      organizationId: ctx.organization.id,
+      userId: ctx.user.id,
+      feature: "diagnostic",
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return { error: `Diagnosis failed: ${msg}` };

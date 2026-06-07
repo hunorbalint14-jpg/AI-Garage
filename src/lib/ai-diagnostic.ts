@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
+const MODEL = "claude-haiku-4-5-20251001";
 
 export type DiagnosisResult = {
   likelyCauses: { cause: string; probability: "likely" | "possible" | "unlikely" }[];
@@ -35,17 +37,19 @@ Rules:
 export async function runDiagnostic(
   symptom: string,
   vehicleDescription?: string,
+  ctx?: AiUsageContext,
 ): Promise<DiagnosisResult> {
   const userMsg = vehicleDescription
     ? `Vehicle: ${vehicleDescription}\nSymptom: ${symptom}`
     : `Symptom: ${symptom}`;
 
   const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: MODEL,
     max_tokens: 500,
     system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: userMsg }],
   });
+  if (ctx) await recordAiUsage({ ...ctx, model: MODEL, usage: response.usage });
 
   const block = response.content[0];
   if (block.type !== "text") throw new Error("Unexpected response type");
