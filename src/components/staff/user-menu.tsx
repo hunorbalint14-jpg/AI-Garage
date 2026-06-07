@@ -2,8 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { User, ShieldCheck, Bell } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { SignOutButton } from "@/app/staff/sign-out-button";
+
+const MENU_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/staff/account?tab=profile", label: "Profile", icon: User },
+  { href: "/staff/account?tab=security", label: "Security", icon: ShieldCheck },
+  { href: "/staff/account?tab=notifications", label: "Notifications", icon: Bell },
+];
 
 // The circular user avatar in the bottom-left rail. Clicking it opens a popover
 // with a link to the account page + sign out.
@@ -52,13 +59,17 @@ export function UserMenu({
             )}
           </div>
           <div className="my-1 h-px bg-[#2a2f37]" />
-          <Link
-            href="/staff/account"
-            onClick={() => setOpen(false)}
-            className="flex items-center gap-2 rounded px-3 py-2 text-sm text-[#9aa1ad] transition-colors hover:bg-white/[0.04] hover:text-[#e6e8eb]"
-          >
-            <Settings className="h-4 w-4" /> Account settings
-          </Link>
+          {MENU_ITEMS.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded px-3 py-2 text-sm text-[#9aa1ad] transition-colors hover:bg-white/[0.04] hover:text-[#e6e8eb]"
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </Link>
+          ))}
+          <div className="my-1 h-px bg-[#2a2f37]" />
           <div className="px-1 pb-1 pt-0.5">
             <SignOutButton dark />
           </div>
