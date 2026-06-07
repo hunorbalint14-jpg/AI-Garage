@@ -11,6 +11,7 @@ import { Search, ChevronLeft, ChevronDown } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LocationSwitcher } from "@/components/staff/location-switcher";
 import { SignOutButton } from "@/app/staff/sign-out-button";
+import { UserMenu } from "@/components/staff/user-menu";
 import {
   filterModulesForRole,
   findActive,
@@ -115,7 +116,12 @@ export function StaffShell({
           })}
         </nav>
 
-        <UserChip initials={userInitials} brandColor={brandColor} />
+        <UserMenu
+          initials={userInitials}
+          name={userName}
+          email={userEmail}
+          brandColor={brandColor}
+        />
       </aside>
 
       {/* ──────────────────────── CONTEXT PANE ─────────────────────── */}
@@ -420,20 +426,6 @@ function OrgChip({
   );
 }
 
-function UserChip({ initials, brandColor }: { initials: string; brandColor: string }) {
-  return (
-    <div
-      style={{
-        background: `${brandColor}22`,
-        color: brandColor,
-        fontFamily: "var(--font-geist-mono, ui-monospace, monospace)",
-      }}
-      className="mb-1 grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-bold"
-    >
-      {initials}
-    </div>
-  );
-}
 
 function ModuleSheet({
   modules,

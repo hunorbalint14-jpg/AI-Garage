@@ -163,9 +163,20 @@ export async function GET(request: NextRequest) {
 
     if (!orgUsers?.length) continue;
 
+    // Respect per-user notification prefs (no row = opted in by default).
+    const userIds = orgUsers.map((u) => u.user_id);
+    const { data: prefs } = await admin
+      .from("staff_notification_prefs")
+      .select("user_id, weekly_digest")
+      .in("user_id", userIds);
+    const optedOut = new Set(
+      (prefs ?? []).filter((p) => p.weekly_digest === false).map((p) => p.user_id),
+    );
+
     // Resolve emails via auth admin
     const staffEmails: string[] = [];
     for (const { user_id } of orgUsers) {
+      if (optedOut.has(user_id)) continue;
       const { data } = await admin.auth.admin.getUserById(user_id);
       if (data.user?.email) staffEmails.push(data.user.email);
     }
