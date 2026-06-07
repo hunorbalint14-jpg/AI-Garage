@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe";
 import { PageHeader } from "@/components/staff/page-header";
 import { TIERS, tierFor, recordTenantSubscription, type TierKey, type OrgBilling } from "@/lib/tenant-plans";
 import { UpgradeButtons, ManageBillingButton } from "./billing-client";
+import { UpgradeSuccessModal } from "./upgrade-success-modal";
 
 const LIVE_STATUSES = ["active", "trialing", "past_due"];
 
@@ -77,11 +78,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         description="Your AI Garage plan. Higher tiers unlock features and lower the platform fee on customer payments."
       />
 
-      {upgraded && (
-        <div className="rounded-lg border border-green-300/40 bg-green-500/10 p-4 text-sm text-green-700">
-          Subscription started — it can take a moment to reflect below.
-        </div>
-      )}
+      {upgraded && <UpgradeSuccessModal planName={current.name} />}
 
       <section className="rounded-lg border p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

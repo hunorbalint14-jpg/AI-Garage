@@ -363,7 +363,33 @@ async function handleStripeEvent(
       const sub = event.data.object as Stripe.Subscription;
       if (sub.metadata?.kind === "tenant_billing") {
         // Tenant (SaaS) subscription on the platform account → sync the org tier.
+        // Capture the prior tier first so we can email a receipt on an actual
+        // plan switch (e.g. a Billing Portal upgrade Pro → Growth) — those never
+        // hit checkout.session.completed.
+        const tbOrgId = sub.metadata.organization_id;
+        const prevTier = tbOrgId
+          ? (
+              await admin.from("organizations").select("tenant_plan").eq("id", tbOrgId).maybeSingle()
+            ).data?.tenant_plan ?? null
+          : null;
         await recordTenantSubscription(admin, sub);
+        if (tbOrgId) {
+          const newTier =
+            (
+              await admin.from("organizations").select("tenant_plan").eq("id", tbOrgId).maybeSingle()
+            ).data?.tenant_plan ?? null;
+          // Only a paid↔paid switch — the initial starter→paid is already
+          // receipted by checkout.session.completed.
+          if (
+            newTier &&
+            prevTier &&
+            prevTier !== "starter" &&
+            newTier !== "starter" &&
+            newTier !== prevTier
+          ) {
+            await sendTenantSubscriptionReceipt(sub);
+          }
+        }
       } else {
         // Service-plan lifecycle on the connected account — keep our
         // plan_subscriptions row's status / period / cancel flag in sync.
