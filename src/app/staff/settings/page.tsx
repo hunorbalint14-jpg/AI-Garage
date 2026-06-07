@@ -9,13 +9,21 @@ import { PaymentsSection } from "./payments-section";
 import { QuoteDepositSection } from "./quote-deposit-section";
 import { QuoteValiditySection } from "./quote-validity-section";
 import { XeroSection } from "./xero-section";
+import { SettingsTabs, isSettingsTab } from "./settings-tabs";
 
 type LocationRow = { id: string; slug: string; name: string; created_at: string };
 
 const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
 const ROOT_HOST = ROOT.split(":")[0];
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const { tab: tabParam } = await searchParams;
+  const tab = isSettingsTab(tabParam) ? tabParam : "business";
+
   const ctx = await requireStaffContext();
 
   const admin = createAdminClient();
@@ -48,142 +56,56 @@ export default async function SettingsPage() {
   const locHours = currentLocRes.data as { business_hours_start?: number; business_hours_end?: number } | null;
   const passkeys = (passkeysRes.data ?? []) as PasskeyRow[];
 
+  const stripeAccountId = (org as { stripe_account_id?: string | null } | null)?.stripe_account_id;
+  const stripeChargesEnabled = !!(org as { stripe_charges_enabled?: boolean } | null)?.stripe_charges_enabled;
+
   return (
-    <div className="flex flex-col gap-6 max-w-xl">
+    <div className="flex flex-col gap-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Manage your organisation&apos;s branding and details.
+          Manage your organisation&apos;s configuration.
         </p>
       </div>
 
-      <SettingsForm
-        initialName={org?.name ?? ""}
-        initialColor={org?.primary_color ?? "#1f2937"}
-        initialLogoUrl={org?.logo_url ?? ""}
-        initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
-        initialGoogleReviewUrl={(org as { google_review_url?: string | null } | null)?.google_review_url ?? ""}
-        initialPrivacyPolicyUrl={(org as { privacy_policy_url?: string | null } | null)?.privacy_policy_url ?? ""}
-        canEdit={isOwner}
-      />
+      <SettingsTabs active={tab} />
 
-      <BusinessHoursForm
-        initialStart={locHours?.business_hours_start ?? 8}
-        initialEnd={locHours?.business_hours_end ?? 18}
-        canEdit={isOwner}
-      />
-
-      <PasskeysSection initialPasskeys={passkeys} />
-
-      <PaymentsSection
-        hasStripeAccount={!!(org as { stripe_account_id?: string | null } | null)?.stripe_account_id}
-        chargesEnabled={!!(org as { stripe_charges_enabled?: boolean } | null)?.stripe_charges_enabled}
-        payoutsEnabled={!!(org as { stripe_payouts_enabled?: boolean } | null)?.stripe_payouts_enabled}
-        detailsSubmitted={!!(org as { stripe_details_submitted?: boolean } | null)?.stripe_details_submitted}
-        canManage={isOwner}
-      />
-
-      <QuoteDepositSection
-        initialPct={Number((org as { quote_deposit_pct?: number | null } | null)?.quote_deposit_pct ?? 0)}
-        canManage={isOwner}
-        stripeActive={
-          !!(org as { stripe_account_id?: string | null } | null)?.stripe_account_id &&
-          !!(org as { stripe_charges_enabled?: boolean } | null)?.stripe_charges_enabled
-        }
-      />
-
-      <QuoteValiditySection
-        initialDays={Number((org as { quote_validity_days?: number | null } | null)?.quote_validity_days ?? 30)}
-        canManage={isOwner}
-      />
-
-      <XeroSection
-        connected={!!(org as { xero_tenant_id?: string | null } | null)?.xero_tenant_id}
-        tenantName={(org as { xero_tenant_name?: string | null } | null)?.xero_tenant_name ?? null}
-        connectedAt={(org as { xero_connected_at?: string | null } | null)?.xero_connected_at ?? null}
-        canManage={isOwner}
-      />
-
-      {isOwner && (
-        <section className="flex flex-col gap-2 rounded-lg border p-4">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Team roles
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Manage permission templates: clone system presets (Mechanic, Service Advisor, etc.) or create custom profiles for your shop.
-          </p>
-          <div>
-            <Link
-              href="/staff/settings/team-roles"
-              className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted/40"
-            >
-              Manage templates →
-            </Link>
-          </div>
-        </section>
+      {/* ── Business ─────────────────────────────────────────────── */}
+      {tab === "business" && (
+        <SettingsForm
+          initialName={org?.name ?? ""}
+          initialColor={org?.primary_color ?? "#1f2937"}
+          initialLogoUrl={org?.logo_url ?? ""}
+          initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
+          initialGoogleReviewUrl={(org as { google_review_url?: string | null } | null)?.google_review_url ?? ""}
+          initialPrivacyPolicyUrl={(org as { privacy_policy_url?: string | null } | null)?.privacy_policy_url ?? ""}
+          canEdit={isOwner}
+        />
       )}
 
-      <section className="rounded-lg border p-4">
-        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Data Processing Agreement
-        </h2>
-        {(org as { dpa_version?: string; dpa_accepted_at?: string } | null)?.dpa_accepted_at ? (
-          <p className="text-sm text-muted-foreground">
-            Accepted version <span className="font-mono">{(org as { dpa_version?: string }).dpa_version}</span> on{" "}
-            {new Date((org as { dpa_accepted_at: string }).dpa_accepted_at).toLocaleString("en-GB")}.{" "}
-            <a href="/legal/dpa" target="_blank" rel="noopener noreferrer" className="underline">
-              View DPA
-            </a>
-          </p>
-        ) : (
-          <p className="text-sm text-amber-700 dark:text-amber-400">
-            DPA not yet accepted.{" "}
-            <a href="/staff/dpa-acceptance" className="underline">Accept now</a>
-          </p>
-        )}
-      </section>
+      {/* ── Booking ──────────────────────────────────────────────── */}
+      {tab === "booking" && (
+        <>
+          <BusinessHoursForm
+            initialStart={locHours?.business_hours_start ?? 8}
+            initialEnd={locHours?.business_hours_end ?? 18}
+            canEdit={isOwner}
+          />
 
-      <section className="flex flex-col gap-3 rounded-lg border p-4">
-        <div>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Locations
-          </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Each location gets its own subdomain and customer list.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-1">
-          {locations.map((l) => (
-            <div
-              key={l.id}
-              className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-            >
-              <span className="font-medium">{l.name}</span>
-              <span className="font-mono text-xs text-muted-foreground">
-                {l.slug}.{ROOT_HOST}
-              </span>
+          <section className="flex flex-col gap-3 rounded-lg border p-4">
+            <div>
+              <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                Booking widget
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Embed this on your website so customers can request appointments directly.
+              </p>
             </div>
-          ))}
-        </div>
-
-        {isOwner && <AddLocationForm />}
-      </section>
-
-      <section className="flex flex-col gap-3 rounded-lg border p-4">
-        <div>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Booking widget
-          </h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Embed this on your website so customers can request appointments directly.
-          </p>
-        </div>
-        <div className="flex flex-col gap-2">
-          {locations.map((l) => (
-            <div key={l.id} className="flex flex-col gap-1">
-              <p className="text-xs font-medium text-muted-foreground">{l.name}</p>
-              <pre className="rounded-md bg-muted px-3 py-2 text-xs font-mono whitespace-pre-wrap break-all select-all">
+            <div className="flex flex-col gap-2">
+              {locations.map((l) => (
+                <div key={l.id} className="flex flex-col gap-1">
+                  <p className="text-xs font-medium text-muted-foreground">{l.name}</p>
+                  <pre className="rounded-md bg-muted px-3 py-2 text-xs font-mono whitespace-pre-wrap break-all select-all">
 {`<iframe
   src="https://${l.slug}.${ROOT_HOST}/book"
   width="100%"
@@ -192,11 +114,123 @@ export default async function SettingsPage() {
   title="Book an appointment at ${org?.name ?? ""}"
   loading="lazy">
 </iframe>`}
-              </pre>
+                  </pre>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
+        </>
+      )}
+
+      {/* ── Payments & Quotes ────────────────────────────────────── */}
+      {tab === "payments" && (
+        <>
+          <PaymentsSection
+            hasStripeAccount={!!stripeAccountId}
+            chargesEnabled={stripeChargesEnabled}
+            payoutsEnabled={!!(org as { stripe_payouts_enabled?: boolean } | null)?.stripe_payouts_enabled}
+            detailsSubmitted={!!(org as { stripe_details_submitted?: boolean } | null)?.stripe_details_submitted}
+            canManage={isOwner}
+          />
+
+          <QuoteDepositSection
+            initialPct={Number((org as { quote_deposit_pct?: number | null } | null)?.quote_deposit_pct ?? 0)}
+            canManage={isOwner}
+            stripeActive={!!stripeAccountId && stripeChargesEnabled}
+          />
+
+          <QuoteValiditySection
+            initialDays={Number((org as { quote_validity_days?: number | null } | null)?.quote_validity_days ?? 30)}
+            canManage={isOwner}
+          />
+        </>
+      )}
+
+      {/* ── Integrations ─────────────────────────────────────────── */}
+      {tab === "integrations" && (
+        <XeroSection
+          connected={!!(org as { xero_tenant_id?: string | null } | null)?.xero_tenant_id}
+          tenantName={(org as { xero_tenant_name?: string | null } | null)?.xero_tenant_name ?? null}
+          connectedAt={(org as { xero_connected_at?: string | null } | null)?.xero_connected_at ?? null}
+          canManage={isOwner}
+        />
+      )}
+
+      {/* ── Locations ────────────────────────────────────────────── */}
+      {tab === "locations" && (
+        <section className="flex flex-col gap-3 rounded-lg border p-4">
+          <div>
+            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              Locations
+            </h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Each location gets its own subdomain and customer list.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            {locations.map((l) => (
+              <div
+                key={l.id}
+                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+              >
+                <span className="font-medium">{l.name}</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {l.slug}.{ROOT_HOST}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {isOwner && <AddLocationForm />}
+        </section>
+      )}
+
+      {/* ── Security & Legal ─────────────────────────────────────── */}
+      {tab === "security" && (
+        <>
+          <PasskeysSection initialPasskeys={passkeys} />
+
+          {isOwner && (
+            <section className="flex flex-col gap-2 rounded-lg border p-4">
+              <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                Team roles
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Manage permission templates: clone system presets (Mechanic, Service Advisor, etc.) or create custom profiles for your shop.
+              </p>
+              <div>
+                <Link
+                  href="/staff/settings/team-roles"
+                  className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted/40"
+                >
+                  Manage templates →
+                </Link>
+              </div>
+            </section>
+          )}
+
+          <section className="rounded-lg border p-4">
+            <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              Data Processing Agreement
+            </h2>
+            {(org as { dpa_version?: string; dpa_accepted_at?: string } | null)?.dpa_accepted_at ? (
+              <p className="text-sm text-muted-foreground">
+                Accepted version <span className="font-mono">{(org as { dpa_version?: string }).dpa_version}</span> on{" "}
+                {new Date((org as { dpa_accepted_at: string }).dpa_accepted_at).toLocaleString("en-GB")}.{" "}
+                <a href="/legal/dpa" target="_blank" rel="noopener noreferrer" className="underline">
+                  View DPA
+                </a>
+              </p>
+            ) : (
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                DPA not yet accepted.{" "}
+                <a href="/staff/dpa-acceptance" className="underline">Accept now</a>
+              </p>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
