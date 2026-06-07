@@ -144,13 +144,14 @@ export function ReminderComposer({
   function selectVehicle(v: QueueVehicle) {
     setSelected(v);
     setTone("friendly");
+    // Stay idle — no AI call until the user presses "Generate". Opening a
+    // record should never spend tokens on its own.
     setDraft({ type: "idle" });
     setChannels({
       email: !!v.customerEmail,
       sms: !!v.customerPhone,
       whatsapp: false,
     });
-    triggerDraft(v, "friendly");
   }
 
   function triggerDraft(v: QueueVehicle, t: Tone) {
@@ -170,7 +171,9 @@ export function ReminderComposer({
   function changeTone(t: Tone) {
     if (!selected) return;
     setTone(t);
-    triggerDraft(selected, t);
+    // Before the first draft exists, a tone click is just a choice — no AI
+    // call. Once a draft is on screen, switching tone regenerates it.
+    if (draft.type !== "idle") triggerDraft(selected, t);
   }
 
   function handleSend() {
@@ -688,6 +691,41 @@ export function ReminderComposer({
                   })}
                 </div>
               </>
+            )}
+
+            {/* Idle — explicit generate (no AI call on open) */}
+            {draft.type === "idle" && (
+              <div style={{ marginBottom: 16 }}>
+                <button
+                  type="button"
+                  onClick={() => triggerDraft(selected, tone)}
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: "10px 18px",
+                    borderRadius: 4,
+                    border: `1px solid ${accent}`,
+                    background: accentBg,
+                    color: accent,
+                    cursor: "pointer",
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  Generate draft with AI →
+                </button>
+                <div
+                  style={{
+                    fontFamily: mono,
+                    fontSize: 10,
+                    color: "var(--muted-foreground)",
+                    marginTop: 8,
+                    letterSpacing: "0.06em",
+                  }}
+                >
+                  {"// PICK A TONE ABOVE, THEN GENERATE"}
+                </div>
+              </div>
             )}
 
             {/* Loading state */}
