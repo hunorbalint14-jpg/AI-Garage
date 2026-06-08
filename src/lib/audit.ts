@@ -29,6 +29,9 @@ export type AuditAction =
   | "auth.login_failed"
   | "auth.logout"
   | "auth.mfa_verified"
+  // Platform operators (cross-tenant)
+  | "platform_admin.invite"
+  | "platform_admin.revoke"
   // Scheduling / labour (Phase 3)
   | "booking.assign"
   | "job.assign"

@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveTenantFromHost } from "@/lib/tenant";
 import { type Permissions, normalisePermissions } from "@/app/staff/staff-members/constants";
 import { type OrgBilling } from "@/lib/tenant-plans";
+import { isPlatformAdminUser } from "@/lib/platform-admin";
 
 export type StaffContext = {
   user: { id: string; email: string | undefined; fullName: string | null };
@@ -97,13 +98,24 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     | { role: string; permissions: Partial<Permissions> | null; mot_tester: boolean | null; mot_qc_reviewer: boolean | null }
     | null;
   const locationRole = locRow?.role ?? null;
+
+  // Platform admins (invited operators) act as an owner inside EVERY tenant's
+  // portal — no membership row required. Only checked when normal membership is
+  // absent, so it never adds a query for ordinary staff. The DB mirror of this
+  // (is_platform_admin() in the RLS helpers) is what actually permits the rows.
+  const isPlatform =
+    !orgRole && !locationRole
+      ? await isPlatformAdminUser({ id: user.id, email: user.email ?? null })
+      : false;
+
+  if (!orgRole && !locationRole && !isPlatform) return null;
+
+  const effectiveOrgRole: "owner" | "admin" | null = orgRole ?? (isPlatform ? "owner" : null);
   // Org-level access (owner/admin) bypasses perm checks, surface null to
   // signal that. Otherwise normalise to fill missing keys defensively.
-  const locationPermissions = orgRole ? null : locRow ? normalisePermissions(locRow.permissions) : null;
+  const locationPermissions = effectiveOrgRole ? null : locRow ? normalisePermissions(locRow.permissions) : null;
   const motTester = locRow?.mot_tester === true;
   const motQcReviewer = locRow?.mot_qc_reviewer === true;
-
-  if (!orgRole && !locationRole) return null;
 
   return {
     user: {
@@ -120,7 +132,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
       tenant_current_period_end: location.organization.tenant_current_period_end,
       tenant_trial_end: location.organization.tenant_trial_end,
     },
-    orgRole,
+    orgRole: effectiveOrgRole,
     locationRole,
     locationPermissions,
     motTester,
