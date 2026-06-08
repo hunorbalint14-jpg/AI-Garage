@@ -5,6 +5,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSlug } from "@/lib/slug";
+import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
 import { tierFor, tenantBillingActive, TIERS } from "@/lib/tenant-plans";
 
@@ -143,12 +144,8 @@ export async function addLocation(
     return { error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. Upgrade in Settings → Billing to add more.` };
   }
 
-  const { data: existing } = await admin
-    .from("locations")
-    .select("id")
-    .eq("slug", slugInput)
-    .maybeSingle();
-  if (existing) return { error: "That subdomain is already taken." };
+  const slugConflict = await findSlugConflict(admin, slugInput);
+  if (slugConflict) return { error: slugConflict };
 
   const { data: created, error } = await admin
     .from("locations")
