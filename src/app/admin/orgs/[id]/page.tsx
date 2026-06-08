@@ -9,6 +9,7 @@ import {
   formatGbp,
 } from "@/lib/platform-stats";
 import { AutoRefresh } from "@/components/admin/auto-refresh";
+import { LocationSlugEditor } from "./location-slug-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -145,16 +146,10 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
-      {/* Locations */}
+      {/* Locations — slug (subdomain) editable on client request */}
       <div>
-        <h2 className="mb-2 text-sm font-semibold">Locations</h2>
-        <ul className="flex flex-wrap gap-2">
-          {(locations ?? []).map((l) => (
-            <li key={l.id} className="rounded border border-[#23272f] bg-[#15181d] px-3 py-1.5 text-sm">
-              {l.name} <span className="font-mono text-[10px] text-[#5a6170]">{l.slug}</span>
-            </li>
-          ))}
-        </ul>
+        <h2 className="mb-2 text-sm font-semibold">Locations &amp; subdomains</h2>
+        <LocationSlugEditor locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name, slug: l.slug }))} />
       </div>
     </div>
   );
