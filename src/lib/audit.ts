@@ -32,6 +32,7 @@ export type AuditAction =
   // Platform operators (cross-tenant)
   | "platform_admin.invite"
   | "platform_admin.revoke"
+  | "location.slug_change"
   // Scheduling / labour (Phase 3)
   | "booking.assign"
   | "job.assign"

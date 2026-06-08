@@ -2,6 +2,7 @@
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSlug } from "@/lib/slug";
+import { findSlugConflict } from "@/lib/slug-availability";
 import { emailSchema, nameSchema, passwordSchema, parseOrError } from "@/lib/validation";
 import { z } from "zod";
 
@@ -32,15 +33,10 @@ export async function signUpGarage(formData: FormData): Promise<SignupResult> {
 
   const admin = createAdminClient();
 
-  // The slug is unique on both organizations and locations. Reject early if
-  // either is taken so we surface a clean error before creating an auth user.
-  const [{ data: existingOrg }, { data: existingLoc }] = await Promise.all([
-    admin.from("organizations").select("id").eq("slug", slugInput).maybeSingle(),
-    admin.from("locations").select("id").eq("slug", slugInput).maybeSingle(),
-  ]);
-  if (existingOrg || existingLoc) {
-    return { error: "That subdomain is already taken." };
-  }
+  // Unique across orgs, locations, AND retired slugs. Reject early so we surface
+  // a clean error before creating an auth user.
+  const conflict = await findSlugConflict(admin, slugInput);
+  if (conflict) return { error: conflict };
 
   const { data: userRes, error: userErr } = await admin.auth.admin.createUser({
     email,
