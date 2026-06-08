@@ -63,9 +63,9 @@ export function LocationSlugEditor({ locations }: { locations: Loc[] }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="rounded-lg border border-[#4a3a13] bg-[#2a2110] px-3 py-2 text-xs text-[#e8c97a]">
-        ⚠ Changing a slug changes the garage&apos;s web address (subdomain). Existing links, bookmarks, and
-        already-sent email links stop resolving — the old address is not redirected. Do this only on the client&apos;s
-        request.
+        ⚠ Changing a slug changes the garage&apos;s web address (subdomain). The old address keeps working — it
+        permanently redirects to the new one — and the old slug can never be reused. Do this only on the
+        client&apos;s request.
       </p>
       {locations.map((loc) => (
         <LocationRow key={loc.id} loc={loc} />

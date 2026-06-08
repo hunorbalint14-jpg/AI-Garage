@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { validateSlug } from "@/lib/slug";
+import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
 
 async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
@@ -50,21 +51,27 @@ export async function updateLocationSlug(formData: FormData): Promise<SlugResult
   const oldSlug = location.slug;
   if (slug === oldSlug) return { success: true, slug };
 
-  // Global uniqueness: reject if any org or any other location already uses it.
-  const [orgHit, locHit] = await Promise.all([
-    admin.from("organizations").select("id").eq("slug", slug).maybeSingle(),
-    admin.from("locations").select("id").eq("slug", slug).neq("id", locationId).maybeSingle(),
-  ]);
-  if (locHit.data) return { error: "That subdomain is already used by another location." };
-  if (orgHit.data && orgHit.data.id !== location.organization_id) {
-    return { error: "That subdomain is taken by another organisation." };
-  }
+  // Global uniqueness across orgs, locations, AND retired slugs (history).
+  const conflict = await findSlugConflict(admin, slug, {
+    excludeLocationId: locationId,
+    excludeOrgId: location.organization_id,
+  });
+  if (conflict) return { error: conflict };
 
   const { error: updErr } = await admin.from("locations").update({ slug }).eq("id", locationId);
   if (updErr) {
     // Unique-constraint violation under a race, or other DB error.
     return { error: updErr.message.includes("duplicate") ? "That subdomain was just taken." : updErr.message };
   }
+
+  // Permanently reserve the old slug + point its subdomain at this location, so
+  // the proxy can 308-redirect old links and no one can reuse it.
+  await admin
+    .from("location_slug_history")
+    .upsert(
+      { old_slug: oldSlug, location_id: locationId, organization_id: location.organization_id },
+      { onConflict: "old_slug", ignoreDuplicates: true },
+    );
 
   // Keep the org slug in sync when it mirrored the old location slug.
   const { data: org } = await admin
