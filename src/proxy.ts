@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { resolveTenantFromHost } from "@/lib/tenant";
 
@@ -9,6 +9,12 @@ export async function proxy(request: NextRequest) {
     "x-pathname": request.nextUrl.pathname,
   };
   if (tenant.isPlatformAdminHost) {
+    // The admin host has no marketing/tenant pages — send its bare root to the
+    // dashboard (which then gates through /admin/login). Everything else
+    // (/admin/*, /auth/handoff, /api/*, assets) passes through untouched.
+    if (request.nextUrl.pathname === "/") {
+      return NextResponse.redirect(new URL("/admin", request.url));
+    }
     // Operator dashboard host — flag it for the /admin layout gate and never
     // set a tenant slug (this host is tenant-less).
     extraHeaders["x-platform-host"] = "1";
