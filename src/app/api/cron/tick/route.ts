@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
 import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
+import { runUptimeMaintenance } from "@/lib/platform/uptime-maintenance";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -82,6 +83,9 @@ export async function GET(request: NextRequest) {
       .update({ last_run_at: nowIso, next_run_at: nextRunAt.toISOString() })
       .eq("id", task.id);
   }
+
+  // Hourly maintenance for the reliability store (rollup + raw-sample retention).
+  await runUptimeMaintenance(admin);
 
   console.log("[cron/tick]", results);
   return NextResponse.json({ success: true, ...results, tasks_checked: tasks.length });
