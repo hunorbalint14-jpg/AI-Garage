@@ -12,6 +12,7 @@ import type { LucideIcon } from "lucide-react";
 import { LocationSwitcher } from "@/components/staff/location-switcher";
 import { SignOutButton } from "@/app/staff/sign-out-button";
 import { UserMenu } from "@/components/staff/user-menu";
+import { CommandPalette, openCommandPalette } from "@/components/staff/command-palette";
 import {
   filterModulesForRole,
   findActive,
@@ -81,6 +82,18 @@ export function StaffShell({
       <aside className="hidden sm:flex w-[64px] shrink-0 flex-col items-center border-r border-[#2a2f37] bg-[#0a0c0f] py-3 z-20">
         <OrgChip initials={orgInitials} brandColor={brandColor} onBrand={onBrand} logoUrl={orgLogoUrl} />
         <div className="my-3 h-px w-6 bg-[#2a2f37]" />
+
+        {/* Global search (Ctrl/Cmd+K) */}
+        <button
+          onClick={openCommandPalette}
+          className="group relative mb-1 grid h-11 w-11 place-items-center rounded-lg text-[#9aa1ad] transition-colors hover:bg-[#1c2026] hover:text-[#e6e8eb]"
+          aria-label="Search (Ctrl+K)"
+        >
+          <Search className="h-[19px] w-[19px]" />
+          <span className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 hidden group-hover:lg:block whitespace-nowrap rounded border border-[#2a2f37] bg-[#0a0c0f] px-2.5 py-1 text-xs text-[#e6e8eb] shadow-lg z-50">
+            Search <kbd className="ml-1 font-mono text-[10px] text-[#5a6170]">Ctrl K</kbd>
+          </span>
+        </button>
 
         <nav className="flex flex-1 flex-col items-center gap-1 w-full">
           {modules.map((m) => {
@@ -171,7 +184,11 @@ export function StaffShell({
               </div>
             </div>
           </button>
-          <button className="grid h-9 w-9 place-items-center rounded-lg bg-[#1c2026]" aria-label="Search">
+          <button
+            onClick={openCommandPalette}
+            className="grid h-9 w-9 place-items-center rounded-lg bg-[#1c2026]"
+            aria-label="Search"
+          >
             <Search className="h-4 w-4" />
           </button>
         </header>
@@ -247,6 +264,7 @@ export function StaffShell({
           onClose={() => setSheetOpen(false)}
         />
       )}
+      <CommandPalette />
       <NavProgressOverlay />
     </div>
     </NavProgressProvider>
