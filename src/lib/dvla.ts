@@ -37,6 +37,106 @@ function parseYear(v: Record<string, unknown>): number | null {
   return Number.isNaN(year) ? null : year;
 }
 
+export type MotDefect = {
+  text: string;
+  /** ADVISORY / MINOR / MAJOR / DANGEROUS / FAIL / USER ENTERED … */
+  type: string;
+};
+
+export type MotTest = {
+  completedDate: string | null;
+  testResult: string; // PASSED / FAILED
+  expiryDate: string | null;
+  odometerValue: string | null;
+  odometerUnit: string | null;
+  defects: MotDefect[];
+};
+
+export type MotHistoryResult =
+  | {
+      success: true;
+      registration: string;
+      make: string | null;
+      model: string | null;
+      tests: MotTest[];
+    }
+  | { success: false; error: string };
+
+// Full MOT test history (results, mileage, advisories/defects) for the
+// customer portal. Same DVSA trade endpoint as lookupVehicle, but returns the
+// whole test list instead of just the summary. Kept separate so the
+// long-standing lookupVehicle path stays untouched.
+export async function lookupMotHistory(registration: string): Promise<MotHistoryResult> {
+  const apiKey = process.env.DVSA_API_KEY;
+  if (!apiKey) return { success: false, error: "DVSA API key not configured." };
+
+  const reg = registration.replace(/\s+/g, "").toUpperCase();
+
+  let token: string;
+  try {
+    token = await getAccessToken();
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Auth failed." };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://history.mot.api.gov.uk/v1/trade/vehicles/registration/${encodeURIComponent(reg)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-API-Key": apiKey,
+          Accept: "application/json+v6",
+        },
+      },
+    );
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Network error." };
+  }
+
+  if (res.status === 404) return { success: false, error: "Vehicle not found." };
+  if (!res.ok) {
+    const text = await res.text();
+    return { success: false, error: `DVSA API error (${res.status}): ${text.slice(0, 200)}` };
+  }
+
+  const vehicle = (await res.json()) as Record<string, unknown>;
+  if (!vehicle) return { success: false, error: "No data returned for this registration." };
+
+  type RawTest = {
+    completedDate?: string;
+    testResult?: string;
+    expiryDate?: string;
+    odometerValue?: string | number;
+    odometerUnit?: string;
+    // v6 calls them defects; older payloads used rfrAndComments.
+    defects?: { text?: string; type?: string }[];
+    rfrAndComments?: { text?: string; type?: string }[];
+  };
+  const rawTests = Array.isArray(vehicle.motTests) ? (vehicle.motTests as RawTest[]) : [];
+
+  const make = vehicle.make as string | undefined;
+  const tests: MotTest[] = rawTests.map((t) => ({
+    completedDate: t.completedDate ?? null,
+    testResult: (t.testResult ?? "").toUpperCase(),
+    expiryDate: t.expiryDate ?? null,
+    odometerValue: t.odometerValue != null ? String(t.odometerValue) : null,
+    odometerUnit: t.odometerUnit ?? null,
+    defects: (t.defects ?? t.rfrAndComments ?? [])
+      .filter((d) => d && typeof d.text === "string")
+      .map((d) => ({ text: d.text as string, type: (d.type ?? "ADVISORY").toUpperCase() })),
+  }));
+
+  return {
+    success: true,
+    registration: (vehicle.registration as string) ?? reg,
+    make: make ? make.charAt(0).toUpperCase() + make.slice(1).toLowerCase() : null,
+    model: (vehicle.model as string) ?? null,
+    tests,
+  };
+}
+
 export async function lookupVehicle(registration: string): Promise<DvsaResult> {
   const apiKey = process.env.DVSA_API_KEY;
   if (!apiKey) return { success: false, error: "DVSA API key not configured." };

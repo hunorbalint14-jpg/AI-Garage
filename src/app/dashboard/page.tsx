@@ -224,6 +224,12 @@ export default async function CustomerDashboard() {
                         </div>
                       ))}
                     </div>
+                    <Link
+                      href={`/dashboard/mot/${v.id}`}
+                      className="mt-3 inline-block text-xs font-semibold underline text-gray-400 hover:text-white transition-colors"
+                    >
+                      View full MOT history →
+                    </Link>
                   </div>
                 );
               })}
