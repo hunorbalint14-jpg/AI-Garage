@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { submitWidgetBooking } from "./actions";
+import { lookupRegistration, type RegLookupResult } from "./lookup-actions";
 
 type Service = {
   id: string;
@@ -58,6 +59,33 @@ export function BookingWidgetForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ paid: boolean } | null>(null);
   const [serviceId, setServiceId] = useState<string>(services[0]?.id ?? "");
+
+  // Reg-first lookup: type the plate → DVSA fills in the car + MOT due date.
+  const [reg, setReg] = useState("");
+  const [looking, startLookup] = useTransition();
+  const [vehicle, setVehicle] = useState<Extract<RegLookupResult, { found: true }> | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+
+  function runLookup() {
+    const candidate = reg.trim();
+    if (candidate.replace(/\s+/g, "").length < 2 || looking) return;
+    setLookupError(null);
+    setVehicle(null);
+    startLookup(async () => {
+      const result = await lookupRegistration(candidate);
+      if (result.found) {
+        setVehicle(result);
+      } else {
+        setLookupError(result.error ?? null);
+      }
+    });
+  }
+
+  const motDueDays = useMemo(() => {
+    if (!vehicle?.motExpiry) return null;
+    const due = new Date(`${vehicle.motExpiry}T00:00:00`);
+    return Math.ceil((due.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  }, [vehicle]);
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === serviceId) ?? null,
@@ -139,6 +167,67 @@ export function BookingWidgetForm({
         </p>
       )}
 
+      {/* Reg first — least typing, instant "we know your car" trust signal */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-semibold text-gray-600">Vehicle registration</label>
+        <div className="flex gap-2">
+          <input
+            name="registration"
+            placeholder="AB12 CDE"
+            value={reg}
+            onChange={(e) => {
+              setReg(e.target.value.toUpperCase());
+              if (vehicle) setVehicle(null);
+              if (lookupError) setLookupError(null);
+            }}
+            onBlur={runLookup}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                runLookup();
+              }
+            }}
+            disabled={pending}
+            className={INPUT + " font-mono uppercase"}
+          />
+          <button
+            type="button"
+            onClick={runLookup}
+            disabled={pending || looking || reg.replace(/\s+/g, "").length < 2}
+            className="shrink-0 rounded-lg border border-black/15 px-3 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            {looking ? <AigSpinner /> : "Find my car"}
+          </button>
+        </div>
+        {vehicle && (
+          <div
+            className="mt-1 rounded-lg border px-3 py-2 text-sm"
+            style={{ borderColor: `${orgColor}40`, backgroundColor: `${orgColor}10` }}
+          >
+            <p className="font-semibold text-gray-900">
+              {[vehicle.colour, vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") ||
+                vehicle.registration}
+            </p>
+            {vehicle.motExpiry && motDueDays !== null && (
+              <p className="text-xs text-gray-600 mt-0.5">
+                MOT due{" "}
+                {new Date(`${vehicle.motExpiry}T00:00:00`).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+                {motDueDays < 0
+                  ? " — it has expired. Book an MOT as soon as possible."
+                  : motDueDays <= 60
+                    ? ` — only ${motDueDays} day${motDueDays !== 1 ? "s" : ""} away. Good timing!`
+                    : "."}
+              </p>
+            )}
+          </div>
+        )}
+        {lookupError && <p className="text-xs text-gray-500">{lookupError}</p>}
+      </div>
+
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-gray-600">Full name *</label>
@@ -165,27 +254,16 @@ export function BookingWidgetForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-gray-600">Phone</label>
-          <input
-            name="phone"
-            type="tel"
-            placeholder="07700 900000"
-            disabled={pending}
-            defaultValue={prefill?.phone ?? ""}
-            className={INPUT}
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-semibold text-gray-600">Vehicle reg</label>
-          <input
-            name="registration"
-            placeholder="AB12 CDE"
-            disabled={pending}
-            className={INPUT + " font-mono uppercase"}
-          />
-        </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-semibold text-gray-600">Phone</label>
+        <input
+          name="phone"
+          type="tel"
+          placeholder="07700 900000"
+          disabled={pending}
+          defaultValue={prefill?.phone ?? ""}
+          className={INPUT}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
