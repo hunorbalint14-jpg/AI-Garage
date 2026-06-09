@@ -1,12 +1,16 @@
 import Link from "next/link";
-import { UserPlus } from "lucide-react";
+import { UserPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/staff/page-header";
 import { CustomerSearch } from "./customer-search";
+import { CustomerTable, type CustomerListRow } from "./customer-table";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
+const SEARCH_LIMIT = 100;
 
 type CustomerRow = {
   id: string;
@@ -14,19 +18,35 @@ type CustomerRow = {
   email: string | null;
   phone: string | null;
   created_at: string;
+  vehicles: { registration: string }[] | null;
 };
+
+const CUSTOMER_SELECT = "id, full_name, email, phone, created_at, vehicles(registration)";
+
+function toListRow(c: CustomerRow): CustomerListRow {
+  return {
+    id: c.id,
+    full_name: c.full_name,
+    email: c.email,
+    phone: c.phone,
+    created_at: c.created_at,
+    registrations: (c.vehicles ?? []).map((v) => v.registration),
+  };
+}
 
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; page?: string }>;
 }) {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
-  const { q } = await searchParams;
+  const { q, page: pageParam } = await searchParams;
   const query = q?.trim() ?? "";
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   let customers: CustomerRow[] | null = null;
+  let totalCount: number | null = null;
   let error: { message: string } | null = null;
 
   if (query) {
@@ -34,21 +54,23 @@ export default async function CustomersPage({
     const [custRes, vehRes] = await Promise.all([
       admin
         .from("customers")
-        .select("id, full_name, email, phone, created_at")
+        .select(CUSTOMER_SELECT)
         .eq("location_id", ctx.location.id)
         .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
-        .order("full_name", { ascending: true }),
+        .order("full_name", { ascending: true })
+        .limit(SEARCH_LIMIT),
       admin
         .from("vehicles")
         .select("customer_id")
         .eq("location_id", ctx.location.id)
-        .ilike("registration", `%${query}%`),
+        .ilike("registration", `%${query}%`)
+        .limit(SEARCH_LIMIT),
     ]);
 
     if (custRes.error) {
       error = custRes.error;
     } else {
-      const byNamePhone = custRes.data as CustomerRow[];
+      const byNamePhone = custRes.data as unknown as CustomerRow[];
       const regCustomerIds = (vehRes.data ?? []).map((v: { customer_id: string }) => v.customer_id);
 
       // Fetch customers matched by reg (if any not already in byNamePhone)
@@ -58,24 +80,31 @@ export default async function CustomersPage({
       if (missingIds.length > 0) {
         const { data: regCustomers } = await admin
           .from("customers")
-          .select("id, full_name, email, phone, created_at")
+          .select(CUSTOMER_SELECT)
           .eq("location_id", ctx.location.id)
           .in("id", missingIds)
           .order("full_name", { ascending: true });
-        customers = [...byNamePhone, ...((regCustomers as CustomerRow[]) ?? [])];
+        customers = [...byNamePhone, ...((regCustomers as unknown as CustomerRow[]) ?? [])];
       } else {
         customers = byNamePhone;
       }
     }
   } else {
+    // Paginated default list — the table previously rendered EVERY customer.
+    const from = (page - 1) * PAGE_SIZE;
     const res = await admin
       .from("customers")
-      .select("id, full_name, email, phone, created_at")
+      .select(CUSTOMER_SELECT, { count: "exact" })
       .eq("location_id", ctx.location.id)
-      .order("created_at", { ascending: false });
-    customers = res.data as CustomerRow[] | null;
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    customers = res.data as unknown as CustomerRow[] | null;
+    totalCount = res.count;
     if (res.error) error = res.error;
   }
+
+  const rows = (customers ?? []).map(toListRow);
+  const totalPages = totalCount !== null ? Math.max(1, Math.ceil(totalCount / PAGE_SIZE)) : 1;
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,7 +137,7 @@ export default async function CustomersPage({
         <p className="text-sm text-red-600">Failed to load: {error.message}</p>
       )}
 
-      {!error && (!customers || customers.length === 0) ? (
+      {!error && rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-12 text-center">
           <p className="text-sm text-muted-foreground">
             {query ? `No customers found for "${query}".` : "No customers yet. Add your first one to get started."}
@@ -120,48 +149,63 @@ export default async function CustomersPage({
             />
           )}
         </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border">
+      ) : !error ? (
+        <div className="flex flex-col gap-3">
           {query && (
-            <div className="border-b bg-muted/30 px-4 py-2 text-xs text-muted-foreground">
-              {customers?.length ?? 0} result{customers?.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
-            </div>
+            <p className="text-xs text-muted-foreground">
+              {rows.length} result{rows.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
+              {rows.length >= SEARCH_LIMIT ? " (showing first matches — refine to narrow down)" : ""}
+            </p>
           )}
-          <table className="w-full min-w-[600px] text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Phone</th>
-                <th className="px-4 py-2 font-medium">Added</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {customers?.map((c) => (
-                <tr key={c.id} className="border-t">
-                  <td className="px-4 py-2">{c.full_name ?? "—"}</td>
-                  <td className="px-4 py-2">{c.email ?? "—"}</td>
-                  <td className="px-4 py-2">{c.phone ?? "—"}</td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {new Date(c.created_at).toLocaleDateString("en-GB")}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <div className="flex justify-end gap-3">
-                      <Link href={`/staff/customers/${c.id}`} className="text-sm underline">
-                        View
-                      </Link>
-                      <Link href={`/staff/customers/${c.id}/edit`} className="text-sm underline text-muted-foreground">
-                        Edit
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <CustomerTable rows={rows} />
+          {!query && totalCount !== null && totalCount > PAGE_SIZE && (
+            <Pagination page={page} totalPages={totalPages} totalCount={totalCount} />
+          )}
         </div>
-      )}
+      ) : null}
+    </div>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  totalCount,
+}: {
+  page: number;
+  totalPages: number;
+  totalCount: number;
+}) {
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, totalCount);
+  const linkClass =
+    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted";
+  const disabledClass =
+    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-sm text-muted-foreground/50 pointer-events-none";
+
+  return (
+    <div className="flex items-center justify-between">
+      <p className="text-xs text-muted-foreground">
+        {from}–{to} of {totalCount}
+      </p>
+      <div className="flex gap-2">
+        <Link
+          href={`/staff/customers?page=${page - 1}`}
+          className={page > 1 ? linkClass : disabledClass}
+          aria-disabled={page <= 1}
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Previous
+        </Link>
+        <Link
+          href={`/staff/customers?page=${page + 1}`}
+          className={page < totalPages ? linkClass : disabledClass}
+          aria-disabled={page >= totalPages}
+        >
+          Next
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
     </div>
   );
 }

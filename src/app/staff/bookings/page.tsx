@@ -8,12 +8,9 @@ import { PageHeader } from "@/components/staff/page-header";
 import { BookingCalendar } from "./booking-calendar";
 import { AssigneeFilter } from "./assignee-filter";
 import { StatusFilter } from "./status-filter";
-import {
-  type BookingRow,
-  STATUS_STYLE,
-  statusLabel,
-  typeLabel,
-} from "./booking-display";
+import { type BookingRow } from "./booking-display";
+import { BookingTable, type BookingListRow } from "./booking-table";
+import { DayView } from "./day-view";
 import {
   parseMonthParam,
   buildMonthGrid,
@@ -21,14 +18,16 @@ import {
 } from "./calendar-grid";
 
 const BOOKING_SELECT =
-  "id, scheduled_at, duration_minutes, type, status, notes, assigned_to, customer:customers(id, full_name), vehicle:vehicles(registration)";
+  "id, scheduled_at, duration_minutes, type, status, notes, assigned_to, bay_id, customer:customers(id, full_name), vehicle:vehicles(registration)";
+
+type BookingRowWithBay = BookingRow & { bay_id: string | null };
 
 export default async function BookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string; view?: string; month?: string; assignee?: string; status?: string }>;
+  searchParams: Promise<{ filter?: string; view?: string; month?: string; date?: string; assignee?: string; status?: string }>;
 }) {
-  const { filter = "upcoming", view = "calendar", month, assignee = "", status = "" } = await searchParams;
+  const { filter = "upcoming", view = "calendar", month, date, assignee = "", status = "" } = await searchParams;
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
@@ -57,7 +56,8 @@ export default async function BookingsPage({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-2 text-sm">
           {[
-            { key: "calendar", label: "Calendar", href: "/staff/bookings" },
+            { key: "calendar", label: "Month", href: "/staff/bookings" },
+            { key: "day", label: "Day", href: "/staff/bookings?view=day" },
             { key: "list", label: "List", href: "/staff/bookings?view=list" },
           ].map((v) => (
             <Link
@@ -79,7 +79,9 @@ export default async function BookingsPage({
 
       {view === "list"
         ? await renderListView({ filter, assignee, status, locationId: ctx.location.id, admin, nameMap })
-        : await renderCalendarView({ month, assignee, status, locationId: ctx.location.id, admin })}
+        : view === "day"
+          ? await renderDayView({ date, assignee, status, locationId: ctx.location.id, admin, nameMap })
+          : await renderCalendarView({ month, assignee, status, locationId: ctx.location.id, admin })}
     </div>
   );
 }
@@ -129,6 +131,78 @@ async function renderCalendarView({
   );
 }
 
+async function renderDayView({
+  date,
+  assignee,
+  status,
+  locationId,
+  admin,
+  nameMap,
+}: {
+  date?: string;
+  assignee: string;
+  status: string;
+  locationId: string;
+  admin: ReturnType<typeof createAdminClient>;
+  nameMap: Map<string, string>;
+}) {
+  // Validate/default the date param (local YYYY-MM-DD).
+  const isValid = !!date && /^\d{4}-\d{2}-\d{2}$/.test(date) && !isNaN(new Date(`${date}T00:00:00`).getTime());
+  const theDate = isValid ? date! : localDateParam(new Date());
+
+  const dayStart = new Date(`${theDate}T00:00:00`);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  let query = admin
+    .from("bookings")
+    .select(BOOKING_SELECT)
+    .eq("location_id", locationId)
+    .gte("scheduled_at", dayStart.toISOString())
+    .lt("scheduled_at", dayEnd.toISOString());
+  if (assignee) query = query.eq("assigned_to", assignee);
+  if (status) query = query.eq("status", status);
+
+  const [{ data: bookings }, { data: bays }] = await Promise.all([
+    query.order("scheduled_at", { ascending: true }).limit(200) as unknown as Promise<{
+      data: BookingRowWithBay[] | null;
+    }>,
+    admin
+      .from("bays")
+      .select("id, name, description")
+      .eq("location_id", locationId)
+      .order("created_at", { ascending: true }) as unknown as Promise<{
+      data: { id: string; name: string; description: string | null }[] | null;
+    }>,
+  ]);
+
+  const rows = (bookings ?? []).map((b) => ({
+    ...b,
+    technicianName: b.assigned_to ? (nameMap.get(b.assigned_to) ?? null) : null,
+  }));
+
+  // Preserve active filters in day-nav links.
+  const params = new URLSearchParams({ view: "day" });
+  if (assignee) params.set("assignee", assignee);
+  if (status) params.set("status", status);
+
+  return (
+    <DayView
+      date={theDate}
+      bookings={rows}
+      bays={bays ?? []}
+      baseHref={`/staff/bookings?${params.toString()}`}
+    />
+  );
+}
+
+function localDateParam(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 async function renderListView({
   filter,
   assignee,
@@ -172,7 +246,10 @@ async function renderListView({
   }
 
   const { data: bookings } = (await query.limit(200)) as { data: BookingRow[] | null };
-  const rows = bookings ?? [];
+  const rows: BookingListRow[] = (bookings ?? []).map((b) => ({
+    ...b,
+    technicianName: b.assigned_to ? (nameMap.get(b.assigned_to) ?? null) : null,
+  }));
 
   return (
     <>
@@ -200,65 +277,7 @@ async function renderListView({
           <p className="text-sm text-muted-foreground">No bookings to show.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[700px] text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                <th className="px-4 py-2 font-medium">Date &amp; time</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Vehicle</th>
-                <th className="px-4 py-2 font-medium">Type</th>
-                <th className="px-4 py-2 font-medium">Technician</th>
-                <th className="px-4 py-2 font-medium">Duration</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((b) => (
-                <tr key={b.id} className="border-t">
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    {new Date(b.scheduled_at).toLocaleString("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </td>
-                  <td className="px-4 py-2">
-                    {b.customer ? (
-                      <Link href={`/staff/customers/${b.customer.id}`} className="underline">
-                        {b.customer.full_name ?? "Unknown"}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-4 py-2 font-mono">{b.vehicle?.registration ?? "—"}</td>
-                  <td className="px-4 py-2">{typeLabel(b.type)}</td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {b.assigned_to ? (nameMap.get(b.assigned_to) ?? "—") : "—"}
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">{b.duration_minutes} min</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        STATUS_STYLE[b.status] ?? ""
-                      }`}
-                    >
-                      {statusLabel(b.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    <Link href={`/staff/bookings/${b.id}`} className="text-sm underline">
-                      View
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <BookingTable rows={rows} />
       )}
     </>
   );
