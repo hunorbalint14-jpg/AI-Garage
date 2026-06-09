@@ -6,7 +6,6 @@ import {
   orgMrrPence,
   formatGbp,
 } from "@/lib/platform-stats";
-import { AutoRefresh } from "@/components/admin/auto-refresh";
 import { OrgTable, type AdminOrgRow } from "@/components/admin/org-table";
 
 export const dynamic = "force-dynamic";
@@ -45,13 +44,7 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Platform overview</h1>
-          <p className="text-sm text-[#9aa1ad]">All organisations across AI Garage.</p>
-        </div>
-        <AutoRefresh />
-      </div>
+      <p className="text-[12.5px] text-[#9aa1ad]">All organisations across AI Garage.</p>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
         <Kpi

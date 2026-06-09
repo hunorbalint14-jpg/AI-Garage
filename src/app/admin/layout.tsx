@@ -5,6 +5,7 @@ import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { fetchAdminStatusSummary, type AdminStatusSummary } from "@/lib/platform/reliability";
+import { AutoRefresh } from "@/components/admin/auto-refresh";
 import { signOutPlatformAdmin } from "./login/actions";
 
 // Design fonts (scoped to /admin only via the wrapper's CSS variables — the
@@ -25,6 +26,17 @@ const NAV: { href: string; label: string; match: (p: string) => boolean }[] = [
   { href: "/admin/health", label: "Reliability", match: (p) => p.startsWith("/admin/health") },
   { href: "/admin/admins", label: "Admins", match: (p) => p.startsWith("/admin/admins") },
 ];
+
+// Topbar page title per route — the design keeps the title in the topbar, so
+// inner pages drop their own <h1> and keep only their (often dynamic) subtitle.
+function pageTitleFor(pathname: string): string {
+  if (pathname === "/admin") return "Platform overview";
+  if (pathname.startsWith("/admin/orgs")) return "Organisation";
+  if (pathname.startsWith("/admin/ai")) return "AI usage";
+  if (pathname.startsWith("/admin/health")) return "Platform reliability";
+  if (pathname.startsWith("/admin/admins")) return "Platform admins";
+  return "Platform";
+}
 
 const STATUS_META: Record<AdminStatusSummary["status"], { label: string; dot: string; box: string }> = {
   operational: { label: "All systems operational", dot: "bg-[#5fdd9d]", box: "border-[#2a5a3a] bg-gradient-to-b from-[#13301f] to-[#171b21]" },
@@ -73,7 +85,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const summary = await fetchAdminStatusSummary();
   const sm = STATUS_META[summary.status];
-  const activeLabel = NAV.find((n) => n.match(pathname))?.label ?? "Platform";
+  const pageTitle = pageTitleFor(pathname);
+  // Live data pages get the auto-refresh indicator; the admins page (forms) does not.
+  const liveRefresh = !pathname.startsWith("/admin/admins");
 
   return (
     <div
@@ -133,44 +147,27 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </nav>
 
         {/* Footer */}
-        <div className="mt-auto flex flex-col gap-2 border-t border-[#23272f] pt-3">
-          <a
-            href={statusPageUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-lg border border-[#2a2f37] bg-[#171b21] px-2.5 py-1.5 text-[12px] font-semibold text-[#c7ccd4] transition-colors hover:border-[#343b45] hover:text-white"
-          >
-            <span className={`h-2 w-2 rounded-full ${sm.dot}`} />
-            Status page
-            <span className="ml-auto text-[11px] text-[#5a6170]">↗</span>
-          </a>
-          <div className="px-1">
-            <div className="truncate font-mono text-[11px] text-[#9aa1ad]">{user.email}</div>
-            <div className="mt-0.5 font-mono text-[9.5px] tracking-[0.08em] text-[#5a6170]">PLATFORM_ADMIN</div>
-          </div>
+        <div className="mt-auto border-t border-[#23272f] px-1 pt-3">
+          <div className="truncate font-mono text-[11px] text-[#9aa1ad]">{user.email}</div>
+          <div className="mt-0.5 font-mono text-[9.5px] tracking-[0.08em] text-[#5a6170]">PLATFORM_ADMIN</div>
         </div>
       </aside>
 
       {/* Main */}
-      <div className="flex min-w-0 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-[#23272f] bg-[#15181d] px-[18px] py-3.5">
-          <div className="flex items-center gap-2 text-[13px] text-[#9aa1ad]">
-            <Link href="/admin" className="font-semibold text-[#c7ccd4] hover:text-white lg:hidden">
-              AI Garage
-            </Link>
-            <span className="hidden lg:inline">{activeLabel}</span>
-          </div>
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <header className="flex items-center justify-between gap-4 border-b border-[#23272f] bg-[#15181d] px-[18px] py-3">
+          <h1 className="truncate text-[18px] font-semibold tracking-tight">{pageTitle}</h1>
           <div className="flex items-center gap-3">
+            {liveRefresh && <AutoRefresh />}
             <a
               href={statusPageUrl()}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden items-center gap-2 rounded-lg border border-[#2a2f37] bg-[#171b21] px-2.5 py-1.5 text-[12px] font-semibold text-[#c7ccd4] transition-colors hover:border-[#343b45] hover:text-white sm:flex lg:hidden"
+              className="hidden items-center gap-2 rounded-lg border border-[#2a2f37] bg-[#171b21] px-2.5 py-1.5 text-[12px] font-semibold text-[#c7ccd4] transition-colors hover:border-[#343b45] hover:text-white sm:flex"
             >
               <span className={`h-2 w-2 rounded-full ${sm.dot}`} />
-              Status ↗
+              Status<span className="text-[11px] text-[#5a6170]">↗</span>
             </a>
-            <span className="hidden font-mono text-xs text-[#5a6170] sm:inline lg:hidden">{user.email}</span>
             <form action={signOutPlatformAdmin}>
               <button
                 type="submit"
@@ -181,7 +178,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </form>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-[18px]">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto p-[18px]">{children}</main>
       </div>
     </div>
   );
