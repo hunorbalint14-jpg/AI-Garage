@@ -8,6 +8,7 @@ import { ServicesPanel } from "@/components/admin/services-panel";
 import { WebhooksPanel } from "@/components/admin/webhooks-panel";
 import { JobsPanel } from "@/components/admin/jobs-panel";
 import { IssuesPanel } from "@/components/admin/issues-panel";
+import { EventsPanel } from "@/components/admin/events-panel";
 import type { PlatformKpis, TenantHealth, TrendSeries } from "@/lib/platform/reliability";
 import type { Incident } from "@/lib/platform/incidents";
 import type { AlertRuleView } from "@/lib/platform/alerts";
@@ -15,6 +16,7 @@ import type { ServiceCard, Slo, TelemetrySource } from "@/lib/platform/services"
 import type { WebhookHealth } from "@/lib/platform/webhooks";
 import type { CronJob } from "@/lib/platform/cron-runs";
 import type { SentryIssue } from "@/lib/platform/sentry";
+import type { PlatformEvent } from "@/lib/platform/events";
 
 type Status = "all" | "operational" | "degraded" | "down";
 
@@ -49,6 +51,7 @@ export function ReliabilityDashboard({
   cronJobs,
   issues,
   sentryConfigured,
+  events,
   filter,
   pageSize,
 }: {
@@ -64,6 +67,7 @@ export function ReliabilityDashboard({
   cronJobs: CronJob[];
   issues: SentryIssue[];
   sentryConfigured: boolean;
+  events: PlatformEvent[];
   filter: { status: Status; q: string; page: number };
   pageSize: number;
 }) {
@@ -219,6 +223,9 @@ export function ReliabilityDashboard({
           </div>
         </div>
       </div>
+
+      {/* Live events */}
+      <EventsPanel events={events} />
     </div>
   );
 }
