@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
@@ -32,6 +33,23 @@ export type StructuredJob = {
   items: { description: string; type: "part" | "labour" | "other"; quantity: number }[];
 };
 
+// Lenient per-item schema mirroring the old manual checks: unknown `type`
+// degrades to "other", quantity is rounded to 2 dp, and items that fail the
+// schema are dropped rather than failing the whole transcription.
+const ItemSchema = z.object({
+  description: z.string().transform((s) => s.trim()),
+  type: z.enum(["part", "labour", "other"]).catch("other"),
+  quantity: z
+    .number()
+    .positive()
+    .transform((q) => Math.round(q * 100) / 100),
+});
+
+const JobSchema = z.object({
+  summary: z.string(),
+  items: z.array(z.unknown()),
+});
+
 export async function structureVoiceNotes(
   transcript: string,
   vehicleDescription?: string,
@@ -53,18 +71,11 @@ export async function structureVoiceNotes(
   if (block.type !== "text") throw new Error("Unexpected response type");
 
   const json = block.text.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
-  const result = JSON.parse(json) as StructuredJob;
+  const raw = JobSchema.parse(JSON.parse(json));
 
-  if (typeof result.summary !== "string" || !Array.isArray(result.items)) {
-    throw new Error("Invalid response shape");
-  }
-  // Validate item shapes
-  result.items = result.items
-    .filter((i) => i && typeof i.description === "string" && typeof i.quantity === "number" && i.quantity > 0)
-    .map((i) => ({
-      description: i.description.trim(),
-      type: ["part", "labour", "other"].includes(i.type) ? i.type : "other",
-      quantity: Math.round(i.quantity * 100) / 100,
-    }));
-  return result;
+  const items = raw.items.flatMap((i) => {
+    const r = ItemSchema.safeParse(i);
+    return r.success ? [r.data] : [];
+  });
+  return { summary: raw.summary, items };
 }

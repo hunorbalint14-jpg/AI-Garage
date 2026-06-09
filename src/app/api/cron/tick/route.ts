@@ -31,6 +31,27 @@ const TASK_ROUTE: Record<string, string> = {
   review_requests: "/api/cron/review-requests",
 };
 
+// Tasks dispatched in parallel. Serial dispatch meant every due task's child
+// route ran inside tick's own 60s budget back-to-back — a handful of slow
+// locations blew the budget and the remaining tasks never advanced
+// next_run_at. Kept modest: each child route does its own AI drafting and
+// provider sends.
+const DISPATCH_CONCURRENCY = 4;
+
+// Minimal worker pool: run fn over items with at most `limit` in flight.
+// fn must not throw — the per-task body catches and records its own failures.
+async function mapPool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (next < items.length) {
+        const i = next++;
+        await fn(items[i]);
+      }
+    }),
+  );
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   if (!authHeader || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
@@ -55,9 +76,9 @@ export async function GET(request: NextRequest) {
 
   const results = { ran: 0, failed: 0, errors: [] as string[] };
 
-  for (const task of tasks) {
+  await mapPool(tasks, DISPATCH_CONCURRENCY, async (task) => {
     const path = TASK_ROUTE[task.task_type];
-    if (!path) continue;
+    if (!path) return;
 
     try {
       const params = new URLSearchParams({
@@ -84,7 +105,7 @@ export async function GET(request: NextRequest) {
       .from("scheduled_tasks")
       .update({ last_run_at: nowIso, next_run_at: nextRunAt.toISOString() })
       .eq("id", task.id);
-  }
+  });
 
   // Hourly maintenance for the reliability store (rollup + raw-sample retention).
   await runUptimeMaintenance(admin);
