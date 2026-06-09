@@ -12,6 +12,9 @@ export type StaffContext = {
   user: { id: string; email: string | undefined; fullName: string | null };
   organization: { id: string; slug: string; name: string };
   location: { id: string; slug: string; name: string };
+  // Branding + DPA version for the staff shell (saves the layout a second org
+  // query — it's all on the same row we already fetch here).
+  branding: { primaryColor: string | null; logoUrl: string | null; dpaVersion: string | null };
   // Org-level SaaS billing snapshot (tier + status) for tenant feature gating.
   tenantBilling: OrgBilling;
   // Org-level role gives access across all locations in the org. Null if the
@@ -60,6 +63,9 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
       id: string;
       slug: string;
       name: string;
+      primary_color: string | null;
+      logo_url: string | null;
+      dpa_version: string | null;
       tenant_plan: string | null;
       tenant_subscription_status: string | null;
       tenant_current_period_end: string | null;
@@ -74,7 +80,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
   const { data: location } = (await admin
     .from("locations")
     .select(
-      "id, slug, name, organization_id, organization:organizations(id, slug, name, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
+      "id, slug, name, organization_id, organization:organizations(id, slug, name, primary_color, logo_url, dpa_version, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
     )
     .eq("slug", slug)
     .maybeSingle()) as { data: LocationWithOrg | null };
@@ -133,6 +139,11 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     },
     organization: location.organization,
     location: { id: location.id, slug: location.slug, name: location.name },
+    branding: {
+      primaryColor: location.organization.primary_color,
+      logoUrl: location.organization.logo_url,
+      dpaVersion: location.organization.dpa_version,
+    },
     tenantBilling: {
       tenant_plan: location.organization.tenant_plan,
       tenant_subscription_status: location.organization.tenant_subscription_status,

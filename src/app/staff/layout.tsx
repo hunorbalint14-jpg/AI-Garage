@@ -1,4 +1,4 @@
-import { getStaffContext } from "@/lib/staff-context";
+import { getStaffContext, type StaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StaffShell } from "@/components/staff/staff-shell";
 import { ColorSchemeSync } from "@/components/staff/color-scheme-sync";
@@ -11,20 +11,49 @@ import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa } from "@/lib/mfa"
 import { MfaNudge } from "@/components/staff/mfa-nudge";
 import { TenantBillingNudge } from "@/components/staff/tenant-billing-nudge";
 
+type Admin = ReturnType<typeof createAdminClient>;
 type BillingNudge = { reason: "past_due" | "trial_ending"; date: string | null };
 
 function computeBillingNudge(
-  org: { tenant_subscription_status?: string | null; tenant_trial_end?: string | null } | null,
+  billing: { tenant_subscription_status?: string | null; tenant_trial_end?: string | null } | null,
   eligible: boolean,
 ): BillingNudge | null {
-  if (!eligible || !org) return null;
-  if (org.tenant_subscription_status === "past_due") return { reason: "past_due", date: null };
-  const trialEnd = org.tenant_trial_end ? new Date(org.tenant_trial_end) : null;
+  if (!eligible || !billing) return null;
+  if (billing.tenant_subscription_status === "past_due") return { reason: "past_due", date: null };
+  const trialEnd = billing.tenant_trial_end ? new Date(billing.tenant_trial_end) : null;
   const now = new Date();
   if (trialEnd && trialEnd > now && trialEnd.getTime() - now.getTime() < 7 * 24 * 60 * 60 * 1000) {
     return { reason: "trial_ending", date: trialEnd.toLocaleDateString("en-GB", { day: "numeric", month: "long" }) };
   }
   return null;
+}
+
+// Locations the user can switch between: org-level staff (owner/admin) see all
+// in the org; location-level staff see only the ones they're a member of.
+async function loadAccessibleLocations(
+  admin: Admin,
+  ctx: StaffContext,
+): Promise<{ id: string; slug: string; name: string }[]> {
+  if (ctx.orgRole) {
+    const { data } = await admin
+      .from("locations")
+      .select("id, slug, name")
+      .eq("organization_id", ctx.organization.id)
+      .order("created_at", { ascending: true });
+    return data ?? [];
+  }
+  const { data: accessRows } = await admin
+    .from("location_users")
+    .select("location_id")
+    .eq("user_id", ctx.user.id);
+  const ids = (accessRows ?? []).map((r) => r.location_id);
+  if (!ids.length) return [];
+  const { data } = await admin
+    .from("locations")
+    .select("id, slug, name")
+    .in("id", ids)
+    .order("created_at", { ascending: true });
+  return data ?? [];
 }
 
 export default async function StaffLayout({
@@ -37,85 +66,52 @@ export default async function StaffLayout({
 
   const fullName = ctx.user.fullName ?? ctx.user.email ?? "Staff";
   const role = ctx.orgRole ?? ctx.locationRole ?? "staff";
-
   const admin = createAdminClient();
 
-  // Location-level staff see only their accessible locations; owners/admins see all
-  let locationsData: { id: string; slug: string; name: string }[] = [];
-  if (ctx.orgRole) {
-    const { data } = await admin
-      .from("locations")
-      .select("id, slug, name")
-      .eq("organization_id", ctx.organization.id)
-      .order("created_at", { ascending: true });
-    locationsData = data ?? [];
-  } else {
-    const { data: accessRows } = await admin
-      .from("location_users")
-      .select("location_id")
-      .eq("user_id", ctx.user.id);
-    const ids = (accessRows ?? []).map((r) => r.location_id);
-    if (ids.length) {
-      const { data } = await admin
-        .from("locations")
-        .select("id, slug, name")
-        .in("id", ids)
-        .order("created_at", { ascending: true });
-      locationsData = data ?? [];
-    }
-  }
-
-  const { data: org } = await admin
-    .from("organizations")
-    .select("primary_color, logo_url, dpa_version, tenant_subscription_status, tenant_trial_end")
-    .eq("id", ctx.organization.id)
-    .single();
-
-  // DPA acceptance gate — skip check on the acceptance page itself + login
   const reqHeaders = await nextHeaders();
   const pathname = reqHeaders.get("x-pathname") ?? "";
   const onAcceptancePage =
-    pathname.startsWith("/staff/dpa-acceptance") ||
-    pathname.startsWith("/staff/login");
-  if (
-    !onAcceptancePage &&
-    !isDpaAccepted((org as { dpa_version?: string } | null)?.dpa_version)
-  ) {
+    pathname.startsWith("/staff/dpa-acceptance") || pathname.startsWith("/staff/login");
+  const onMfaPage = pathname.startsWith("/staff/mfa") || pathname.startsWith("/staff/login");
+  const mfaApplies = mfaAppliesToRole(ctx.orgRole) && !onMfaPage;
+
+  // Independent reads in parallel (previously a sequential waterfall): locations,
+  // notifications, and — when relevant — the MFA step-up flag. Branding + DPA
+  // version now ride along on the staff context, so the separate org query is gone.
+  const [locationsData, unreadCount, recentNotifications, mfaVerified] = await Promise.all([
+    loadAccessibleLocations(admin, ctx),
+    unreadNotificationCount(ctx.location.id),
+    listRecentNotifications(ctx.location.id, 8),
+    mfaApplies ? hasVerifiedMfa(ctx.user.id) : Promise.resolve(true),
+  ]);
+
+  // DPA acceptance gate — skip on the acceptance page itself + login.
+  if (!onAcceptancePage && !isDpaAccepted(ctx.branding.dpaVersion)) {
     redirect("/staff/dpa-acceptance");
   }
 
-  // Owner/admin MFA gate. Mirrors the DPA gate above. When OWNER_MFA_ENFORCED
-  // is on, owners/admins who haven't cleared a passkey step-up this session are
-  // sent to /staff/mfa; otherwise we just surface a nudge banner.
-  const onMfaPage =
-    pathname.startsWith("/staff/mfa") || pathname.startsWith("/staff/login");
+  // Owner/admin MFA gate. When OWNER_MFA_ENFORCED is on, owners/admins who
+  // haven't cleared a passkey step-up this session go to /staff/mfa; otherwise a
+  // nudge banner — but only for those without a credential yet (else it returns
+  // on every reload even with nothing left to set up).
   let showMfaNudge = false;
-  if (mfaAppliesToRole(ctx.orgRole) && !onMfaPage) {
-    const verified = await hasVerifiedMfa(ctx.user.id);
-    if (!verified) {
-      if (isOwnerMfaEnforced()) redirect("/staff/mfa");
-      // Nudge only those who haven't enrolled a passkey yet. `verified` is a
-      // per-session step-up flag, so once MFA is set up we must check for an
-      // actual credential — otherwise the banner returns on every reload even
-      // though there's nothing left to set up.
-      const { count } = await admin
-        .from("webauthn_credentials")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", ctx.user.id);
-      showMfaNudge = (count ?? 0) === 0;
-    }
+  if (mfaApplies && !mfaVerified) {
+    if (isOwnerMfaEnforced()) redirect("/staff/mfa");
+    const { count } = await admin
+      .from("webauthn_credentials")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", ctx.user.id);
+    showMfaNudge = (count ?? 0) === 0;
   }
 
   // Owner billing nudge: payment past-due, or a Pro trial ending within 7 days.
   const billingNudge = computeBillingNudge(
-    org as { tenant_subscription_status?: string | null; tenant_trial_end?: string | null } | null,
+    ctx.tenantBilling,
     ctx.orgRole === "owner" && !pathname.startsWith("/staff/settings/billing"),
   );
 
-  const brandColor =
-    (org as { primary_color: string } | null)?.primary_color ?? "#6366f1";
-  const orgLogoUrl =
-    (org as { logo_url?: string | null } | null)?.logo_url ?? null;
+  const brandColor = ctx.branding.primaryColor ?? "#6366f1";
+  const orgLogoUrl = ctx.branding.logoUrl;
 
   const orgInitials = ctx.organization.name
     .split(/\s+/)
@@ -130,11 +126,6 @@ export default async function StaffLayout({
     .join("")
     .toUpperCase()
     .slice(0, 2);
-
-  const [unreadCount, recentNotifications] = await Promise.all([
-    unreadNotificationCount(ctx.location.id),
-    listRecentNotifications(ctx.location.id, 8),
-  ]);
 
   return (
     <>
