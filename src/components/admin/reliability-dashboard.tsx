@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { TrendChart } from "@/components/admin/reliability-chart";
 import { ReliabilityFilters } from "@/components/admin/reliability-filters";
-import { IncidentsPanel } from "@/components/admin/incidents-panel";
 import { AlertsPanel } from "@/components/admin/alerts-panel";
 import { ServicesPanel } from "@/components/admin/services-panel";
 import { WebhooksPanel } from "@/components/admin/webhooks-panel";
@@ -9,7 +8,6 @@ import { JobsPanel } from "@/components/admin/jobs-panel";
 import { IssuesPanel } from "@/components/admin/issues-panel";
 import { EventsPanel } from "@/components/admin/events-panel";
 import type { PlatformKpis, TenantHealth, TrendSeries } from "@/lib/platform/reliability";
-import type { Incident } from "@/lib/platform/incidents";
 import type { AlertRuleView } from "@/lib/platform/alerts";
 import type { ServiceCard, Slo, TelemetrySource } from "@/lib/platform/services";
 import type { WebhookHealth } from "@/lib/platform/webhooks";
@@ -41,7 +39,6 @@ export function ReliabilityDashboard({
   kpis,
   tenants,
   trend,
-  incidents,
   alertRules,
   services,
   slos,
@@ -57,7 +54,6 @@ export function ReliabilityDashboard({
   kpis: PlatformKpis;
   tenants: { rows: TenantHealth[]; total: number };
   trend: TrendSeries;
-  incidents: Incident[];
   alertRules: AlertRuleView[];
   services: ServiceCard[];
   slos: Slo[];
@@ -125,9 +121,6 @@ export function ReliabilityDashboard({
 
       {/* Webhook delivery */}
       <WebhooksPanel webhooks={webhooks} />
-
-      {/* Incidents */}
-      <IncidentsPanel incidents={incidents} />
 
       {/* Top issues (Sentry) */}
       <IssuesPanel issues={issues} events24h={kpis.errors24h} configured={sentryConfigured} />
