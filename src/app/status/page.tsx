@@ -1,9 +1,13 @@
+import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { resolveTenantFromHost } from "@/lib/tenant";
 import { PLATFORM_COMPONENTS } from "@/lib/platform/components";
 
 // Public system-status page. Shows ONLY incidents the ops team has published
 // (and only their public updates). No auth. Component statuses are derived from
 // published, unresolved incidents until per-service synthetic checks land.
+// Root-domain only — not served on tenant subdomains or the admin host.
 export const dynamic = "force-dynamic";
 
 type PubUpdate = { status: string; body: string; created_at: string; public: boolean };
@@ -29,6 +33,11 @@ const UPDATE_TONE: Record<string, string> = {
 };
 
 export default async function StatusPage() {
+  // Root domain only — tenant subdomains and the admin host 404.
+  const h = await headers();
+  const host = h.get("host") ?? h.get("x-forwarded-host") ?? "";
+  if (!resolveTenantFromHost(host).isRootDomain) notFound();
+
   const admin = createAdminClient();
   const { data } = await admin
     .from("incidents")
