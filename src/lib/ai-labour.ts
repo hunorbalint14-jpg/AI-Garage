@@ -1,8 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
 const MODEL = "claude-haiku-4-5-20251001";
+
+const LabourEstimateSchema = z.object({
+  hours: z.number().positive(),
+  note: z.string(),
+});
 
 const SYSTEM = `You are a UK automotive labour time estimator.
 You MUST ALWAYS respond with ONLY a JSON object. Never write prose, never ask for clarification.
@@ -38,8 +44,7 @@ export async function estimateLabourTime(
   if (block.type !== "text") throw new Error("Unexpected response type");
 
   const json = block.text.trim().replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
-  const result = JSON.parse(json) as { hours: number; note: string };
+  const result = LabourEstimateSchema.parse(JSON.parse(json));
 
-  if (typeof result.hours !== "number" || result.hours <= 0) throw new Error("Invalid hours value");
   return { hours: Math.round(result.hours * 4) / 4, note: result.note };
 }

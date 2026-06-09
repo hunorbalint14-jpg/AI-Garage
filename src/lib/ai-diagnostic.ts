@@ -1,16 +1,28 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
 const MODEL = "claude-haiku-4-5-20251001";
 
-export type DiagnosisResult = {
-  likelyCauses: { cause: string; probability: "likely" | "possible" | "unlikely" }[];
-  urgency: "urgent" | "soon" | "monitor";
-  urgencyNote: string;
-  estimatedCost: string;
-  recommendedAction: string;
-};
+// Validate the model's JSON before it reaches the UI — an unchecked cast would
+// happily render a malformed response.
+const DiagnosisSchema = z.object({
+  likelyCauses: z
+    .array(
+      z.object({
+        cause: z.string(),
+        probability: z.enum(["likely", "possible", "unlikely"]),
+      }),
+    )
+    .min(1),
+  urgency: z.enum(["urgent", "soon", "monitor"]),
+  urgencyNote: z.string(),
+  estimatedCost: z.string(),
+  recommendedAction: z.string(),
+});
+
+export type DiagnosisResult = z.infer<typeof DiagnosisSchema>;
 
 const SYSTEM = `You are an expert UK automotive diagnostic assistant for a garage.
 A customer has described a symptom with their vehicle. Provide a concise, accurate diagnosis.
@@ -58,5 +70,5 @@ export async function runDiagnostic(
   // Strip markdown code fences if present
   const json = text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
 
-  return JSON.parse(json) as DiagnosisResult;
+  return DiagnosisSchema.parse(JSON.parse(json));
 }
