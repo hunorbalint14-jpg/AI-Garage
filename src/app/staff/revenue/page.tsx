@@ -3,7 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import Link from "next/link";
-import { RevenueChart } from "./revenue-chart";
+import { RevenueChart } from "./revenue-chart-lazy";
 
 type InvoiceRow = {
   id: string;

@@ -53,6 +53,13 @@ const SECURITY_HEADERS = [
 ];
 
 const nextConfig: NextConfig = {
+  // Tree-shake barrel imports from these icon/UI/chart packages so a route only
+  // ships the components it actually uses (lucide-react in particular has 1000+
+  // icons behind a single entrypoint).
+  experimental: {
+    optimizePackageImports: ["lucide-react", "recharts", "@base-ui/react"],
+  },
+
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
