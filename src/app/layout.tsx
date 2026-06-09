@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieBanner } from "@/components/cookie-banner";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 
@@ -77,6 +78,9 @@ export default function RootLayout({
         {children}
         <ImpersonationBanner />
         <CookieBanner />
+        {/* Real-user TTFB/LCP/CLS per route → Vercel dashboard. Script + beacon
+            are same-origin (/_vercel/speed-insights/*), so the CSP needs no change. */}
+        <SpeedInsights />
       </body>
     </html>
   );
