@@ -2,7 +2,9 @@ import Link from "next/link";
 import { AutoRefresh } from "@/components/admin/auto-refresh";
 import { TrendChart } from "@/components/admin/reliability-chart";
 import { ReliabilityFilters } from "@/components/admin/reliability-filters";
+import { IncidentsPanel } from "@/components/admin/incidents-panel";
 import type { PlatformKpis, TenantHealth, TrendSeries } from "@/lib/platform/reliability";
+import type { Incident } from "@/lib/platform/incidents";
 
 type Status = "all" | "operational" | "degraded" | "down";
 
@@ -28,12 +30,14 @@ export function ReliabilityDashboard({
   kpis,
   tenants,
   trend,
+  incidents,
   filter,
   pageSize,
 }: {
   kpis: PlatformKpis;
   tenants: { rows: TenantHealth[]; total: number };
   trend: TrendSeries;
+  incidents: Incident[];
   filter: { status: Status; q: string; page: number };
   pageSize: number;
 }) {
@@ -83,6 +87,9 @@ export function ReliabilityDashboard({
           <TrendChart data={trend.p95} tone="info" suffix="ms" />
         </div>
       </div>
+
+      {/* Incidents */}
+      <IncidentsPanel incidents={incidents} />
 
       {/* Tenant roster */}
       <div>

@@ -33,6 +33,12 @@ export type AuditAction =
   | "platform_admin.invite"
   | "platform_admin.revoke"
   | "location.slug_change"
+  // Platform reliability incidents
+  | "incident.declare"
+  | "incident.update"
+  | "incident.resolve"
+  | "incident.publish"
+  | "incident.ack"
   // Scheduling / labour (Phase 3)
   | "booking.assign"
   | "job.assign"
