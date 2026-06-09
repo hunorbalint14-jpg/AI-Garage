@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
+import { evaluateAlerts } from "@/lib/platform/alerts";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -114,7 +115,10 @@ export async function GET(request: NextRequest) {
     if (insErr) console.error("[cron/uptime] insert failed", insErr.message);
   }
 
+  // Evaluate alert rules against this run → Slack + auto-declare incidents.
+  const declared = await evaluateAlerts(admin, results);
+
   const down = results.filter((r) => !r.ok).length;
-  console.log("[cron/uptime]", { checked: results.length, down });
-  return NextResponse.json({ success: true, checked: results.length, down });
+  console.log("[cron/uptime]", { checked: results.length, down, declared });
+  return NextResponse.json({ success: true, checked: results.length, down, declared });
 }
