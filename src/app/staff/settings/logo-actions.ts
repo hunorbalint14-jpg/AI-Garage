@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
 
 const BUCKET = "org-logos";
 const MAX_SIZE = 2 * 1024 * 1024; // 2 MB
@@ -45,6 +46,7 @@ export async function uploadOrgLogo(formData: FormData): Promise<UploadResult> {
     .eq("id", ctx.organization.id);
   if (updateErr) return { error: `DB update failed: ${updateErr.message}` };
 
+  await invalidateTenantCacheForOrg(ctx.organization.id);
   revalidatePath("/staff/settings");
   revalidatePath("/staff", "layout");
   return { success: true, url };
@@ -72,6 +74,7 @@ export async function removeOrgLogo(): Promise<{ error: string } | { success: tr
     .eq("id", ctx.organization.id);
   if (error) return { error: error.message };
 
+  await invalidateTenantCacheForOrg(ctx.organization.id);
   revalidatePath("/staff/settings");
   revalidatePath("/staff", "layout");
   return { success: true };

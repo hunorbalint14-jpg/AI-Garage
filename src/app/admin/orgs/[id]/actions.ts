@@ -9,6 +9,7 @@ import { validateSlug } from "@/lib/slug";
 import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
 import { cacheDel } from "@/lib/redis";
+import { invalidateTenantCache } from "@/lib/tenant-data";
 
 async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
   const supabase = await createClient();
@@ -96,8 +97,10 @@ export async function updateLocationSlug(formData: FormData): Promise<SlugResult
 
   // Evict the proxy's retired-slug cache for both slugs: the old one is now
   // retired (drop its stale "not retired" negative entry) and the new one may
-  // have been cached as retired before. Best-effort; entries also expire by TTL.
+  // have been cached as retired before. Also drop the cached tenant branding
+  // under both slugs. Best-effort; entries also expire by TTL.
   await Promise.all([cacheDel(`slughist:${oldSlug}`), cacheDel(`slughist:${slug}`)]);
+  await invalidateTenantCache([oldSlug, slug]);
 
   revalidatePath(`/admin/orgs/${location.organization_id}`);
   return { success: true, slug };
