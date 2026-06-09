@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { validateSlug } from "@/lib/slug";
 import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
+import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
 import { tierFor, tenantBillingActive, TIERS } from "@/lib/tenant-plans";
 
 export type UpdateOrgResult = { error: string } | { success: true };
@@ -60,6 +61,9 @@ export async function updateOrganization(
       privacy_policy_url: privacyPolicyUrl,
     },
   });
+
+  // Name/colour are cached per tenant slug — drop the org's cached branding.
+  await invalidateTenantCacheForOrg(ctx.organization.id);
 
   revalidatePath("/staff/settings");
   revalidatePath("/staff");

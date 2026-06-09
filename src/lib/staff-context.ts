@@ -31,10 +31,17 @@ export type StaffContext = {
 export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  // Local JWT (JWKS) verification — no Auth network round-trip. We only need
+  // id / email / full_name, all of which are standard claims. The supabase
+  // client is still returned for callers' RLS-scoped queries.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  if (!claims?.sub) return null;
+  const user = {
+    id: claims.sub,
+    email: claims.email,
+    user_metadata: claims.user_metadata as { full_name?: string } | undefined,
+  };
 
   const headersList = await headers();
   const slug =
