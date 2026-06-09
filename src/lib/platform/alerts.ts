@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { fetchDbHealth } from "@/lib/platform/services";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -36,11 +37,13 @@ function compare(v: number, op: string, t: number): boolean {
 }
 
 type EvalSample = { ok: boolean; latency_ms: number | null };
+type MetricContext = { dbPoolPct: number | null };
 
-// Value for a synthetic metric from the current probe run. Returns null for
-// metrics whose data source isn't wired yet (Sentry/Stripe/Supabase — PR 5),
-// so those rules stay dormant.
-function metricValue(metric: string, samples: EvalSample[]): number | null {
+// Value for a metric from the current probe run + context. Returns null for
+// metrics whose data source isn't wired yet (Sentry/Stripe — later PRs), so
+// those rules stay dormant.
+function metricValue(metric: string, samples: EvalSample[], ctx: MetricContext): number | null {
+  if (metric === "db_pool_pct") return ctx.dbPoolPct;
   if (samples.length === 0) return null;
   if (metric === "availability_pct") {
     const ok = samples.filter((s) => s.ok).length;
@@ -80,11 +83,15 @@ export async function evaluateAlerts(admin: Admin, samples: EvalSample[]): Promi
     const { data: rules } = await admin.from("alert_rules").select("*").eq("enabled", true);
     if (!rules?.length) return 0;
 
+    // Context for non-synthetic metrics computable now (DB pool). Fetched once.
+    const db = await fetchDbHealth(admin);
+    const ctx: MetricContext = { dbPoolPct: db?.pct ?? null };
+
     const now = Date.now();
     let opened = 0;
 
     for (const rule of rules as AlertRule[]) {
-      const value = metricValue(rule.metric, samples);
+      const value = metricValue(rule.metric, samples, ctx);
       if (value == null) continue; // metric not wired yet
       if (!compare(value, rule.operator, Number(rule.threshold))) continue;
 

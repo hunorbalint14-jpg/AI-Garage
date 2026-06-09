@@ -4,9 +4,11 @@ import { TrendChart } from "@/components/admin/reliability-chart";
 import { ReliabilityFilters } from "@/components/admin/reliability-filters";
 import { IncidentsPanel } from "@/components/admin/incidents-panel";
 import { AlertsPanel } from "@/components/admin/alerts-panel";
+import { ServicesPanel } from "@/components/admin/services-panel";
 import type { PlatformKpis, TenantHealth, TrendSeries } from "@/lib/platform/reliability";
 import type { Incident } from "@/lib/platform/incidents";
 import type { AlertRuleView } from "@/lib/platform/alerts";
+import type { ServiceCard, Slo, TelemetrySource } from "@/lib/platform/services";
 
 type Status = "all" | "operational" | "degraded" | "down";
 
@@ -34,6 +36,9 @@ export function ReliabilityDashboard({
   trend,
   incidents,
   alertRules,
+  services,
+  slos,
+  telemetry,
   filter,
   pageSize,
 }: {
@@ -42,6 +47,9 @@ export function ReliabilityDashboard({
   trend: TrendSeries;
   incidents: Incident[];
   alertRules: AlertRuleView[];
+  services: ServiceCard[];
+  slos: Slo[];
+  telemetry: TelemetrySource[];
   filter: { status: Status; q: string; page: number };
   pageSize: number;
 }) {
@@ -91,6 +99,9 @@ export function ReliabilityDashboard({
           <TrendChart data={trend.p95} tone="info" suffix="ms" />
         </div>
       </div>
+
+      {/* Services (telemetry + service cards + SLOs) */}
+      <ServicesPanel telemetry={telemetry} services={services} slos={slos} />
 
       {/* Incidents */}
       <IncidentsPanel incidents={incidents} />
