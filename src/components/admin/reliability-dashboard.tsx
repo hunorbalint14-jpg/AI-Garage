@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { AutoRefresh } from "@/components/admin/auto-refresh";
 import { TrendChart } from "@/components/admin/reliability-chart";
 import { ReliabilityFilters } from "@/components/admin/reliability-filters";
 import { IncidentsPanel } from "@/components/admin/incidents-panel";
@@ -87,13 +86,7 @@ export function ReliabilityDashboard({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">Platform reliability</h1>
-          <p className="text-sm text-[#9aa1ad]">Synthetic uptime &amp; latency across every tenant.</p>
-        </div>
-        <AutoRefresh />
-      </div>
+      <p className="text-[12.5px] text-[#9aa1ad]">Synthetic uptime &amp; latency across every tenant.</p>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">

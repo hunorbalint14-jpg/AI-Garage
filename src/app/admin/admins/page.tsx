@@ -23,12 +23,9 @@ export default async function AdminsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold">Platform admins</h1>
-        <p className="text-sm text-[#9aa1ad]">
-          Invited operators. They see this dashboard and act as an <strong>owner</strong> inside every garage&apos;s portal.
-        </p>
-      </div>
+      <p className="text-[12.5px] text-[#9aa1ad]">
+        Invited operators. They see this dashboard and act as an <strong>owner</strong> inside every garage&apos;s portal.
+      </p>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-[#23272f] bg-[#15181d] p-4">
