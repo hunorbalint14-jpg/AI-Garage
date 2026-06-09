@@ -7,12 +7,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # dev server on http://localhost:3000
-npm run build    # production build
-npm run lint     # ESLint (eslint-config-next + core-web-vitals)
+npm run dev        # dev server on http://localhost:3000
+npm run build      # production build
+npm run lint       # ESLint (eslint-config-next + core-web-vitals)
+npm run typecheck  # tsc --noEmit
+npm run test:run   # vitest, single pass (npm run test for watch mode)
+npm run test:e2e   # Playwright
 ```
 
-No test suite is configured — there is no jest/vitest/playwright setup.
+Unit tests are colocated `*.test.ts` files (vitest, ~40 of them under `src/lib/`). Husky + lint-staged run ESLint and tsc on staged files at commit time.
 
 **Multi-tenant dev:** subdomains resolve via `localtest.me`. Access a tenant at e.g. `http://smith-motors.localtest.me:3000`. Set `NEXT_PUBLIC_ROOT_DOMAIN=localtest.me:3000` in `.env.local`.
 
@@ -56,8 +59,9 @@ Third-party OAuth tokens (currently Xero) are AES-encrypted before being written
 
 ### Cron (Vercel)
 Defined in [vercel.json](vercel.json), gated by a `CRON_SECRET` header check inside each handler.
-- `/api/cron/tick` — hourly
+- `/api/cron/tick` — hourly; fans out due `scheduled_tasks` rows to `/api/cron/reminders`, `/api/cron/digest`, `/api/cron/dunning`, `/api/cron/review-requests`
 - `/api/cron/quote-expiry` — every 30 min
+- `/api/cron/uptime` — every 3 min (platform reliability probes)
 
 ### Audit log
 Staff actions are recorded via [src/lib/audit.ts](src/lib/audit.ts) into the `audit_log` table and surfaced at `/staff/audit-log`. New staff-side mutations should call the audit helper.
