@@ -480,6 +480,9 @@ export default async function StaffDashboard() {
   in60.setDate(in60.getDate() + 60);
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
+  const in3Days = new Date(now);
+  in3Days.setDate(in3Days.getDate() + 3);
+
   const [
     customersRes,
     vehiclesRes,
@@ -491,6 +494,8 @@ export default async function StaffDashboard() {
     weekPaidRes,
     baysRes,
     locationHoursRes,
+    uninvoicedJobsRes,
+    expiringQuotesRes,
   ] = await Promise.all([
     admin
       .from("customers")
@@ -516,7 +521,7 @@ export default async function StaffDashboard() {
       .limit(20),
     admin
       .from("invoices")
-      .select("id, total")
+      .select("id, total, status")
       .eq("location_id", ctx.location.id)
       .in("status", ["draft", "sent"]),
     admin
@@ -549,6 +554,19 @@ export default async function StaffDashboard() {
       .select("business_hours_start, business_hours_end")
       .eq("id", ctx.location.id)
       .single(),
+    // Finished work that hasn't been billed — the most direct money on the table.
+    admin
+      .from("jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("location_id", ctx.location.id)
+      .eq("status", "complete"),
+    // Pending quotes about to expire — customer goes cold if nobody nudges.
+    admin
+      .from("job_quotes")
+      .select("id, total")
+      .eq("location_id", ctx.location.id)
+      .eq("status", "pending")
+      .lte("expires_at", in3Days.toISOString()),
   ]);
 
   const totalCustomers = customersRes.count ?? 0;
@@ -558,6 +576,9 @@ export default async function StaffDashboard() {
   const openInvoices = openInvoicesRes.data ?? [];
   const openInvoicesValue = openInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
   const activeJobs = activeJobsRes.count ?? 0;
+  const uninvoicedJobs = uninvoicedJobsRes.count ?? 0;
+  const expiringQuotes = (expiringQuotesRes.data ?? []) as { id: string; total: number }[];
+  const expiringQuotesValue = expiringQuotes.reduce((sum, q) => sum + Number(q.total), 0);
   type BookingRow = {
     id: string;
     scheduled_at: string;
@@ -628,6 +649,26 @@ export default async function StaffDashboard() {
     href: string;
   }[] = [];
 
+  if (uninvoicedJobs > 0) {
+    priorityItems.push({
+      n: String(priorityItems.length + 1).padStart(2, "0"),
+      title: `Invoice ${uninvoicedJobs} finished job${uninvoicedJobs !== 1 ? "s" : ""}`,
+      body: "Work is done but nothing has been billed yet.",
+      impact: "unbilled work",
+      urgency: "now",
+      href: "/staff/jobs",
+    });
+  }
+  if (expiringQuotes.length > 0) {
+    priorityItems.push({
+      n: String(priorityItems.length + 1).padStart(2, "0"),
+      title: `${expiringQuotes.length} quote${expiringQuotes.length !== 1 ? "s" : ""} expiring within 3 days`,
+      body: "Customer hasn't responded. A nudge now beats a re-quote later.",
+      impact: fmtGBP(expiringQuotesValue),
+      urgency: "now",
+      href: "/staff/quotes",
+    });
+  }
   if (overdue.length > 0) {
     priorityItems.push({
       n: String(priorityItems.length + 1).padStart(2, "0"),
@@ -638,12 +679,28 @@ export default async function StaffDashboard() {
       href: "/staff/reminders",
     });
   }
-  if (openInvoices.length > 0) {
+  // Draft invoices were lumped in with sent ones under "chase unpaid" — but a
+  // draft has never reached the customer; the action is "send it", not "chase it".
+  const draftInvoices = openInvoices.filter((i) => (i as { status?: string }).status === "draft");
+  const sentInvoices = openInvoices.filter((i) => (i as { status?: string }).status === "sent");
+  if (draftInvoices.length > 0) {
+    const value = draftInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
     priorityItems.push({
       n: String(priorityItems.length + 1).padStart(2, "0"),
-      title: `Chase ${openInvoices.length} unpaid invoice${openInvoices.length !== 1 ? "s" : ""}`,
-      body: `Total outstanding: ${fmtGBP(openInvoicesValue)}. Send friendly chasers.`,
-      impact: fmtGBP(openInvoicesValue),
+      title: `Send ${draftInvoices.length} draft invoice${draftInvoices.length !== 1 ? "s" : ""}`,
+      body: `Drafted but never sent — the customer can't pay what they haven't seen.`,
+      impact: fmtGBP(value),
+      urgency: "today",
+      href: "/staff/invoices",
+    });
+  }
+  if (sentInvoices.length > 0) {
+    const value = sentInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+    priorityItems.push({
+      n: String(priorityItems.length + 1).padStart(2, "0"),
+      title: `Chase ${sentInvoices.length} unpaid invoice${sentInvoices.length !== 1 ? "s" : ""}`,
+      body: `Total outstanding: ${fmtGBP(value)}. Send friendly chasers.`,
+      impact: fmtGBP(value),
       urgency: "today",
       href: "/staff/invoices",
     });
