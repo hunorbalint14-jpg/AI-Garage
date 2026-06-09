@@ -4,6 +4,7 @@ import { fetchAlertRules } from "@/lib/platform/alerts";
 import { fetchServices, fetchSlos, fetchTelemetry } from "@/lib/platform/services";
 import { fetchWebhookHealth } from "@/lib/platform/webhooks";
 import { fetchCronJobs } from "@/lib/platform/cron-runs";
+import { readTopIssues, sentryConfigured } from "@/lib/platform/sentry";
 import { ReliabilityDashboard } from "@/components/admin/reliability-dashboard";
 
 // /admin/health — Platform Reliability. The admin layout already gates this to
@@ -25,7 +26,7 @@ export default async function HealthPage({
     : "all") as TenantStatus | "all";
   const q = sp.q ?? "";
 
-  const [kpis, tenants, trend, incidents, alertRules, services, slos, telemetry, webhooks, cronJobs] = await Promise.all([
+  const [kpis, tenants, trend, incidents, alertRules, services, slos, telemetry, webhooks, cronJobs, issues] = await Promise.all([
     fetchPlatformKpis(),
     fetchTenantHealth({ status, search: q, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
     fetchTrendSeries(24),
@@ -36,6 +37,7 @@ export default async function HealthPage({
     fetchTelemetry(),
     fetchWebhookHealth(24),
     fetchCronJobs(),
+    readTopIssues(),
   ]);
 
   return (
@@ -50,6 +52,8 @@ export default async function HealthPage({
       telemetry={telemetry}
       webhooks={webhooks}
       cronJobs={cronJobs}
+      issues={issues}
+      sentryConfigured={sentryConfigured()}
       filter={{ status, q, page }}
       pageSize={PAGE_SIZE}
     />

@@ -1,9 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { readSentrySnapshot, sentryConfigured } from "@/lib/platform/sentry";
 
 // Reads for the dashboard's "Services" section — DB health, platform service
-// cards, SLO budgets, telemetry sources. All from data we own (synthetic
-// uptime + Postgres stats); external integrations (Sentry/Stripe/…) light up in
-// later PRs.
+// cards, SLO budgets, telemetry sources. From data we own (synthetic uptime +
+// Postgres stats) plus the cached Sentry snapshot; Vercel lights up in a later
+// PR.
 
 export type Tone = "operational" | "degraded" | "down";
 
@@ -151,10 +152,23 @@ export async function fetchTelemetry(admin = createAdminClient()): Promise<Telem
 
   const db = await fetchDbHealth(admin);
 
+  // Sentry: pending until configured, then live from the cached snapshot the
+  // uptime cron refreshes.
+  const sentry = await readSentrySnapshot(admin);
+  let sentryStatus: Tone | "pending" = "pending";
+  let sentryLast = "—";
+  if (sentryConfigured() && sentry) {
+    const ageMin = sentry.fetchedAt ? (Date.now() - new Date(sentry.fetchedAt).getTime()) / 60000 : Infinity;
+    sentryStatus = !sentry.ok || ageMin > 20 ? "down" : ageMin > 6 ? "degraded" : "operational";
+    sentryLast = sentry.fetchedAt
+      ? `${Math.max(0, Math.round((Date.now() - new Date(sentry.fetchedAt).getTime()) / 1000))}s ago`
+      : "never";
+  }
+
   return [
     { name: "Synthetic uptime checks", detail: "every ~3 min · /api/health", feeds: "availability · latency", status: syntheticStatus, last: lastLabel },
     { name: "Supabase", detail: "Postgres · pg_stat_activity", feeds: "DB connections", status: db ? (db.pct >= 90 ? "down" : db.pct >= 75 ? "degraded" : "operational") : "down", last: "just now" },
-    { name: "Sentry", detail: "errors · issues", feeds: "error rate · issues", status: "pending", last: "—" },
+    { name: "Sentry", detail: "errors · issues", feeds: "error rate · issues", status: sentryStatus, last: sentryLast },
     { name: "Vercel", detail: "analytics · deployments", feeds: "traffic · p95 · builds", status: "pending", last: "—" },
   ];
 }
