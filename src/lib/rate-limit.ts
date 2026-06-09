@@ -50,6 +50,9 @@ const LIMITERS = {
   // Per-user burst cap to stop a script/loop running up API cost; generous
   // enough for normal interactive use.
   ai: makeLimiter("ai", 15, "60 s"),
+  // Public DVSA registration lookups (booking widget). Per IP — protects the
+  // DVSA API quota from scripted enumeration on an unauthenticated surface.
+  lookup: makeLimiter("lookup", 10, "60 s"),
 } as const;
 
 export type RateLimitBucket = keyof typeof LIMITERS;
