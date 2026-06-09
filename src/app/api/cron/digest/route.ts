@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
 import { sendEmail } from "@/lib/email";
+import { recordCronRun } from "@/lib/platform/cron-runs";
 
 // Runs every Monday at 08:00 UTC via Vercel Cron.
 // Sends a weekly MOT/service due report to org owners and admins.
@@ -132,6 +133,7 @@ export async function GET(request: NextRequest) {
 
   const { data: locations } = (await locQuery) as { data: LocationRow[] | null };
 
+  const __t0 = Date.now();
   const results = { digests: 0, errors: [] as string[] };
 
   // Group locations by org to send one digest per org
@@ -234,5 +236,6 @@ export async function GET(request: NextRequest) {
   }
 
   console.log("[cron/digest]", results);
+  await recordCronRun(admin, "cron/digest", results.errors.length === 0, Date.now() - __t0, `digests ${results.digests}`);
   return NextResponse.json({ success: true, ...results });
 }

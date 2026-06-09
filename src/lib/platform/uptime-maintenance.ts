@@ -21,6 +21,7 @@ export async function runUptimeMaintenance(admin: Admin): Promise<void> {
     const cutoff = new Date(Date.now() - RAW_RETENTION_DAYS * 24 * 3_600_000).toISOString();
     await admin.from("uptime_checks").delete().lt("checked_at", cutoff);
     await admin.from("webhook_deliveries").delete().lt("received_at", cutoff);
+    await admin.from("cron_runs").delete().lt("ran_at", cutoff);
   } catch (err) {
     console.error("[uptime-maintenance] failed", err);
   }

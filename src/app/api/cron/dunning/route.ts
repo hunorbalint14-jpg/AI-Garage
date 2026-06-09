@@ -4,6 +4,7 @@ import { safeEqual } from "@/lib/safe-equal";
 import { sendEmail } from "@/lib/email";
 import { tenantPayUrl } from "@/lib/stripe";
 import { logAudit } from "@/lib/audit";
+import { recordCronRun } from "@/lib/platform/cron-runs";
 import { dunningStage, daysOverdue, DEFAULT_DUNNING_CADENCE } from "@/lib/dunning";
 
 // Overdue-invoice dunning. Dispatched per-location by /api/cron/tick when the
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
+  const __t0 = Date.now();
   const results = { sent: 0, skipped: 0, failed: 0, errors: [] as string[] };
 
   for (const location of locations ?? []) {
@@ -146,5 +148,6 @@ export async function GET(request: NextRequest) {
   }
 
   console.log("[cron/dunning]", results);
+  await recordCronRun(admin, "cron/dunning", results.failed === 0, Date.now() - __t0, `sent ${results.sent}, failed ${results.failed}`);
   return NextResponse.json({ success: true, ...results });
 }

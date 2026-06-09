@@ -6,11 +6,13 @@ import { IncidentsPanel } from "@/components/admin/incidents-panel";
 import { AlertsPanel } from "@/components/admin/alerts-panel";
 import { ServicesPanel } from "@/components/admin/services-panel";
 import { WebhooksPanel } from "@/components/admin/webhooks-panel";
+import { JobsPanel } from "@/components/admin/jobs-panel";
 import type { PlatformKpis, TenantHealth, TrendSeries } from "@/lib/platform/reliability";
 import type { Incident } from "@/lib/platform/incidents";
 import type { AlertRuleView } from "@/lib/platform/alerts";
 import type { ServiceCard, Slo, TelemetrySource } from "@/lib/platform/services";
 import type { WebhookHealth } from "@/lib/platform/webhooks";
+import type { CronJob } from "@/lib/platform/cron-runs";
 
 type Status = "all" | "operational" | "degraded" | "down";
 
@@ -42,6 +44,7 @@ export function ReliabilityDashboard({
   slos,
   telemetry,
   webhooks,
+  cronJobs,
   filter,
   pageSize,
 }: {
@@ -54,6 +57,7 @@ export function ReliabilityDashboard({
   slos: Slo[];
   telemetry: TelemetrySource[];
   webhooks: WebhookHealth[];
+  cronJobs: CronJob[];
   filter: { status: Status; q: string; page: number };
   pageSize: number;
 }) {
@@ -106,6 +110,9 @@ export function ReliabilityDashboard({
 
       {/* Services (telemetry + service cards + SLOs) */}
       <ServicesPanel telemetry={telemetry} services={services} slos={slos} />
+
+      {/* Scheduled jobs */}
+      <JobsPanel jobs={cronJobs} />
 
       {/* Webhook delivery */}
       <WebhooksPanel webhooks={webhooks} />

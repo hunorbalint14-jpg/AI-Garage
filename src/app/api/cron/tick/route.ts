@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
 import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
 import { runUptimeMaintenance } from "@/lib/platform/uptime-maintenance";
+import { recordCronRun } from "@/lib/platform/cron-runs";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+  const __t0 = Date.now();
   const now = new Date();
   const nowIso = now.toISOString();
 
@@ -86,6 +88,8 @@ export async function GET(request: NextRequest) {
 
   // Hourly maintenance for the reliability store (rollup + raw-sample retention).
   await runUptimeMaintenance(admin);
+
+  await recordCronRun(admin, "cron/tick", results.failed === 0, Date.now() - __t0, `ran ${results.ran}, failed ${results.failed}`);
 
   console.log("[cron/tick]", results);
   return NextResponse.json({ success: true, ...results, tasks_checked: tasks.length });
