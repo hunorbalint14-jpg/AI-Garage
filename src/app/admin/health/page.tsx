@@ -1,5 +1,4 @@
 import { fetchPlatformKpis, fetchTenantHealth, fetchTrendSeries, type TenantStatus } from "@/lib/platform/reliability";
-import { fetchActiveIncidents } from "@/lib/platform/incidents";
 import { fetchAlertRules } from "@/lib/platform/alerts";
 import { fetchServices, fetchSlos, fetchTelemetry } from "@/lib/platform/services";
 import { fetchWebhookHealth } from "@/lib/platform/webhooks";
@@ -27,11 +26,10 @@ export default async function HealthPage({
     : "all") as TenantStatus | "all";
   const q = sp.q ?? "";
 
-  const [kpis, tenants, trend, incidents, alertRules, services, slos, telemetry, webhooks, cronJobs, issues, events] = await Promise.all([
+  const [kpis, tenants, trend, alertRules, services, slos, telemetry, webhooks, cronJobs, issues, events] = await Promise.all([
     fetchPlatformKpis(),
     fetchTenantHealth({ status, search: q, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
     fetchTrendSeries(24),
-    fetchActiveIncidents(),
     fetchAlertRules(),
     fetchServices(),
     fetchSlos(),
@@ -47,7 +45,6 @@ export default async function HealthPage({
       kpis={kpis}
       tenants={tenants}
       trend={trend}
-      incidents={incidents}
       alertRules={alertRules}
       services={services}
       slos={slos}
