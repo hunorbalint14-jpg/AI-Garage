@@ -58,6 +58,28 @@ export async function fetchTenantHealth(opts: {
 
 export type StatusCounts = { total: number; operational: number; degraded: number; down: number };
 
+export type AdminStatusSummary = {
+  status: TenantStatus;
+  tenantsHealthy: number;
+  tenantsTotal: number;
+  activeIncidents: number;
+};
+
+// Light overall-health roll-up for the admin sidebar's global-status box + the
+// incident nav badge. One status query + one incident count.
+export async function fetchAdminStatusSummary(): Promise<AdminStatusSummary> {
+  const admin = createAdminClient();
+  const counts = await fetchStatusCounts();
+  const { count } = await admin
+    .from("incidents")
+    .select("id", { count: "exact", head: true })
+    .is("resolved_at", null);
+  const activeIncidents = count ?? 0;
+  const status: TenantStatus =
+    counts.down > 0 ? "down" : counts.degraded > 0 || activeIncidents > 0 ? "degraded" : "operational";
+  return { status, tenantsHealthy: counts.operational, tenantsTotal: counts.total, activeIncidents };
+}
+
 // All-tenant status breakdown (one light column over the whole roster).
 export async function fetchStatusCounts(): Promise<StatusCounts> {
   const admin = createAdminClient();
