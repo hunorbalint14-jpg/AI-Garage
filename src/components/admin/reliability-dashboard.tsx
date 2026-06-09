@@ -5,10 +5,12 @@ import { ReliabilityFilters } from "@/components/admin/reliability-filters";
 import { IncidentsPanel } from "@/components/admin/incidents-panel";
 import { AlertsPanel } from "@/components/admin/alerts-panel";
 import { ServicesPanel } from "@/components/admin/services-panel";
+import { WebhooksPanel } from "@/components/admin/webhooks-panel";
 import type { PlatformKpis, TenantHealth, TrendSeries } from "@/lib/platform/reliability";
 import type { Incident } from "@/lib/platform/incidents";
 import type { AlertRuleView } from "@/lib/platform/alerts";
 import type { ServiceCard, Slo, TelemetrySource } from "@/lib/platform/services";
+import type { WebhookHealth } from "@/lib/platform/webhooks";
 
 type Status = "all" | "operational" | "degraded" | "down";
 
@@ -39,6 +41,7 @@ export function ReliabilityDashboard({
   services,
   slos,
   telemetry,
+  webhooks,
   filter,
   pageSize,
 }: {
@@ -50,6 +53,7 @@ export function ReliabilityDashboard({
   services: ServiceCard[];
   slos: Slo[];
   telemetry: TelemetrySource[];
+  webhooks: WebhookHealth[];
   filter: { status: Status; q: string; page: number };
   pageSize: number;
 }) {
@@ -102,6 +106,9 @@ export function ReliabilityDashboard({
 
       {/* Services (telemetry + service cards + SLOs) */}
       <ServicesPanel telemetry={telemetry} services={services} slos={slos} />
+
+      {/* Webhook delivery */}
+      <WebhooksPanel webhooks={webhooks} />
 
       {/* Incidents */}
       <IncidentsPanel incidents={incidents} />

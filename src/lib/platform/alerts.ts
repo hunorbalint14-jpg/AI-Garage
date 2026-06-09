@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchDbHealth } from "@/lib/platform/services";
+import { recentWebhookFailureRate } from "@/lib/platform/webhooks";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -37,13 +38,14 @@ function compare(v: number, op: string, t: number): boolean {
 }
 
 type EvalSample = { ok: boolean; latency_ms: number | null };
-type MetricContext = { dbPoolPct: number | null };
+type MetricContext = { dbPoolPct: number | null; webhook5xxRate: number | null };
 
 // Value for a metric from the current probe run + context. Returns null for
-// metrics whose data source isn't wired yet (Sentry/Stripe — later PRs), so
-// those rules stay dormant.
+// metrics whose data source isn't wired yet (Sentry — later PR), so those
+// rules stay dormant.
 function metricValue(metric: string, samples: EvalSample[], ctx: MetricContext): number | null {
   if (metric === "db_pool_pct") return ctx.dbPoolPct;
+  if (metric === "webhook_5xx_rate") return ctx.webhook5xxRate;
   if (samples.length === 0) return null;
   if (metric === "availability_pct") {
     const ok = samples.filter((s) => s.ok).length;
@@ -83,9 +85,12 @@ export async function evaluateAlerts(admin: Admin, samples: EvalSample[]): Promi
     const { data: rules } = await admin.from("alert_rules").select("*").eq("enabled", true);
     if (!rules?.length) return 0;
 
-    // Context for non-synthetic metrics computable now (DB pool). Fetched once.
-    const db = await fetchDbHealth(admin);
-    const ctx: MetricContext = { dbPoolPct: db?.pct ?? null };
+    // Context for non-synthetic metrics computable now (DB pool, webhook 5xx).
+    const [db, webhook5xxRate] = await Promise.all([
+      fetchDbHealth(admin),
+      recentWebhookFailureRate(admin, 300),
+    ]);
+    const ctx: MetricContext = { dbPoolPct: db?.pct ?? null, webhook5xxRate };
 
     const now = Date.now();
     let opened = 0;

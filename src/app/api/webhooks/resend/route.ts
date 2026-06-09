@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { Webhook } from "svix";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recordWebhookDelivery } from "@/lib/platform/webhooks";
 
 export const runtime = "nodejs";
 
@@ -77,6 +78,8 @@ export async function POST(request: NextRequest) {
     emailId,
     rowsUpdated: updated.count,
   });
+
+  await recordWebhookDelivery(admin, { provider: "resend", eventType: event.type, ok: true, statusCode: 200 });
 
   return NextResponse.json({ received: true });
 }
