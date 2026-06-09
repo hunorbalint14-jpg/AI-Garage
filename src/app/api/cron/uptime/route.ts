@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
 import { evaluateAlerts } from "@/lib/platform/alerts";
 import { recordCronRun } from "@/lib/platform/cron-runs";
+import { refreshSentry } from "@/lib/platform/sentry";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -116,6 +117,10 @@ export async function GET(request: NextRequest) {
     const { error: insErr } = await admin.from("uptime_checks").insert(results);
     if (insErr) console.error("[cron/uptime] insert failed", insErr.message);
   }
+
+  // Refresh the Sentry cache first so evaluateAlerts sees a fresh error rate
+  // for the error_rate_pct rule (and the dashboard reads it on next render).
+  await refreshSentry(admin);
 
   // Evaluate alert rules against this run → Slack + auto-declare incidents.
   const declared = await evaluateAlerts(admin, results);

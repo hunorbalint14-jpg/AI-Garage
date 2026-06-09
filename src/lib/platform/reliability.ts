@@ -1,11 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { readSentrySnapshot } from "@/lib/platform/sentry";
 
 // Read-side aggregations for /admin/health. All reads use the service-role
 // client (bypasses RLS) — server-only, never import in client code.
 //
-// PR 2 scope: everything derivable from the synthetic uptime store (tenant
-// roster, status counts, availability/p95 KPIs + trends). Error-rate / traffic
-// (Sentry / Vercel) arrive in a later PR and read as null until then.
+// Covers everything derivable from the synthetic uptime store (tenant roster,
+// status counts, availability/p95 KPIs + trends) plus the Sentry cache (error
+// rate, 24h error count). Request volume (Vercel) arrives in a later PR.
 
 export type TenantStatus = "operational" | "degraded" | "down";
 
@@ -73,7 +74,8 @@ export async function fetchStatusCounts(): Promise<StatusCounts> {
 export type PlatformKpis = {
   uptime: number | null; // % over the most recent rollup window
   p95: number | null; // ms, worst target in the window
-  errorRate: number | null; // Sentry — later PR
+  errorRate: number | null; // Sentry transaction failure rate %, null if no tracing
+  errors24h: number | null; // Sentry total error events in the last 24h
   reqPerMin: number | null; // Vercel — later PR
   activeIncidents: number;
 } & StatusCounts;
@@ -81,6 +83,7 @@ export type PlatformKpis = {
 export async function fetchPlatformKpis(): Promise<PlatformKpis> {
   const admin = createAdminClient();
   const counts = await fetchStatusCounts();
+  const sentry = await readSentrySnapshot(admin);
 
   // Platform availability + p95 from the last few hourly rollup buckets.
   const since = new Date(Date.now() - 3 * 3_600_000).toISOString();
@@ -100,7 +103,8 @@ export async function fetchPlatformKpis(): Promise<PlatformKpis> {
   return {
     uptime: samples ? Math.round((10000 * ok) / samples) / 100 : null,
     p95: roll && roll.length ? p95 : null,
-    errorRate: null,
+    errorRate: sentry?.errorRatePct ?? null,
+    errors24h: sentry?.events24h ?? null,
     reqPerMin: null,
     activeIncidents: activeIncidents ?? 0,
     ...counts,

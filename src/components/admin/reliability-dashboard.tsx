@@ -7,12 +7,14 @@ import { AlertsPanel } from "@/components/admin/alerts-panel";
 import { ServicesPanel } from "@/components/admin/services-panel";
 import { WebhooksPanel } from "@/components/admin/webhooks-panel";
 import { JobsPanel } from "@/components/admin/jobs-panel";
+import { IssuesPanel } from "@/components/admin/issues-panel";
 import type { PlatformKpis, TenantHealth, TrendSeries } from "@/lib/platform/reliability";
 import type { Incident } from "@/lib/platform/incidents";
 import type { AlertRuleView } from "@/lib/platform/alerts";
 import type { ServiceCard, Slo, TelemetrySource } from "@/lib/platform/services";
 import type { WebhookHealth } from "@/lib/platform/webhooks";
 import type { CronJob } from "@/lib/platform/cron-runs";
+import type { SentryIssue } from "@/lib/platform/sentry";
 
 type Status = "all" | "operational" | "degraded" | "down";
 
@@ -45,6 +47,8 @@ export function ReliabilityDashboard({
   telemetry,
   webhooks,
   cronJobs,
+  issues,
+  sentryConfigured,
   filter,
   pageSize,
 }: {
@@ -58,6 +62,8 @@ export function ReliabilityDashboard({
   telemetry: TelemetrySource[];
   webhooks: WebhookHealth[];
   cronJobs: CronJob[];
+  issues: SentryIssue[];
+  sentryConfigured: boolean;
   filter: { status: Status; q: string; page: number };
   pageSize: number;
 }) {
@@ -86,15 +92,21 @@ export function ReliabilityDashboard({
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
         <Kpi label="Availability (1h)" value={kpis.uptime != null ? kpis.uptime.toFixed(2) : "—"} unit={kpis.uptime != null ? "%" : ""} tone="text-[#5fdd9d]" />
+        <Kpi
+          label="Error rate (5m)"
+          value={kpis.errorRate != null ? kpis.errorRate.toFixed(2) : "—"}
+          unit={kpis.errorRate != null ? "%" : ""}
+          tone={kpis.errorRate == null ? "text-white" : kpis.errorRate > 2 ? "text-[#ff7b7b]" : kpis.errorRate > 1 ? "text-[#f5c451]" : "text-[#5fdd9d]"}
+        />
         <Kpi label="p95 latency" value={kpis.p95 != null ? String(kpis.p95) : "—"} unit={kpis.p95 != null ? "ms" : ""} />
         <Kpi label="Active incidents" value={String(kpis.activeIncidents)} tone={kpis.activeIncidents > 0 ? "text-[#ff7b7b]" : "text-white"} />
         <Kpi label="Operational" value={`${kpis.operational}/${kpis.total}`} tone="text-[#5fdd9d]" />
         <Kpi label="Degraded" value={String(kpis.degraded)} tone={kpis.degraded > 0 ? "text-[#f5c451]" : "text-white"} />
         <Kpi label="Down" value={String(kpis.down)} tone={kpis.down > 0 ? "text-[#ff7b7b]" : "text-white"} />
       </div>
-      <p className="-mt-3 text-xs text-[#5a6170]">Error rate &amp; traffic land with the Sentry/Vercel adapters in a later update.</p>
+      <p className="-mt-3 text-xs text-[#5a6170]">Request volume lands with the Vercel adapter in a later update.</p>
 
       {/* Trends */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -119,6 +131,9 @@ export function ReliabilityDashboard({
 
       {/* Incidents */}
       <IncidentsPanel incidents={incidents} />
+
+      {/* Top issues (Sentry) */}
+      <IssuesPanel issues={issues} events24h={kpis.errors24h} configured={sentryConfigured} />
 
       {/* Alert rules */}
       <AlertsPanel rules={alertRules} />

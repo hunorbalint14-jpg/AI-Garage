@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchDbHealth } from "@/lib/platform/services";
 import { recentWebhookFailureRate } from "@/lib/platform/webhooks";
+import { readSentrySnapshot } from "@/lib/platform/sentry";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -38,14 +39,15 @@ function compare(v: number, op: string, t: number): boolean {
 }
 
 type EvalSample = { ok: boolean; latency_ms: number | null };
-type MetricContext = { dbPoolPct: number | null; webhook5xxRate: number | null };
+type MetricContext = { dbPoolPct: number | null; webhook5xxRate: number | null; errorRatePct: number | null };
 
 // Value for a metric from the current probe run + context. Returns null for
-// metrics whose data source isn't wired yet (Sentry — later PR), so those
-// rules stay dormant.
+// metrics whose data source isn't available (e.g. Sentry transaction failure
+// rate when tracing is off), so those rules stay dormant.
 function metricValue(metric: string, samples: EvalSample[], ctx: MetricContext): number | null {
   if (metric === "db_pool_pct") return ctx.dbPoolPct;
   if (metric === "webhook_5xx_rate") return ctx.webhook5xxRate;
+  if (metric === "error_rate_pct") return ctx.errorRatePct;
   if (samples.length === 0) return null;
   if (metric === "availability_pct") {
     const ok = samples.filter((s) => s.ok).length;
@@ -85,12 +87,18 @@ export async function evaluateAlerts(admin: Admin, samples: EvalSample[]): Promi
     const { data: rules } = await admin.from("alert_rules").select("*").eq("enabled", true);
     if (!rules?.length) return 0;
 
-    // Context for non-synthetic metrics computable now (DB pool, webhook 5xx).
-    const [db, webhook5xxRate] = await Promise.all([
+    // Context for non-synthetic metrics (DB pool, webhook 5xx, Sentry error
+    // rate). The Sentry value comes from the cache the uptime cron just wrote.
+    const [db, webhook5xxRate, sentry] = await Promise.all([
       fetchDbHealth(admin),
       recentWebhookFailureRate(admin, 300),
+      readSentrySnapshot(admin),
     ]);
-    const ctx: MetricContext = { dbPoolPct: db?.pct ?? null, webhook5xxRate };
+    const ctx: MetricContext = {
+      dbPoolPct: db?.pct ?? null,
+      webhook5xxRate,
+      errorRatePct: sentry?.errorRatePct ?? null,
+    };
 
     const now = Date.now();
     let opened = 0;
