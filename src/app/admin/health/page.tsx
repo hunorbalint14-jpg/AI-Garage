@@ -1,4 +1,5 @@
 import { fetchPlatformKpis, fetchTenantHealth, fetchTrendSeries, type TenantStatus } from "@/lib/platform/reliability";
+import { fetchActiveIncidents } from "@/lib/platform/incidents";
 import { ReliabilityDashboard } from "@/components/admin/reliability-dashboard";
 
 // /admin/health — Platform Reliability. The admin layout already gates this to
@@ -20,10 +21,11 @@ export default async function HealthPage({
     : "all") as TenantStatus | "all";
   const q = sp.q ?? "";
 
-  const [kpis, tenants, trend] = await Promise.all([
+  const [kpis, tenants, trend, incidents] = await Promise.all([
     fetchPlatformKpis(),
     fetchTenantHealth({ status, search: q, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
     fetchTrendSeries(24),
+    fetchActiveIncidents(),
   ]);
 
   return (
@@ -31,6 +33,7 @@ export default async function HealthPage({
       kpis={kpis}
       tenants={tenants}
       trend={trend}
+      incidents={incidents}
       filter={{ status, q, page }}
       pageSize={PAGE_SIZE}
     />
