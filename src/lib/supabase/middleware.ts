@@ -48,10 +48,15 @@ export async function updateSession(
     },
   );
 
+  // Verify the session via getClaims() — local JWT (JWKS) verification, no Auth
+  // network round-trip per request when the project uses asymmetric signing keys
+  // (falls back to a network check on legacy HS256). We only need id + email for
+  // the timeout + audit below, both of which are standard claims.
   let user: { id: string; email?: string | null } | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user as { id: string; email?: string | null } | null;
+    const { data } = await supabase.auth.getClaims();
+    const claims = data?.claims;
+    if (claims?.sub) user = { id: claims.sub, email: claims.email ?? null };
   } catch {
     // Invalid/expired session — let routes handle redirect to login
   }

@@ -8,6 +8,7 @@ import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { validateSlug } from "@/lib/slug";
 import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
+import { cacheDel } from "@/lib/redis";
 
 async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
   const supabase = await createClient();
@@ -92,6 +93,11 @@ export async function updateLocationSlug(formData: FormData): Promise<SlugResult
     entityId: locationId,
     metadata: { old_slug: oldSlug, new_slug: slug, via: "platform_admin", org_slug_synced: org?.slug === oldSlug },
   });
+
+  // Evict the proxy's retired-slug cache for both slugs: the old one is now
+  // retired (drop its stale "not retired" negative entry) and the new one may
+  // have been cached as retired before. Best-effort; entries also expire by TTL.
+  await Promise.all([cacheDel(`slughist:${oldSlug}`), cacheDel(`slughist:${slug}`)]);
 
   revalidatePath(`/admin/orgs/${location.organization_id}`);
   return { success: true, slug };

@@ -1,6 +1,6 @@
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 import { headers } from "next/headers";
+import { redis } from "@/lib/redis";
 
 // Sliding-window rate limiting for auth surfaces, backed by Upstash Redis.
 //
@@ -15,15 +15,8 @@ import { headers } from "next/headers";
 //  - Buckets count ATTEMPTS, not failures — a brute-force run burns the budget
 //    regardless of whether each guess succeeds, and a normal login costs 1.
 
-// Accept both our own names and the ones Vercel's Upstash Marketplace
-// integration injects (`UPSTASH_KV_REST_API_*`), so the limiter activates
-// whichever way the DB was provisioned. The Redis client needs the REST URL +
-// token — not `UPSTASH_REDIS_URL`, which is the redis:// TCP string.
-const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.UPSTASH_KV_REST_API_URL;
-const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.UPSTASH_KV_REST_API_TOKEN;
-const redis = url && token ? new Redis({ url, token }) : null;
-
-// A deployed environment with no Upstash config means auth is silently
+// The shared Redis client (src/lib/redis.ts) is null unless Upstash is
+// configured. A deployed environment with no Upstash config means auth is silently
 // unthrottled — make that loud. One line per cold start (module load), not
 // per request. Local dev (no VERCEL_ENV) stays quiet: the no-op is intentional.
 if (!redis && (process.env.VERCEL_ENV || process.env.NODE_ENV === "production")) {
