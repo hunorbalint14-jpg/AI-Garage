@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition, useState, useEffect } from "react";
+import { useTransition, useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 
 export function CustomerSearch({ initialQ }: { initialQ: string }) {
@@ -9,23 +9,33 @@ export function CustomerSearch({ initialQ }: { initialQ: string }) {
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
   const [value, setValue] = useState(initialQ);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- resync the editable input when the q prop changes via navigation
     setValue(initialQ);
   }, [initialQ]);
 
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
+
   function handleChange(q: string) {
     setValue(q);
-    const params = new URLSearchParams(searchParams.toString());
-    if (q.trim()) {
-      params.set("q", q.trim());
-    } else {
-      params.delete("q");
-    }
-    startTransition(() => {
-      router.push(`/staff/customers?${params.toString()}`);
-    });
+    // Debounce the navigation — one server query per pause, not per keystroke.
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (q.trim()) {
+        params.set("q", q.trim());
+      } else {
+        params.delete("q");
+      }
+      params.delete("page"); // new search resets pagination
+      startTransition(() => {
+        router.push(`/staff/customers?${params.toString()}`);
+      });
+    }, 250);
   }
 
   return (
