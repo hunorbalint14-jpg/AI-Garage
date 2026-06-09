@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Per-model token pricing, used to turn Anthropic token counts into a £ figure
@@ -17,7 +18,15 @@ export const AI_MODEL_PRICING: Record<string, ModelPricing> = {
 // estimated rather than silently counted as £0. Logged so we notice the gap.
 const DEFAULT_PRICING: ModelPricing = { inputPerMTokPence: 79, outputPerMTokPence: 395 };
 
-type TokenUsage = { input_tokens?: number | null; output_tokens?: number | null } | null | undefined;
+type TokenUsage =
+  | {
+      input_tokens?: number | null;
+      output_tokens?: number | null;
+      cache_creation_input_tokens?: number | null;
+      cache_read_input_tokens?: number | null;
+    }
+  | null
+  | undefined;
 
 export type AiUsageContext = {
   locationId: string;
@@ -32,9 +41,16 @@ export type AiUsageContext = {
 export function costPence(model: string, usage: TokenUsage): number {
   const input = usage?.input_tokens ?? 0;
   const output = usage?.output_tokens ?? 0;
+  // Anthropic reports prompt-cache tokens SEPARATELY from input_tokens: cache
+  // writes bill at 1.25× the input rate (5-minute ephemeral cache) and cache
+  // reads at 0.1×. Counting them at those multipliers keeps the estimate right
+  // if caching ever activates. Re-confirm the multipliers alongside the list
+  // prices above.
+  const cacheWrite = usage?.cache_creation_input_tokens ?? 0;
+  const cacheRead = usage?.cache_read_input_tokens ?? 0;
   const pricing = AI_MODEL_PRICING[model] ?? DEFAULT_PRICING;
   const pence =
-    (input / 1_000_000) * pricing.inputPerMTokPence +
+    ((input + cacheWrite * 1.25 + cacheRead * 0.1) / 1_000_000) * pricing.inputPerMTokPence +
     (output / 1_000_000) * pricing.outputPerMTokPence;
   return Math.round(pence * 10_000) / 10_000;
 }
@@ -42,7 +58,23 @@ export function costPence(model: string, usage: TokenUsage): number {
 // Fire-and-forget AI usage write. NEVER throws — a logging failure must not
 // break the AI feature the user actually invoked (mirrors logAudit). Writes via
 // the service-role client; reads are gated by RLS on the table.
+//
+// Deferred via next/server after(): the insert runs once the response has been
+// sent, so the user-facing AI action doesn't pay an extra DB round-trip. On
+// Vercel this rides waitUntil, so the write still completes after the function
+// responds. Outside a request scope (scripts, tests) after() throws — fall
+// back to writing inline.
 export async function recordAiUsage(
+  args: AiUsageContext & { model: string; usage: TokenUsage },
+): Promise<void> {
+  try {
+    after(() => writeUsageEvent(args));
+  } catch {
+    await writeUsageEvent(args);
+  }
+}
+
+async function writeUsageEvent(
   args: AiUsageContext & { model: string; usage: TokenUsage },
 ): Promise<void> {
   try {

@@ -27,6 +27,20 @@ describe("costPence", () => {
     expect(costPence(HAIKU, {})).toBe(0);
   });
 
+  it("counts cache tokens at the write (1.25×) and read (0.1×) input multipliers", () => {
+    const { inputPerMTokPence } = AI_MODEL_PRICING[HAIKU];
+    const expected =
+      Math.round(((1_000_000 * 1.25 + 1_000_000 * 0.1) / 1_000_000) * inputPerMTokPence * 10_000) / 10_000;
+    expect(
+      costPence(HAIKU, {
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_input_tokens: 1_000_000,
+        cache_read_input_tokens: 1_000_000,
+      }),
+    ).toBe(expected);
+  });
+
   it("falls back to a non-zero default rate for an unknown model", () => {
     const known = costPence(HAIKU, { input_tokens: 1000, output_tokens: 1000 });
     const unknown = costPence("some-future-model", { input_tokens: 1000, output_tokens: 1000 });
