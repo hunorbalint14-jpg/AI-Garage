@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
+import { recordCronRun } from "@/lib/platform/cron-runs";
 import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
@@ -112,6 +113,7 @@ export async function GET(request: NextRequest) {
 
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
+  const __t0 = Date.now();
   const results = { sent: 0, skipped: 0, failed: 0, errors: [] as string[] };
 
   for (const location of locations ?? []) {
@@ -310,7 +312,8 @@ export async function GET(request: NextRequest) {
 
   // VED (road tax) reminders — simple template, no AI draft needed
   if (filterTaskType && filterTaskType !== "tax_reminders") {
-    return NextResponse.json({ success: true, ...results });
+    await recordCronRun(admin, "cron/reminders", results.failed === 0, Date.now() - __t0, `sent ${results.sent}, failed ${results.failed}`);
+  return NextResponse.json({ success: true, ...results });
   }
   for (const location of locations ?? []) {
     const org = location.organization;
@@ -367,5 +370,6 @@ export async function GET(request: NextRequest) {
   }
 
   console.log("[cron/reminders]", results);
+  await recordCronRun(admin, "cron/reminders", results.failed === 0, Date.now() - __t0, `sent ${results.sent}, failed ${results.failed}`);
   return NextResponse.json({ success: true, ...results });
 }

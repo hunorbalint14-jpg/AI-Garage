@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
 import { evaluateAlerts } from "@/lib/platform/alerts";
+import { recordCronRun } from "@/lib/platform/cron-runs";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -77,6 +78,7 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createAdminClient();
+  const __t0 = Date.now();
 
   const { data: locations } = await admin
     .from("locations")
@@ -119,6 +121,7 @@ export async function GET(request: NextRequest) {
   const declared = await evaluateAlerts(admin, results);
 
   const down = results.filter((r) => !r.ok).length;
+  await recordCronRun(admin, "cron/uptime", true, Date.now() - __t0, `checked ${results.length}, down ${down}, declared ${declared}`);
   console.log("[cron/uptime]", { checked: results.length, down, declared });
   return NextResponse.json({ success: true, checked: results.length, down, declared });
 }

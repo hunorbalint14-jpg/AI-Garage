@@ -4,6 +4,7 @@ import { safeEqual } from "@/lib/safe-equal";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { generateReviewToken, hashReviewToken, tenantReviewUrl } from "@/lib/review-links";
+import { recordCronRun } from "@/lib/platform/cron-runs";
 
 // Sends queued post-job review requests. Dispatched per-location by
 // /api/cron/tick when the `review_requests` scheduled_task is due (daily ~09:00
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
+  const __t0 = Date.now();
   const results = { sent: 0, skipped: 0, failed: 0, errors: [] as string[] };
 
   for (const location of locations ?? []) {
@@ -108,5 +110,6 @@ export async function GET(request: NextRequest) {
   }
 
   console.log("[cron/review-requests]", results);
+  await recordCronRun(admin, "cron/review-requests", results.failed === 0, Date.now() - __t0, `sent ${results.sent}, failed ${results.failed}`);
   return NextResponse.json({ success: true, ...results });
 }
