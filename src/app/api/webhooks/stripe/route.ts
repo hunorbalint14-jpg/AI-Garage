@@ -10,6 +10,7 @@ import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/cred
 import { recordSubscriptionFromStripe } from "@/lib/service-plans";
 import { recordTenantSubscription } from "@/lib/tenant-plans";
 import { sendTenantSubscriptionReceipt, sendServicePlanReceipt } from "@/lib/subscription-receipts";
+import { recordWebhookDelivery } from "@/lib/platform/webhooks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  const startedAt = Date.now();
   try {
     await handleStripeEvent(admin, event);
   } catch (err) {
@@ -78,6 +80,14 @@ export async function POST(request: NextRequest) {
       error: err instanceof Error ? err.message : String(err),
     });
     await admin.from("stripe_webhook_events").delete().eq("id", event.id);
+    await recordWebhookDelivery(admin, {
+      provider: "stripe",
+      eventType: event.type,
+      ok: false,
+      statusCode: 500,
+      latencyMs: Date.now() - startedAt,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json({ error: "processing failed" }, { status: 500 });
   }
 
@@ -85,6 +95,14 @@ export async function POST(request: NextRequest) {
     .from("stripe_webhook_events")
     .update({ processed_at: new Date().toISOString() })
     .eq("id", event.id);
+
+  await recordWebhookDelivery(admin, {
+    provider: "stripe",
+    eventType: event.type,
+    ok: true,
+    statusCode: 200,
+    latencyMs: Date.now() - startedAt,
+  });
 
   return NextResponse.json({ received: true });
 }
