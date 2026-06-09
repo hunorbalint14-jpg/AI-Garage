@@ -39,6 +39,7 @@ export type AuditAction =
   | "incident.resolve"
   | "incident.publish"
   | "incident.ack"
+  | "alert.toggle"
   // Scheduling / labour (Phase 3)
   | "booking.assign"
   | "job.assign"
