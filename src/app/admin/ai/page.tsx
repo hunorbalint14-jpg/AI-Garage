@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchOrgOverview, formatGbp } from "@/lib/platform-stats";
-import { AutoRefresh } from "@/components/admin/auto-refresh";
 
 export const dynamic = "force-dynamic";
 
@@ -47,16 +46,10 @@ export default async function AdminAiPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">AI usage (30 days)</h1>
-          <p className="text-sm text-[#9aa1ad]">
-            {formatGbp(totalPence, { minor: true })} estimated · {totalCalls.toLocaleString("en-GB")} calls. Cost is an
-            estimate from token counts — see <span className="font-mono">ai-usage.ts</span>.
-          </p>
-        </div>
-        <AutoRefresh />
-      </div>
+      <p className="text-[12.5px] text-[#9aa1ad]">
+        Last 30 days · {formatGbp(totalPence, { minor: true })} estimated · {totalCalls.toLocaleString("en-GB")} calls.
+        Cost is an estimate from token counts — see <span className="font-mono">ai-usage.ts</span>.
+      </p>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <div>

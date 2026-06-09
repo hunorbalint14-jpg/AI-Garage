@@ -8,7 +8,6 @@ import {
   orgMrrPence,
   formatGbp,
 } from "@/lib/platform-stats";
-import { AutoRefresh } from "@/components/admin/auto-refresh";
 import { LocationSlugEditor } from "./location-slug-editor";
 
 export const dynamic = "force-dynamic";
@@ -81,7 +80,6 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
           >
             Open portal as admin ↗
           </a>
-          <AutoRefresh />
         </div>
       </div>
 
