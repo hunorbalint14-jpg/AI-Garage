@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,6 +10,22 @@ import { PLATFORM_COMPONENTS } from "@/lib/platform/components";
 // published, unresolved incidents until per-service synthetic checks land.
 // Root-domain only — not served on tenant subdomains or the admin host.
 export const dynamic = "force-dynamic";
+
+// Explicit AI Garage favicon + title (the root metadata icons weren't coming
+// through on this standalone page). Title template makes it "System status ·
+// AI Garage".
+export const metadata: Metadata = {
+  title: "System status",
+  icons: {
+    icon: [
+      { url: "/brand/icon/aigarage-favicon.svg", type: "image/svg+xml" },
+      { url: "/brand/icon/png/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/brand/icon/png/favicon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: [{ url: "/brand/icon/png/apple-touch-icon.png", sizes: "180x180" }],
+  },
+};
 
 type PubUpdate = { status: string; body: string; created_at: string; public: boolean };
 type PubIncident = {
