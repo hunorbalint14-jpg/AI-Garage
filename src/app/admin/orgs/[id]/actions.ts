@@ -10,6 +10,7 @@ import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
 import { cacheDel } from "@/lib/redis";
 import { invalidateTenantCache } from "@/lib/tenant-data";
+import { invalidateStaffLocationCache } from "@/lib/staff-context";
 
 async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
   const supabase = await createClient();
@@ -101,6 +102,7 @@ export async function updateLocationSlug(formData: FormData): Promise<SlugResult
   // under both slugs. Best-effort; entries also expire by TTL.
   await Promise.all([cacheDel(`slughist:${oldSlug}`), cacheDel(`slughist:${slug}`)]);
   await invalidateTenantCache([oldSlug, slug]);
+  await invalidateStaffLocationCache([oldSlug, slug]);
 
   revalidatePath(`/admin/orgs/${location.organization_id}`);
   return { success: true, slug };

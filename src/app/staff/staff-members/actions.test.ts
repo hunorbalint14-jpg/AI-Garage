@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mockStaffContext, mockStaffContextMember } from "@/test/helpers/staff-context-mock";
 import { createSupabaseMock } from "@/test/helpers/supabase-mock";
 
-vi.mock("@/lib/staff-context", () => ({ requireStaffContext: vi.fn() }));
+vi.mock("@/lib/staff-context", () => ({
+  requireStaffContext: vi.fn(),
+  invalidateStaffMembershipCache: vi.fn(),
+  invalidateStaffMembershipCacheForOrg: vi.fn(),
+}));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/email", () => ({ sendEmail: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }));

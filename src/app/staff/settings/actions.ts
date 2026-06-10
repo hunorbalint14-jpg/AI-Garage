@@ -8,6 +8,7 @@ import { validateSlug } from "@/lib/slug";
 import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
 import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
+import { invalidateStaffLocationCacheForOrg } from "@/lib/staff-context";
 import { tierFor, tenantBillingActive, TIERS } from "@/lib/tenant-plans";
 
 export type UpdateOrgResult = { error: string } | { success: true };
@@ -62,8 +63,10 @@ export async function updateOrganization(
     },
   });
 
-  // Name/colour are cached per tenant slug — drop the org's cached branding.
+  // Name/colour are cached per tenant slug — drop the org's cached branding
+  // (public tenant cache + the staff context's location/org cache).
   await invalidateTenantCacheForOrg(ctx.organization.id);
+  await invalidateStaffLocationCacheForOrg(ctx.organization.id);
 
   revalidatePath("/staff/settings");
   revalidatePath("/staff");

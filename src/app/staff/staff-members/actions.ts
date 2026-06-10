@@ -2,7 +2,11 @@
 
 import { type Permissions, normalisePermissions, PERMISSION_GROUPS } from "./constants";
 import { revalidatePath } from "next/cache";
-import { requireStaffContext } from "@/lib/staff-context";
+import {
+  requireStaffContext,
+  invalidateStaffMembershipCache,
+  invalidateStaffMembershipCacheForOrg,
+} from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -138,6 +142,7 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
       { onConflict: "organization_id,user_id" },
     );
     if (error) return { error: error.message };
+    await invalidateStaffMembershipCacheForOrg(userId, ctx.organization.id);
   } else {
     // Validate template (if provided) belongs to this org or is a system row.
     let safeTemplateId: string | null = null;
@@ -166,6 +171,7 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
       { onConflict: "location_id,user_id" },
     );
     if (error) return { error: error.message };
+    await invalidateStaffMembershipCache(userId, locationId!);
 
     if (safeTemplateId) {
       await logAudit({
@@ -359,6 +365,7 @@ export async function updateStaffPermissions(
     .eq("location_id", locationId);
 
   if (error) return { error: error.message };
+  await invalidateStaffMembershipCache(userId, locationId);
 
   await logAudit({
     organizationId: ctx.organization.id,
@@ -391,6 +398,7 @@ export async function updateStaffRole(
     .eq("location_id", locationId);
 
   if (error) return { error: error.message };
+  await invalidateStaffMembershipCache(userId, locationId);
 
   await logAudit({
     organizationId: ctx.organization.id,
@@ -423,6 +431,7 @@ export async function updateStaffMotFlags(
     .eq("location_id", locationId);
 
   if (error) return { error: error.message };
+  await invalidateStaffMembershipCache(userId, locationId);
 
   await logAudit({
     organizationId: ctx.organization.id,
@@ -466,6 +475,7 @@ export async function removeStaffMember(
       .eq("user_id", userId)
       .eq("location_id", locationId);
     if (error) return { error: error.message };
+    await invalidateStaffMembershipCache(userId, locationId);
   } else {
     const { error } = await admin
       .from("org_users")
@@ -474,6 +484,7 @@ export async function removeStaffMember(
       .eq("organization_id", ctx.organization.id)
       .neq("role", "owner");
     if (error) return { error: error.message };
+    await invalidateStaffMembershipCacheForOrg(userId, ctx.organization.id);
   }
 
   await logAudit({
