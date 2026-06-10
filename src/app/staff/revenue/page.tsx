@@ -16,6 +16,29 @@ type InvoiceRow = {
   customer: { id: string; full_name: string | null } | null;
 };
 
+// Shape returned by the revenue_stats SQL function (see migration
+// 20260610100000_revenue_stats.sql). Aggregates are computed in the database
+// so they stay exact at any invoice volume.
+type RevenueStats = {
+  revenue_this_month: number;
+  revenue_ytd: number;
+  total_paid: number;
+  paid_count: number;
+  outstanding: number;
+  overdue: number;
+  monthly_revenue: { month_start: string; revenue: number }[];
+};
+
+const EMPTY_STATS: RevenueStats = {
+  revenue_this_month: 0,
+  revenue_ytd: 0,
+  total_paid: 0,
+  paid_count: 0,
+  outstanding: 0,
+  overdue: 0,
+  monthly_revenue: [],
+};
+
 function fmt(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
@@ -38,15 +61,15 @@ export default async function RevenuePage() {
   const admin = createAdminClient();
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-  const yearStart = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
 
-  const [allInvoicesRes, jobsThisMonthRes] = await Promise.all([
+  const [statsRes, recentInvoicesRes, jobsThisMonthRes] = await Promise.all([
+    admin.rpc("revenue_stats", { p_location_id: ctx.location.id }).single(),
     admin
       .from("invoices")
       .select("id, invoice_number, total, status, issued_at, due_at, paid_at, customer:customers(id, full_name)")
       .eq("location_id", ctx.location.id)
       .order("issued_at", { ascending: false })
-      .limit(500),
+      .limit(10),
     admin
       .from("jobs")
       .select("id", { count: "exact", head: true })
@@ -55,41 +78,26 @@ export default async function RevenuePage() {
       .gte("completed_at", monthStart),
   ]);
 
-  const allInvoices = (allInvoicesRes.data ?? []) as unknown as InvoiceRow[];
+  const stats = (statsRes.data ?? EMPTY_STATS) as RevenueStats;
+  const recentInvoices = (recentInvoicesRes.data ?? []) as unknown as InvoiceRow[];
   const jobsThisMonth = jobsThisMonthRes.count ?? 0;
 
-  const paidInvoices = allInvoices.filter((i) => i.status === "paid");
-  const revenueThisMonth = paidInvoices
-    .filter((i) => i.paid_at && i.paid_at >= monthStart)
-    .reduce((s, i) => s + i.total, 0);
-  const revenueYtd = paidInvoices
-    .filter((i) => i.paid_at && i.paid_at >= yearStart)
-    .reduce((s, i) => s + i.total, 0);
-  const totalRevenue = paidInvoices.reduce((s, i) => s + i.total, 0);
-  const avgInvoice = paidInvoices.length > 0 ? totalRevenue / paidInvoices.length : 0;
+  const revenueThisMonth = Number(stats.revenue_this_month);
+  const revenueYtd = Number(stats.revenue_ytd);
+  const paidCount = Number(stats.paid_count);
+  const avgInvoice = paidCount > 0 ? Number(stats.total_paid) / paidCount : 0;
+  const outstanding = Number(stats.outstanding);
+  const overdue = Number(stats.overdue);
 
-  const outstanding = allInvoices
-    .filter((i) => i.status === "sent" || (i.status !== "paid" && new Date(i.due_at) >= now))
-    .reduce((s, i) => s + i.total, 0);
-  const overdue = allInvoices
-    .filter((i) => i.status !== "paid" && i.status !== "draft" && new Date(i.due_at) < now)
-    .reduce((s, i) => s + i.total, 0);
-
-  // Build last 6 months chart data
-  const chartData = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-    const start = d.toISOString().split("T")[0];
-    const end = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split("T")[0];
-    const revenue = paidInvoices
-      .filter((inv) => inv.paid_at && inv.paid_at >= start && inv.paid_at <= end)
-      .reduce((s, inv) => s + inv.total, 0);
-    return {
-      month: d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" }),
-      revenue,
-    };
-  });
-
-  const recentInvoices = allInvoices.slice(0, 10);
+  const chartData = stats.monthly_revenue.map((m) => ({
+    // month_start is a plain YYYY-MM-DD; parse as UTC to avoid TZ drift.
+    month: new Date(`${m.month_start}T00:00:00Z`).toLocaleDateString("en-GB", {
+      month: "short",
+      year: "2-digit",
+      timeZone: "UTC",
+    }),
+    revenue: Number(m.revenue),
+  }));
   const STATUS_STYLE: Record<string, string> = {
     draft: "bg-gray-100 text-gray-600",
     sent: "bg-blue-100 text-blue-700",
@@ -106,7 +114,7 @@ export default async function RevenuePage() {
         <StatCard label="Year to date" value={fmt(revenueYtd)} />
         <StatCard label="Outstanding" value={fmt(outstanding)} sub="sent, awaiting payment" accent={outstanding > 0 ? "amber" : undefined} />
         <StatCard label="Overdue" value={fmt(overdue)} accent={overdue > 0 ? "red" : undefined} />
-        <StatCard label="Avg invoice" value={fmt(avgInvoice)} sub={`${paidInvoices.length} paid`} />
+        <StatCard label="Avg invoice" value={fmt(avgInvoice)} sub={`${paidCount} paid`} />
       </div>
 
       <section>
