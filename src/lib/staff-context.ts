@@ -7,6 +7,59 @@ import { resolveTenantFromHost } from "@/lib/tenant";
 import { type Permissions, normalisePermissions } from "@/app/staff/staff-members/constants";
 import { type OrgBilling } from "@/lib/tenant-plans";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
+import { cacheGet, cacheSet, cacheDel } from "@/lib/redis";
+
+// Cross-request Redis cache for the two lookups every staff request repeats:
+// the location+org row (by slug) and the user's membership (by user+location).
+// 60s TTL bounds staleness; the mutation paths below also evict eagerly —
+// staff-members actions call invalidateStaffMembershipCache*, branding/slug
+// edits call invalidateStaffLocationCache*. Worst case a revoked member keeps
+// a permission snapshot for 60s on a code path that missed an eviction.
+const STAFF_CACHE_TTL_SEC = 60;
+const locationKey = (slug: string) => `staffloc:${slug}`;
+const membershipKey = (userId: string, locationId: string) => `staffmem:${userId}:${locationId}`;
+
+type StaffMembership = {
+  orgRole: "owner" | "admin" | null;
+  locRow: {
+    role: string;
+    permissions: Partial<Permissions> | null;
+    mot_tester: boolean | null;
+    mot_qc_reviewer: boolean | null;
+  } | null;
+};
+
+// Evict a user's cached membership at one location — call after granting,
+// changing, or revoking access so the change takes effect immediately.
+export async function invalidateStaffMembershipCache(
+  userId: string,
+  locationId: string,
+): Promise<void> {
+  await cacheDel(membershipKey(userId, locationId));
+}
+
+// Org-scoped variant: org_users rows grant access at every location in the
+// org, so evict the user's membership at all of them.
+export async function invalidateStaffMembershipCacheForOrg(
+  userId: string,
+  organizationId: string,
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("locations").select("id").eq("organization_id", organizationId);
+  await Promise.all(((data ?? []) as { id: string }[]).map((l) => cacheDel(membershipKey(userId, l.id))));
+}
+
+// Evict cached location+org rows — call alongside invalidateTenantCache when
+// branding / billing / slug / DPA fields on the org or location change.
+export async function invalidateStaffLocationCache(slugs: string[]): Promise<void> {
+  await Promise.all(slugs.filter(Boolean).map((s) => cacheDel(locationKey(s))));
+}
+
+export async function invalidateStaffLocationCacheForOrg(organizationId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("locations").select("slug").eq("organization_id", organizationId);
+  await invalidateStaffLocationCache(((data ?? []) as { slug: string }[]).map((l) => l.slug));
+}
 
 export type StaffContext = {
   user: { id: string; email: string | undefined; fullName: string | null };
@@ -76,40 +129,53 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
   // Use the admin client for the location lookup so RLS doesn't filter the
   // row before we've had a chance to verify the user's membership ourselves.
   // Location slugs are not sensitive — we check membership explicitly below.
+  // Cached by slug; negatives are NOT cached so new tenants appear instantly.
   const admin = createAdminClient();
-  const { data: location } = (await admin
-    .from("locations")
-    .select(
-      "id, slug, name, organization_id, organization:organizations(id, slug, name, primary_color, logo_url, dpa_version, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
-    )
-    .eq("slug", slug)
-    .maybeSingle()) as { data: LocationWithOrg | null };
+  let location = await cacheGet<LocationWithOrg>(locationKey(slug));
+  if (!location) {
+    const { data } = (await admin
+      .from("locations")
+      .select(
+        "id, slug, name, organization_id, organization:organizations(id, slug, name, primary_color, logo_url, dpa_version, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
+      )
+      .eq("slug", slug)
+      .maybeSingle()) as { data: LocationWithOrg | null };
+    if (data?.organization) {
+      await cacheSet(locationKey(slug), data, STAFF_CACHE_TTL_SEC);
+    }
+    location = data;
+  }
 
   if (!location || !location.organization) return null;
 
-  const [orgMembershipRes, locMembershipRes] = await Promise.all([
-    admin
-      .from("org_users")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("organization_id", location.organization.id)
-      .maybeSingle(),
-    admin
-      .from("location_users")
-      .select("role, permissions, mot_tester, mot_qc_reviewer")
-      .eq("user_id", user.id)
-      .eq("location_id", location.id)
-      .maybeSingle(),
-  ]);
+  // Membership pair cached as one value — negatives included (a non-member
+  // probing staff URLs shouldn't cost two queries per hit); the staff-members
+  // mutation actions evict on grant/change/revoke.
+  let membership = await cacheGet<StaffMembership>(membershipKey(user.id, location.id));
+  if (!membership) {
+    const [orgMembershipRes, locMembershipRes] = await Promise.all([
+      admin
+        .from("org_users")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("organization_id", location.organization.id)
+        .maybeSingle(),
+      admin
+        .from("location_users")
+        .select("role, permissions, mot_tester, mot_qc_reviewer")
+        .eq("user_id", user.id)
+        .eq("location_id", location.id)
+        .maybeSingle(),
+    ]);
+    membership = {
+      orgRole: (orgMembershipRes.data?.role as "owner" | "admin" | undefined) ?? null,
+      locRow: (locMembershipRes.data as StaffMembership["locRow"]) ?? null,
+    };
+    await cacheSet(membershipKey(user.id, location.id), membership, STAFF_CACHE_TTL_SEC);
+  }
 
-  const orgRole = (orgMembershipRes.data?.role as
-    | "owner"
-    | "admin"
-    | undefined) ?? null;
-
-  const locRow = locMembershipRes.data as
-    | { role: string; permissions: Partial<Permissions> | null; mot_tester: boolean | null; mot_qc_reviewer: boolean | null }
-    | null;
+  const orgRole = membership.orgRole;
+  const locRow = membership.locRow;
   const locationRole = locRow?.role ?? null;
 
   // Platform admins (invited operators) act as an owner inside EVERY tenant's
