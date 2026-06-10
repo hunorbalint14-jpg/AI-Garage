@@ -109,6 +109,75 @@ export async function draftSmsReminderMessage(
   return block.text.trim();
 }
 
+// ---- Reusable templates (cron) ----------------------------------------------
+// The reminder cron drafts one template per (location, type, channel kind) and
+// substitutes customer details locally (see src/lib/reminder-templates.ts),
+// instead of one Claude call per customer.
+
+export type ReminderTemplateDraftInput = {
+  garageName: string;
+  reminderType: "mot" | "service";
+};
+
+const TEMPLATE_PLACEHOLDER_RULES = `Write the message as a reusable template — it is sent to many customers with these exact placeholders substituted per customer:
+- {{first_name}} — the customer's first name
+- {{vehicle}} — vehicle description, e.g. "2018 Ford Focus"
+- {{registration}} — the number plate
+- {{due_date}} — the due date, e.g. "12 July 2026"
+Use {{first_name}}, {{registration}} and {{due_date}} each at least once. Do not invent any other placeholder. Never write a real name, number plate, or date — only placeholders.`;
+
+export async function draftReminderEmailTemplate(
+  input: ReminderTemplateDraftInput,
+  ctx?: AiUsageContext,
+): Promise<string> {
+  const label = input.reminderType === "mot" ? "MOT" : "service";
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 300,
+    system: [{
+      type: "text",
+      text: `${EMAIL_REMINDER_SYSTEM}\n\n${TEMPLATE_PLACEHOLDER_RULES}`,
+      cache_control: { type: "ephemeral" },
+    }],
+    messages: [{
+      role: "user",
+      content: `Draft a ${label} reminder template for:\n\nGarage: ${input.garageName}\nCustomer first name: {{first_name}}\nVehicle: {{vehicle}} ({{registration}})\n${label} due: {{due_date}}\n\nStart with "Hi {{first_name}},". End by inviting them to book using the button below — do not write a URL or phone number yourself.`,
+    }],
+  });
+  if (ctx) await recordAiUsage({ ...ctx, model: MODEL, usage: response.usage });
+
+  const block = response.content[0];
+  if (block.type !== "text") throw new Error("Unexpected response type from Claude");
+  return block.text.trim();
+}
+
+export async function draftSmsReminderTemplate(
+  input: ReminderTemplateDraftInput,
+  ctx?: AiUsageContext,
+): Promise<string> {
+  const label = input.reminderType === "mot" ? "MOT" : "service";
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 100,
+    system: [{
+      type: "text",
+      text: `${SMS_REMINDER_SYSTEM}\n\n${TEMPLATE_PLACEHOLDER_RULES}`,
+      cache_control: { type: "ephemeral" },
+    }],
+    messages: [{
+      role: "user",
+      content: `SMS ${label} reminder template: customer {{first_name}}, vehicle {{registration}}, due {{due_date}}, from ${input.garageName}. End by pointing them to the booking link below — do not include a phone number or URL.`,
+    }],
+  });
+  if (ctx) await recordAiUsage({ ...ctx, model: MODEL, usage: response.usage });
+
+  const block = response.content[0];
+  if (block.type !== "text") throw new Error("Unexpected response type from Claude");
+  return block.text.trim();
+}
+
 export async function draftCustomMessage(
   input: DraftCustomMessageInput,
   ctx?: AiUsageContext,
