@@ -9,19 +9,9 @@ export default async function NewQuotePage() {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  // Load customers + vehicles + products + org default validity in parallel.
-  const [customersRes, vehiclesRes, productsRes, orgRes] = await Promise.all([
-    admin
-      .from("customers")
-      .select("id, full_name, email, phone")
-      .eq("location_id", ctx.location.id)
-      .order("full_name", { ascending: true })
-      .limit(500),
-    admin
-      .from("vehicles")
-      .select("id, customer_id, registration, make, model, year")
-      .eq("location_id", ctx.location.id)
-      .limit(2000),
+  // Products + org default validity in parallel. Customers/vehicles come from
+  // the typeahead picker on demand.
+  const [productsRes, orgRes] = await Promise.all([
     admin
       .from("products")
       .select("id, name, unit_price, category")
@@ -35,12 +25,8 @@ export default async function NewQuotePage() {
       .maybeSingle(),
   ]);
 
-  type Customer = { id: string; full_name: string | null; email: string | null; phone: string | null };
-  type Vehicle = { id: string; customer_id: string; registration: string; make: string | null; model: string | null; year: number | null };
   type Product = { id: string; name: string; unit_price: number; category: string };
 
-  const customers = (customersRes.data ?? []) as Customer[];
-  const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const products = (productsRes.data ?? []) as Product[];
   const validityDays = Number((orgRes.data as { quote_validity_days?: number } | null)?.quote_validity_days ?? 30);
 
@@ -55,8 +41,6 @@ export default async function NewQuotePage() {
       </div>
 
       <QuoteBuilder
-        customers={customers}
-        vehicles={vehicles}
         products={products}
         defaultValidityDays={validityDays}
       />

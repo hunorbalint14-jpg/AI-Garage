@@ -2,22 +2,8 @@ import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
+import { getPickerCustomer } from "@/app/staff/customer-picker-actions";
 import { BookingForm } from "./booking-form";
-
-type CustomerRow = {
-  id: string;
-  full_name: string | null;
-  email: string | null;
-  phone: string | null;
-};
-
-type VehicleRow = {
-  id: string;
-  customer_id: string;
-  registration: string;
-  make: string | null;
-  model: string | null;
-};
 
 export default async function NewBookingPage({
   searchParams,
@@ -28,19 +14,9 @@ export default async function NewBookingPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [customersRes, vehiclesRes, servicesRes, baysRes] = await Promise.all([
-    admin
-      .from("customers")
-      .select("id, full_name, email, phone")
-      .eq("location_id", ctx.location.id)
-      .order("full_name", { ascending: true })
-      .limit(1000),
-    admin
-      .from("vehicles")
-      .select("id, customer_id, registration, make, model")
-      .eq("location_id", ctx.location.id)
-      .order("created_at", { ascending: false })
-      .limit(2000),
+  // Customers/vehicles come from the typeahead picker on demand — only a
+  // ?customer= deep link needs resolving up front.
+  const [servicesRes, baysRes, initialCustomer] = await Promise.all([
     admin
       .from("services")
       .select("id, name, category, duration_minutes, price")
@@ -54,10 +30,9 @@ export default async function NewBookingPage({
       .eq("location_id", ctx.location.id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true }),
+    params.customer ? getPickerCustomer(params.customer) : Promise.resolve(null),
   ]);
 
-  const customers = (customersRes.data ?? []) as CustomerRow[];
-  const vehicles = (vehiclesRes.data ?? []) as VehicleRow[];
   const services = (servicesRes.data ?? []) as { id: string; name: string; category: string; duration_minutes: number; price: number | null }[];
   const bays = (baysRes.data ?? []) as { id: string; name: string; description: string | null }[];
 
@@ -70,11 +45,9 @@ export default async function NewBookingPage({
       </div>
       <PageHeader title="New booking" description="Schedule an appointment for a customer." />
       <BookingForm
-        customers={customers}
-        vehicles={vehicles}
         services={services}
         bays={bays}
-        defaultCustomerId={params.customer ?? null}
+        initialCustomer={initialCustomer}
         defaultVehicleId={params.vehicle ?? null}
       />
     </div>
