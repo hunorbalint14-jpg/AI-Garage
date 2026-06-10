@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Send, Save, Copy, Check, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CustomerVehiclePicker } from "@/components/staff/customer-vehicle-picker";
+import type { PickerCustomer } from "@/app/staff/customer-picker-actions";
 import {
   prepareStandaloneQuoteUpload,
   createStandaloneQuote,
@@ -13,8 +15,6 @@ import {
   type StandaloneQuoteItemInput,
 } from "../actions";
 
-type Customer = { id: string; full_name: string | null; email: string | null; phone: string | null };
-type Vehicle = { id: string; customer_id: string; registration: string; make: string | null; model: string | null; year: number | null };
 type Product = { id: string; name: string; unit_price: number; category: string };
 
 type DraftItem = {
@@ -43,13 +43,9 @@ const inputClass =
 type Phase = "idle" | "uploading" | "sending" | "sent" | "error";
 
 export function QuoteBuilder({
-  customers,
-  vehicles,
   products,
   defaultValidityDays,
 }: {
-  customers: Customer[];
-  vehicles: Vehicle[];
   products: Product[];
   defaultValidityDays: number;
 }) {
@@ -59,28 +55,9 @@ export function QuoteBuilder({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const [customerId, setCustomerId] = useState("");
+  const [selectedCustomer, setSelectedCustomer] = useState<PickerCustomer | null>(null);
   const [vehicleId, setVehicleId] = useState("");
-  const [customerSearch, setCustomerSearch] = useState("");
-
-  const filteredCustomers = useMemo(() => {
-    const q = customerSearch.trim().toLowerCase();
-    if (!q) return customers.slice(0, 50);
-    return customers
-      .filter((c) =>
-        (c.full_name?.toLowerCase().includes(q)) ||
-        (c.email?.toLowerCase().includes(q)) ||
-        (c.phone?.toLowerCase().includes(q)),
-      )
-      .slice(0, 50);
-  }, [customerSearch, customers]);
-
-  const customerVehicles = useMemo(
-    () => vehicles.filter((v) => v.customer_id === customerId),
-    [vehicles, customerId],
-  );
-
-  const selectedCustomer = customers.find((c) => c.id === customerId) ?? null;
+  const customerId = selectedCustomer?.id ?? "";
 
   const [title, setTitle] = useState("");
   const [customerMessage, setCustomerMessage] = useState("");
@@ -281,54 +258,13 @@ export function QuoteBuilder({
       {/* Customer + vehicle */}
       <div className="rounded-lg border p-4 flex flex-col gap-3">
         <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Customer & vehicle</h2>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="customer-search" className="text-xs">Customer</Label>
-          <Input
-            id="customer-search"
-            value={customerSearch}
-            onChange={(e) => setCustomerSearch(e.target.value)}
-            placeholder="Type to search by name / email / phone…"
-            disabled={pending}
-          />
-          <select
-            value={customerId}
-            onChange={(e) => { setCustomerId(e.target.value); setVehicleId(""); }}
-            disabled={pending}
-            className={inputClass}
-          >
-            <option value="">— Pick a customer —</option>
-            {filteredCustomers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.full_name ?? "(no name)"} {c.email ? `· ${c.email}` : ""}
-              </option>
-            ))}
-          </select>
-          {selectedCustomer && (
-            <p className="text-xs text-muted-foreground">
-              {selectedCustomer.email ?? "no email"} · {selectedCustomer.phone ?? "no phone"}
-            </p>
-          )}
-        </div>
-
-        {customerId && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="vehicle-pick" className="text-xs">Vehicle (optional)</Label>
-            <select
-              id="vehicle-pick"
-              value={vehicleId}
-              onChange={(e) => setVehicleId(e.target.value)}
-              disabled={pending}
-              className={inputClass}
-            >
-              <option value="">— No vehicle —</option>
-              {customerVehicles.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.registration} {v.make && v.model ? `· ${v.year ?? ""} ${v.make} ${v.model}` : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <CustomerVehiclePicker
+          disabled={pending}
+          vehicleLabel="Vehicle (optional)"
+          hideVehicleUntilCustomer
+          onCustomerChange={setSelectedCustomer}
+          onVehicleChange={setVehicleId}
+        />
       </div>
 
       {/* Title + message */}

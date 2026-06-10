@@ -7,9 +7,9 @@ import { createBooking } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CustomerVehiclePicker } from "@/components/staff/customer-vehicle-picker";
+import type { PickerCustomer } from "@/app/staff/customer-picker-actions";
 
-type Customer = { id: string; full_name: string | null; email: string | null; phone: string | null };
-type Vehicle = { id: string; customer_id: string; registration: string; make: string | null; model: string | null };
 type Service = { id: string; name: string; category: string; duration_minutes: number; price: number | null };
 type Bay = { id: string; name: string; description: string | null };
 
@@ -43,18 +43,14 @@ function defaultDateTime(dateParam?: string | null): string {
 }
 
 export function BookingForm({
-  customers,
-  vehicles,
   services,
   bays,
-  defaultCustomerId,
+  initialCustomer,
   defaultVehicleId,
 }: {
-  customers: Customer[];
-  vehicles: Vehicle[];
   services: Service[];
   bays: Bay[];
-  defaultCustomerId: string | null;
+  initialCustomer: PickerCustomer | null;
   defaultVehicleId: string | null;
 }) {
   const router = useRouter();
@@ -66,16 +62,10 @@ export function BookingForm({
     [searchParams],
   );
 
-  const [customerId, setCustomerId] = useState(defaultCustomerId ?? "");
-  const [vehicleId, setVehicleId] = useState(defaultVehicleId ?? "");
+  const [customerId, setCustomerId] = useState(initialCustomer?.id ?? "");
   const firstService = services[0];
   const [type, setType] = useState(firstService?.name ?? "service");
   const [duration, setDuration] = useState(firstService?.duration_minutes ?? 90);
-
-  const customerVehicles = useMemo(
-    () => vehicles.filter((v) => v.customer_id === customerId),
-    [vehicles, customerId],
-  );
 
   function handleTypeChange(t: string) {
     setType(t);
@@ -107,43 +97,12 @@ export function BookingForm({
   return (
     <form onSubmit={handleSubmit} className="rounded-lg border p-6 flex flex-col gap-4 max-w-2xl">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="customerId">Customer</Label>
-          <select
-            id="customerId"
-            name="customerId"
-            value={customerId}
-            onChange={(e) => { setCustomerId(e.target.value); setVehicleId(""); }}
-            required
-            disabled={pending}
-            className={inputClass}
-          >
-            <option value="">— Select customer —</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>{c.full_name ?? "Unnamed"}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="vehicleId">Vehicle</Label>
-          <select
-            id="vehicleId"
-            name="vehicleId"
-            value={vehicleId}
-            onChange={(e) => setVehicleId(e.target.value)}
-            disabled={pending || !customerId}
-            className={inputClass}
-          >
-            <option value="">— No vehicle —</option>
-            {customerVehicles.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.registration}
-                {v.make || v.model ? ` — ${[v.make, v.model].filter(Boolean).join(" ")}` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+        <CustomerVehiclePicker
+          initialCustomer={initialCustomer}
+          initialVehicleId={defaultVehicleId}
+          disabled={pending}
+          onCustomerChange={(c) => setCustomerId(c?.id ?? "")}
+        />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
