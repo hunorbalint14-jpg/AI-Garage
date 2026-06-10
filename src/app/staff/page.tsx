@@ -266,6 +266,39 @@ function dueDays(d: string): number {
   return Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
+// Cumulative total at the end of each of the last 8 weeks, oldest first,
+// reconstructed by walking back from today's total using the creation dates
+// of rows added in that window.
+function cumulativeWeeklySeries(createdAts: string[], total: number, now: Date): number[] {
+  const WEEKS = 8;
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const addedPerWeek = new Array<number>(WEEKS).fill(0);
+  for (const created of createdAts) {
+    const age = Math.floor((now.getTime() - new Date(created).getTime()) / weekMs);
+    if (age >= 0 && age < WEEKS) addedPerWeek[WEEKS - 1 - age]++;
+  }
+  const series = new Array<number>(WEEKS).fill(0);
+  let running = total;
+  for (let i = WEEKS - 1; i >= 0; i--) {
+    series[i] = running;
+    running -= addedPerWeek[i];
+  }
+  return series;
+}
+
+// Events per day from `from` up to and including today, oldest first.
+function dailyCountSeries(timestamps: string[], from: Date, now: Date): number[] {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const days = Math.floor((now.getTime() - start.getTime()) / dayMs) + 1;
+  const series = new Array<number>(Math.max(days, 0)).fill(0);
+  for (const ts of timestamps) {
+    const idx = Math.floor((new Date(ts).getTime() - start.getTime()) / dayMs);
+    if (idx >= 0 && idx < series.length) series[idx]++;
+  }
+  return series;
+}
+
 function fmtGBP(n: number): string {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -275,6 +308,8 @@ function fmtGBP(n: number): string {
 }
 
 function Sparkline({ values, color }: { values: number[]; color: string }) {
+  // A single point can't make a line (and divides by zero below).
+  if (values.length < 2) return null;
   const max = Math.max(...values);
   const min = Math.min(...values);
   const w = 80;
@@ -483,6 +518,9 @@ export default async function StaffDashboard() {
   const in3Days = new Date(now);
   in3Days.setDate(in3Days.getDate() + 3);
 
+  const eightWeeksAgo = new Date(now);
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 8 * 7);
+
   const [
     customersRes,
     vehiclesRes,
@@ -496,6 +534,9 @@ export default async function StaffDashboard() {
     locationHoursRes,
     uninvoicedJobsRes,
     expiringQuotesRes,
+    customersCreatedRes,
+    vehiclesCreatedRes,
+    remindersSentRes,
   ] = await Promise.all([
     admin
       .from("customers")
@@ -567,6 +608,26 @@ export default async function StaffDashboard() {
       .eq("location_id", ctx.location.id)
       .eq("status", "pending")
       .lte("expires_at", in3Days.toISOString()),
+    // Creation dates feeding the REAL KPI sparklines (the tiles previously
+    // rendered synthetic curves scaled off the current value).
+    admin
+      .from("customers")
+      .select("created_at")
+      .eq("location_id", ctx.location.id)
+      .gte("created_at", eightWeeksAgo.toISOString())
+      .limit(2000),
+    admin
+      .from("vehicles")
+      .select("created_at")
+      .eq("location_id", ctx.location.id)
+      .gte("created_at", eightWeeksAgo.toISOString())
+      .limit(2000),
+    admin
+      .from("reminders")
+      .select("sent_at")
+      .eq("location_id", ctx.location.id)
+      .gte("sent_at", monthStart)
+      .limit(2000),
   ]);
 
   const totalCustomers = customersRes.count ?? 0;
@@ -730,10 +791,23 @@ export default async function StaffDashboard() {
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const firstName = (ctx.user.fullName ?? "").split(" ")[0] || "there";
 
-  const growSpark = (v: number) =>
-    [0.6, 0.65, 0.7, 0.75, 0.82, 0.88, 0.93, 1].map((x) => x * Math.max(v, 1));
-  const flatSpark = (v: number) =>
-    [1, 0.9, 1.05, 0.95, 1.1, 1.0, 0.95, 1].map((x) => x * Math.max(v, 1));
+  // Real sparkline series only — tiles with no queryable history get none.
+  const revenueSpark = weekDays.filter((d) => !d.isFuture).map((d) => d.revenue);
+  const customersSpark = cumulativeWeeklySeries(
+    ((customersCreatedRes.data ?? []) as { created_at: string }[]).map((r) => r.created_at),
+    totalCustomers,
+    now,
+  );
+  const vehiclesSpark = cumulativeWeeklySeries(
+    ((vehiclesCreatedRes.data ?? []) as { created_at: string }[]).map((r) => r.created_at),
+    totalVehicles,
+    now,
+  );
+  const remindersSpark = dailyCountSeries(
+    ((remindersSentRes.data ?? []) as { sent_at: string }[]).map((r) => r.sent_at),
+    new Date(monthStart),
+    now,
+  );
 
   return (
     <div style={{ color: "var(--foreground)" }}>
@@ -787,49 +861,47 @@ export default async function StaffDashboard() {
           value={fmtGBP(weekRevenue)}
           delta={weekRevenue > 0 ? "paid invoices" : "no paid invoices yet"}
           positive={weekRevenue > 0}
-          sparkValues={growSpark(Math.max(weekRevenue, 500))}
+          sparkValues={revenueSpark}
         />
         <KpiTile
           label="Customers"
           value={String(totalCustomers)}
-          sparkValues={growSpark(Math.max(totalCustomers, 10))}
+          delta="last 8 weeks"
+          sparkValues={customersSpark}
         />
         <KpiTile
           label="Vehicles"
           value={String(totalVehicles)}
-          sparkValues={growSpark(Math.max(totalVehicles, 10))}
+          delta="last 8 weeks"
+          sparkValues={vehiclesSpark}
         />
         <KpiTile
           label="Overdue"
           value={String(overdue.length)}
           delta={overdue.length > 0 ? "needs attention" : "all clear"}
           positive={overdue.length === 0}
-          sparkValues={flatSpark(Math.max(overdue.length, 1))}
         />
         <KpiTile
           label="Active jobs"
           value={String(activeJobs)}
           delta="open status"
-          sparkValues={flatSpark(Math.max(activeJobs, 1))}
         />
         <KpiTile
           label="Reminders · month"
           value={String(remindersMonth)}
           delta="sent"
           positive={remindersMonth > 0}
-          sparkValues={growSpark(Math.max(remindersMonth, 10))}
+          sparkValues={remindersSpark}
         />
         <KpiTile
           label="Open invoices"
           value={fmtGBP(openInvoicesValue)}
           delta={`${openInvoices.length} outstanding`}
           positive={openInvoices.length === 0}
-          sparkValues={flatSpark(Math.max(openInvoicesValue, 100))}
         />
         <KpiTile
           label="Bookings · today"
           value={String(todayBookings)}
-          sparkValues={flatSpark(Math.max(todayBookings, 1))}
         />
       </div>
 
