@@ -5,26 +5,32 @@ import { recordCronRun } from "@/lib/platform/cron-runs";
 import { sendEmail, tenantBookingUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
+import { draftReminderEmailTemplate, draftSmsReminderTemplate } from "@/lib/ai-messages";
 import {
-  draftReminderMessage,
-  draftSmsReminderMessage,
-  fallbackReminderMessage,
-  fallbackSmsReminderMessage,
-} from "@/lib/ai-messages";
+  renderReminderTemplate,
+  isUsableReminderTemplate,
+  fallbackReminderEmailTemplate,
+  fallbackSmsReminderTemplate,
+} from "@/lib/reminder-templates";
 
 // Runs daily at 09:00 UTC via Vercel Cron (configured in vercel.json).
 // Finds all vehicles with MOT or service due within REMIND_DAYS_BEFORE days,
 // skips channels that already sent the same reminder type within DEDUP_DAYS,
-// then drafts a personalised Claude message and sends via email + SMS.
+// then renders a Claude-drafted template (one per location/type/channel kind,
+// not per customer) and sends via email/SMS/WhatsApp.
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const REMIND_DAYS_BEFORE_DEFAULT = 30;
 const DEDUP_DAYS = 30;
-// Vehicles processed in parallel per location. Each vehicle can cost an AI
-// draft plus up to three channel sends, so stay modest — enough to fit a busy
-// location inside maxDuration without hammering Resend/Twilio/Anthropic.
-const VEHICLE_CONCURRENCY = 5;
+// Vehicles processed in parallel per location. Drafting moved to per-location
+// templates, so a vehicle only costs its channel sends now — but stay modest
+// enough not to hammer Resend/Twilio.
+const VEHICLE_CONCURRENCY = 8;
+// Stop starting new work this far into the run and report `truncated` instead
+// of dying silently at maxDuration mid-loop. Dedup lets the next hourly tick
+// resume exactly where this run stopped.
+const DEADLINE_MS = 50_000;
 
 type TaskRow = { enabled: boolean; settings: Record<string, unknown> };
 
@@ -154,13 +160,51 @@ export async function GET(request: NextRequest) {
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, failed: 0, truncated: false, errors: [] as string[] };
+  const outOfTime = () => Date.now() - __t0 > DEADLINE_MS;
 
   for (const location of locations ?? []) {
+    if (outOfTime()) {
+      results.truncated = true;
+      break;
+    }
+
     const org = location.organization;
+    const garageName = org?.name ?? location.name;
     const bookingUrl = tenantBookingUrl(location.slug);
     const bookingCta = { url: bookingUrl, label: "Book your appointment" };
     const smsWithLink = (body: string) => `${body}\nBook: ${bookingUrl}`;
+
+    // Automated (cron) AI drafts — attributed to the location; the overview
+    // view derives the org from location_id. No user (system-run).
+    const aiCtx = { locationId: location.id, feature: "reminder_auto" };
+
+    // One Claude template per (channel kind, type) for this location, with
+    // customer details substituted per vehicle below. Cached as promises so
+    // concurrent vehicle workers don't race N identical draft calls. Never
+    // rejects — an unusable or failed draft falls back to the static template.
+    const templateCache = new Map<string, Promise<string>>();
+    const getTemplate = (kind: "email" | "short", reminderType: "mot" | "service"): Promise<string> => {
+      const key = `${kind}:${reminderType}`;
+      let promise = templateCache.get(key);
+      if (!promise) {
+        promise = (async () => {
+          try {
+            const draft = kind === "email"
+              ? await draftReminderEmailTemplate({ garageName, reminderType }, aiCtx)
+              : await draftSmsReminderTemplate({ garageName, reminderType }, aiCtx);
+            if (isUsableReminderTemplate(draft)) return draft;
+          } catch {
+            // fall through to the static template
+          }
+          return kind === "email"
+            ? fallbackReminderEmailTemplate(reminderType, garageName)
+            : fallbackSmsReminderTemplate(reminderType, garageName);
+        })();
+        templateCache.set(key, promise);
+      }
+      return promise;
+    };
 
     // Fetched once per location and shared by the MOT/service AND tax passes
     // below (the tax pass used to refetch its config in a second loop).
@@ -199,6 +243,10 @@ export async function GET(request: NextRequest) {
       const sentSet = await fetchSentSet(admin, vehicleRows.map((v) => v.id), dedupCutoff);
 
       await mapPool(vehicleRows, VEHICLE_CONCURRENCY, async (vehicle) => {
+        if (outOfTime()) {
+          results.truncated = true;
+          return;
+        }
         const customer = vehicle.customer;
         if (!customer) return;
 
@@ -227,18 +275,12 @@ export async function GET(request: NextRequest) {
           const label = reminderType === "mot" ? "MOT" : "service";
           const subject = `${label.toUpperCase()} reminder — ${vehicle.registration} due ${formattedDate}`;
 
-          const draftInput = {
-            garageName: org?.name ?? location.name,
-            garagePhone: org?.phone ?? null,
-            customerFirstName: firstName,
+          const templateVars = {
+            firstName,
+            vehicle: vehicleDescription || vehicle.registration,
             registration: vehicle.registration,
-            vehicleDescription: vehicleDescription || vehicle.registration,
-            reminderType,
             dueDate: formattedDate,
           };
-          // Automated (cron) AI drafts — attributed to the location; the overview
-          // view derives the org from location_id. No user (system-run).
-          const aiCtx = { locationId: location.id, feature: "reminder_auto" };
 
           const alreadySent = (channel: string) => sentSet.has(`${vehicle.id}:${reminderType}:${channel}`);
 
@@ -253,25 +295,16 @@ export async function GET(request: NextRequest) {
           if (wantWhatsApp && !needWhatsApp) results.skipped++;
           if (wantSms && !needSms) results.skipped++;
 
-          // One short draft shared by WhatsApp AND SMS — both channels send the
-          // same text, so drafting per channel was two identical Claude calls.
+          // One short text shared by WhatsApp AND SMS — both channels send the
+          // same message.
           let shortText: string | null = null;
           if (needWhatsApp || needSms) {
-            try {
-              shortText = await draftSmsReminderMessage(draftInput, aiCtx);
-            } catch {
-              shortText = fallbackSmsReminderMessage(draftInput);
-            }
+            shortText = renderReminderTemplate(await getTemplate("short", reminderType), templateVars);
           }
 
           // Email channel
           if (needEmail && customer.email) {
-            let messageText: string;
-            try {
-              messageText = await draftReminderMessage(draftInput, aiCtx);
-            } catch {
-              messageText = fallbackReminderMessage(draftInput);
-            }
+            const messageText = renderReminderTemplate(await getTemplate("email", reminderType), templateVars);
 
             const emailResult = await sendEmail({ to: customer.email, subject, text: messageText, cta: bookingCta });
 
@@ -373,6 +406,10 @@ export async function GET(request: NextRequest) {
       const taxSentSet = await fetchSentSet(admin, vedRows.map((v) => v.id), dedupCutoff);
 
       await mapPool(vedRows, VEHICLE_CONCURRENCY, async (v) => {
+        if (outOfTime()) {
+          results.truncated = true;
+          return;
+        }
         const customer = v.customer;
         if (!customer) return;
 
@@ -380,7 +417,6 @@ export async function GET(request: NextRequest) {
         if (daysUntil < 0 || daysUntil > taxDays) return;
 
         const firstName = customer.full_name?.split(" ")[0] ?? "there";
-        const garageName = org?.name ?? location.name;
         const formattedDate = new Date(v.tax_due_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
         const subject = `Road tax reminder — ${v.registration} due ${formattedDate}`;
         const body = `Hi ${firstName},\n\nThis is a friendly reminder that the road tax for your vehicle ${v.registration} is due on ${formattedDate}.\n\nYou can renew online at gov.uk/renew-vehicle-tax or at your local Post Office.\n\nThank you,\n${garageName}`;
@@ -405,6 +441,12 @@ export async function GET(request: NextRequest) {
   }
 
   console.log("[cron/reminders]", results);
-  await recordCronRun(admin, "cron/reminders", results.failed === 0, Date.now() - __t0, `sent ${results.sent}, failed ${results.failed}`);
+  await recordCronRun(
+    admin,
+    "cron/reminders",
+    results.failed === 0,
+    Date.now() - __t0,
+    `sent ${results.sent}, failed ${results.failed}${results.truncated ? ", truncated (resumes next tick)" : ""}`,
+  );
   return NextResponse.json({ success: true, ...results });
 }
