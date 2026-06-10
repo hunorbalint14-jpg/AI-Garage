@@ -54,6 +54,74 @@ export type SendEmailResult =
   | { success: true; messageId: string }
   | { success: false; error: string };
 
+export type BatchEmailItem = {
+  to: string;
+  subject: string;
+  text: string;
+  cta?: EmailCta;
+};
+
+export type BatchEmailItemResult = {
+  success: boolean;
+  error: string | null;
+  // Null when the chunk had partial failures: Resend's permissive batch
+  // response doesn't say which created id belongs to which input then.
+  messageId: string | null;
+};
+
+const RESEND_BATCH_LIMIT = 100;
+
+// Send many emails via Resend's batch endpoint (100 per call) instead of one
+// request per recipient. Results align 1:1 with `items`. Never throws.
+export async function sendEmailBatch(items: BatchEmailItem[]): Promise<BatchEmailItemResult[]> {
+  const results: BatchEmailItemResult[] = items.map(() => ({
+    success: false,
+    error: "Not sent",
+    messageId: null,
+  }));
+
+  for (let start = 0; start < items.length; start += RESEND_BATCH_LIMIT) {
+    const batch = items.slice(start, start + RESEND_BATCH_LIMIT);
+    try {
+      const { data, error } = await resend.batch.send(
+        batch.map((i) => ({
+          from: FROM,
+          to: [i.to],
+          subject: i.subject,
+          text: appendCtaToText(i.text, i.cta),
+          html: textToHtml(i.text, i.cta),
+        })),
+        { batchValidation: "permissive" },
+      );
+
+      if (error) {
+        for (let j = 0; j < batch.length; j++) {
+          results[start + j] = { success: false, error: error.message, messageId: null };
+        }
+        continue;
+      }
+
+      const failedByIndex = new Map<number, string>();
+      for (const e of data?.errors ?? []) failedByIndex.set(e.index, e.message);
+      const idsAligned = failedByIndex.size === 0 && (data?.data?.length ?? 0) === batch.length;
+
+      for (let j = 0; j < batch.length; j++) {
+        const failure = failedByIndex.get(j);
+        results[start + j] = failure
+          ? { success: false, error: failure, messageId: null }
+          : { success: true, error: null, messageId: idsAligned ? data!.data[j].id : null };
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown email error";
+      for (let j = 0; j < batch.length; j++) {
+        results[start + j] = { success: false, error: msg, messageId: null };
+      }
+    }
+  }
+
+  return results;
+}
+
 export async function sendEmail({
   to,
   subject,
