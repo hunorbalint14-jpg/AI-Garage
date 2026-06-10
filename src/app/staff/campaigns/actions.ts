@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail, tenantBookingUrl } from "@/lib/email";
+import { sendEmailBatch, tenantBookingUrl, type BatchEmailItemResult } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
-import { sendSms } from "@/lib/sms";
-import { sendWhatsApp } from "@/lib/whatsapp";
+import { sendSms, type SendSmsResult } from "@/lib/sms";
+import { sendWhatsApp, type SendWhatsAppResult } from "@/lib/whatsapp";
+import { mapWithConcurrency, chunk } from "@/lib/concurrency";
 import { draftBroadcastMessage } from "@/lib/ai-messages";
 import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
@@ -125,60 +126,26 @@ export async function sendBroadcast(
     if (failureSamples.length < 10) failureSamples.push({ recipient, channel, reason });
   };
 
+  // Partition recipients per channel up front (counting skips), then send each
+  // channel in bulk: Resend's batch endpoint for email, a bounded concurrency
+  // pool for Twilio. The previous one-await-per-customer loop took minutes at
+  // 500 customers and timed out the action mid-send.
+  type Customer = (typeof customers)[number];
+  const emailRecipients: Customer[] = [];
+  const smsRecipients: Customer[] = [];
+  const whatsappRecipients: Customer[] = [];
+
   for (const customer of customers) {
     if (emailText) {
       if (!customer.email) skippedNoEmail++;
       else if (!customer.marketing_email_consent) skippedNoEmailConsent++;
-      else {
-        const result = await sendEmail({ to: customer.email, subject, text: emailText, cta: bookingCta });
-        await admin.from("reminders").insert({
-          location_id: ctx.location.id,
-          customer_id: customer.id,
-          vehicle_id: null,
-          type: "campaign",
-          channel: "email",
-          recipient_email: customer.email,
-          recipient_phone: null,
-          subject,
-          message_text: emailText,
-          status: result.success ? "sent" : "failed",
-          error_message: result.success ? null : result.error,
-          resend_email_id: result.success ? result.messageId : null,
-        });
-        if (result.success) emailSent++;
-        else {
-          emailFailed++;
-          pushFailure(customer.email, "email", result.error);
-        }
-      }
+      else emailRecipients.push(customer);
     }
-
     if (smsText) {
       if (!customer.phone) skippedNoPhone++;
       else if (!customer.marketing_sms_consent) skippedNoSmsConsent++;
-      else {
-        const result = await sendSms({ to: customer.phone, body: smsWithLink(smsText) });
-        await admin.from("reminders").insert({
-          location_id: ctx.location.id,
-          customer_id: customer.id,
-          vehicle_id: null,
-          type: "campaign",
-          channel: "sms",
-          recipient_email: null,
-          recipient_phone: customer.phone,
-          subject,
-          message_text: smsText,
-          status: result.success ? "sent" : "failed",
-          error_message: result.success ? null : result.error,
-        });
-        if (result.success) smsSent++;
-        else {
-          smsFailed++;
-          pushFailure(customer.phone, "sms", result.error);
-        }
-      }
+      else smsRecipients.push(customer);
     }
-
     if (whatsappText) {
       if (!customer.phone) {
         // already counted under skippedNoPhone if smsText also empty; only add when not double-counted
@@ -186,27 +153,119 @@ export async function sendBroadcast(
       } else if (!customer.marketing_sms_consent) {
         if (!smsText) skippedNoSmsConsent++;
       } else {
-        const result = await sendWhatsApp({ to: customer.phone, body: smsWithLink(whatsappText) });
-        await admin.from("reminders").insert({
-          location_id: ctx.location.id,
-          customer_id: customer.id,
-          vehicle_id: null,
-          type: "campaign",
-          channel: "whatsapp",
-          recipient_email: null,
-          recipient_phone: customer.phone,
-          subject,
-          message_text: whatsappText,
-          status: result.success ? "sent" : "failed",
-          error_message: result.success ? null : result.error,
-        });
-        if (result.success) whatsappSent++;
-        else {
-          whatsappFailed++;
-          pushFailure(customer.phone, "whatsapp", result.error);
-        }
+        whatsappRecipients.push(customer);
       }
     }
+  }
+
+  const TWILIO_CONCURRENCY = 8;
+  const [emailResults, smsResults, whatsappResults] = await Promise.all([
+    emailText
+      ? sendEmailBatch(
+          emailRecipients.map((c) => ({ to: c.email!, subject, text: emailText, cta: bookingCta })),
+        )
+      : Promise.resolve([] as BatchEmailItemResult[]),
+    mapWithConcurrency(smsRecipients, TWILIO_CONCURRENCY, (c) =>
+      sendSms({ to: c.phone!, body: smsWithLink(smsText ?? "") }),
+    ),
+    mapWithConcurrency(whatsappRecipients, TWILIO_CONCURRENCY, (c) =>
+      sendWhatsApp({ to: c.phone!, body: smsWithLink(whatsappText ?? "") }),
+    ),
+  ]);
+
+  const settledToResult = (r: PromiseSettledResult<SendSmsResult | SendWhatsAppResult>) =>
+    r.status === "fulfilled"
+      ? r.value
+      : ({ success: false, error: String(r.reason) } as const);
+
+  type ReminderRow = {
+    location_id: string;
+    customer_id: string;
+    vehicle_id: null;
+    type: "campaign";
+    channel: "email" | "sms" | "whatsapp";
+    recipient_email: string | null;
+    recipient_phone: string | null;
+    subject: string;
+    message_text: string;
+    status: "sent" | "failed";
+    error_message: string | null;
+    resend_email_id?: string | null;
+  };
+  const rows: ReminderRow[] = [];
+
+  emailRecipients.forEach((customer, i) => {
+    const result = emailResults[i];
+    rows.push({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: null,
+      type: "campaign",
+      channel: "email",
+      recipient_email: customer.email,
+      recipient_phone: null,
+      subject,
+      message_text: emailText!,
+      status: result.success ? "sent" : "failed",
+      error_message: result.error,
+      resend_email_id: result.messageId,
+    });
+    if (result.success) emailSent++;
+    else {
+      emailFailed++;
+      pushFailure(customer.email!, "email", result.error ?? "Unknown email error");
+    }
+  });
+
+  smsRecipients.forEach((customer, i) => {
+    const result = settledToResult(smsResults[i]);
+    rows.push({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: null,
+      type: "campaign",
+      channel: "sms",
+      recipient_email: null,
+      recipient_phone: customer.phone,
+      subject,
+      message_text: smsText!,
+      status: result.success ? "sent" : "failed",
+      error_message: result.success ? null : result.error,
+    });
+    if (result.success) smsSent++;
+    else {
+      smsFailed++;
+      pushFailure(customer.phone!, "sms", result.error);
+    }
+  });
+
+  whatsappRecipients.forEach((customer, i) => {
+    const result = settledToResult(whatsappResults[i]);
+    rows.push({
+      location_id: ctx.location.id,
+      customer_id: customer.id,
+      vehicle_id: null,
+      type: "campaign",
+      channel: "whatsapp",
+      recipient_email: null,
+      recipient_phone: customer.phone,
+      subject,
+      message_text: whatsappText!,
+      status: result.success ? "sent" : "failed",
+      error_message: result.success ? null : result.error,
+    });
+    if (result.success) whatsappSent++;
+    else {
+      whatsappFailed++;
+      pushFailure(customer.phone!, "whatsapp", result.error);
+    }
+  });
+
+  // Outcome log rows in bulk (was one insert round-trip per send). Insert
+  // failures are logged but don't fail the broadcast — the sends already went.
+  for (const insertChunk of chunk(rows, 500)) {
+    const { error: insertError } = await admin.from("reminders").insert(insertChunk);
+    if (insertError) console.error("[campaigns] reminders insert failed:", insertError.message);
   }
 
   await logAudit({

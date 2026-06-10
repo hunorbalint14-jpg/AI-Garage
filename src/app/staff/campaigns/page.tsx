@@ -7,6 +7,10 @@ import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
 import { BroadcastForm } from "./broadcast-form";
 import { CampaignHistory, type CampaignDetail } from "./campaign-history";
 
+// Applies to the page's server actions too: a full three-channel broadcast to
+// 500 customers takes ~30s even batched, past the platform's default timeout.
+export const maxDuration = 120;
+
 type CampaignRow = {
   subject: string;
   channel: string;
