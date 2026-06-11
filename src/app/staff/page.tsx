@@ -59,7 +59,6 @@ function TodaySchedule({
   const hours = Array.from({ length: DAY_SPAN + 1 }, (_, i) => i + DAY_START);
   const padStart = `${String(DAY_START).padStart(2, "0")}:00`;
   const padEnd = `${String(DAY_END).padStart(2, "0")}:00`;
-  const mono = "var(--font-geist-mono, monospace)";
   const LABEL_W = 130;
 
   // Group bookings by bayId
@@ -107,30 +106,23 @@ function TodaySchedule({
       <Link
         key={b.id}
         href={`/staff/bookings/${b.id}`}
-        className="booking-block"
+        className={`booking-block absolute inset-y-1.5 overflow-visible rounded-[2px] ${isNarrow ? "p-0" : "px-1.5 py-1"}`}
         style={{
-          position: "absolute",
           left: leftPx,
           width: widthPx,
-          top: 6,
-          bottom: 6,
           background: s.bg,
           border: `1px solid ${s.border}`,
           borderLeft: `3px solid ${s.accent}`,
-          borderRadius: 2,
-          padding: isNarrow ? 0 : "4px 6px",
-          overflow: "visible",
-          boxSizing: "border-box" as const,
         }}
       >
         {!isNarrow && (
           <>
             {b.registration && (
-              <div style={{ fontFamily: mono, fontSize: 10, fontWeight: 700, color: s.accent, letterSpacing: "0.04em", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div className="truncate font-mono text-[10px] font-bold leading-[1.2] tracking-[0.04em]" style={{ color: s.accent }}>
                 {b.registration}
               </div>
             )}
-            <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.2 }}>
+            <div className="mt-px truncate text-[10px] leading-[1.2] text-muted-foreground">
               {b.customerName ?? b.type}
             </div>
           </>
@@ -138,23 +130,26 @@ function TodaySchedule({
 
         {/* CSS-only tooltip */}
         <div className="booking-tooltip" style={tooltipSide}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div className="mb-1.5 flex items-center justify-between gap-2">
             {b.registration && (
-              <span style={{ fontFamily: mono, fontWeight: 700, letterSpacing: "0.06em", background: "#f4d35e", color: "var(--background)", padding: "1px 6px", borderRadius: 2, fontSize: 10 }}>
+              <span className="rounded-[2px] bg-[#f4d35e] px-1.5 py-px font-mono text-[10px] font-bold tracking-[0.06em] text-background">
                 {b.registration}
               </span>
             )}
-            <span style={{ fontFamily: mono, fontSize: 9, padding: "2px 5px", borderRadius: 2, background: s.bg, color: s.accent, border: `1px solid ${s.border}`, marginLeft: "auto", textTransform: "capitalize", letterSpacing: "0.06em" }}>
+            <span
+              className="ml-auto rounded-[2px] px-[5px] py-0.5 font-mono text-[9px] capitalize tracking-[0.06em]"
+              style={{ background: s.bg, color: s.accent, border: `1px solid ${s.border}` }}
+            >
               {b.status.replace(/_/g, " ")}
             </span>
           </div>
           {b.customerName && (
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", marginBottom: 2 }}>{b.customerName}</div>
+            <div className="mb-0.5 text-[13px] font-semibold text-foreground">{b.customerName}</div>
           )}
-          <div style={{ fontSize: 11, color: "var(--muted-foreground)", textTransform: "capitalize", marginBottom: 8 }}>{b.type.replace(/_/g, " ")}</div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontFamily: mono, fontSize: 10, color: "var(--foreground)" }}>{timeRange}</span>
-            <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)" }}>{durStr}</span>
+          <div className="mb-2 text-[11px] capitalize text-muted-foreground">{b.type.replace(/_/g, " ")}</div>
+          <div className="flex items-center justify-between">
+            <span className="font-mono text-[10px] text-foreground">{timeRange}</span>
+            <span className="font-mono text-[10px] text-muted-foreground">{durStr}</span>
           </div>
         </div>
       </Link>
@@ -162,38 +157,47 @@ function TodaySchedule({
   }
 
   return (
-    <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 6 }}>
-      <div style={{ padding: "16px 22px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+    <div className="rounded-md border border-border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-[22px] py-4">
         <div>
-          <div style={{ fontSize: 10, color: "var(--muted-foreground)", fontFamily: mono, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             Day schedule · {now.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {padStart}–{padEnd}
           </div>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginTop: 4 }}>
+          <div className="mt-1 text-base font-semibold text-foreground">
             {bookings.length === 0
               ? "No bookings today"
               : `${bookings.length} booking${bookings.length !== 1 ? "s" : ""} · ${rows.length} row${rows.length !== 1 ? "s" : ""}`}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="flex flex-wrap gap-2">
           {bays.length === 0 && (
-            <Link href="/staff/bays" style={{ fontFamily: mono, fontSize: 11, color: "var(--muted-foreground)", textDecoration: "none", padding: "6px 12px", border: "1px solid var(--border)", borderRadius: 2 }}>
+            <Link href="/staff/bays" className="rounded-[2px] border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground no-underline">
               Set up bays →
             </Link>
           )}
-          <Link href="/staff/bookings/new" style={{ fontFamily: mono, fontSize: 11, color: "#ffb020", textDecoration: "none", padding: "6px 12px", border: "1px solid #3a2c14", borderRadius: 2, background: "#1c1810" }}>
+          <Link href="/staff/bookings/new" className="rounded-[2px] border border-[#3a2c14] bg-[#1c1810] px-3 py-1.5 font-mono text-[11px] text-[#ffb020] no-underline">
             + New booking →
           </Link>
         </div>
       </div>
 
-      {/* Schedule grid */}
-      <div style={{ overflowX: "auto" }}>
+      {/* Schedule grid. Widths/offsets computed from the hour scale stay inline. */}
+      <div className="overflow-x-auto">
         {/* Ruler */}
-        <div style={{ display: "flex", borderBottom: "1px solid var(--border)", minWidth: LABEL_W + TIMELINE_W }}>
-          <div style={{ width: LABEL_W, flexShrink: 0, padding: "8px 12px", fontFamily: mono, fontSize: 9, color: "var(--muted-foreground)", letterSpacing: "0.12em", position: "sticky", left: 0, background: "var(--card)", zIndex: 2, borderRight: "1px solid var(--border)" }}>BAY</div>
-          <div style={{ position: "relative", width: TIMELINE_W, flexShrink: 0, height: 26 }}>
+        <div className="flex border-b border-border" style={{ minWidth: LABEL_W + TIMELINE_W }}>
+          <div
+            className="sticky left-0 z-[2] shrink-0 border-r border-border bg-card px-3 py-2 font-mono text-[9px] tracking-[0.12em] text-muted-foreground"
+            style={{ width: LABEL_W }}
+          >
+            BAY
+          </div>
+          <div className="relative h-[26px] shrink-0" style={{ width: TIMELINE_W }}>
             {hours.map((h) => (
-              <div key={h} style={{ position: "absolute", left: (h - DAY_START) * PX_PER_HOUR, top: 8, transform: "translateX(-50%)", fontFamily: mono, fontSize: 9, color: "var(--muted-foreground)" }}>
+              <div
+                key={h}
+                className="absolute top-2 -translate-x-1/2 font-mono text-[9px] text-muted-foreground"
+                style={{ left: (h - DAY_START) * PX_PER_HOUR }}
+              >
                 {String(h).padStart(2, "0")}
               </div>
             ))}
@@ -204,27 +208,33 @@ function TodaySchedule({
         {rows.map((row, ri) => (
           <div
             key={row.id ?? "unassigned"}
-            style={{
-              display: "flex",
-              borderBottom: ri < rows.length - 1 ? "1px solid var(--border)" : "none",
-              minHeight: 54,
-              minWidth: LABEL_W + TIMELINE_W,
-            }}
+            className={`flex min-h-[54px] ${ri < rows.length - 1 ? "border-b border-border" : ""}`}
+            style={{ minWidth: LABEL_W + TIMELINE_W }}
           >
-            <div style={{ width: LABEL_W, flexShrink: 0, padding: "8px 12px", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", justifyContent: "center", position: "sticky", left: 0, background: "var(--card)", zIndex: 1 }}>
-              <div style={{ fontFamily: mono, fontSize: 11, color: "#ffb020", fontWeight: 600, letterSpacing: "0.04em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <div
+              className="sticky left-0 z-[1] flex shrink-0 flex-col justify-center border-r border-border bg-card px-3 py-2"
+              style={{ width: LABEL_W }}
+            >
+              <div className="truncate font-mono text-[11px] font-semibold tracking-[0.04em] text-[#ffb020]">
                 {row.name}
               </div>
               {row.sub && (
-                <div style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 2 }}>{row.sub}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">{row.sub}</div>
               )}
             </div>
-            <div style={{ position: "relative", width: TIMELINE_W, flexShrink: 0, padding: "6px 0" }}>
+            <div className="relative shrink-0 py-1.5" style={{ width: TIMELINE_W }}>
               {hours.slice(1).map((h) => (
-                <div key={h} style={{ position: "absolute", left: (h - DAY_START) * PX_PER_HOUR, top: 0, bottom: 0, borderLeft: "1px dashed var(--border)" }} />
+                <div
+                  key={h}
+                  className="absolute inset-y-0 border-l border-dashed border-border"
+                  style={{ left: (h - DAY_START) * PX_PER_HOUR }}
+                />
               ))}
               {showNow && (
-                <div style={{ position: "absolute", left: nowPx, top: 0, bottom: 0, borderLeft: "1px dashed #ffb020", zIndex: 10 }} />
+                <div
+                  className="absolute inset-y-0 z-10 border-l border-dashed border-[#ffb020]"
+                  style={{ left: nowPx }}
+                />
               )}
               {row.items.map((b) => renderBlock(b))}
             </div>
@@ -232,29 +242,29 @@ function TodaySchedule({
         ))}
 
         {bookings.length === 0 && (
-          <div style={{ width: "100%", padding: "32px 22px", textAlign: "center", color: "var(--muted-foreground)", fontFamily: mono, fontSize: 12 }}>
+          <div className="w-full px-[22px] py-8 text-center font-mono text-xs text-muted-foreground">
             {"// NO BOOKINGS TODAY"}
           </div>
         )}
       </div>
 
       {/* Legend */}
-      <div style={{ display: "flex", gap: 14, padding: "12px 22px", flexWrap: "wrap", borderTop: "1px solid var(--border)" }}>
+      <div className="flex flex-wrap gap-3.5 border-t border-border px-[22px] py-3">
         {[
           { label: "Scheduled", color: "var(--muted-foreground)" },
           { label: "In progress", color: "#ffb020" },
           { label: "Complete", color: "#5fdd9d" },
           { label: "Cancelled", color: "#ff5b5b" },
         ].map((l) => (
-          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 10, height: 10, background: l.color, borderRadius: 1 }} />
-            <span style={{ fontFamily: mono, fontSize: 9, color: "var(--muted-foreground)" }}>{l.label}</span>
+          <div key={l.label} className="flex items-center gap-[5px]">
+            <div className="h-2.5 w-2.5 rounded-[1px]" style={{ background: l.color }} />
+            <span className="font-mono text-[9px] text-muted-foreground">{l.label}</span>
           </div>
         ))}
         {showNow && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 14, borderTop: "1px dashed #ffb020" }} />
-            <span style={{ fontFamily: mono, fontSize: 9, color: "var(--muted-foreground)" }}>Now</span>
+          <div className="flex items-center gap-[5px]">
+            <div className="w-3.5 border-t border-dashed border-[#ffb020]" />
+            <span className="font-mono text-[9px] text-muted-foreground">Now</span>
           </div>
         )}
       </div>
@@ -266,6 +276,39 @@ function dueDays(d: string): number {
   return Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
+// Cumulative total at the end of each of the last 8 weeks, oldest first,
+// reconstructed by walking back from today's total using the creation dates
+// of rows added in that window.
+function cumulativeWeeklySeries(createdAts: string[], total: number, now: Date): number[] {
+  const WEEKS = 8;
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  const addedPerWeek = new Array<number>(WEEKS).fill(0);
+  for (const created of createdAts) {
+    const age = Math.floor((now.getTime() - new Date(created).getTime()) / weekMs);
+    if (age >= 0 && age < WEEKS) addedPerWeek[WEEKS - 1 - age]++;
+  }
+  const series = new Array<number>(WEEKS).fill(0);
+  let running = total;
+  for (let i = WEEKS - 1; i >= 0; i--) {
+    series[i] = running;
+    running -= addedPerWeek[i];
+  }
+  return series;
+}
+
+// Events per day from `from` up to and including today, oldest first.
+function dailyCountSeries(timestamps: string[], from: Date, now: Date): number[] {
+  const dayMs = 24 * 60 * 60 * 1000;
+  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const days = Math.floor((now.getTime() - start.getTime()) / dayMs) + 1;
+  const series = new Array<number>(Math.max(days, 0)).fill(0);
+  for (const ts of timestamps) {
+    const idx = Math.floor((new Date(ts).getTime() - start.getTime()) / dayMs);
+    if (idx >= 0 && idx < series.length) series[idx]++;
+  }
+  return series;
+}
+
 function fmtGBP(n: number): string {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
@@ -275,6 +318,8 @@ function fmtGBP(n: number): string {
 }
 
 function Sparkline({ values, color }: { values: number[]; color: string }) {
+  // A single point can't make a line (and divides by zero below).
+  if (values.length < 2) return null;
   const max = Math.max(...values);
   const min = Math.min(...values);
   const w = 80;
@@ -286,7 +331,7 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
   const last = values[values.length - 1];
   const lastY = h - ((last - min) / range) * h;
   return (
-    <svg width={w} height={h} style={{ overflow: "visible", flexShrink: 0 }}>
+    <svg width={w} height={h} className="shrink-0 overflow-visible">
       <polyline fill="none" stroke={color} strokeWidth="1.5" points={pts} />
       <circle cx={w} cy={lastY} r="2.5" fill={color} />
     </svg>
@@ -306,47 +351,22 @@ function KpiTile({
   positive?: boolean;
   sparkValues?: number[];
 }) {
-  const deltaColor =
-    positive === undefined ? "var(--muted-foreground)" : positive ? "#5fdd9d" : "#ff5b5b";
+  const deltaClass =
+    positive === undefined ? "text-muted-foreground" : positive ? "text-[#5fdd9d]" : "text-[#ff5b5b]";
   const sparkColor =
     positive === false ? "#ff5b5b" : positive === true ? "#5fdd9d" : "var(--muted-foreground)";
   return (
-    <div style={{ background: "var(--card)", padding: "18px 20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--muted-foreground)",
-              fontFamily: "var(--font-geist-mono, monospace)",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}
-          >
+    <div className="bg-card px-5 py-[18px]">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             {label}
           </div>
-          <div
-            style={{
-              fontFamily: "var(--font-geist-mono, monospace)",
-              fontSize: 26,
-              marginTop: 6,
-              letterSpacing: "-0.01em",
-              fontWeight: 600,
-              color: "var(--foreground)",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
+          <div className="mt-1.5 font-mono text-[26px] font-semibold tracking-[-0.01em] text-foreground tabular-nums">
             {value}
           </div>
           {delta && (
-            <div
-              style={{
-                fontFamily: "var(--font-geist-mono, monospace)",
-                fontSize: 11,
-                color: deltaColor,
-                marginTop: 2,
-              }}
-            >
+            <div className={`mt-0.5 font-mono text-[11px] ${deltaClass}`}>
               {delta}
             </div>
           )}
@@ -359,45 +379,22 @@ function KpiTile({
 
 function Plate({ reg }: { reg: string }) {
   return (
-    <span
-      style={{
-        fontFamily: "var(--font-geist-mono, monospace)",
-        fontWeight: 700,
-        letterSpacing: "0.06em",
-        background: "#f4d35e",
-        color: "var(--background)",
-        padding: "2px 7px",
-        borderRadius: 3,
-        fontSize: 11,
-        border: "1px solid #c9a435",
-        whiteSpace: "nowrap",
-        display: "inline-block",
-      }}
-    >
+    <span className="inline-block whitespace-nowrap rounded-[3px] border border-[#c9a435] bg-[#f4d35e] px-[7px] py-0.5 font-mono text-[11px] font-bold tracking-[0.06em] text-background">
       {reg}
     </span>
   );
 }
 
+const STATUS_BADGE = {
+  overdue: { className: "border-[#5a2424] bg-[#3a1a1a] text-[#ff5b5b]", label: "OVERDUE" },
+  urgent: { className: "border-[#5a4218] bg-[#3a2c14] text-[#ffb020]", label: "URGENT" },
+  soon: { className: "border-[#2c4458] bg-[#1f2a35] text-[#7ec8ff]", label: "SOON" },
+} as const;
+
 function StatusBadge({ status }: { status: "overdue" | "urgent" | "soon" }) {
-  const s = {
-    overdue: { bg: "#3a1a1a", color: "#ff5b5b", border: "#5a2424", label: "OVERDUE" },
-    urgent: { bg: "#3a2c14", color: "#ffb020", border: "#5a4218", label: "URGENT" },
-    soon: { bg: "#1f2a35", color: "#7ec8ff", border: "#2c4458", label: "SOON" },
-  }[status];
+  const s = STATUS_BADGE[status];
   return (
-    <span
-      style={{
-        fontFamily: "var(--font-geist-mono, monospace)",
-        fontSize: 10,
-        letterSpacing: "0.12em",
-        padding: "3px 6px",
-        borderRadius: 2,
-        background: s.bg,
-        color: s.color,
-        border: `1px solid ${s.border}`,
-      }}
-    >
+    <span className={`rounded-[2px] border px-1.5 py-[3px] font-mono text-[10px] tracking-[0.12em] ${s.className}`}>
       {s.label}
     </span>
   );
@@ -414,10 +411,7 @@ function WeeklyChart({
   const gap = 10;
   const totalW = days.length * (barW + gap) - gap;
   return (
-    <svg
-      viewBox={`0 0 ${totalW} ${chartH + 28}`}
-      style={{ width: "100%", overflow: "visible" }}
-    >
+    <svg viewBox={`0 0 ${totalW} ${chartH + 28}`} className="w-full overflow-visible">
       {days.map((day, i) => {
         const barH = Math.max(day.isFuture ? 2 : (day.revenue / maxRev) * chartH, day.revenue > 0 ? 4 : 2);
         const x = i * (barW + gap);
@@ -430,11 +424,7 @@ function WeeklyChart({
                 x={x + barW / 2}
                 y={y - 4}
                 textAnchor="middle"
-                style={{
-                  fontFamily: "var(--font-geist-mono, monospace)",
-                  fontSize: 8,
-                  fill: "var(--muted-foreground)",
-                }}
+                className="fill-muted-foreground font-mono text-[8px]"
               >
                 {fmtGBP(day.revenue)}
               </text>
@@ -444,12 +434,7 @@ function WeeklyChart({
               x={x + barW / 2}
               y={chartH + 16}
               textAnchor="middle"
-              style={{
-                fontFamily: "var(--font-geist-mono, monospace)",
-                fontSize: 10,
-                fill: day.isToday ? "var(--foreground)" : "var(--muted-foreground)",
-                fontWeight: day.isToday ? "600" : "400",
-              }}
+              className={`font-mono text-[10px] ${day.isToday ? "fill-foreground font-semibold" : "fill-muted-foreground"}`}
             >
               {day.label}
             </text>
@@ -483,6 +468,9 @@ export default async function StaffDashboard() {
   const in3Days = new Date(now);
   in3Days.setDate(in3Days.getDate() + 3);
 
+  const eightWeeksAgo = new Date(now);
+  eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 8 * 7);
+
   const [
     customersRes,
     vehiclesRes,
@@ -496,6 +484,9 @@ export default async function StaffDashboard() {
     locationHoursRes,
     uninvoicedJobsRes,
     expiringQuotesRes,
+    customersCreatedRes,
+    vehiclesCreatedRes,
+    remindersSentRes,
   ] = await Promise.all([
     admin
       .from("customers")
@@ -567,6 +558,26 @@ export default async function StaffDashboard() {
       .eq("location_id", ctx.location.id)
       .eq("status", "pending")
       .lte("expires_at", in3Days.toISOString()),
+    // Creation dates feeding the REAL KPI sparklines (the tiles previously
+    // rendered synthetic curves scaled off the current value).
+    admin
+      .from("customers")
+      .select("created_at")
+      .eq("location_id", ctx.location.id)
+      .gte("created_at", eightWeeksAgo.toISOString())
+      .limit(2000),
+    admin
+      .from("vehicles")
+      .select("created_at")
+      .eq("location_id", ctx.location.id)
+      .gte("created_at", eightWeeksAgo.toISOString())
+      .limit(2000),
+    admin
+      .from("reminders")
+      .select("sent_at")
+      .eq("location_id", ctx.location.id)
+      .gte("sent_at", monthStart)
+      .limit(2000),
   ]);
 
   const totalCustomers = customersRes.count ?? 0;
@@ -730,106 +741,90 @@ export default async function StaffDashboard() {
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const firstName = (ctx.user.fullName ?? "").split(" ")[0] || "there";
 
-  const growSpark = (v: number) =>
-    [0.6, 0.65, 0.7, 0.75, 0.82, 0.88, 0.93, 1].map((x) => x * Math.max(v, 1));
-  const flatSpark = (v: number) =>
-    [1, 0.9, 1.05, 0.95, 1.1, 1.0, 0.95, 1].map((x) => x * Math.max(v, 1));
+  // Real sparkline series only — tiles with no queryable history get none.
+  const revenueSpark = weekDays.filter((d) => !d.isFuture).map((d) => d.revenue);
+  const customersSpark = cumulativeWeeklySeries(
+    ((customersCreatedRes.data ?? []) as { created_at: string }[]).map((r) => r.created_at),
+    totalCustomers,
+    now,
+  );
+  const vehiclesSpark = cumulativeWeeklySeries(
+    ((vehiclesCreatedRes.data ?? []) as { created_at: string }[]).map((r) => r.created_at),
+    totalVehicles,
+    now,
+  );
+  const remindersSpark = dailyCountSeries(
+    ((remindersSentRes.data ?? []) as { sent_at: string }[]).map((r) => r.sent_at),
+    new Date(monthStart),
+    now,
+  );
 
   return (
-    <div style={{ color: "var(--foreground)" }}>
+    <div className="text-foreground">
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1
-          style={{
-            fontSize: 26,
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            margin: 0,
-            color: "var(--foreground)",
-            lineHeight: 1.2,
-          }}
-        >
+      <div className="mb-6">
+        <h1 className="m-0 text-[26px] font-semibold leading-[1.2] tracking-[-0.02em] text-foreground">
           {greeting}, {firstName}.{" "}
-          <span style={{ color: "var(--muted-foreground)", fontWeight: 400 }}>
+          <span className="font-normal text-muted-foreground">
             {overdue.length > 0
               ? `${overdue.length} overdue — act now.`
               : "Everything looks good."}
           </span>
         </h1>
-        <p
-          style={{
-            fontSize: 12,
-            color: "var(--muted-foreground)",
-            margin: "6px 0 0",
-            fontFamily: "var(--font-geist-mono, monospace)",
-            letterSpacing: "0.04em",
-          }}
-        >
+        <p className="mt-1.5 mb-0 font-mono text-xs tracking-[0.04em] text-muted-foreground">
           {todayBookings} booked today · {activeJobs} active job{activeJobs !== 1 ? "s" : ""}
           {overdue.length > 0 ? ` · ${overdue.length} MOT/service overdue` : ""}
         </p>
       </div>
 
       {/* 8-tile KPI grid */}
-      <div
-        className="grid grid-cols-2 md:grid-cols-4"
-        style={{
-          gap: 1,
-          background: "var(--border)",
-          border: "1px solid var(--border)",
-          borderRadius: 6,
-          overflow: "hidden",
-          marginBottom: 20,
-        }}
-      >
+      <div className="mb-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border md:grid-cols-4">
         <KpiTile
           label="Revenue · week"
           value={fmtGBP(weekRevenue)}
           delta={weekRevenue > 0 ? "paid invoices" : "no paid invoices yet"}
           positive={weekRevenue > 0}
-          sparkValues={growSpark(Math.max(weekRevenue, 500))}
+          sparkValues={revenueSpark}
         />
         <KpiTile
           label="Customers"
           value={String(totalCustomers)}
-          sparkValues={growSpark(Math.max(totalCustomers, 10))}
+          delta="last 8 weeks"
+          sparkValues={customersSpark}
         />
         <KpiTile
           label="Vehicles"
           value={String(totalVehicles)}
-          sparkValues={growSpark(Math.max(totalVehicles, 10))}
+          delta="last 8 weeks"
+          sparkValues={vehiclesSpark}
         />
         <KpiTile
           label="Overdue"
           value={String(overdue.length)}
           delta={overdue.length > 0 ? "needs attention" : "all clear"}
           positive={overdue.length === 0}
-          sparkValues={flatSpark(Math.max(overdue.length, 1))}
         />
         <KpiTile
           label="Active jobs"
           value={String(activeJobs)}
           delta="open status"
-          sparkValues={flatSpark(Math.max(activeJobs, 1))}
         />
         <KpiTile
           label="Reminders · month"
           value={String(remindersMonth)}
           delta="sent"
           positive={remindersMonth > 0}
-          sparkValues={growSpark(Math.max(remindersMonth, 10))}
+          sparkValues={remindersSpark}
         />
         <KpiTile
           label="Open invoices"
           value={fmtGBP(openInvoicesValue)}
           delta={`${openInvoices.length} outstanding`}
           positive={openInvoices.length === 0}
-          sparkValues={flatSpark(Math.max(openInvoicesValue, 100))}
         />
         <KpiTile
           label="Bookings · today"
           value={String(todayBookings)}
-          sparkValues={flatSpark(Math.max(todayBookings, 1))}
         />
       </div>
 
@@ -837,131 +832,49 @@ export default async function StaffDashboard() {
       <TodaySchedule bookings={todaySchedule} bays={locationBays} now={now} workStart={businessHoursStart} workEnd={businessHoursEnd} />
 
       {/* Two-column: revenue chart + priority list */}
-      <div
-        className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr]"
-        style={{
-          gap: 16,
-          marginTop: 20,
-          marginBottom: 20,
-        }}
-      >
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            padding: 22,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--muted-foreground)",
-              fontFamily: "var(--font-geist-mono, monospace)",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-            }}
-          >
+      <div className="my-5 grid grid-cols-1 gap-4 md:grid-cols-[1.5fr_1fr]">
+        <div className="rounded-md border border-border bg-card p-[22px]">
+          <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             Revenue · this week
           </div>
-          <div
-            style={{
-              fontSize: 18,
-              fontWeight: 600,
-              color: "var(--foreground)",
-              marginTop: 4,
-              marginBottom: 20,
-            }}
-          >
+          <div className="mt-1 mb-5 text-lg font-semibold text-foreground">
             {fmtGBP(weekRevenue)}
-            <span
-              style={{ fontSize: 13, fontWeight: 400, color: "var(--muted-foreground)", marginLeft: 8 }}
-            >
+            <span className="ml-2 text-[13px] font-normal text-muted-foreground">
               paid Mon–Sun
             </span>
           </div>
           <WeeklyChart days={weekDays} />
         </div>
 
-        <div
-          style={{
-            background: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            padding: 22,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--muted-foreground)",
-              fontFamily: "var(--font-geist-mono, monospace)",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              marginBottom: 4,
-            }}
-          >
+        <div className="rounded-md border border-border bg-card p-[22px]">
+          <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
             Priority actions
           </div>
-          <div
-            style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginBottom: 16 }}
-          >
+          <div className="mb-4 text-base font-semibold text-foreground">
             Where to focus now
           </div>
           {priorityItems.map((p, i) => (
             <Link
               key={i}
               href={p.href}
-              style={{
-                textDecoration: "none",
-                display: "grid",
-                gridTemplateColumns: "auto 1fr auto",
-                gap: 12,
-                padding: "12px 0",
-                borderTop: i ? "1px solid var(--border)" : "none",
-                alignItems: "flex-start",
-              }}
+              className={`grid grid-cols-[auto_1fr_auto] items-start gap-3 py-3 no-underline ${i ? "border-t border-border" : ""}`}
             >
-              <span
-                style={{
-                  fontFamily: "var(--font-geist-mono, monospace)",
-                  fontSize: 11,
-                  color: "var(--muted-foreground)",
-                  paddingTop: 2,
-                }}
-              >
+              <span className="pt-0.5 font-mono text-[11px] text-muted-foreground">
                 {p.n}
               </span>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>
+                <div className="text-[13px] font-semibold text-foreground">
                   {p.title}
                 </div>
-                <div
-                  style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 3, lineHeight: 1.5 }}
-                >
+                <div className="mt-[3px] text-xs leading-normal text-muted-foreground">
                   {p.body}
                 </div>
               </div>
-              <div style={{ textAlign: "right", minWidth: 80 }}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-geist-mono, monospace)",
-                    fontSize: 12,
-                    color: "#5fdd9d",
-                    fontWeight: 600,
-                  }}
-                >
+              <div className="min-w-20 text-right">
+                <div className="font-mono text-xs font-semibold text-[#5fdd9d]">
                   {p.impact}
                 </div>
-                <div
-                  style={{
-                    fontFamily: "var(--font-geist-mono, monospace)",
-                    fontSize: 10,
-                    color: "var(--muted-foreground)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                  }}
-                >
+                <div className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
                   {p.urgency}
                 </div>
               </div>
@@ -971,87 +884,32 @@ export default async function StaffDashboard() {
       </div>
 
       {/* Attention queue */}
-      <div
-        style={{
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderRadius: 6,
-        }}
-      >
-        <div
-          style={{
-            padding: "16px 22px",
-            borderBottom: "1px solid var(--border)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 12,
-          }}
-        >
+      <div className="rounded-md border border-border bg-card">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-[22px] py-4">
           <div>
-            <div
-              style={{
-                fontSize: 10,
-                color: "var(--muted-foreground)",
-                fontFamily: "var(--font-geist-mono, monospace)",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-              }}
-            >
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
               Attention queue
             </div>
-            <div
-              style={{ fontSize: 16, fontWeight: 600, color: "var(--foreground)", marginTop: 4 }}
-            >
+            <div className="mt-1 text-base font-semibold text-foreground">
               {overdue.length} overdue · {urgent.length} within 14d ·{" "}
               {attentionVehicles.length - overdue.length - urgent.length} upcoming
             </div>
           </div>
           <Link
             href="/staff/reminders"
-            style={{
-              fontFamily: "var(--font-geist-mono, monospace)",
-              fontSize: 11,
-              color: "#ffb020",
-              textDecoration: "none",
-              padding: "6px 12px",
-              border: "1px solid #3a2c14",
-              borderRadius: 2,
-              background: "#1c1810",
-            }}
+            className="rounded-[2px] border border-[#3a2c14] bg-[#1c1810] px-3 py-1.5 font-mono text-[11px] text-[#ffb020] no-underline"
           >
             Send reminders →
           </Link>
         </div>
 
         {attentionVehicles.length === 0 ? (
-          <div
-            style={{
-              padding: "32px 22px",
-              textAlign: "center",
-              color: "var(--muted-foreground)",
-              fontFamily: "var(--font-geist-mono, monospace)",
-              fontSize: 12,
-            }}
-          >
+          <div className="px-[22px] py-8 text-center font-mono text-xs text-muted-foreground">
             {"// NO VEHICLES DUE WITHIN 60 DAYS"}
           </div>
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "130px 1fr 1fr 100px 100px 90px",
-                padding: "10px 22px",
-                borderBottom: "1px solid var(--border)",
-                fontFamily: "var(--font-geist-mono, monospace)",
-                fontSize: 10,
-                color: "var(--muted-foreground)",
-                letterSpacing: "0.12em",
-                minWidth: 720,
-              }}
-            >
+          <div className="overflow-x-auto">
+            <div className="grid min-w-[720px] grid-cols-[130px_1fr_1fr_100px_100px_90px] border-b border-border px-[22px] py-2.5 font-mono text-[10px] tracking-[0.12em] text-muted-foreground">
               {["REG", "CUSTOMER", "VEHICLE", "MOT", "SERVICE", "STATUS"].map((col) => (
                 <span key={col}>{col}</span>
               ))}
@@ -1073,31 +931,18 @@ export default async function StaffDashboard() {
                 motDays === null ? "—" : motDays < 0 ? `${Math.abs(motDays)}d ago` : `+${motDays}d`;
               const svcLabel =
                 svcDays === null ? "—" : svcDays < 0 ? `${Math.abs(svcDays)}d ago` : `+${svcDays}d`;
-              const motColor =
-                motDays !== null && motDays < 0
-                  ? "#ff5b5b"
-                  : motDays !== null && motDays <= 14
-                  ? "#ffb020"
-                  : "var(--muted-foreground)";
-              const svcColor =
-                svcDays !== null && svcDays < 0
-                  ? "#ff5b5b"
-                  : svcDays !== null && svcDays <= 14
-                  ? "#ffb020"
-                  : "var(--muted-foreground)";
+              const dueClass = (days: number | null) =>
+                days !== null && days < 0
+                  ? "text-[#ff5b5b]"
+                  : days !== null && days <= 14
+                  ? "text-[#ffb020]"
+                  : "text-muted-foreground";
               return (
                 <div
                   key={v.id}
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "130px 1fr 1fr 100px 100px 90px",
-                    padding: "11px 22px",
-                    borderBottom:
-                      i < attentionVehicles.length - 1 ? "1px solid var(--border)" : "none",
-                    alignItems: "center",
-                    fontSize: 13,
-                    minWidth: 720,
-                  }}
+                  className={`grid min-w-[720px] grid-cols-[130px_1fr_1fr_100px_100px_90px] items-center px-[22px] py-[11px] text-[13px] ${
+                    i < attentionVehicles.length - 1 ? "border-b border-border" : ""
+                  }`}
                 >
                   <div>
                     <Plate reg={v.registration} />
@@ -1106,35 +951,19 @@ export default async function StaffDashboard() {
                     {v.customer ? (
                       <Link
                         href={`/staff/customers/${v.customer.id}`}
-                        style={{ color: "var(--foreground)", textDecoration: "none" }}
+                        className="text-foreground no-underline"
                       >
                         {v.customer.full_name ?? "Unnamed"}
                       </Link>
                     ) : (
-                      <span style={{ color: "var(--muted-foreground)" }}>—</span>
+                      <span className="text-muted-foreground">—</span>
                     )}
                   </div>
-                  <div style={{ color: "var(--muted-foreground)" }}>
+                  <div className="text-muted-foreground">
                     {[v.make, v.model].filter(Boolean).join(" ") || "—"}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-geist-mono, monospace)",
-                      fontSize: 12,
-                      color: motColor,
-                    }}
-                  >
-                    {motLabel}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "var(--font-geist-mono, monospace)",
-                      fontSize: 12,
-                      color: svcColor,
-                    }}
-                  >
-                    {svcLabel}
-                  </div>
+                  <div className={`font-mono text-xs ${dueClass(motDays)}`}>{motLabel}</div>
+                  <div className={`font-mono text-xs ${dueClass(svcDays)}`}>{svcLabel}</div>
                   <div>
                     <StatusBadge status={status} />
                   </div>
