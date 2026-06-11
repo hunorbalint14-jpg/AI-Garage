@@ -11,9 +11,15 @@ export function PageIntroSkeleton() {
   return <Bar className="h-3.5 w-72 max-w-[60%]" />;
 }
 
-export function CardGridSkeleton({ count = 4 }: { count?: number }) {
+export function CardGridSkeleton({
+  count = 4,
+  className = "grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4",
+}: {
+  count?: number;
+  className?: string;
+}) {
   return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+    <div className={`grid ${className}`}>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="rounded-xl border border-[#23272f] bg-[#15181d] px-4 py-3">
           <Bar className="h-2.5 w-20" />
