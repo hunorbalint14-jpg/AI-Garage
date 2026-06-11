@@ -27,6 +27,53 @@ type BookingSlot = {
 
 type BayRow = { id: string; name: string; description: string | null };
 
+// Shape of the dashboard_stats RPC payload (one round-trip replacing the
+// previous 15 parallel queries). Series semantics documented in the migration.
+type DashboardStats = {
+  total_customers: number;
+  total_vehicles: number;
+  reminders_month: number;
+  active_jobs: number;
+  uninvoiced_jobs: number;
+  invoices_open: { draft_count: number; draft_total: number; sent_count: number; sent_total: number };
+  expiring_quotes: { count: number; total: number };
+  attention_vehicles: Vehicle[];
+  today_bookings: {
+    id: string;
+    scheduled_at: string;
+    duration_minutes: number | null;
+    type: string;
+    status: string;
+    bay_id: string | null;
+    customer: { id: string; full_name: string | null } | null;
+    vehicle: { registration: string } | null;
+  }[];
+  bays: BayRow[];
+  business_hours: { start: number | null; end: number | null } | null;
+  week_revenue_by_day: Record<string, number>;
+  customers_added_per_week: number[];
+  vehicles_added_per_week: number[];
+  reminders_per_day: number[];
+};
+
+const EMPTY_STATS: DashboardStats = {
+  total_customers: 0,
+  total_vehicles: 0,
+  reminders_month: 0,
+  active_jobs: 0,
+  uninvoiced_jobs: 0,
+  invoices_open: { draft_count: 0, draft_total: 0, sent_count: 0, sent_total: 0 },
+  expiring_quotes: { count: 0, total: 0 },
+  attention_vehicles: [],
+  today_bookings: [],
+  bays: [],
+  business_hours: null,
+  week_revenue_by_day: {},
+  customers_added_per_week: [],
+  vehicles_added_per_week: [],
+  reminders_per_day: [],
+};
+
 const BOOKING_STATUS: Record<string, { bg: string; border: string; accent: string }> = {
   scheduled:   { bg: "var(--muted)", border: "var(--border)", accent: "var(--muted-foreground)" },
   in_progress: { bg: "#3a2c14", border: "#ffb020", accent: "#ffb020" },
@@ -276,35 +323,15 @@ function dueDays(d: string): number {
   return Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-// Cumulative total at the end of each of the last 8 weeks, oldest first,
-// reconstructed by walking back from today's total using the creation dates
-// of rows added in that window.
-function cumulativeWeeklySeries(createdAts: string[], total: number, now: Date): number[] {
-  const WEEKS = 8;
-  const weekMs = 7 * 24 * 60 * 60 * 1000;
-  const addedPerWeek = new Array<number>(WEEKS).fill(0);
-  for (const created of createdAts) {
-    const age = Math.floor((now.getTime() - new Date(created).getTime()) / weekMs);
-    if (age >= 0 && age < WEEKS) addedPerWeek[WEEKS - 1 - age]++;
-  }
-  const series = new Array<number>(WEEKS).fill(0);
+// Cumulative total at the end of each of the last N weeks, oldest first,
+// reconstructed by walking back from today's total using the per-week added
+// counts from dashboard_stats (oldest week first).
+function cumulativeWeeklySeries(addedPerWeek: number[], total: number): number[] {
+  const series = new Array<number>(addedPerWeek.length).fill(0);
   let running = total;
-  for (let i = WEEKS - 1; i >= 0; i--) {
+  for (let i = addedPerWeek.length - 1; i >= 0; i--) {
     series[i] = running;
     running -= addedPerWeek[i];
-  }
-  return series;
-}
-
-// Events per day from `from` up to and including today, oldest first.
-function dailyCountSeries(timestamps: string[], from: Date, now: Date): number[] {
-  const dayMs = 24 * 60 * 60 * 1000;
-  const start = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-  const days = Math.floor((now.getTime() - start.getTime()) / dayMs) + 1;
-  const series = new Array<number>(Math.max(days, 0)).fill(0);
-  for (const ts of timestamps) {
-    const idx = Math.floor((new Date(ts).getTime() - start.getTime()) / dayMs);
-    if (idx >= 0 && idx < series.length) series[idx]++;
   }
   return series;
 }
@@ -471,138 +498,31 @@ export default async function StaffDashboard() {
   const eightWeeksAgo = new Date(now);
   eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 8 * 7);
 
-  const [
-    customersRes,
-    vehiclesRes,
-    remindersMonthRes,
-    attentionRes,
-    openInvoicesRes,
-    activeJobsRes,
-    todayBookingsRes,
-    weekPaidRes,
-    baysRes,
-    locationHoursRes,
-    uninvoicedJobsRes,
-    expiringQuotesRes,
-    customersCreatedRes,
-    vehiclesCreatedRes,
-    remindersSentRes,
-  ] = await Promise.all([
-    admin
-      .from("customers")
-      .select("id", { count: "exact", head: true })
-      .eq("location_id", ctx.location.id),
-    admin
-      .from("vehicles")
-      .select("id", { count: "exact", head: true })
-      .eq("location_id", ctx.location.id),
-    admin
-      .from("reminders")
-      .select("id", { count: "exact", head: true })
-      .eq("location_id", ctx.location.id)
-      .gte("sent_at", monthStart),
-    admin
-      .from("vehicles")
-      .select("id, registration, make, model, mot_expiry, service_due, customer:customers(id, full_name)")
-      .eq("location_id", ctx.location.id)
-      .or(
-        `mot_expiry.lte.${in60.toISOString().split("T")[0]},service_due.lte.${in60.toISOString().split("T")[0]}`,
-      )
-      .order("mot_expiry", { ascending: true })
-      .limit(20),
-    admin
-      .from("invoices")
-      .select("id, total, status")
-      .eq("location_id", ctx.location.id)
-      .in("status", ["draft", "sent"]),
-    admin
-      .from("jobs")
-      .select("id", { count: "exact", head: true })
-      .eq("location_id", ctx.location.id)
-      .eq("status", "open"),
-    admin
-      .from("bookings")
-      .select("id, scheduled_at, duration_minutes, type, status, bay_id, customer:customers(id, full_name), vehicle:vehicles(registration)")
-      .eq("location_id", ctx.location.id)
-      .gte("scheduled_at", `${todayStr}T00:00:00`)
-      .lte("scheduled_at", `${todayStr}T23:59:59`)
-      .order("scheduled_at", { ascending: true }),
-    admin
-      .from("invoices")
-      .select("total, issued_at")
-      .eq("location_id", ctx.location.id)
-      .eq("status", "paid")
-      .gte("issued_at", monday.toISOString().split("T")[0])
-      .lte("issued_at", sunday.toISOString().split("T")[0]),
-    admin
-      .from("bays")
-      .select("id, name, description")
-      .eq("location_id", ctx.location.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
-    admin
-      .from("locations")
-      .select("business_hours_start, business_hours_end")
-      .eq("id", ctx.location.id)
-      .single(),
-    // Finished work that hasn't been billed — the most direct money on the table.
-    admin
-      .from("jobs")
-      .select("id", { count: "exact", head: true })
-      .eq("location_id", ctx.location.id)
-      .eq("status", "complete"),
-    // Pending quotes about to expire — customer goes cold if nobody nudges.
-    admin
-      .from("job_quotes")
-      .select("id, total")
-      .eq("location_id", ctx.location.id)
-      .eq("status", "pending")
-      .lte("expires_at", in3Days.toISOString()),
-    // Creation dates feeding the REAL KPI sparklines (the tiles previously
-    // rendered synthetic curves scaled off the current value).
-    admin
-      .from("customers")
-      .select("created_at")
-      .eq("location_id", ctx.location.id)
-      .gte("created_at", eightWeeksAgo.toISOString())
-      .limit(2000),
-    admin
-      .from("vehicles")
-      .select("created_at")
-      .eq("location_id", ctx.location.id)
-      .gte("created_at", eightWeeksAgo.toISOString())
-      .limit(2000),
-    admin
-      .from("reminders")
-      .select("sent_at")
-      .eq("location_id", ctx.location.id)
-      .gte("sent_at", monthStart)
-      .limit(2000),
-  ]);
+  const statsRes = await admin.rpc("dashboard_stats", {
+    p_location_id: ctx.location.id,
+    p_now: now.toISOString(),
+    p_today_start: `${todayStr}T00:00:00`,
+    p_today_end: `${todayStr}T23:59:59`,
+    p_week_start: monday.toISOString().split("T")[0],
+    p_week_end: sunday.toISOString().split("T")[0],
+    p_due_cutoff: in60.toISOString().split("T")[0],
+    p_quote_cutoff: in3Days.toISOString(),
+    p_month_start: monthStart,
+    p_eight_weeks_ago: eightWeeksAgo.toISOString(),
+  });
+  const stats = (statsRes.data ?? EMPTY_STATS) as DashboardStats;
 
-  const totalCustomers = customersRes.count ?? 0;
-  const totalVehicles = vehiclesRes.count ?? 0;
-  const remindersMonth = remindersMonthRes.count ?? 0;
-  const attentionVehicles = (attentionRes.data ?? []) as unknown as Vehicle[];
-  const openInvoices = openInvoicesRes.data ?? [];
-  const openInvoicesValue = openInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
-  const activeJobs = activeJobsRes.count ?? 0;
-  const uninvoicedJobs = uninvoicedJobsRes.count ?? 0;
-  const expiringQuotes = (expiringQuotesRes.data ?? []) as { id: string; total: number }[];
-  const expiringQuotesValue = expiringQuotes.reduce((sum, q) => sum + Number(q.total), 0);
-  type BookingRow = {
-    id: string;
-    scheduled_at: string;
-    duration_minutes: number | null;
-    type: string;
-    status: string;
-    bay_id: string | null;
-    customer: { id: string; full_name: string | null } | null;
-    vehicle: { registration: string } | null;
-  };
-  const todaySchedule: BookingSlot[] = (
-    (todayBookingsRes.data ?? []) as unknown as BookingRow[]
-  ).map((b) => ({
+  const totalCustomers = stats.total_customers;
+  const totalVehicles = stats.total_vehicles;
+  const remindersMonth = stats.reminders_month;
+  const attentionVehicles = stats.attention_vehicles;
+  const openInvoicesCount = stats.invoices_open.draft_count + stats.invoices_open.sent_count;
+  const openInvoicesValue = Number(stats.invoices_open.draft_total) + Number(stats.invoices_open.sent_total);
+  const activeJobs = stats.active_jobs;
+  const uninvoicedJobs = stats.uninvoiced_jobs;
+  const expiringQuotesCount = stats.expiring_quotes.count;
+  const expiringQuotesValue = Number(stats.expiring_quotes.total);
+  const todaySchedule: BookingSlot[] = stats.today_bookings.map((b) => ({
     id: b.id,
     scheduledAt: b.scheduled_at,
     durationMinutes: b.duration_minutes ?? 60,
@@ -613,17 +533,12 @@ export default async function StaffDashboard() {
     bayId: b.bay_id ?? null,
   }));
   const todayBookings = todaySchedule.length;
-  const locationBays = (baysRes.data ?? []) as BayRow[];
-  const businessHoursStart: number = (locationHoursRes.data as { business_hours_start?: number } | null)?.business_hours_start ?? 8;
-  const businessHoursEnd: number = (locationHoursRes.data as { business_hours_end?: number } | null)?.business_hours_end ?? 18;
-  const weekPaid = weekPaidRes.data ?? [];
+  const locationBays = stats.bays;
+  const businessHoursStart: number = stats.business_hours?.start ?? 8;
+  const businessHoursEnd: number = stats.business_hours?.end ?? 18;
 
-  const revByDay: Record<string, number> = {};
-  for (const inv of weekPaid) {
-    const dateKey = (inv.issued_at as string).split("T")[0];
-    revByDay[dateKey] = (revByDay[dateKey] ?? 0) + Number(inv.total);
-  }
-  const weekRevenue = Object.values(revByDay).reduce((a, b) => a + b, 0);
+  const revByDay = stats.week_revenue_by_day;
+  const weekRevenue = Object.values(revByDay).reduce((a, b) => a + Number(b), 0);
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
@@ -631,7 +546,7 @@ export default async function StaffDashboard() {
     const dateStr = localDateStr(d);
     return {
       label: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i],
-      revenue: revByDay[dateStr] ?? 0,
+      revenue: Number(revByDay[dateStr] ?? 0),
       isToday: dateStr === todayStr,
       isFuture: d > now,
     };
@@ -670,10 +585,10 @@ export default async function StaffDashboard() {
       href: "/staff/jobs",
     });
   }
-  if (expiringQuotes.length > 0) {
+  if (expiringQuotesCount > 0) {
     priorityItems.push({
       n: String(priorityItems.length + 1).padStart(2, "0"),
-      title: `${expiringQuotes.length} quote${expiringQuotes.length !== 1 ? "s" : ""} expiring within 3 days`,
+      title: `${expiringQuotesCount} quote${expiringQuotesCount !== 1 ? "s" : ""} expiring within 3 days`,
       body: "Customer hasn't responded. A nudge now beats a re-quote later.",
       impact: fmtGBP(expiringQuotesValue),
       urgency: "now",
@@ -692,24 +607,23 @@ export default async function StaffDashboard() {
   }
   // Draft invoices were lumped in with sent ones under "chase unpaid" — but a
   // draft has never reached the customer; the action is "send it", not "chase it".
-  const draftInvoices = openInvoices.filter((i) => (i as { status?: string }).status === "draft");
-  const sentInvoices = openInvoices.filter((i) => (i as { status?: string }).status === "sent");
-  if (draftInvoices.length > 0) {
-    const value = draftInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+  const { draft_count: draftCount, sent_count: sentCount } = stats.invoices_open;
+  if (draftCount > 0) {
+    const value = Number(stats.invoices_open.draft_total);
     priorityItems.push({
       n: String(priorityItems.length + 1).padStart(2, "0"),
-      title: `Send ${draftInvoices.length} draft invoice${draftInvoices.length !== 1 ? "s" : ""}`,
+      title: `Send ${draftCount} draft invoice${draftCount !== 1 ? "s" : ""}`,
       body: `Drafted but never sent — the customer can't pay what they haven't seen.`,
       impact: fmtGBP(value),
       urgency: "today",
       href: "/staff/invoices",
     });
   }
-  if (sentInvoices.length > 0) {
-    const value = sentInvoices.reduce((sum, inv) => sum + Number(inv.total), 0);
+  if (sentCount > 0) {
+    const value = Number(stats.invoices_open.sent_total);
     priorityItems.push({
       n: String(priorityItems.length + 1).padStart(2, "0"),
-      title: `Chase ${sentInvoices.length} unpaid invoice${sentInvoices.length !== 1 ? "s" : ""}`,
+      title: `Chase ${sentCount} unpaid invoice${sentCount !== 1 ? "s" : ""}`,
       body: `Total outstanding: ${fmtGBP(value)}. Send friendly chasers.`,
       impact: fmtGBP(value),
       urgency: "today",
@@ -743,21 +657,9 @@ export default async function StaffDashboard() {
 
   // Real sparkline series only — tiles with no queryable history get none.
   const revenueSpark = weekDays.filter((d) => !d.isFuture).map((d) => d.revenue);
-  const customersSpark = cumulativeWeeklySeries(
-    ((customersCreatedRes.data ?? []) as { created_at: string }[]).map((r) => r.created_at),
-    totalCustomers,
-    now,
-  );
-  const vehiclesSpark = cumulativeWeeklySeries(
-    ((vehiclesCreatedRes.data ?? []) as { created_at: string }[]).map((r) => r.created_at),
-    totalVehicles,
-    now,
-  );
-  const remindersSpark = dailyCountSeries(
-    ((remindersSentRes.data ?? []) as { sent_at: string }[]).map((r) => r.sent_at),
-    new Date(monthStart),
-    now,
-  );
+  const customersSpark = cumulativeWeeklySeries(stats.customers_added_per_week, totalCustomers);
+  const vehiclesSpark = cumulativeWeeklySeries(stats.vehicles_added_per_week, totalVehicles);
+  const remindersSpark = stats.reminders_per_day;
 
   return (
     <div className="text-foreground">
@@ -819,8 +721,8 @@ export default async function StaffDashboard() {
         <KpiTile
           label="Open invoices"
           value={fmtGBP(openInvoicesValue)}
-          delta={`${openInvoices.length} outstanding`}
-          positive={openInvoices.length === 0}
+          delta={`${openInvoicesCount} outstanding`}
+          positive={openInvoicesCount === 0}
         />
         <KpiTile
           label="Bookings · today"
