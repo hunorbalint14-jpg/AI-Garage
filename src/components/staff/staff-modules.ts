@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt,
   TrendingUp, Building2, Wrench, Columns, UserCog, FlaskConical, Zap, Package,
   Share2, FileText, ShieldCheck, Truck, ClipboardList, BarChart3, Repeat, CreditCard,
-  Hammer,
+  Hammer, RotateCcw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PermissionKey } from "@/app/staff/staff-members/constants";
@@ -74,6 +74,7 @@ export const NAV_MODULES: NavModule[] = [
     icon: Megaphone,
     items: [
       { key: "campaigns",   href: "/staff/campaigns",   label: "Campaigns",   icon: Megaphone, permission: "campaigns" },
+      { key: "win-back",    href: "/staff/win-back",    label: "Win-back",    icon: RotateCcw, permission: "campaigns" },
       { key: "automations", href: "/staff/automations", label: "Automations", icon: Zap,       permission: "automations" },
     ],
   },
