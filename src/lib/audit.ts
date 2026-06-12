@@ -126,6 +126,9 @@ export type AuditAction =
   | "receptionist.booking_created"
   | "receptionist.handed_off"
   | "receptionist.config_update"
+  // No-show defence
+  | "booking.no_show_charged"
+  | "booking.no_show_charge_failed"
   // DVI / mid-job upsell quotes
   | "quote.create"
   | "quote.send"

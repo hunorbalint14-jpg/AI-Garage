@@ -330,6 +330,126 @@ export async function markNoShow(bookingId: string): Promise<UpdateBookingStatus
   return { success: true };
 }
 
+export type ChargeNoShowResult = { error: string } | { success: true; amountPence: number };
+
+// Charge the org's no-show fee against the card saved at booking time.
+// Always a deliberate staff click — never automatic — and only possible once
+// the booking is already marked no_show.
+export async function chargeNoShowFee(bookingId: string): Promise<ChargeNoShowResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const [{ data: bookingData }, { data: orgData }] = await Promise.all([
+    admin
+      .from("bookings")
+      .select(
+        "id, status, stripe_customer_id, card_payment_method_id, card_on_file_at, no_show_charged_at, customer:customers(full_name)",
+      )
+      .eq("id", bookingId)
+      .eq("location_id", ctx.location.id)
+      .maybeSingle(),
+    admin
+      .from("organizations")
+      .select(
+        "no_show_fee_pence, stripe_account_id, stripe_charges_enabled, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end",
+      )
+      .eq("id", ctx.organization.id)
+      .maybeSingle(),
+  ]);
+
+  type BookingRow = {
+    id: string;
+    status: string;
+    stripe_customer_id: string | null;
+    card_payment_method_id: string | null;
+    card_on_file_at: string | null;
+    no_show_charged_at: string | null;
+    customer: { full_name: string | null } | null;
+  };
+  type OrgRow = {
+    no_show_fee_pence: number;
+    stripe_account_id: string | null;
+    stripe_charges_enabled: boolean | null;
+    tenant_plan: string | null;
+    tenant_subscription_status: string | null;
+    tenant_current_period_end: string | null;
+    tenant_trial_end: string | null;
+  };
+  const booking = bookingData as unknown as BookingRow | null;
+  const org = orgData as OrgRow | null;
+
+  if (!booking) return { error: "Booking not found." };
+  if (booking.status !== "no_show") return { error: "Mark the booking as no-show first." };
+  if (booking.no_show_charged_at) return { error: "The no-show fee was already charged." };
+  if (!booking.stripe_customer_id || !booking.card_payment_method_id) {
+    return { error: "No card on file for this booking." };
+  }
+  if (!org?.stripe_account_id || !org.stripe_charges_enabled) {
+    return { error: "Stripe is not active for this organisation." };
+  }
+  const amountPence = Number(org.no_show_fee_pence) || 0;
+  if (amountPence <= 0) return { error: "No-show fee is not configured in Settings." };
+
+  const { stripe, platformFeePence } = await import("@/lib/stripe");
+  const { effectiveFeePercent } = await import("@/lib/tenant-plans");
+
+  try {
+    const intent = await stripe.paymentIntents.create(
+      {
+        amount: amountPence,
+        currency: "gbp",
+        customer: booking.stripe_customer_id,
+        payment_method: booking.card_payment_method_id,
+        off_session: true,
+        confirm: true,
+        description: "No-show fee",
+        application_fee_amount: platformFeePence(amountPence, effectiveFeePercent(org)),
+        metadata: { booking_id: booking.id, kind: "no_show_fee" },
+      },
+      { stripeAccount: org.stripe_account_id },
+    );
+
+    await admin
+      .from("bookings")
+      .update({
+        no_show_charge_intent_id: intent.id,
+        no_show_charged_at: new Date().toISOString(),
+        no_show_charge_amount_pence: amountPence,
+        no_show_charge_error: null,
+      })
+      .eq("id", booking.id);
+
+    await logAudit({
+      organizationId: ctx.organization.id,
+      action: "booking.no_show_charged",
+      entityType: "booking",
+      entityId: booking.id,
+      metadata: { amount_pence: amountPence, payment_intent: intent.id },
+    });
+
+    revalidatePath(`/staff/bookings/${bookingId}`);
+    return { success: true, amountPence };
+  } catch (err) {
+    // Declines (insufficient funds, expired/blocked card) land here — record
+    // the failure so staff see why and can chase by other means.
+    const message = err instanceof Error ? err.message : "Charge failed";
+    await admin
+      .from("bookings")
+      .update({ no_show_charge_error: message.slice(0, 300) })
+      .eq("id", booking.id);
+    await logAudit({
+      organizationId: ctx.organization.id,
+      action: "booking.no_show_charge_failed",
+      entityType: "booking",
+      entityId: booking.id,
+      metadata: { amount_pence: amountPence, error: message.slice(0, 200) },
+    });
+    revalidatePath(`/staff/bookings/${bookingId}`);
+    return { error: `Charge failed: ${message}` };
+  }
+}
+
 export type AssignBayResult = { error: string } | { success: true };
 
 export async function assignBay(bookingId: string, bayId: string | null): Promise<AssignBayResult> {
