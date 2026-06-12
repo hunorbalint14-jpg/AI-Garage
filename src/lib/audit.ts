@@ -118,6 +118,10 @@ export type AuditAction =
   | "message.send"
   | "winback.send"
   | "winback.dismiss"
+  // Customer finance (Bumper / Payment Assist)
+  | "finance.application_start"
+  | "finance.application_completed"
+  | "finance.config_update"
   // DVI / mid-job upsell quotes
   | "quote.create"
   | "quote.send"

@@ -1,8 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess, type QuoteVerifyReason, type QuoteSource } from "@/lib/quote-links";
 import { createSignedReadUrl } from "@/lib/quote-storage";
+import { getActiveFinanceConfig } from "@/lib/finance";
 import { logAudit } from "@/lib/audit";
 import { QuoteResponse } from "./quote-response";
+import { SpreadTheCost } from "./spread-the-cost";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,10 +57,10 @@ export default async function QuotePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ t?: string }>;
+  searchParams: Promise<{ t?: string; finance?: string }>;
 }) {
   const { slug } = await params;
-  const { t: token } = await searchParams;
+  const { t: token, finance: financeOutcome } = await searchParams;
 
   const verify = await verifyQuoteAccess(slug, token ?? null, ["pending"]);
   if (!verify.ok) {
@@ -102,6 +104,11 @@ export default async function QuotePage({
 
   const videoUrl = quote.video_path ? await createSignedReadUrl(quote.video_path, 1800) : null;
 
+  // "Spread the cost" shows when the org has a finance provider enabled and
+  // the quote clears the configured minimum.
+  const financeConfig = quote.org ? await getActiveFinanceConfig(quote.org.id) : null;
+  const financeAvailable = !!financeConfig && Number(quote.total) >= financeConfig.minAmount;
+
   const org = quote.org;
   const garageName = org?.name ?? quote.location_name ?? "Your garage";
   const customerName = quote.customer?.full_name?.split(" ")[0] ?? "there";
@@ -138,6 +145,16 @@ export default async function QuotePage({
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
+        {financeOutcome === "success" && (
+          <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            Finance application complete — the garage has been notified.
+          </div>
+        )}
+        {financeOutcome === "failed" && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            The finance application didn&apos;t complete. You can try again below or contact the garage.
+          </div>
+        )}
         <section>
           <div className="text-xs font-mono uppercase tracking-wide text-slate-500 mb-1">{eyebrow}</div>
           <h1 className="text-2xl font-bold">{quote.title ?? (isStandalone ? "Quote" : "Quote for extra work")}</h1>
@@ -208,6 +225,15 @@ export default async function QuotePage({
               </tfoot>
             </table>
           </section>
+        )}
+
+        {financeAvailable && financeOutcome !== "success" && (
+          <SpreadTheCost
+            slug={slug}
+            token={token ?? ""}
+            primaryColor={primary}
+            totalFormatted={formatGBP(quote.total)}
+          />
         )}
 
         <QuoteResponse
