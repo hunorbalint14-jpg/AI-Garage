@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { agedBucket, summariseAgedDebtors, rollupProductivity, vatSummary, periodRange } from "./reports";
+import {
+  agedBucket,
+  summariseAgedDebtors,
+  rollupProductivity,
+  vatSummary,
+  periodRange,
+  workingDaysBetween,
+  utilisationSummary,
+} from "./reports";
 
 describe("agedBucket", () => {
   it("buckets by overdue days at the boundaries", () => {
@@ -57,6 +65,66 @@ describe("vatSummary", () => {
         { subtotal: 50, vat_amount: 10, total: 60 },
       ]),
     ).toEqual({ net: 150, vat: 30, gross: 180, count: 2 });
+  });
+});
+
+describe("workingDaysBetween", () => {
+  it("counts Mon–Sat, excludes Sundays", () => {
+    // Mon 2026-06-01 .. Mon 2026-06-08 (exclusive) = Mon–Sat + Sun excluded = 6
+    expect(workingDaysBetween(new Date(2026, 5, 1), new Date(2026, 5, 8))).toBe(6);
+  });
+  it("returns 0 for an empty range", () => {
+    expect(workingDaysBetween(new Date(2026, 5, 1), new Date(2026, 5, 1))).toBe(0);
+  });
+  it("counts a single Sunday as 0", () => {
+    // 2026-06-07 is a Sunday
+    expect(workingDaysBetween(new Date(2026, 5, 7), new Date(2026, 5, 8))).toBe(0);
+  });
+});
+
+describe("utilisationSummary", () => {
+  it("computes sold/worked/capacity and the derived rates", () => {
+    const out = utilisationSummary({
+      workedMinutes: 600, // 10h
+      labourLines: [
+        { quantity: 4, unit_price: 60 }, // 4h × £60
+        { quantity: 4, unit_price: 75 }, // 4h × £75
+      ],
+      techCount: 2,
+      hoursPerDay: 10,
+      workingDays: 1,
+    });
+    expect(out.soldMinutes).toBe(480); // 8h sold
+    expect(out.capacityMinutes).toBe(1200); // 2 × 10h
+    expect(out.labourRevenue).toBe(540);
+    expect(out.utilisationPct).toBe(50); // 600/1200
+    expect(out.efficiencyPct).toBe(80); // 480/600
+    expect(out.revenuePerWorkedHour).toBe(54); // 540 / 10h
+  });
+
+  it("returns nulls instead of dividing by zero", () => {
+    const out = utilisationSummary({
+      workedMinutes: 0,
+      labourLines: [],
+      techCount: 0,
+      hoursPerDay: 10,
+      workingDays: 5,
+    });
+    expect(out.utilisationPct).toBeNull();
+    expect(out.efficiencyPct).toBeNull();
+    expect(out.revenuePerWorkedHour).toBeNull();
+  });
+
+  it("ignores junk quantities and prices", () => {
+    const out = utilisationSummary({
+      workedMinutes: 60,
+      labourLines: [{ quantity: NaN, unit_price: 60 }, { quantity: 2, unit_price: NaN }],
+      techCount: 1,
+      hoursPerDay: 8,
+      workingDays: 1,
+    });
+    expect(out.soldMinutes).toBe(120);
+    expect(out.labourRevenue).toBe(0);
   });
 });
 
