@@ -30,7 +30,7 @@ export async function submitWidgetBooking(
   const { data: location } = await admin
     .from("locations")
     .select(
-      "id, name, organization:organizations(id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
+      "id, name, organization:organizations(id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
     )
     .eq("slug", slug)
     .maybeSingle() as {
@@ -44,6 +44,7 @@ export async function submitWidgetBooking(
         primary_color: string;
         stripe_account_id: string | null;
         stripe_charges_enabled: boolean | null;
+        no_show_fee_pence: number | null;
         tenant_plan: string | null;
         tenant_subscription_status: string | null;
         tenant_current_period_end: string | null;
@@ -350,6 +351,50 @@ export async function submitWidgetBooking(
         subject: `New booking — ${typeLabel} from ${fullName}`,
         text: `New booking via the widget:\n\nCustomer: ${fullName} (${email}${phone ? `, ${phone}` : ""})\nType: ${typeLabel}\nPreferred: ${dateStr}${registration ? `\nVehicle: ${registration}` : ""}${notes ? `\nNotes: ${notes}` : ""}\n\nLog in to view the booking in the staff portal.`,
       });
+    }
+  }
+
+  // No-show defence: when the org sets a fee and the booking wasn't prepaid,
+  // offer a card-save step (Stripe Checkout in setup mode on the connected
+  // account). The booking is confirmed either way — abandoning the card step
+  // never voids the appointment; charging the fee is a manual staff decision.
+  const noShowFeePence = Number(location.organization.no_show_fee_pence ?? 0);
+  if (
+    noShowFeePence > 0 &&
+    location.organization.stripe_account_id &&
+    location.organization.stripe_charges_enabled
+  ) {
+    const feeFmt = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(
+      noShowFeePence / 100,
+    );
+    try {
+      const session = await stripe.checkout.sessions.create(
+        {
+          mode: "setup",
+          customer_creation: "always",
+          customer_email: email,
+          currency: "gbp",
+          metadata: { kind: "no_show_card", booking_id: booking.id },
+          custom_text: {
+            submit: {
+              message: `No payment is taken now. Your card is only charged the ${feeFmt} no-show fee if you miss your appointment without telling ${garageName}.`,
+            },
+          },
+          success_url: `${tenantOrigin(slug)}/book/${booking.id}/card-saved`,
+          cancel_url: `${tenantOrigin(slug)}/book/${booking.id}/card-saved?skipped=1`,
+        },
+        { stripeAccount: location.organization.stripe_account_id },
+      );
+      if (session.url) {
+        await admin
+          .from("bookings")
+          .update({ stripe_checkout_session_id: session.id })
+          .eq("id", booking.id);
+        return { success: true, paymentUrl: session.url };
+      }
+    } catch (err) {
+      // Card-on-file is best effort — never fail a confirmed booking over it.
+      console.error("[book] no-show setup session failed", err);
     }
   }
 
