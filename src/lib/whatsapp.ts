@@ -15,13 +15,16 @@ function toE164(phone: string): string {
 export async function sendWhatsApp({
   to,
   body,
+  from: fromOverride,
 }: {
   to: string;
   body: string;
+  /** Override, "whatsapp:+44..." — e.g. a location's receptionist number. */
+  from?: string;
 }): Promise<SendWhatsAppResult> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_WHATSAPP_FROM; // e.g. "whatsapp:+14155238886"
+  const from = fromOverride ?? process.env.TWILIO_WHATSAPP_FROM; // e.g. "whatsapp:+14155238886"
 
   if (!accountSid || !authToken || !from) {
     return { success: false, error: "WhatsApp not configured." };

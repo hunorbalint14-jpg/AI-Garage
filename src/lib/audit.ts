@@ -122,6 +122,10 @@ export type AuditAction =
   | "finance.application_start"
   | "finance.application_completed"
   | "finance.config_update"
+  // AI receptionist
+  | "receptionist.booking_created"
+  | "receptionist.handed_off"
+  | "receptionist.config_update"
   // DVI / mid-job upsell quotes
   | "quote.create"
   | "quote.send"

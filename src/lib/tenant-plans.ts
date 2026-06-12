@@ -11,7 +11,7 @@ type Admin = ReturnType<typeof createAdminClient>;
 // feature gating + tier-based fee land in PR2/PR3.
 
 export type TierKey = "starter" | "pro" | "growth";
-export type FeatureKey = "xero" | "campaigns" | "automations";
+export type FeatureKey = "xero" | "campaigns" | "automations" | "receptionist";
 
 export type TierConfig = {
   key: TierKey;
@@ -34,7 +34,7 @@ export const TIERS: Record<TierKey, TierConfig> = {
     feePercent: 2.0,
     priceMonthlyEnv: null,
     priceAnnualEnv: null,
-    features: { xero: false, campaigns: false, automations: false },
+    features: { xero: false, campaigns: false, automations: false, receptionist: false },
     maxLocations: 1,
   },
   pro: {
@@ -45,7 +45,7 @@ export const TIERS: Record<TierKey, TierConfig> = {
     feePercent: 1.5,
     priceMonthlyEnv: "STRIPE_TENANT_PRICE_PRO_MONTHLY",
     priceAnnualEnv: "STRIPE_TENANT_PRICE_PRO_ANNUAL",
-    features: { xero: true, campaigns: true, automations: true },
+    features: { xero: true, campaigns: true, automations: true, receptionist: false },
     maxLocations: 3,
   },
   growth: {
@@ -56,7 +56,7 @@ export const TIERS: Record<TierKey, TierConfig> = {
     feePercent: 1.0,
     priceMonthlyEnv: "STRIPE_TENANT_PRICE_GROWTH_MONTHLY",
     priceAnnualEnv: "STRIPE_TENANT_PRICE_GROWTH_ANNUAL",
-    features: { xero: true, campaigns: true, automations: true },
+    features: { xero: true, campaigns: true, automations: true, receptionist: true },
     maxLocations: Number.POSITIVE_INFINITY,
   },
 };
@@ -99,6 +99,7 @@ export const UPGRADE_MESSAGE: Record<FeatureKey, string> = {
   xero: "Xero sync is a Pro feature. Upgrade your plan in Settings → Billing.",
   campaigns: "Campaigns are a Pro feature. Upgrade your plan in Settings → Billing.",
   automations: "Automations are a Pro feature. Upgrade your plan in Settings → Billing.",
+  receptionist: "The AI receptionist is a Growth feature. Upgrade your plan in Settings → Billing.",
 };
 
 // Resolve the env-configured Stripe Price id for a tier + interval (null when not
