@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { returnCourtesyCar } from "./actions";
+import { uploadLoanPhotos } from "./fleet-section";
 
 const INPUT_CLASS =
   "w-full rounded-md border border-black/20 dark:border-white/25 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
@@ -12,6 +14,7 @@ const FUEL_LABELS = ["Empty", "1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "
 export type LoanView = {
   id: string;
   carId: string;
+  jobId: string | null;
   carLabel: string;
   customerName: string;
   customerPhone: string | null;
@@ -26,7 +29,24 @@ export type LoanView = {
   conditionIn: string | null;
   licenceShareCode: string | null;
   agreementName: string | null;
+  photoUrlsOut: string[];
+  photoUrlsIn: string[];
 };
+
+function PhotoStrip({ urls, label }: { urls: string[]; label: string }) {
+  if (urls.length === 0) return null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      {urls.map((url, i) => (
+        <a key={i} href={url} target="_blank" rel="noreferrer">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt={`${label} photo ${i + 1}`} className="h-14 w-14 rounded-md border object-cover" />
+        </a>
+      ))}
+    </div>
+  );
+}
 
 function fmt(iso: string | null): string {
   if (!iso) return "—";
@@ -39,6 +59,7 @@ function fuelLabel(v: number | null): string {
 
 export function LoansSection({ loans }: { loans: LoanView[] }) {
   const [returningId, setReturningId] = useState<string | null>(null);
+  const [returnPhotos, setReturnPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -49,10 +70,23 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
     e.preventDefault();
     setError(null);
     const formData = new FormData(e.currentTarget);
+    const loanId = String(formData.get("loanId") ?? "");
     startTransition(async () => {
+      // Photos first — the loan row still exists either way, and uploading
+      // before the return means the evidence is attached before sign-off.
+      if (returnPhotos.length > 0) {
+        const photoError = await uploadLoanPhotos(loanId, "in", returnPhotos);
+        if (photoError) {
+          setError(photoError);
+          return;
+        }
+      }
       const result = await returnCourtesyCar(formData);
       if ("error" in result) setError(result.error);
-      else setReturningId(null);
+      else {
+        setReturningId(null);
+        setReturnPhotos([]);
+      }
     });
   }
 
@@ -91,6 +125,14 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                       {loan.conditionOut && (
                         <p className="mt-1 text-xs text-muted-foreground">Condition out: {loan.conditionOut}</p>
                       )}
+                      {loan.jobId && (
+                        <p className="mt-1 text-xs">
+                          <Link href={`/staff/jobs/${loan.jobId}`} className="underline">
+                            Linked job →
+                          </Link>
+                        </p>
+                      )}
+                      <PhotoStrip urls={loan.photoUrlsOut} label="Out" />
                     </div>
                     <Button size="sm" variant="outline" onClick={() => setReturningId(isReturning ? null : loan.id)}>
                       {isReturning ? "Close" : "Return car"}
@@ -115,6 +157,17 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                       <label className="text-xs text-muted-foreground sm:col-span-2">
                         Condition / new damage
                         <input name="conditionIn" className={`${INPUT_CLASS} mt-1`} disabled={pending} />
+                      </label>
+                      <label className="text-xs text-muted-foreground sm:col-span-3">
+                        Return photos (up to 6)
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                          className="mt-1 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs"
+                          onChange={(e) => setReturnPhotos(Array.from(e.target.files ?? []).slice(0, 6))}
+                          disabled={pending}
+                        />
                       </label>
                       <div className="sm:col-span-4">
                         <Button type="submit" size="sm" disabled={pending}>
@@ -161,6 +214,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                     </td>
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {loan.conditionIn || "—"}
+                      <PhotoStrip urls={[...loan.photoUrlsOut, ...loan.photoUrlsIn]} label="" />
                     </td>
                   </tr>
                 ))}

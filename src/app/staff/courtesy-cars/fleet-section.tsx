@@ -3,7 +3,46 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { CustomerVehiclePicker } from "@/components/staff/customer-vehicle-picker";
-import { addCourtesyCar, setCourtesyCarActive, checkOutCourtesyCar } from "./actions";
+import {
+  addCourtesyCar,
+  setCourtesyCarActive,
+  checkOutCourtesyCar,
+  prepareLoanPhotoUploads,
+  attachLoanPhotos,
+} from "./actions";
+
+// Mint signed URLs, raw-PUT each file, then attach the verified paths.
+// Exported for the return flow in loans-section.
+export async function uploadLoanPhotos(
+  loanId: string,
+  direction: "out" | "in",
+  files: File[],
+): Promise<string | null> {
+  if (files.length === 0) return null;
+  const prep = await prepareLoanPhotoUploads(
+    loanId,
+    direction,
+    files.map((f) => ({
+      mime: f.type,
+      size: f.size,
+      ext: f.name.split(".").pop() ?? "jpg",
+    })),
+  );
+  if ("error" in prep) return prep.error;
+
+  for (let i = 0; i < prep.uploads.length; i++) {
+    const res = await fetch(prep.uploads[i].url, {
+      method: "PUT",
+      headers: { "Content-Type": files[i].type },
+      body: files[i],
+    });
+    if (!res.ok) return `Photo upload failed (HTTP ${res.status}).`;
+  }
+  const attach = await attachLoanPhotos(loanId, direction, prep.uploads.map((u) => u.path));
+  return "error" in attach ? attach.error : null;
+}
+
+export type OpenJobView = { id: string; customerId: string; label: string };
 
 const INPUT_CLASS =
   "w-full rounded-md border border-black/20 dark:border-white/25 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
@@ -23,16 +62,23 @@ export function FleetSection({
   cars,
   openLoanCarIds,
   agreement,
+  openJobs,
 }: {
   cars: CourtesyCarView[];
   openLoanCarIds: string[];
   agreement: string;
+  openJobs: OpenJobView[];
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [checkoutCarId, setCheckoutCarId] = useState<string | null>(null);
+  const [pickedCustomerId, setPickedCustomerId] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const onLoan = new Set(openLoanCarIds);
+  const customerJobs = pickedCustomerId
+    ? openJobs.filter((j) => j.customerId === pickedCustomerId)
+    : [];
 
   function handleAdd(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,8 +109,21 @@ export function FleetSection({
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await checkOutCourtesyCar(formData);
-      if ("error" in result) setError(result.error);
-      else setCheckoutCarId(null);
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      // Loan exists; photos are best-effort on top.
+      if (photos.length > 0) {
+        const photoError = await uploadLoanPhotos(result.loanId, "out", photos);
+        if (photoError) {
+          setError(`Checked out, but photos failed: ${photoError}`);
+          return;
+        }
+      }
+      setCheckoutCarId(null);
+      setPhotos([]);
+      setPickedCustomerId(null);
     });
   }
 
@@ -172,7 +231,24 @@ export function FleetSection({
           </div>
           <input type="hidden" name="carId" value={checkoutCar.id} />
 
-          <CustomerVehiclePicker hideVehicleUntilCustomer customerLabel="Customer *" vehicleLabel="" />
+          <CustomerVehiclePicker
+            hideVehicleUntilCustomer
+            customerLabel="Customer *"
+            vehicleLabel=""
+            onCustomerChange={(c) => setPickedCustomerId(c?.id ?? null)}
+          />
+
+          {customerJobs.length > 0 && (
+            <label className="text-xs text-muted-foreground">
+              Linked job (optional)
+              <select name="jobId" className={`${INPUT_CLASS} mt-1`} defaultValue="" disabled={pending}>
+                <option value="">No linked job</option>
+                {customerJobs.map((j) => (
+                  <option key={j.id} value={j.id}>{j.label}</option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-4">
             <label className="text-xs text-muted-foreground">
@@ -205,6 +281,21 @@ export function FleetSection({
           <label className="text-xs text-muted-foreground">
             Condition / existing damage
             <textarea name="conditionOut" rows={2} className={`${INPUT_CLASS} mt-1 resize-none`} disabled={pending} />
+          </label>
+
+          <label className="text-xs text-muted-foreground">
+            Condition photos (up to 6)
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              className="mt-1 block w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-xs"
+              onChange={(e) => setPhotos(Array.from(e.target.files ?? []).slice(0, 6))}
+              disabled={pending}
+            />
+            {photos.length > 0 && (
+              <span className="mt-1 block text-xs">{photos.length} photo{photos.length === 1 ? "" : "s"} selected</span>
+            )}
           </label>
 
           <div className="rounded-md border bg-muted/30 p-3">

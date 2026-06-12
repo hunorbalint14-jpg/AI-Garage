@@ -7,8 +7,14 @@ vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const { requireStaffContext } = await import("@/lib/staff-context");
-const { addCourtesyCar, setCourtesyCarActive, checkOutCourtesyCar, returnCourtesyCar } =
-  await import("./actions");
+const {
+  addCourtesyCar,
+  setCourtesyCarActive,
+  checkOutCourtesyCar,
+  returnCourtesyCar,
+  prepareLoanPhotoUploads,
+  attachLoanPhotos,
+} = await import("./actions");
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -19,6 +25,8 @@ describe.each([
   ["setCourtesyCarActive", () => setCourtesyCarActive("c1", false)],
   ["checkOutCourtesyCar", () => checkOutCourtesyCar(emptyForm())],
   ["returnCourtesyCar", () => returnCourtesyCar(emptyForm())],
+  ["prepareLoanPhotoUploads", () => prepareLoanPhotoUploads("l1", "out", [{ mime: "image/jpeg", size: 1, ext: "jpg" }])],
+  ["attachLoanPhotos", () => attachLoanPhotos("l1", "out", ["p"])],
 ])("%s denies without bookings perm", (_name, run) => {
   it("returns Permission denied", async () => {
     vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ bookings: false }));
