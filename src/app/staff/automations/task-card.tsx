@@ -27,13 +27,14 @@ type Task = {
   next_run_at: string | null;
 };
 
-const TASK_META: Record<TaskType, { label: string; description: string; audience: "customer" | "staff"; hasRemindDays: boolean; hasChannels: boolean; hasWindowDays: boolean }> = {
-  mot_reminders:     { label: "MOT reminders",      description: "Send customers a personalised AI reminder before their MOT expires.",          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
-  service_reminders: { label: "Service reminders",  description: "Remind customers when their vehicle service is due.",                          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
-  tax_reminders:     { label: "Road tax reminders", description: "Alert customers when their road tax (VED) renewal is due.",                    audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false },
-  invoice_dunning:   { label: "Overdue invoice reminders", description: "Email customers an escalating reminder (with a Pay-now link) when an invoice is overdue, until it's paid.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false },
-  review_requests:   { label: "Review requests", description: "After a job is completed, email the customer for feedback — happy ratings go to your Google review page, unhappy ones are flagged privately to staff.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false },
-  weekly_digest:     { label: "Weekly staff digest","description": "Email org owners/admins a summary of upcoming MOTs and services.",            audience: "staff",    hasRemindDays: false, hasChannels: false, hasWindowDays: true  },
+const TASK_META: Record<TaskType, { label: string; description: string; audience: "customer" | "staff"; hasRemindDays: boolean; hasChannels: boolean; hasWindowDays: boolean; hasHoursBefore: boolean }> = {
+  mot_reminders:     { label: "MOT reminders",      description: "Send customers a personalised AI reminder before their MOT expires.",          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
+  service_reminders: { label: "Service reminders",  description: "Remind customers when their vehicle service is due.",                          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
+  tax_reminders:     { label: "Road tax reminders", description: "Alert customers when their road tax (VED) renewal is due.",                    audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
+  booking_confirmations: { label: "Booking confirmations", description: "The day before each booking, ask the customer to confirm or request a new time with one tap — fewer no-shows, earlier warning when plans change.", audience: "customer", hasRemindDays: false, hasChannels: true, hasWindowDays: false, hasHoursBefore: true },
+  invoice_dunning:   { label: "Overdue invoice reminders", description: "Email customers an escalating reminder (with a Pay-now link) when an invoice is overdue, until it's paid.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false, hasHoursBefore: false },
+  review_requests:   { label: "Review requests", description: "After a job is completed, email the customer for feedback — happy ratings go to your Google review page, unhappy ones are flagged privately to staff.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false, hasHoursBefore: false },
+  weekly_digest:     { label: "Weekly staff digest","description": "Email org owners/admins a summary of upcoming MOTs and services.",            audience: "staff",    hasRemindDays: false, hasChannels: false, hasWindowDays: true,  hasHoursBefore: false },
 };
 
 export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
@@ -41,6 +42,7 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
   const [enabled, setEnabled] = useState(task.enabled);
   const [remindDays, setRemindDays] = useState<number>((task.settings.remind_days_before as number) ?? 30);
   const [windowDays, setWindowDays] = useState<number>((task.settings.window_days as number) ?? 30);
+  const [hoursBefore, setHoursBefore] = useState<number>((task.settings.hours_before as number) ?? 24);
   const [channels, setChannels] = useState<string[]>((task.settings.channels as string[]) ?? ["email", "sms"]);
   const [frequency, setFrequency] = useState<Frequency>(task.frequency);
   const [hour, setHour] = useState<number>(task.hour);
@@ -72,7 +74,9 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
     setSaved(false);
     const settings: TaskSettings = meta.hasRemindDays
       ? { remind_days_before: remindDays, channels }
-      : { window_days: windowDays };
+      : meta.hasHoursBefore
+        ? { hours_before: hoursBefore, channels }
+        : { window_days: windowDays };
     startTransition(async () => {
       const [settingsRes, scheduleRes] = await Promise.all([
         updateTaskSettings(task.id, settings),
@@ -198,6 +202,21 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
                 className="w-20 rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
               />
               <span className="text-xs text-muted-foreground">days</span>
+            </div>
+          )}
+          {meta.hasHoursBefore && (
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-muted-foreground w-36">Send hours before</label>
+              <input
+                type="number"
+                min={2}
+                max={72}
+                value={hoursBefore}
+                onChange={(e) => setHoursBefore(Number(e.target.value))}
+                disabled={!canEdit}
+                className="w-20 rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
+              />
+              <span className="text-xs text-muted-foreground">hours</span>
             </div>
           )}
           {meta.hasWindowDays && (

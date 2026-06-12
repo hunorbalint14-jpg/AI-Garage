@@ -1,7 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { STATUS_STYLE, statusLabel, typeLabel, type BookingRow } from "./booking-display";
+import {
+  STATUS_STYLE,
+  statusLabel,
+  typeLabel,
+  confirmationState,
+  confirmationLabel,
+  CONFIRMATION_STYLE,
+  type BookingRow,
+} from "./booking-display";
 
 export type BookingListRow = BookingRow & { technicianName: string | null };
 
@@ -51,6 +59,7 @@ export function BookingTable({ rows }: { rows: BookingListRow[] }) {
                 <td className="px-4 py-2.5 text-muted-foreground">{b.duration_minutes} min</td>
                 <td className="px-4 py-2.5">
                   <StatusPill status={b.status} />
+                  <ConfirmationPill booking={b} />
                 </td>
               </tr>
             ))}
@@ -68,7 +77,10 @@ export function BookingTable({ rows }: { rows: BookingListRow[] }) {
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="font-medium">{fmtDateTime(b.scheduled_at)}</span>
-                <StatusPill status={b.status} />
+                <span className="flex items-center gap-1">
+                  <StatusPill status={b.status} />
+                  <ConfirmationPill booking={b} />
+                </span>
               </div>
               <div className="mt-1.5 flex items-center gap-2 text-sm">
                 <span>{b.customer?.full_name ?? "—"}</span>
@@ -98,6 +110,18 @@ function StatusPill({ status }: { status: string }) {
       }`}
     >
       {statusLabel(status)}
+    </span>
+  );
+}
+
+function ConfirmationPill({ booking }: { booking: BookingRow }) {
+  const state = confirmationState(booking);
+  if (!state) return null;
+  return (
+    <span
+      className={`ml-1 inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${CONFIRMATION_STYLE[state]}`}
+    >
+      {confirmationLabel(state)}
     </span>
   );
 }

@@ -9,9 +9,35 @@ export type BookingRow = {
   status: string;
   notes: string | null;
   assigned_to: string | null;
+  confirmation_sent_at: string | null;
+  confirmed_at: string | null;
+  reschedule_requested_at: string | null;
   customer: { id: string; full_name: string | null } | null;
   vehicle: { registration: string } | null;
 };
+
+// T-24h confirmation state, shown only for upcoming scheduled bookings.
+export type ConfirmationState = "confirmed" | "reschedule_requested" | "awaiting" | null;
+
+export function confirmationState(b: BookingRow): ConfirmationState {
+  if (b.status !== "scheduled") return null;
+  if (b.reschedule_requested_at) return "reschedule_requested";
+  if (b.confirmed_at) return "confirmed";
+  if (b.confirmation_sent_at) return "awaiting";
+  return null;
+}
+
+export const CONFIRMATION_STYLE: Record<Exclude<ConfirmationState, null>, string> = {
+  confirmed: "bg-green-100 text-green-700",
+  reschedule_requested: "bg-amber-100 text-amber-700",
+  awaiting: "bg-gray-100 text-gray-600",
+};
+
+export function confirmationLabel(s: Exclude<ConfirmationState, null>): string {
+  if (s === "confirmed") return "Confirmed";
+  if (s === "reschedule_requested") return "Wants new time";
+  return "Awaiting reply";
+}
 
 export const STATUS_STYLE: Record<string, string> = {
   scheduled: "bg-blue-100 text-blue-700",

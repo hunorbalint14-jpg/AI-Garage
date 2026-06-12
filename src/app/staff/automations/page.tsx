@@ -19,7 +19,7 @@ type ScheduledTask = {
   next_run_at: string | null;
 };
 
-const TASK_ORDER: TaskType[] = ["mot_reminders", "service_reminders", "tax_reminders", "invoice_dunning", "review_requests", "weekly_digest"];
+const TASK_ORDER: TaskType[] = ["mot_reminders", "service_reminders", "tax_reminders", "booking_confirmations", "invoice_dunning", "review_requests", "weekly_digest"];
 
 export default async function AutomationsPage() {
   const ctx = await requireStaffContext();
