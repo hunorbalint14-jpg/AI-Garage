@@ -116,6 +116,8 @@ export type AuditAction =
   | "reminder.send"
   | "campaign.send"
   | "message.send"
+  | "winback.send"
+  | "winback.dismiss"
   // DVI / mid-job upsell quotes
   | "quote.create"
   | "quote.send"
