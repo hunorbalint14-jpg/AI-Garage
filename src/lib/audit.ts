@@ -129,6 +129,11 @@ export type AuditAction =
   // No-show defence
   | "booking.no_show_charged"
   | "booking.no_show_charge_failed"
+  // Courtesy cars
+  | "courtesy_car.create"
+  | "courtesy_car.update"
+  | "courtesy_car.checkout"
+  | "courtesy_car.return"
   // DVI / mid-job upsell quotes
   | "quote.create"
   | "quote.send"
