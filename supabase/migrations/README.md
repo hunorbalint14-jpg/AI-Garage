@@ -35,8 +35,11 @@ already applied on prod: `supabase migration repair --status applied <version>`.
 
 ## Conventions
 
-- New tables ship with RLS policies using `is_org_member()` / `is_org_owner()`
-  / `is_location_member()` (see CLAUDE.md).
+- New tables ship with RLS policies using `private.is_org_member()` /
+  `private.is_org_owner()` / `private.is_location_member()` (see CLAUDE.md).
+  The helpers moved out of the API-exposed `public` schema in
+  `20260612160000` — schema-qualify them in new policies. Wrap `auth.uid()`
+  as `(select auth.uid())` and scope policies `to authenticated`.
 - Functions callable only by the backend follow the `platform_db_health`
   pattern: `revoke all … from public, anon, authenticated; grant execute … to
   service_role`.
