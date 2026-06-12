@@ -21,6 +21,10 @@ type Booking = {
   customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
   vehicle: { id: string; registration: string; make: string | null; model: string | null; year: number | null } | null;
   location_id: string;
+  card_on_file_at: string | null;
+  no_show_charged_at: string | null;
+  no_show_charge_amount_pence: number | null;
+  no_show_charge_error: string | null;
 };
 
 type LinkedJob = { id: string; status: string; completed_at: string | null };
@@ -57,7 +61,7 @@ export default async function BookingDetailPage({
     admin
       .from("bookings")
       .select(
-        "id, scheduled_at, duration_minutes, type, status, notes, created_at, location_id, bay_id, assigned_to, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
+        "id, scheduled_at, duration_minutes, type, status, notes, created_at, location_id, bay_id, assigned_to, card_on_file_at, no_show_charged_at, no_show_charge_amount_pence, no_show_charge_error, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -74,6 +78,13 @@ export default async function BookingDetailPage({
       .order("created_at", { ascending: true }),
     listLocationStaff(ctx.location.id, ctx.organization.id),
   ]);
+
+  const { data: orgFeeRow } = await admin
+    .from("organizations")
+    .select("no_show_fee_pence")
+    .eq("id", ctx.organization.id)
+    .maybeSingle();
+  const noShowFeePence = Number((orgFeeRow as { no_show_fee_pence?: number } | null)?.no_show_fee_pence ?? 0);
 
   const booking = bookingRes.data as Booking | null;
   if (!booking || booking.location_id !== ctx.location.id) notFound();
@@ -198,6 +209,11 @@ export default async function BookingDetailPage({
         status={booking.status}
         hasJob={!!job}
         jobId={job?.id}
+        cardOnFile={!!booking.card_on_file_at}
+        noShowFeePence={noShowFeePence}
+        noShowChargedAt={booking.no_show_charged_at}
+        noShowChargeAmountPence={booking.no_show_charge_amount_pence}
+        noShowChargeError={booking.no_show_charge_error}
       />
     </div>
   );

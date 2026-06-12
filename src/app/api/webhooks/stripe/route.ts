@@ -177,6 +177,42 @@ async function handleStripeEvent(
         break;
       }
 
+      // No-show card-on-file: setup-mode session, nothing was paid. Resolve
+      // the SetupIntent on the connected account and stamp the booking with
+      // the saved payment method + customer for a later off-session charge.
+      if (session.metadata?.kind === "no_show_card" && session.mode === "setup") {
+        const cardBookingId = session.metadata?.booking_id;
+        const setupIntentId =
+          typeof session.setup_intent === "string" ? session.setup_intent : session.setup_intent?.id;
+        if (cardBookingId && setupIntentId && event.account) {
+          const setupIntent = await stripe.setupIntents.retrieve(setupIntentId, undefined, {
+            stripeAccount: event.account,
+          });
+          const paymentMethodId =
+            typeof setupIntent.payment_method === "string"
+              ? setupIntent.payment_method
+              : setupIntent.payment_method?.id ?? null;
+          const customerId =
+            typeof session.customer === "string" ? session.customer : session.customer?.id ?? null;
+          if (paymentMethodId && customerId) {
+            const { error } = await admin
+              .from("bookings")
+              .update({
+                stripe_customer_id: customerId,
+                stripe_setup_intent_id: setupIntentId,
+                card_payment_method_id: paymentMethodId,
+                card_on_file_at: new Date().toISOString(),
+              })
+              .eq("id", cardBookingId);
+            console.log("[stripe-webhook] no_show_card saved", {
+              bookingId: cardBookingId,
+              error: error?.message,
+            });
+          }
+        }
+        break;
+      }
+
       const invoiceId = session.metadata?.invoice_id;
       const bookingId = session.metadata?.booking_id;
       const quoteId = session.metadata?.quote_id;
