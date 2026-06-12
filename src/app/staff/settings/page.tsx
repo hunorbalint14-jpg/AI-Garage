@@ -9,6 +9,8 @@ import { PaymentsSection } from "./payments-section";
 import { QuoteDepositSection } from "./quote-deposit-section";
 import { QuoteValiditySection } from "./quote-validity-section";
 import { XeroSection } from "./xero-section";
+import { FinanceSection } from "./finance-section";
+import type { FinanceConfigView } from "./finance-actions";
 import { SettingsTabs, isSettingsTab } from "./settings-tabs";
 
 type LocationRow = { id: string; slug: string; name: string; created_at: string };
@@ -27,7 +29,7 @@ export default async function SettingsPage({
   const ctx = await requireStaffContext();
 
   const admin = createAdminClient();
-  const [orgRes, locationsRes, currentLocRes, passkeysRes] = await Promise.all([
+  const [orgRes, locationsRes, currentLocRes, passkeysRes, financeRes] = await Promise.all([
     admin
       .from("organizations")
       .select("name, primary_color, logo_url, slug, custom_domain, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days")
@@ -48,6 +50,12 @@ export default async function SettingsPage({
       .select("credential_id, device_name, created_at, last_used_at")
       .eq("user_id", ctx.user.id)
       .order("created_at", { ascending: false }),
+    admin
+      .from("finance_provider_configs")
+      .select("provider, enabled, demo_mode, min_amount, api_key_encrypted, secret_encrypted")
+      .eq("organization_id", ctx.organization.id)
+      .eq("provider", "bumper")
+      .maybeSingle(),
   ]);
 
   const org = orgRes.data;
@@ -58,6 +66,19 @@ export default async function SettingsPage({
 
   const stripeAccountId = (org as { stripe_account_id?: string | null } | null)?.stripe_account_id;
   const stripeChargesEnabled = !!(org as { stripe_charges_enabled?: boolean } | null)?.stripe_charges_enabled;
+
+  type FinanceRow = { provider: "bumper"; enabled: boolean; demo_mode: boolean; min_amount: number; api_key_encrypted: string | null; secret_encrypted: string | null };
+  const financeRow = financeRes.data as FinanceRow | null;
+  // Credentials are write-only: the client only learns whether they exist.
+  const financeView: FinanceConfigView | null = financeRow
+    ? {
+        provider: financeRow.provider,
+        enabled: financeRow.enabled,
+        demoMode: financeRow.demo_mode,
+        minAmount: Number(financeRow.min_amount) || 0,
+        hasCredentials: !!(financeRow.api_key_encrypted && financeRow.secret_encrypted),
+      }
+    : null;
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
@@ -143,6 +164,8 @@ export default async function SettingsPage({
             initialDays={Number((org as { quote_validity_days?: number | null } | null)?.quote_validity_days ?? 30)}
             canManage={isOwner}
           />
+
+          <FinanceSection initial={financeView} canManage={isOwner} />
         </>
       )}
 
