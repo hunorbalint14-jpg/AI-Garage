@@ -15,13 +15,16 @@ function toE164(phone: string): string {
 export async function sendSms({
   to,
   body,
+  from: fromOverride,
 }: {
   to: string;
   body: string;
+  /** Override the platform number — e.g. a location's receptionist number. */
+  from?: string;
 }): Promise<SendSmsResult> {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const from = process.env.TWILIO_FROM_NUMBER;
+  const from = fromOverride ?? process.env.TWILIO_FROM_NUMBER;
 
   if (!accountSid || !authToken || !from) {
     return { success: false, error: "Twilio not configured." };
