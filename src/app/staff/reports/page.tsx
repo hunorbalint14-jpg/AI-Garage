@@ -9,10 +9,13 @@ import {
   rollupProductivity,
   vatSummary,
   periodRange,
+  workingDaysBetween,
+  utilisationSummary,
   AGED_BUCKETS,
   PERIODS,
   type AgedBucketKey,
   type TimeEntryLite,
+  type LabourLineLite,
 } from "@/lib/reports";
 import { PeriodSelector } from "./period-selector";
 
@@ -58,7 +61,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
   const admin = createAdminClient();
 
-  const [unpaidRes, paidRes, entriesRes, staff] = await Promise.all([
+  const [unpaidRes, paidRes, entriesRes, staff, locationRes] = await Promise.all([
     admin
       .from("invoices")
       .select("id, invoice_number, total, due_at, customer:customers(full_name)")
@@ -67,7 +70,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       .order("due_at", { ascending: true }),
     admin
       .from("invoices")
-      .select("subtotal, vat_amount, total")
+      .select("subtotal, vat_amount, total, job_id")
       .eq("location_id", ctx.location.id)
       .eq("status", "paid")
       .gte("paid_at", fromIso)
@@ -80,6 +83,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       .gte("started_at", fromIso)
       .lt("started_at", toIso),
     listLocationStaff(ctx.location.id, ctx.organization.id),
+    admin
+      .from("locations")
+      .select("business_hours_start, business_hours_end")
+      .eq("id", ctx.location.id)
+      .maybeSingle(),
   ]);
 
   // --- Aged debtors ---
@@ -89,7 +97,22 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const totalOutstanding = AGED_BUCKETS.reduce((s, k) => s + aged[k].total, 0);
 
   // --- VAT ---
-  const vat = vatSummary((paidRes.data ?? []) as { subtotal: number; vat_amount: number; total: number }[]);
+  type PaidRow = { subtotal: number; vat_amount: number; total: number; job_id: string | null };
+  const paidRows = (paidRes.data ?? []) as PaidRow[];
+  const vat = vatSummary(paidRows);
+
+  // --- Workshop utilisation ---
+  // Hours sold = labour-line hours on jobs whose invoice was paid this period.
+  const paidJobIds = [...new Set(paidRows.map((r) => r.job_id).filter(Boolean))] as string[];
+  let labourLines: LabourLineLite[] = [];
+  if (paidJobIds.length > 0) {
+    const { data: soldItems } = await admin
+      .from("job_items")
+      .select("quantity, unit_price")
+      .in("job_id", paidJobIds)
+      .eq("type", "labour");
+    labourLines = (soldItems ?? []) as LabourLineLite[];
+  }
 
   // --- Productivity ---
   const entries = (entriesRes.data ?? []) as { user_id: string; job_id: string; duration_minutes: number }[];
@@ -110,6 +133,17 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
   const lite: TimeEntryLite[] = entries.map((e) => ({ userId: e.user_id, jobId: e.job_id, minutes: e.duration_minutes }));
   const productivity = rollupProductivity(lite, estimateByJob);
+
+  const hours = locationRes?.data as { business_hours_start: number; business_hours_end: number } | null;
+  const hoursPerDay = Math.max(0, (hours?.business_hours_end ?? 18) - (hours?.business_hours_start ?? 8));
+  // Live periods (this month/quarter/ytd) clamp to today — future days aren't
+  // missed capacity yet.
+  const capacityEnd = to > now ? now : to;
+  const workingDays = workingDaysBetween(from, capacityEnd);
+  const techCount = new Set(entries.map((e) => e.user_id)).size;
+  const workedMinutes = entries.reduce((s, e) => s + e.duration_minutes, 0);
+  const util = utilisationSummary({ workedMinutes, labourLines, techCount, hoursPerDay, workingDays });
+  const fmtHours = (mins: number) => `${Math.round((mins / 60) * 10) / 10}h`;
   const nameMap = new Map(staff.map((s) => [s.id, s.name]));
   const prodRows = [...productivity.entries()]
     .map(([userId, row]) => ({ name: nameMap.get(userId) ?? "Staff", ...row }))
@@ -168,6 +202,41 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <StatCard label="VAT collected" value={fmt(vat.vat)} accent="text-amber-600" />
           <StatCard label="Gross" value={fmt(vat.gross)} />
         </div>
+      </section>
+
+      {/* Workshop utilisation */}
+      <section className="flex flex-col gap-3">
+        <h3 className="text-sm font-medium">Workshop utilisation</h3>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <StatCard
+            label="Hours sold"
+            value={fmtHours(util.soldMinutes)}
+            sub="labour lines on paid invoices"
+          />
+          <StatCard label="Hours worked" value={fmtHours(util.workedMinutes)} sub="clocked on jobs" />
+          <StatCard
+            label="Utilisation"
+            value={util.utilisationPct !== null ? `${util.utilisationPct}%` : "—"}
+            sub={`worked ÷ capacity (${techCount} tech${techCount === 1 ? "" : "s"} × ${hoursPerDay}h × ${workingDays} days)`}
+            accent={util.utilisationPct !== null && util.utilisationPct < 50 ? "text-amber-600" : ""}
+          />
+          <StatCard
+            label="Efficiency"
+            value={util.efficiencyPct !== null ? `${util.efficiencyPct}%` : "—"}
+            sub="sold ÷ worked"
+            accent={util.efficiencyPct !== null && util.efficiencyPct < 80 ? "text-amber-600" : ""}
+          />
+          <StatCard
+            label="£ / worked hour"
+            value={util.revenuePerWorkedHour !== null ? fmt(util.revenuePerWorkedHour) : "—"}
+            sub={`${fmt(util.labourRevenue)} labour revenue`}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Capacity assumes a Mon–Sat week at this location&apos;s business hours, counting only technicians
+          who clocked time in the period. Hours sold come from labour lines on jobs invoiced and paid in
+          the period.
+        </p>
       </section>
 
       {/* Technician productivity */}

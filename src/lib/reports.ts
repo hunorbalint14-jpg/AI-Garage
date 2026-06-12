@@ -74,6 +74,74 @@ export function rollupProductivity(
   return result;
 }
 
+// --- Workshop utilisation ---------------------------------------------------
+
+// Working days (Mon–Sat) in [from, to). UK garages typically run a 6-day
+// week; capacity built on this is a labelled estimate, not gospel.
+export function workingDaysBetween(from: Date, to: Date): number {
+  let days = 0;
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  while (d < to) {
+    if (d.getDay() !== 0) days++;
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+export type LabourLineLite = { quantity: number; unit_price: number };
+
+export type UtilisationInput = {
+  /** Clocked technician minutes in the period (job_time_entries). */
+  workedMinutes: number;
+  /** Labour-line hours on invoices paid in the period ("hours sold"). */
+  labourLines: LabourLineLite[];
+  /** Distinct technicians who clocked time in the period. */
+  techCount: number;
+  /** Business hours per day (locations.business_hours_end − start). */
+  hoursPerDay: number;
+  /** Working days elapsed in the period (clamped to today for live periods). */
+  workingDays: number;
+};
+
+export type UtilisationSummary = {
+  soldMinutes: number;
+  workedMinutes: number;
+  capacityMinutes: number;
+  labourRevenue: number;
+  /** worked ÷ capacity — how much of the open doors got clocked. */
+  utilisationPct: number | null;
+  /** sold ÷ worked — how much clocked time turned into invoiced labour. */
+  efficiencyPct: number | null;
+  /** labour £ ÷ worked hours. */
+  revenuePerWorkedHour: number | null;
+};
+
+export function utilisationSummary(input: UtilisationInput): UtilisationSummary {
+  let soldHours = 0;
+  let labourRevenue = 0;
+  for (const line of input.labourLines) {
+    const qty = Number(line.quantity) || 0;
+    soldHours += qty;
+    labourRevenue += qty * (Number(line.unit_price) || 0);
+  }
+  const soldMinutes = Math.round(soldHours * 60);
+  const capacityMinutes = Math.round(input.techCount * input.hoursPerDay * input.workingDays * 60);
+  const workedHours = input.workedMinutes / 60;
+
+  const pct = (num: number, denom: number): number | null =>
+    denom > 0 ? Math.round((num / denom) * 100) : null;
+
+  return {
+    soldMinutes,
+    workedMinutes: input.workedMinutes,
+    capacityMinutes,
+    labourRevenue: round2(labourRevenue),
+    utilisationPct: pct(input.workedMinutes, capacityMinutes),
+    efficiencyPct: pct(soldMinutes, input.workedMinutes),
+    revenuePerWorkedHour: workedHours > 0 ? round2(labourRevenue / workedHours) : null,
+  };
+}
+
 // --- VAT summary ----------------------------------------------------------
 
 export type PaidInvoiceLite = { subtotal: number; vat_amount: number; total: number };
