@@ -30,7 +30,7 @@ Multi-tenant SaaS for UK garages. Next.js 16 App Router + TypeScript + Tailwind 
 - **Customer-facing** — [src/app/(customer)/](src/app/(customer)/), `/dashboard`, `/book`, `/quote/[slug]`, `/invoice/[id]`, `/pay/[id]` — a mix of authenticated owner routes and token-gated public routes (no login required).
 
 ### Multi-tenancy
-Root middleware [src/proxy.ts](src/proxy.ts) parses the subdomain → tenant slug and injects `x-tenant-slug` into the request headers. Tenant context is then fetched via [src/lib/tenant-data.ts](src/lib/tenant-data.ts). Database isolation is by Row-Level Security; helper SQL functions `is_org_member()`, `is_org_owner()`, `is_location_member()` are used in every RLS policy. **New tables must ship with RLS policies using these helpers.**
+Root middleware [src/proxy.ts](src/proxy.ts) parses the subdomain → tenant slug and injects `x-tenant-slug` into the request headers. Tenant context is then fetched via [src/lib/tenant-data.ts](src/lib/tenant-data.ts). Database isolation is by Row-Level Security; helper SQL functions `private.is_org_member()`, `private.is_org_owner()`, `private.is_location_member()` (non-API-exposed `private` schema, since `20260612160000`) are used in every RLS policy. **New tables must ship with RLS policies using these helpers** — schema-qualified, scoped `to authenticated`, `auth.uid()` wrapped as `(select auth.uid())`.
 
 ### Three Supabase clients — pick the right one
 - [src/lib/supabase/server.ts](src/lib/supabase/server.ts) — server components & server actions (reads cookies). Default choice.
