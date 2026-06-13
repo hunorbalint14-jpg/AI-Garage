@@ -447,6 +447,47 @@ export async function updateStaffMotFlags(
   return { success: true };
 }
 
+// EV / IMI TechSafe qualification per member per location. Level 0 = none
+// (clears the record). Lives next to the MOT flags on the Team edit panel.
+export async function updateStaffEvQual(
+  userId: string,
+  locationId: string,
+  level: number,
+  certifiedAt: string | null,
+  expiresAt: string | null,
+): Promise<StaffActionResult> {
+  const ctx = await requireStaffContext();
+  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") return { error: "Owner or admin only." };
+  if (!Number.isInteger(level) || level < 0 || level > 4) return { error: "Level must be 0–4." };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("location_users")
+    .update(
+      level === 0
+        ? { ev_level: null, ev_certified_at: null, ev_expires_at: null }
+        : { ev_level: level, ev_certified_at: certifiedAt, ev_expires_at: expiresAt },
+    )
+    .eq("user_id", userId)
+    .eq("location_id", locationId);
+
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "ev.qual_update",
+    entityType: "location_user",
+    entityId: userId,
+    metadata: { location_id: locationId, level, expires_at: expiresAt },
+  });
+
+  revalidatePath("/staff/staff-members");
+  revalidatePath("/staff/ev-readiness");
+  return { success: true };
+}
+
 export async function removeStaffMember(
   userId: string,
   locationId: string | null,

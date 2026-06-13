@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
@@ -20,8 +21,8 @@ export default async function EvReadinessPage() {
       .eq("location_id", ctx.location.id)
       .maybeSingle(),
     admin
-      .from("staff_ev_quals")
-      .select("user_id, level, certified_at, expires_at")
+      .from("location_users")
+      .select("user_id, ev_level, ev_certified_at, ev_expires_at")
       .eq("location_id", ctx.location.id),
     listLocationStaff(ctx.location.id, ctx.organization.id),
   ]);
@@ -33,7 +34,7 @@ export default async function EvReadinessPage() {
     notes: readinessRes.data?.notes ?? "",
   };
 
-  type QualRow = { user_id: string; level: number; certified_at: string | null; expires_at: string | null };
+  type QualRow = { user_id: string; ev_level: number | null; ev_certified_at: string | null; ev_expires_at: string | null };
   const qualByUser = new Map(
     ((qualsRes.data ?? []) as QualRow[]).map((q) => [q.user_id, q]),
   );
@@ -43,10 +44,10 @@ export default async function EvReadinessPage() {
     return {
       userId: s.id,
       name: s.name,
-      level: q?.level ?? 0,
-      certifiedAt: q?.certified_at ?? "",
-      expiresAt: q?.expires_at ?? "",
-      expired: qualExpired(q?.expires_at),
+      level: q?.ev_level ?? 0,
+      certifiedAt: q?.ev_certified_at ?? "",
+      expiresAt: q?.ev_expires_at ?? "",
+      expired: qualExpired(q?.ev_expires_at),
     };
   });
 
@@ -74,10 +75,16 @@ export default async function EvReadinessPage() {
             {qualifiedCount} HV-qualified
           </span>
         </div>
-        <QualsTable rows={rows} canManage={canManage} />
+        <QualsTable rows={rows} />
         <p className="text-xs text-muted-foreground">
           Levels follow IMI TechSafe. Level 2 or above (in date) counts as qualified to work on a
           high-voltage vehicle — flag those jobs with the high-voltage toggle on the job card.
+          {canManage && (
+            <>
+              {" "}Set each technician&apos;s qualification on the{" "}
+              <Link href="/staff/staff-members" className="underline">Team page</Link>.
+            </>
+          )}
         </p>
       </section>
     </div>
