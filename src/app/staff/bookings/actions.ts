@@ -195,7 +195,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
 
   const { data: booking, error: bookingFetchErr } = await admin
     .from("bookings")
-    .select("id, location_id, customer_id, vehicle_id, service_id, type, notes, status")
+    .select("id, location_id, customer_id, vehicle_id, service_id, assigned_to, type, notes, status")
     .eq("id", bookingId)
     .maybeSingle();
 
@@ -220,7 +220,9 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
     return { error: `Booking is ${booking.status}.` };
   }
 
-  // Create job linked to this booking
+  // Create job linked to this booking. Carry over the booking's assigned
+  // technician so staff don't have to reassign on the job — without this the
+  // assignment is silently dropped on conversion (looked like assigning twice).
   const { data: job, error: jobErr } = await admin
     .from("jobs")
     .insert({
@@ -228,6 +230,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
       customer_id: booking.customer_id,
       vehicle_id: booking.vehicle_id,
       booking_id: booking.id,
+      assigned_to: booking.assigned_to,
       description: bookingTypeLabel(booking.type),
       notes: booking.notes,
     })
