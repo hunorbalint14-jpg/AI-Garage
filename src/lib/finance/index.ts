@@ -8,6 +8,21 @@ import type { BumperConfig, BumperStatusValue } from "./bumper";
 
 export type FinanceProvider = "bumper" | "payment_assist";
 
+/** What a finance application is raised against. Quotes ('job' | 'standalone')
+ *  bounce back via a token link; invoices return to the auth-gated portal. */
+export type FinanceSubjectType = "job" | "standalone" | "invoice";
+
+/** Address the customer types for Bumper's soft credit check. We pass it
+ *  straight through and never persist it. */
+export type FinanceAddressInput = {
+  buildingNumber: string;
+  street: string;
+  town: string;
+  postcode: string;
+};
+
+export type StartFinanceResult = { error: string } | { redirectUrl: string };
+
 export type FinanceApplicationStatus =
   | "pending"
   | "in_progress"

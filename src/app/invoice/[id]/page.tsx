@@ -2,8 +2,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext, requireOwnedInvoice } from "@/lib/portal-auth";
+import { getActiveFinanceConfig } from "@/lib/finance";
 import { AnimatedBackground } from "@/components/animated-background";
+import { SpreadTheCostCard } from "@/components/finance/spread-the-cost-card";
 import { CustomerSignOutButton } from "../../dashboard/sign-out-button";
+import { startInvoiceFinance } from "./finance-actions";
 
 type JobItem = { id: string; description: string; type: string; quantity: number; unit_price: number };
 
@@ -17,10 +20,13 @@ function fmtDate(d: string) {
 
 export default async function CustomerInvoicePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ finance?: string }>;
 }) {
   const { id } = await params;
+  const { finance: financeOutcome } = await searchParams;
 
   const { location, customer } = await getPortalContext();
   if (!customer) notFound();
@@ -36,6 +42,28 @@ export default async function CustomerInvoicePage({
   const org = location.organization;
   const overdue = invoice.status !== "paid" && new Date(invoice.due_at) < new Date();
   const computedStatus = overdue ? "overdue" : invoice.status;
+
+  // "Spread the cost" (Bumper) — only on a payable invoice above the garage's
+  // minimum, and only when the customer has the email + mobile Bumper needs.
+  let financeAvailable = false;
+  if (invoice.status !== "paid" && invoice.status !== "draft") {
+    const financeCfg = await getActiveFinanceConfig(org.id);
+    if (financeCfg && Number(invoice.total) >= financeCfg.minAmount) {
+      const { data: contact } = await admin
+        .from("customers")
+        .select("phone, email")
+        .eq("id", customer.id)
+        .maybeSingle();
+      financeAvailable = Boolean(contact?.phone && contact?.email);
+    }
+  }
+
+  const financeBanner: Record<string, { text: string; className: string }> = {
+    success: { text: "Finance approved — this invoice is now settled.", className: "border-green-500/30 bg-green-500/10 text-green-300" },
+    pending: { text: "Your finance application is being processed. We'll update this invoice once it's confirmed.", className: "border-amber-500/30 bg-amber-500/10 text-amber-300" },
+    failed: { text: "The finance application wasn't completed. You can try again below or pay now.", className: "border-red-500/30 bg-red-500/10 text-red-300" },
+  };
+  const banner = financeOutcome ? financeBanner[financeOutcome] : undefined;
 
   const statusStyle: Record<string, string> = {
     draft: "bg-gray-500/20 text-gray-400",
@@ -71,6 +99,12 @@ export default async function CustomerInvoicePage({
             ← Back to dashboard
           </Link>
         </div>
+
+        {banner && (
+          <div className={`rounded-xl border px-4 py-3 text-sm ${banner.className}`}>
+            {banner.text}
+          </div>
+        )}
 
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -184,6 +218,14 @@ export default async function CustomerInvoicePage({
             Print / Save PDF
           </a>
         </div>
+
+        {financeAvailable && financeOutcome !== "success" && (
+          <SpreadTheCostCard
+            start={startInvoiceFinance.bind(null, invoice.id)}
+            primaryColor={org.primary_color}
+            totalFormatted={fmt(invoice.total)}
+          />
+        )}
       </main>
     </div>
   );

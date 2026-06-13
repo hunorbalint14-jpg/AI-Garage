@@ -1,6 +1,7 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import { getActiveFinanceConfig, toBumperConfig, normalizeBumperStatus } from "./index";
 import { bumperStatus } from "./bumper";
+import { settleInvoiceFromFinance } from "./settle";
 import { logAudit } from "@/lib/audit";
 
 // Bumper documents no webhook — polling GET /v2/status/ is the safety net
@@ -17,13 +18,21 @@ export async function reconcileFinanceApplications(
   const cutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data } = await admin
     .from("finance_applications")
-    .select("token, organization_id, status, quote_slug")
+    .select("token, organization_id, status, subject_type, subject_id, subject_ref, amount")
     .in("status", ["pending", "in_progress"])
     .lt("created_at", cutoff)
     .order("created_at", { ascending: true })
     .limit(MAX_PER_RUN);
 
-  type Row = { token: string; organization_id: string; status: string; quote_slug: string };
+  type Row = {
+    token: string;
+    organization_id: string;
+    status: string;
+    subject_type: string;
+    subject_id: string;
+    subject_ref: string | null;
+    amount: number;
+  };
   const rows = (data ?? []) as Row[];
   if (rows.length === 0) return { checked: 0, updated: 0 };
 
@@ -56,8 +65,9 @@ export async function reconcileFinanceApplications(
           action: "finance.application_completed",
           entityType: "finance_application",
           entityId: row.token,
-          metadata: { quote_slug: row.quote_slug, via: "reconcile" },
+          metadata: { subject_type: row.subject_type, subject_id: row.subject_id, via: "reconcile" },
         });
+        await settleInvoiceFromFinance(admin, row);
       }
     } catch (err) {
       console.error("[finance] reconcile failed", { token: row.token.slice(0, 8), err });

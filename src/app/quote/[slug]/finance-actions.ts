@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { getActiveFinanceConfig, toBumperConfig } from "@/lib/finance";
+import type { FinanceAddressInput, StartFinanceResult } from "@/lib/finance";
 import { bumperApply } from "@/lib/finance/bumper";
 import { tenantOrigin } from "@/lib/stripe";
 import { logAudit } from "@/lib/audit";
@@ -12,15 +13,6 @@ import { logAudit } from "@/lib/audit";
 // quote action: possession of a valid quote link is the credential. The
 // customer supplies their address here (we don't store addresses) — Bumper
 // needs it for the soft credit check; we pass it through and don't persist it.
-
-export type StartFinanceResult = { error: string } | { redirectUrl: string };
-
-export type FinanceAddressInput = {
-  buildingNumber: string;
-  street: string;
-  town: string;
-  postcode: string;
-};
 
 type QuoteFinanceRow = {
   id: string;
@@ -158,9 +150,9 @@ export async function startFinanceApplication(
     organization_id: org.id,
     location_id: quote.location_id,
     provider: "bumper",
-    quote_source: verify.quote.source,
-    quote_id: quote.id,
-    quote_slug: slug,
+    subject_type: verify.quote.source,
+    subject_id: quote.id,
+    subject_ref: slug,
     token: result.token,
     order_reference: quote.id,
     amount: quote.total,
@@ -178,7 +170,7 @@ export async function startFinanceApplication(
     action: "finance.application_start",
     entityType: "finance_application",
     entityId: result.token,
-    metadata: { quote_id: quote.id, quote_source: verify.quote.source, amount: quote.total, provider: "bumper" },
+    metadata: { subject_type: verify.quote.source, subject_id: quote.id, amount: quote.total, provider: "bumper" },
   });
 
   return { redirectUrl: result.redirect_url };
