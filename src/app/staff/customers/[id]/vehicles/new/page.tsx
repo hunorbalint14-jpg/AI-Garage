@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { VehicleForm } from "./vehicle-form";
 
 export default async function NewVehiclePage({
@@ -11,13 +12,16 @@ export default async function NewVehiclePage({
   const { id } = await params;
   const ctx = await requireStaffContext();
 
-  const { data: customer } = await ctx.supabase
+  // Tenant isolation via the admin row + location compare (RLS-independent,
+  // matches the customer detail page).
+  const admin = createAdminClient();
+  const { data: customer } = await admin
     .from("customers")
-    .select("id, full_name")
+    .select("id, location_id, full_name")
     .eq("id", id)
     .maybeSingle();
 
-  if (!customer) notFound();
+  if (!customer || (customer as { location_id: string }).location_id !== ctx.location.id) notFound();
 
   return (
     <div className="flex flex-col gap-4">

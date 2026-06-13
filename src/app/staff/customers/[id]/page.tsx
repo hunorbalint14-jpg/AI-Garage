@@ -16,6 +16,7 @@ import { subscriptionStatusLabel, isSubscriptionLive } from "@/lib/service-plans
 
 type Customer = {
   id: string;
+  location_id: string;
   full_name: string | null;
   email: string | null;
   phone: string | null;
@@ -81,7 +82,7 @@ export default async function CustomerDetailPage({
   const [customerRes, vehiclesRes, remindersRes, plansRes, membershipsRes] = await Promise.all([
     admin
       .from("customers")
-      .select("id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
+      .select("id, location_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
       .eq("id", id)
       .maybeSingle(),
     admin
@@ -111,16 +112,13 @@ export default async function CustomerDetailPage({
       .order("created_at", { ascending: false }),
   ]);
 
-  // Verify customer belongs to this location
-  const customerCheck = await ctx.supabase
-    .from("customers")
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-  if (!customerCheck.data) notFound();
-
+  // Tenant isolation: the customer must belong to the staff member's current
+  // location. Compares the admin-fetched row against ctx.location — the same
+  // RLS-independent pattern as the job/booking detail pages (the old check
+  // here did a separate RLS round-trip, which 404'd whenever the customers
+  // SELECT policy changed underneath it).
   const customer = customerRes.data as Customer | null;
-  if (!customer) notFound();
+  if (!customer || customer.location_id !== ctx.location.id) notFound();
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];
