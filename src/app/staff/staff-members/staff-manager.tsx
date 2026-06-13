@@ -21,9 +21,19 @@ import {
   normalisePermissions,
 } from "./constants";
 import type { StaffEntry, LocationOption, RoleTemplateOption } from "./page";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { Search, Plus, MoreVertical } from "lucide-react";
 
 const ROLE_OPTIONS = [
   { value: "manager", label: "Manager" },
@@ -35,14 +45,6 @@ const ROLE_OPTIONS = [
   { value: "bookkeeper", label: "Bookkeeper" },
   { value: "staff", label: "Staff (legacy)" },
 ];
-
-function PermDot({ active }: { active: boolean }) {
-  return (
-    <span
-      className={`inline-block h-2 w-2 rounded-full ${active ? "bg-green-500" : "bg-muted"}`}
-    />
-  );
-}
 
 function RoleBadge({ role }: { role: string }) {
   const styles: Record<string, string> = {
@@ -64,6 +66,76 @@ function RoleBadge({ role }: { role: string }) {
     </span>
   );
 }
+
+const FILTER_OPTIONS = [
+  { value: "all", label: "All roles" },
+  { value: "owner", label: "Owner" },
+  { value: "admin", label: "Admin" },
+  ...ROLE_OPTIONS,
+];
+
+const AVATAR_STYLES: Record<string, string> = {
+  owner: "bg-amber-500/[0.13] text-amber-300 shadow-[inset_0_0_0_1px_rgb(253_211_77_/_0.28)]",
+  admin: "bg-blue-500/[0.13] text-blue-300 shadow-[inset_0_0_0_1px_rgb(147_197_253_/_0.28)]",
+  manager: "bg-purple-500/[0.13] text-purple-300 shadow-[inset_0_0_0_1px_rgb(196_181_253_/_0.28)]",
+  service_advisor: "bg-cyan-500/[0.13] text-cyan-300 shadow-[inset_0_0_0_1px_rgb(103_232_249_/_0.28)]",
+  mechanic: "bg-emerald-500/[0.13] text-emerald-300 shadow-[inset_0_0_0_1px_rgb(134_239_172_/_0.28)]",
+  apprentice: "bg-teal-500/[0.13] text-teal-300 shadow-[inset_0_0_0_1px_rgb(94_234_212_/_0.28)]",
+  receptionist: "bg-pink-500/[0.13] text-pink-300 shadow-[inset_0_0_0_1px_rgb(249_168_212_/_0.28)]",
+  parts: "bg-orange-500/[0.13] text-orange-300 shadow-[inset_0_0_0_1px_rgb(253_186_116_/_0.28)]",
+  bookkeeper: "bg-indigo-500/[0.13] text-indigo-300 shadow-[inset_0_0_0_1px_rgb(165_180_252_/_0.28)]",
+  staff: "bg-white/[0.07] text-foreground/80 shadow-[inset_0_0_0_1px_rgb(255_255_255_/_0.1)]",
+};
+
+function initialsFor(name: string | null, email: string): string {
+  if (name) {
+    const parts = name.trim().split(/\s+/).map((w) => w[0]).filter(Boolean);
+    if (parts.length) return parts.join("").toUpperCase().slice(0, 2);
+  }
+  return email.slice(0, 2).toUpperCase();
+}
+
+function MemberAvatar({ role, name, email }: { role: string; name: string | null; email: string }) {
+  return (
+    <div
+      className={`flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full text-[16.5px] font-semibold ${AVATAR_STYLES[role] ?? AVATAR_STYLES.staff}`}
+    >
+      {initialsFor(name, email)}
+    </div>
+  );
+}
+
+function MfaBadge({ on }: { on: boolean }) {
+  return on ? (
+    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10.5px] font-medium text-green-300 bg-green-500/[0.12]">
+      <span className="h-[5px] w-[5px] rounded-full bg-green-400" />
+      MFA on
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10.5px] font-medium text-muted-foreground bg-white/5">
+      <span className="h-[5px] w-[5px] rounded-full bg-muted-foreground/70" />
+      No MFA
+    </span>
+  );
+}
+
+function SkillChip({ label, tone }: { label: string; tone: "blue" | "green" | "amber" }) {
+  const tones: Record<string, string> = {
+    blue: "text-blue-300 bg-blue-500/[0.12]",
+    green: "text-green-300 bg-green-500/[0.12]",
+    amber: "text-amber-300 bg-amber-500/[0.12]",
+  };
+  return (
+    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10.5px] font-medium ${tones[tone]}`}>
+      {label}
+    </span>
+  );
+}
+
+const overflowTriggerClass = cn(
+  buttonVariants({ variant: "ghost", size: "icon-sm" }),
+  "text-muted-foreground"
+);
 
 function PermissionsGrid({
   perms,
@@ -167,6 +239,8 @@ export function StaffManager({
   const [editEvLevel, setEditEvLevel] = useState(0);
   const [editEvCertified, setEditEvCertified] = useState("");
   const [editEvExpires, setEditEvExpires] = useState("");
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
 
   const defaultTemplate =
     templateForRole(templates, "mechanic") ?? templates.find((t) => t.isSystem) ?? null;
@@ -392,75 +466,116 @@ export function StaffManager({
   const inputClass =
     "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
+  const visibleEntries = entries.filter((entry) => {
+    const hay = `${entry.fullName ?? ""} ${entry.email}`.toLowerCase();
+    const okSearch = hay.includes(search.trim().toLowerCase());
+    const okRole =
+      roleFilter === "all" ||
+      entry.orgRole === roleFilter ||
+      entry.locationEntries.some((l) => l.role === roleFilter);
+    return okSearch && okRole;
+  });
+  const visibleCount = visibleEntries.reduce(
+    (n, e) => n + (e.orgRole ? 1 : e.locationEntries.length),
+    0,
+  );
+  const isFiltering = search.trim() !== "" || roleFilter !== "all";
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Staff list */}
-      <div className="rounded-lg border overflow-hidden">
-        {/* Desktop header */}
-        <div className="hidden md:grid bg-muted/50 grid-cols-[1fr_140px_180px_auto] gap-4 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-          <span>Staff member</span>
-          <span>Role</span>
-          <span>Permissions</span>
-          <span />
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="relative min-w-[160px] max-w-[320px] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-[15px] -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search team…"
+            className="h-[34px] bg-white/[0.03] pl-9"
+          />
         </div>
+        <NativeSelect
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          className="h-[34px] w-auto max-w-[170px] bg-white/[0.03]"
+        >
+          {FILTER_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </NativeSelect>
+        <div className="flex-1" />
+        <span className="text-sm text-muted-foreground">
+          {visibleCount} member{visibleCount === 1 ? "" : "s"}
+        </span>
+        <Button onClick={() => setShowInvite(true)}>
+          <Plus className="size-4" /> Invite team member
+        </Button>
+      </div>
 
-        {entries.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No staff found. Invite your first team member below.
+      {/* Staff list */}
+      <div className="flex flex-col gap-2.5">
+        {visibleEntries.length === 0 && (
+          <div className="rounded-xl border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+            {isFiltering ? "No members match your search." : "No staff found. Invite your first team member below."}
           </div>
         )}
 
-        {entries.map((entry) => {
+        {visibleEntries.map((entry) => {
           const displayName = entry.fullName ?? entry.email;
           const isOrg = !!entry.orgRole;
 
           if (isOrg) {
             return (
-              <div key={`org-${entry.userId}`} className="border-t">
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_180px_auto] gap-2 md:gap-4 px-4 py-3 md:items-center">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {displayName}
-                      {entry.isCurrentUser && (
-                        <span className="ml-2 text-xs text-muted-foreground">(you)</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{entry.email}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">All locations</p>
-                  </div>
-                  <div className="flex items-center gap-2">
+              <div
+                key={`org-${entry.userId}`}
+                className="flex flex-wrap items-center gap-4 rounded-xl border bg-card px-[18px] py-4 hover:bg-white/[0.015] sm:flex-nowrap"
+              >
+                <MemberAvatar role={entry.orgRole!} name={entry.fullName} email={entry.email} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-[15.5px] font-semibold text-foreground">{displayName}</span>
+                    {entry.isCurrentUser && <span className="text-xs text-muted-foreground">(you)</span>}
                     <RoleBadge role={entry.orgRole!} />
                   </div>
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    <span className="text-xs text-muted-foreground">Full access</span>
-                    {entry.hasMfa ? (
-                      <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400">MFA on</span>
-                    ) : (
-                      <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-muted text-muted-foreground">No MFA</span>
-                    )}
+                  <p className="mt-[3px] text-[12.5px] text-muted-foreground">{entry.email} · All locations</p>
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-[oklch(0.82_0_0)]">Full access</span>
+                    <MfaBadge on={entry.hasMfa} />
                   </div>
-                  <div className="flex gap-1.5 md:justify-end flex-wrap">
-                    {!entry.isCurrentUser && (
-                      <>
-                        <Button variant="outline" size="xs" disabled={pending} onClick={() => { setSetPasswordFor({ userId: entry.userId, name: displayName }); setNewPassword(""); }}>
+                </div>
+                <div className="flex shrink-0 items-center gap-1.5 self-start sm:self-center">
+                  {entry.isCurrentUser ? (
+                    <span className="text-xs text-muted-foreground opacity-70">—</span>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className={overflowTriggerClass} aria-label="More actions">
+                        <MoreVertical className="size-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          onClick={() => { setSetPasswordFor({ userId: entry.userId, name: displayName }); setNewPassword(""); }}
+                        >
                           Set password
-                        </Button>
-                        <Button variant="outline" size="xs" disabled={pending} onClick={() => handleResetLogin(entry.email)}>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleResetLogin(entry.email)}>
                           Reset login
-                        </Button>
+                        </DropdownMenuItem>
                         {entry.hasMfa && (
-                          <Button variant="outline" size="xs" disabled={pending} onClick={() => handleResetMfa(entry.userId, displayName)}>
+                          <DropdownMenuItem onClick={() => handleResetMfa(entry.userId, displayName)}>
                             Reset MFA
-                          </Button>
+                          </DropdownMenuItem>
                         )}
-                      </>
-                    )}
-                    {(isOwner || isAdmin) && entry.orgRole !== "owner" && !entry.isCurrentUser && (
-                      <Button variant="destructive" size="xs" disabled={pending} onClick={() => handleRemove(entry.userId, null, displayName)}>
-                        Remove
-                      </Button>
-                    )}
-                  </div>
+                        {(isOwner || isAdmin) && entry.orgRole !== "owner" && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant="destructive" onClick={() => handleRemove(entry.userId, null, displayName)}>
+                              Remove from organisation
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
               </div>
             );
@@ -473,66 +588,47 @@ export function StaffManager({
             const enabledCount = Object.values(loc.permissions).filter(Boolean).length;
 
             return (
-              <div key={key} className="border-t">
-                <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_180px_auto] gap-2 md:gap-4 px-4 py-3 md:items-center">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {displayName}
-                      {entry.isCurrentUser && (
-                        <span className="ml-2 text-xs text-muted-foreground">(you)</span>
+              <div key={key} className="flex flex-col">
+                <div
+                  className={`flex flex-wrap items-center gap-4 rounded-xl border bg-card px-[18px] py-4 hover:bg-white/[0.015] sm:flex-nowrap ${isEditing ? "rounded-b-none" : ""}`}
+                >
+                  <MemberAvatar role={loc.role} name={entry.fullName} email={entry.email} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="text-[15.5px] font-semibold text-foreground">{displayName}</span>
+                      {entry.isCurrentUser && <span className="text-xs text-muted-foreground">(you)</span>}
+                      <RoleBadge role={loc.role} />
+                      {tpl && !tpl.isSystem && (
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Custom template">
+                          {tpl.label}
+                        </span>
                       )}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{entry.email}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{loc.locationName}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <RoleBadge role={loc.role} />
-                    {tpl && !tpl.isSystem && (
-                      <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Custom template">
-                        {tpl.label}
+                    </div>
+                    <p className="mt-[3px] text-[12.5px] text-muted-foreground">{entry.email} &nbsp;·&nbsp; {loc.locationName}</p>
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                        {enabledCount} permissions
                       </span>
-                    )}
+                      {loc.motTester && <SkillChip label="MOT tester" tone="blue" />}
+                      {loc.motQcReviewer && <SkillChip label="QC reviewer" tone="blue" />}
+                      {loc.evLevel > 0 && (
+                        <SkillChip
+                          label={`EV L${loc.evLevel}${qualExpired(loc.evExpiresAt) ? " (expired)" : ""}`}
+                          tone={isHvQualified(loc.evLevel) && !qualExpired(loc.evExpiresAt) ? "green" : "amber"}
+                        />
+                      )}
+                      <MfaBadge on={entry.hasMfa} />
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 items-center">
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <PermDot active={enabledCount > 0} /> {enabledCount} perms
-                    </span>
-                    {loc.motTester && (
-                      <span className="rounded bg-blue-100 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">MOT tester</span>
-                    )}
-                    {loc.motQcReviewer && (
-                      <span className="rounded bg-blue-100 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">QC reviewer</span>
-                    )}
-                    {loc.evLevel > 0 && (
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
-                          isHvQualified(loc.evLevel) && !qualExpired(loc.evExpiresAt)
-                            ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
-                        }`}
-                        title={EV_LEVEL_LABELS[loc.evLevel]}
-                      >
-                        EV L{loc.evLevel}{qualExpired(loc.evExpiresAt) ? " (expired)" : ""}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex gap-1.5 md:justify-end flex-wrap">
-                    {!entry.isCurrentUser && (
+                  <div className="flex shrink-0 items-center gap-1.5 self-start sm:self-center">
+                    {entry.isCurrentUser ? (
+                      <span className="text-xs text-muted-foreground opacity-70">—</span>
+                    ) : (
                       <>
-                        <Button variant="outline" size="xs" disabled={pending} onClick={() => { setSetPasswordFor({ userId: entry.userId, name: displayName }); setNewPassword(""); }}>
-                          Set password
-                        </Button>
-                        <Button variant="outline" size="xs" disabled={pending} onClick={() => handleResetLogin(entry.email)}>
-                          Reset login
-                        </Button>
-                        {entry.hasMfa && (
-                          <Button variant="outline" size="xs" disabled={pending} onClick={() => handleResetMfa(entry.userId, displayName)}>
-                            Reset MFA
-                          </Button>
-                        )}
                         <Button
                           variant="outline"
-                          size="xs"
+                          size="sm"
                           disabled={pending}
                           onClick={() =>
                             isEditing
@@ -542,21 +638,37 @@ export function StaffManager({
                         >
                           {isEditing ? "Cancel" : "Edit"}
                         </Button>
-                        <Button
-                          variant="destructive"
-                          size="xs"
-                          disabled={pending}
-                          onClick={() => handleRemove(entry.userId, loc.locationId, displayName)}
-                        >
-                          Remove
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger className={overflowTriggerClass} aria-label="More actions">
+                            <MoreVertical className="size-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem
+                              onClick={() => { setSetPasswordFor({ userId: entry.userId, name: displayName }); setNewPassword(""); }}
+                            >
+                              Set password
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleResetLogin(entry.email)}>
+                              Reset login
+                            </DropdownMenuItem>
+                            {entry.hasMfa && (
+                              <DropdownMenuItem onClick={() => handleResetMfa(entry.userId, displayName)}>
+                                Reset MFA
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem variant="destructive" onClick={() => handleRemove(entry.userId, loc.locationId, displayName)}>
+                              Remove from location
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </>
                     )}
                   </div>
                 </div>
 
                 {isEditing && editPerms && (
-                  <div className="px-4 pb-4 border-t bg-muted/20">
+                  <div className="-mt-px rounded-b-xl border border-t-0 bg-muted/20 px-4 pb-4">
                     <div className="pt-4 flex flex-col gap-4">
                       <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
                         <Label htmlFor={`role-${key}`} className="text-sm">Role</Label>
@@ -785,11 +897,7 @@ export function StaffManager({
         </div>
       )}
 
-      {!showInvite ? (
-        <div>
-          <Button onClick={() => setShowInvite(true)}>+ Invite team member</Button>
-        </div>
-      ) : (
+      {showInvite && (
         <form onSubmit={handleInviteSubmit} className="rounded-lg border p-5 flex flex-col gap-5">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
