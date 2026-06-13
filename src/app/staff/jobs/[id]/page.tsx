@@ -90,11 +90,12 @@ export default async function JobDetailPage({
   // HV qualification check for the warning banner (cheap: only when flagged).
   const { data: quals } = job.high_voltage
     ? await admin
-        .from("staff_ev_quals")
-        .select("user_id, level, expires_at")
+        .from("location_users")
+        .select("user_id, ev_level, ev_expires_at")
         .eq("location_id", ctx.location.id)
+        .not("ev_level", "is", null)
     : { data: [] };
-  type QualRow = { user_id: string; level: number; expires_at: string | null };
+  type QualRow = { user_id: string; ev_level: number; ev_expires_at: string | null };
   const qualRows = (quals ?? []) as QualRow[];
   const assigneeQual = job.assigned_to
     ? (qualRows.find((q) => q.user_id === job.assigned_to) ?? null)
@@ -182,9 +183,9 @@ export default async function JobDetailPage({
         warning={hvWarningFor({
           highVoltage: job.high_voltage,
           assigneeName: job.assigned_to ? (staffNames.get(job.assigned_to) ?? "Assigned technician") : null,
-          assigneeLevel: assigneeQual?.level ?? null,
-          assigneeExpiresAt: assigneeQual?.expires_at ?? null,
-          locationHasQualified: qualRows.some((q) => isHvQualified(q.level) && !qualExpired(q.expires_at)),
+          assigneeLevel: assigneeQual?.ev_level ?? null,
+          assigneeExpiresAt: assigneeQual?.ev_expires_at ?? null,
+          locationHasQualified: qualRows.some((q) => isHvQualified(q.ev_level) && !qualExpired(q.ev_expires_at)),
         })}
       />
 

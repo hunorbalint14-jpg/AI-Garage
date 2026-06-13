@@ -11,6 +11,10 @@ import { QuoteValiditySection } from "./quote-validity-section";
 import { XeroSection } from "./xero-section";
 import { FinanceSection } from "./finance-section";
 import { NoShowFeeSection } from "./no-show-fee-section";
+import { SermiCard, type SermiView } from "./sermi-card";
+import { EvQualsRoster, type StaffQualView } from "./ev-quals-roster";
+import { listLocationStaff } from "@/lib/staff-directory";
+import { isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import type { FinanceConfigView } from "./finance-actions";
 import { SettingsTabs, isSettingsTab } from "./settings-tabs";
 
@@ -80,6 +84,45 @@ export default async function SettingsPage({
         hasCredentials: !!(financeRow.api_key_encrypted && financeRow.secret_encrypted),
       }
     : null;
+
+  // Compliance tab data (SERMI + EV qualification roster) — only fetched when
+  // that tab is open, since most Settings visits don't need it.
+  let sermi: SermiView | null = null;
+  let evRows: StaffQualView[] = [];
+  if (tab === "compliance") {
+    const [readinessRes, qualsRes, staffList] = await Promise.all([
+      admin
+        .from("location_ev_readiness")
+        .select("sermi_status, sermi_reference, sermi_expires_at, notes")
+        .eq("location_id", ctx.location.id)
+        .maybeSingle(),
+      admin
+        .from("location_users")
+        .select("user_id, ev_level, ev_certified_at, ev_expires_at")
+        .eq("location_id", ctx.location.id),
+      listLocationStaff(ctx.location.id, ctx.organization.id),
+    ]);
+    sermi = {
+      status: (readinessRes.data?.sermi_status as SermiView["status"]) ?? "not_applied",
+      reference: readinessRes.data?.sermi_reference ?? "",
+      expiresAt: readinessRes.data?.sermi_expires_at ?? "",
+      notes: readinessRes.data?.notes ?? "",
+    };
+    type QualRow = { user_id: string; ev_level: number | null; ev_certified_at: string | null; ev_expires_at: string | null };
+    const qualByUser = new Map(((qualsRes.data ?? []) as QualRow[]).map((q) => [q.user_id, q]));
+    evRows = staffList.map((s) => {
+      const q = qualByUser.get(s.id);
+      return {
+        userId: s.id,
+        name: s.name,
+        level: q?.ev_level ?? 0,
+        certifiedAt: q?.ev_certified_at ?? "",
+        expiresAt: q?.ev_expires_at ?? "",
+        expired: qualExpired(q?.ev_expires_at),
+      };
+    });
+  }
+  const evQualifiedCount = evRows.filter((r) => isHvQualified(r.level) && !r.expired).length;
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
@@ -184,6 +227,39 @@ export default async function SettingsPage({
           connectedAt={(org as { xero_connected_at?: string | null } | null)?.xero_connected_at ?? null}
           canManage={isOwner}
         />
+      )}
+
+      {/* ── Compliance ───────────────────────────────────────────── */}
+      {tab === "compliance" && sermi && (
+        <>
+          <SermiCard sermi={sermi} canManage={isOwner} />
+
+          <section className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                Technician EV qualifications
+              </h2>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  evQualifiedCount > 0 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                }`}
+              >
+                {evQualifiedCount} HV-qualified
+              </span>
+            </div>
+            <EvQualsRoster rows={evRows} />
+            <p className="text-xs text-muted-foreground">
+              Levels follow IMI TechSafe. Level 2 or above (in date) qualifies a technician for
+              high-voltage work — flag those jobs with the high-voltage toggle on the job card.
+              {isOwner && (
+                <>
+                  {" "}Set each technician&apos;s qualification on the{" "}
+                  <Link href="/staff/staff-members" className="underline">Team page</Link>.
+                </>
+              )}
+            </p>
+          </section>
+        </>
       )}
 
       {/* ── Locations ────────────────────────────────────────────── */}
