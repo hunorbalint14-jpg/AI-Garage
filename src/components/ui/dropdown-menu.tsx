@@ -41,7 +41,7 @@ function DropdownMenuContent({
         <MenuPrimitive.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-            "min-w-[168px] rounded-[10px] border border-border bg-popover p-[5px] text-popover-foreground shadow-[0_16px_40px_rgba(0,0,0,0.55)] outline-none",
+            "min-w-[168px] rounded-[10px] border border-white/[0.18] bg-[oklch(0.205_0_0)] p-[5px] text-[oklch(0.985_0_0)] shadow-[0_16px_40px_rgba(0,0,0,0.55)] outline-none",
             className
           )}
           {...props}
@@ -64,7 +64,7 @@ function DropdownMenuItem({
       className={cn(
         "cursor-pointer rounded-md px-2.5 py-[7px] text-[13px] whitespace-nowrap outline-none select-none data-[highlighted]:bg-white/[0.06]",
         variant === "destructive" &&
-          "text-destructive data-[highlighted]:bg-destructive/10",
+          "text-[oklch(0.704_0.191_22.216)] data-[highlighted]:bg-[oklch(0.704_0.191_22.216)]/10",
         className
       )}
       {...props}
@@ -73,7 +73,7 @@ function DropdownMenuItem({
 }
 
 function DropdownMenuSeparator({ className }: { className?: string }) {
-  return <div className={cn("my-[5px] h-px bg-border", className)} />
+  return <div className={cn("my-[5px] h-px bg-white/[0.18]", className)} />
 }
 
 export {
