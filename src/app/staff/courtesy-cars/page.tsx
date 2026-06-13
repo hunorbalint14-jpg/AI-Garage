@@ -21,7 +21,7 @@ export default async function CourtesyCarsPage() {
     admin
       .from("courtesy_car_loans")
       .select(
-        "id, car_id, job_id, loaned_at, due_back_at, returned_at, fuel_out, fuel_in, odometer_out, odometer_in, condition_out, condition_in, licence_share_code, agreement_name, photos_out, photos_in, customer:customers(id, full_name, phone), car:courtesy_cars(registration, make, model)",
+        "id, car_id, job_id, loaned_at, due_back_at, returned_at, fuel_out, fuel_in, odometer_out, odometer_in, condition_out, condition_in, licence_share_code, agreement_name, photos_out, photos_in, signature_url, customer:customers(id, full_name, phone), car:courtesy_cars(registration, make, model)",
       )
       .eq("location_id", ctx.location.id)
       .order("loaned_at", { ascending: false })
@@ -54,13 +54,18 @@ export default async function CourtesyCarsPage() {
     agreement_name: string | null;
     photos_out: string[] | null;
     photos_in: string[] | null;
+    signature_url: string | null;
     customer: { id: string; full_name: string | null; phone: string | null } | null;
     car: { registration: string; make: string | null; model: string | null } | null;
   };
   const loanRows = (loansRes.data ?? []) as unknown as LoanRow[];
 
-  // One batched signed-URL mint for every photo on the page.
-  const allPaths = loanRows.flatMap((l) => [...(l.photos_out ?? []), ...(l.photos_in ?? [])]);
+  // One batched signed-URL mint for every photo and signature on the page.
+  const allPaths = loanRows.flatMap((l) => [
+    ...(l.photos_out ?? []),
+    ...(l.photos_in ?? []),
+    ...(l.signature_url ? [l.signature_url] : []),
+  ]);
   const photoUrls = await createPhotoReadUrls(allPaths);
   const resolve = (paths: string[] | null) =>
     (paths ?? []).map((p) => photoUrls.get(p)).filter((u): u is string => !!u);
@@ -87,6 +92,7 @@ export default async function CourtesyCarsPage() {
     agreementName: l.agreement_name,
     photoUrlsOut: resolve(l.photos_out),
     photoUrlsIn: resolve(l.photos_in),
+    signatureUrl: l.signature_url ? (photoUrls.get(l.signature_url) ?? null) : null,
   }));
 
   type JobRow = {

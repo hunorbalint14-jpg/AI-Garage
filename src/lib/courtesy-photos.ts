@@ -24,6 +24,11 @@ export function loanPhotoPath(
   return `${locationId}/${loanId}/${direction}-${index}-${Date.now()}.${cleanExt}`;
 }
 
+// A drawn check-out signature, stored as a PNG alongside the loan's photos.
+export function loanSignaturePath(locationId: string, loanId: string): string {
+  return `${locationId}/${loanId}/signatures/signature-${Date.now()}.png`;
+}
+
 export async function createPhotoUploadUrl(
   path: string,
 ): Promise<{ url: string } | { error: string }> {
