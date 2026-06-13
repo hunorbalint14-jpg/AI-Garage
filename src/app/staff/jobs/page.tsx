@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Zap } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
@@ -17,12 +18,13 @@ type JobRow = {
   created_at: string;
   completed_at: string | null;
   assigned_to: string | null;
+  high_voltage: boolean | null;
   customer: { full_name: string | null } | null;
   vehicle: { registration: string; make: string | null; model: string | null } | null;
 };
 
 const JOB_SELECT =
-  "id, status, description, created_at, completed_at, assigned_to, customer:customers(full_name), vehicle:vehicles(registration, make, model)";
+  "id, status, description, created_at, completed_at, assigned_to, high_voltage, customer:customers(full_name), vehicle:vehicles(registration, make, model)";
 
 export default async function JobsPage() {
   const ctx = await requireStaffContext();
@@ -132,6 +134,12 @@ function JobCard({ job, technician }: { job: JobRow; technician: string | null }
     >
       <div className="flex items-start justify-between gap-2">
         <span className="text-sm font-medium leading-snug">
+          {job.high_voltage && (
+            <Zap
+              className="mr-1 inline h-3.5 w-3.5 -translate-y-0.5 fill-amber-400 text-amber-500"
+              aria-label="High-voltage vehicle"
+            />
+          )}
           {job.description || "Untitled job"}
         </span>
         {job.vehicle?.registration && (

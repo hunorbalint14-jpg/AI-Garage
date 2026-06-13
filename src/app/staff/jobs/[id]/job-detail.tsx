@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Zap } from "lucide-react";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob, sendReviewRequest, suggestLabourTime } from "../actions";
@@ -21,6 +22,7 @@ type Job = {
   created_at: string;
   completed_at: string | null;
   booking_id: string | null;
+  high_voltage: boolean;
   customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
   vehicle: { id: string; registration: string; make: string | null; model: string | null; year: number | null } | null;
 };
@@ -241,7 +243,15 @@ export function JobDetail({
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Job card</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            Job card
+            {job.high_voltage && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                High voltage
+              </span>
+            )}
+          </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Created {new Date(job.created_at).toLocaleDateString("en-GB")}
             {job.completed_at && ` · Completed ${new Date(job.completed_at).toLocaleDateString("en-GB")}`}

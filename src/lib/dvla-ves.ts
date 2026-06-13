@@ -3,7 +3,7 @@
 // Add env var: DVLA_VES_API_KEY
 
 export type VesResult =
-  | { success: true; taxDueDate: string | null; taxStatus: string | null; motExpiryDate: string | null }
+  | { success: true; taxDueDate: string | null; taxStatus: string | null; motExpiryDate: string | null; fuelType: string | null }
   | { success: false; error: string };
 
 export async function lookupVehicleVes(registration: string): Promise<VesResult> {
@@ -33,12 +33,14 @@ export async function lookupVehicleVes(registration: string): Promise<VesResult>
 
     const data = await res.json() as Record<string, unknown>;
 
-    // VES response fields: taxDueDate (YYYY-MM-DD), taxStatus ("Taxed"/"SORN"/"Untaxed"), motExpiryDate (YYYY-MM-DD)
+    // VES response fields: taxDueDate (YYYY-MM-DD), taxStatus ("Taxed"/"SORN"/"Untaxed"),
+    // motExpiryDate (YYYY-MM-DD), fuelType ("PETROL"/"DIESEL"/"ELECTRICITY"/"HYBRID ELECTRIC"/…)
     return {
       success: true,
       taxDueDate: (data.taxDueDate as string | undefined) ?? null,
       taxStatus: (data.taxStatus as string | undefined) ?? null,
       motExpiryDate: (data.motExpiryDate as string | undefined) ?? null,
+      fuelType: (data.fuelType as string | undefined) ?? null,
     };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Network error." };
