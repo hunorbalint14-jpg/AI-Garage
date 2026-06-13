@@ -67,6 +67,10 @@ export function BookingForm({
   const [type, setType] = useState(firstService?.name ?? "service");
   const [duration, setDuration] = useState(firstService?.duration_minutes ?? 90);
 
+  // The Type <select> carries the service name; the booking also needs the
+  // service id so startBooking can seed it as the first job line item (#2).
+  const selectedServiceId = services.find((s) => s.name === type)?.id ?? "";
+
   function handleTypeChange(t: string) {
     setType(t);
     const svc = services.find((s) => s.name === t);
@@ -169,6 +173,7 @@ export function BookingForm({
             ))
           )}
         </select>
+        <input type="hidden" name="serviceId" value={selectedServiceId} />
       </div>
 
       <div className="flex flex-col gap-1.5">

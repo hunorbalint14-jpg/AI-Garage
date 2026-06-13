@@ -106,6 +106,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
   const scheduledAt = (formData.get("scheduledAt") as string | null)?.trim();
   const durationStr = (formData.get("durationMinutes") as string | null)?.trim();
   const type = (formData.get("type") as string | null)?.trim();
+  const serviceId = (formData.get("serviceId") as string | null)?.trim() || null;
   const notes = (formData.get("notes") as string | null)?.trim() || null;
   const sendConfirmation = formData.get("sendConfirmation") === "on";
 
@@ -133,12 +134,15 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     }
   }
 
-  const [customerRes, vehicleRes, orgRes] = await Promise.all([
+  const [customerRes, vehicleRes, orgRes, serviceRes] = await Promise.all([
     admin.from("customers").select("id, full_name, email, phone, location_id").eq("id", customerId).maybeSingle(),
     vehicleId
       ? admin.from("vehicles").select("id, registration, customer_id, location_id").eq("id", vehicleId).maybeSingle()
       : Promise.resolve({ data: null }),
     admin.from("organizations").select("name, phone, logo_url").eq("id", ctx.organization.id).maybeSingle(),
+    serviceId
+      ? admin.from("services").select("id, location_id").eq("id", serviceId).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const customer = customerRes.data as { id: string; full_name: string | null; email: string | null; phone: string | null; location_id: string } | null;
@@ -151,6 +155,11 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     return { error: "Vehicle not found for this customer." };
   }
 
+  // Only carry through a service that belongs to this location; the picker may
+  // submit a fallback type (e.g. "mot") that maps to no service row.
+  const service = serviceRes.data as { id: string; location_id: string } | null;
+  const validServiceId = service && service.location_id === ctx.location.id ? service.id : null;
+
   const { data: booking, error } = await admin
     .from("bookings")
     .insert({
@@ -161,6 +170,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       scheduled_at: isoScheduled,
       duration_minutes: duration,
       type,
+      service_id: validServiceId,
       notes,
     })
     .select("id")
