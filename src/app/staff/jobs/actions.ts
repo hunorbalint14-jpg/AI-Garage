@@ -305,6 +305,37 @@ export async function assignJobTechnician(
   return { success: true };
 }
 
+export type SetHighVoltageResult = { error: string } | { success: true };
+
+export async function setJobHighVoltage(
+  jobId: string,
+  highVoltage: boolean,
+): Promise<SetHighVoltageResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("jobs")
+    .update({ high_voltage: highVoltage })
+    .eq("id", jobId)
+    .eq("location_id", ctx.location.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "job.high_voltage_toggle",
+    entityType: "job",
+    entityId: jobId,
+    metadata: { high_voltage: highVoltage },
+  });
+
+  revalidatePath(`/staff/jobs/${jobId}`);
+  return { success: true };
+}
+
 export async function suggestLabourTime(
   description: string,
   vehicleDescription?: string,
