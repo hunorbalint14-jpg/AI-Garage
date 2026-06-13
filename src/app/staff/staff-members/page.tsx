@@ -30,6 +30,9 @@ export type StaffEntry = {
     templateId: string | null;
     motTester: boolean;
     motQcReviewer: boolean;
+    evLevel: number;
+    evCertifiedAt: string | null;
+    evExpiresAt: string | null;
   }[];
 };
 
@@ -96,7 +99,7 @@ export default async function StaffMembersPage() {
   const locationUsersRes = locationIds.length
     ? await admin
         .from("location_users")
-        .select("user_id, location_id, role, permissions, template_id, mot_tester, mot_qc_reviewer")
+        .select("user_id, location_id, role, permissions, template_id, mot_tester, mot_qc_reviewer, ev_level, ev_certified_at, ev_expires_at")
         .in("location_id", locationIds)
     : { data: [] };
 
@@ -108,6 +111,9 @@ export default async function StaffMembersPage() {
     template_id: string | null;
     mot_tester: boolean | null;
     mot_qc_reviewer: boolean | null;
+    ev_level: number | null;
+    ev_certified_at: string | null;
+    ev_expires_at: string | null;
   }[];
 
   const orgUsers = (orgUsersRes.data ?? []) as { user_id: string; role: string }[];
@@ -151,6 +157,9 @@ export default async function StaffMembersPage() {
         templateId: u.template_id,
         motTester: u.mot_tester === true,
         motQcReviewer: u.mot_qc_reviewer === true,
+        evLevel: u.ev_level ?? 0,
+        evCertifiedAt: u.ev_certified_at,
+        evExpiresAt: u.ev_expires_at,
       }));
 
     entriesMap.set(userId, {

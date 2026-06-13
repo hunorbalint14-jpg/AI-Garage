@@ -6,11 +6,13 @@ import {
   updateStaffPermissions,
   updateStaffRole,
   updateStaffMotFlags,
+  updateStaffEvQual,
   removeStaffMember,
   resetStaffPassword,
   resetStaffMfa,
   setStaffPassword,
 } from "./actions";
+import { EV_LEVEL_LABELS, isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import {
   PERMISSION_GROUPS,
   PERMISSION_LABELS,
@@ -162,6 +164,9 @@ export function StaffManager({
   const [editRole, setEditRole] = useState<string>("");
   const [editMotTester, setEditMotTester] = useState(false);
   const [editMotQc, setEditMotQc] = useState(false);
+  const [editEvLevel, setEditEvLevel] = useState(0);
+  const [editEvCertified, setEditEvCertified] = useState("");
+  const [editEvExpires, setEditEvExpires] = useState("");
 
   const defaultTemplate =
     templateForRole(templates, "mechanic") ?? templates.find((t) => t.isSystem) ?? null;
@@ -296,12 +301,18 @@ export function StaffManager({
     currentRole: string,
     motTester: boolean,
     motQc: boolean,
+    evLevel: number,
+    evCertified: string | null,
+    evExpires: string | null,
   ) {
     setEditingKey(`${userId}|${locationId}`);
     setEditPerms({ ...currentPerms });
     setEditRole(currentRole);
     setEditMotTester(motTester);
     setEditMotQc(motQc);
+    setEditEvLevel(evLevel);
+    setEditEvCertified(evCertified ?? "");
+    setEditEvExpires(evExpires ?? "");
     setError(null);
   }
 
@@ -311,6 +322,9 @@ export function StaffManager({
     setEditRole("");
     setEditMotTester(false);
     setEditMotQc(false);
+    setEditEvLevel(0);
+    setEditEvCertified("");
+    setEditEvExpires("");
   }
 
   function applyEditTemplate(t: RoleTemplateOption) {
@@ -318,7 +332,15 @@ export function StaffManager({
     if (ROLE_OPTIONS.some((r) => r.value === t.key)) setEditRole(t.key);
   }
 
-  function saveEdit(userId: string, locationId: string, prevMotTester: boolean, prevMotQc: boolean) {
+  function saveEdit(
+    userId: string,
+    locationId: string,
+    prevMotTester: boolean,
+    prevMotQc: boolean,
+    prevEvLevel: number,
+    prevEvCertified: string | null,
+    prevEvExpires: string | null,
+  ) {
     if (!editPerms) return;
     setError(null);
     startTransition(async () => {
@@ -328,6 +350,21 @@ export function StaffManager({
       ];
       if (editMotTester !== prevMotTester || editMotQc !== prevMotQc) {
         tasks.push(updateStaffMotFlags(userId, locationId, editMotTester, editMotQc));
+      }
+      if (
+        editEvLevel !== prevEvLevel ||
+        editEvCertified !== (prevEvCertified ?? "") ||
+        editEvExpires !== (prevEvExpires ?? "")
+      ) {
+        tasks.push(
+          updateStaffEvQual(
+            userId,
+            locationId,
+            editEvLevel,
+            editEvCertified || null,
+            editEvExpires || null,
+          ),
+        );
       }
       const results = await Promise.all(tasks);
       const err = results
@@ -466,6 +503,18 @@ export function StaffManager({
                     {loc.motQcReviewer && (
                       <span className="rounded bg-blue-100 dark:bg-blue-950/40 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:text-blue-300">QC reviewer</span>
                     )}
+                    {loc.evLevel > 0 && (
+                      <span
+                        className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${
+                          isHvQualified(loc.evLevel) && !qualExpired(loc.evExpiresAt)
+                            ? "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
+                        }`}
+                        title={EV_LEVEL_LABELS[loc.evLevel]}
+                      >
+                        EV L{loc.evLevel}{qualExpired(loc.evExpiresAt) ? " (expired)" : ""}
+                      </span>
+                    )}
                   </div>
                   <div className="flex gap-1.5 md:justify-end flex-wrap">
                     {!entry.isCurrentUser && (
@@ -488,7 +537,7 @@ export function StaffManager({
                           onClick={() =>
                             isEditing
                               ? cancelEdit()
-                              : startEdit(entry.userId, loc.locationId, loc.permissions, loc.role, loc.motTester, loc.motQcReviewer)
+                              : startEdit(entry.userId, loc.locationId, loc.permissions, loc.role, loc.motTester, loc.motQcReviewer, loc.evLevel, loc.evCertifiedAt, loc.evExpiresAt)
                           }
                         >
                           {isEditing ? "Cancel" : "Edit"}
@@ -595,11 +644,54 @@ export function StaffManager({
                         </div>
                       </div>
 
+                      <div className="rounded-md border p-3">
+                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">EV / high-voltage (IMI TechSafe)</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <label className="text-xs text-muted-foreground">
+                            Qualification level
+                            <select
+                              value={editEvLevel}
+                              onChange={(e) => setEditEvLevel(Number(e.target.value))}
+                              disabled={pending}
+                              className={inputClass + " mt-1"}
+                            >
+                              <option value={0}>None</option>
+                              {[1, 2, 3, 4].map((l) => (
+                                <option key={l} value={l}>{EV_LEVEL_LABELS[l]}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="text-xs text-muted-foreground">
+                            Certified
+                            <input
+                              type="date"
+                              value={editEvCertified}
+                              onChange={(e) => setEditEvCertified(e.target.value)}
+                              disabled={pending || editEvLevel === 0}
+                              className={inputClass + " mt-1"}
+                            />
+                          </label>
+                          <label className="text-xs text-muted-foreground">
+                            Expires
+                            <input
+                              type="date"
+                              value={editEvExpires}
+                              onChange={(e) => setEditEvExpires(e.target.value)}
+                              disabled={pending || editEvLevel === 0}
+                              className={inputClass + " mt-1"}
+                            />
+                          </label>
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Level 2 or above (in date) qualifies the member to work on high-voltage vehicles.
+                        </p>
+                      </div>
+
                       <div className="flex gap-2">
                         <Button
                           size="sm"
                           loading={pending}
-                          onClick={() => saveEdit(entry.userId, loc.locationId, loc.motTester, loc.motQcReviewer)}
+                          onClick={() => saveEdit(entry.userId, loc.locationId, loc.motTester, loc.motQcReviewer, loc.evLevel, loc.evCertifiedAt, loc.evExpiresAt)}
                         >
                           Save changes
                         </Button>
