@@ -9,6 +9,7 @@ import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { isBayFreeAt } from "@/lib/bay-availability";
 import { listLocationStaff } from "@/lib/staff-directory";
+import { resolveVehicleHighVoltage } from "@/lib/vehicle-fuel";
 import { logAudit } from "@/lib/audit";
 
 export type BookingType = "mot" | "service" | "repair" | "diagnostic" | "other";
@@ -234,6 +235,17 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
     .single();
 
   if (jobErr) return { error: jobErr.message };
+
+  // Auto-flag high voltage from the vehicle's DVLA fuel type (EV / hybrid).
+  // Best-effort: a failed/again-unavailable lookup just leaves it unflagged,
+  // and staff can still toggle it by hand on the job card.
+  try {
+    if (await resolveVehicleHighVoltage(admin, booking.vehicle_id)) {
+      await admin.from("jobs").update({ high_voltage: true }).eq("id", job.id);
+    }
+  } catch (e) {
+    console.error("[startBooking] HV auto-flag failed", e);
+  }
 
   // Seed the job with a line item from the booked service so the
   // mechanic doesn't have to retype it. Only when the booking has a

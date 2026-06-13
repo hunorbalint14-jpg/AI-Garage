@@ -1,5 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { isHvQualified, qualExpired, hvWarningFor } from "./ev-readiness";
+import { isHvQualified, qualExpired, hvWarningFor, isHighVoltageFuel } from "./ev-readiness";
+
+describe("isHighVoltageFuel", () => {
+  it("flags pure electric and hybrids", () => {
+    expect(isHighVoltageFuel("ELECTRICITY")).toBe(true);
+    expect(isHighVoltageFuel("HYBRID ELECTRIC")).toBe(true);
+    expect(isHighVoltageFuel("PETROL/ELECTRIC")).toBe(true);
+  });
+  it("does not flag combustion-only fuel", () => {
+    expect(isHighVoltageFuel("PETROL")).toBe(false);
+    expect(isHighVoltageFuel("DIESEL")).toBe(false);
+  });
+  it("handles null / empty", () => {
+    expect(isHighVoltageFuel(null)).toBe(false);
+    expect(isHighVoltageFuel("")).toBe(false);
+  });
+});
 
 describe("isHvQualified", () => {
   it("requires level 2 or above", () => {
