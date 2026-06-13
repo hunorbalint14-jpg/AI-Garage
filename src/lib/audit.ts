@@ -121,6 +121,7 @@ export type AuditAction =
   // Customer finance (Bumper / Payment Assist)
   | "finance.application_start"
   | "finance.application_completed"
+  | "finance.invoice_settled"
   | "finance.config_update"
   // AI receptionist
   | "receptionist.booking_created"

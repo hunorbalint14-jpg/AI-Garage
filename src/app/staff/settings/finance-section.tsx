@@ -62,9 +62,9 @@ export function FinanceSection({
           Customer finance — Bumper
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Adds a &quot;Spread the cost&quot; option to customer quotes above the minimum amount.
-          Customers complete the application on Bumper&apos;s hosted checkout — card and credit
-          data never touch this app. Requires a Bumper partner account
+          Adds a &quot;Spread the cost&quot; option to customer quotes and invoices above the
+          minimum amount. Customers complete the application on Bumper&apos;s hosted checkout —
+          card and credit data never touch this app. Requires a Bumper partner account
           (integrations@bumper.co).
         </p>
       </div>
