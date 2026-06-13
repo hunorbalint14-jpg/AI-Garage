@@ -5,9 +5,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { labourEstimateMinutes, liveActiveMinutes } from "@/lib/time-tracking";
 import { TechnicianSelector } from "@/components/staff/technician-selector";
+import { hvWarningFor, isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import { assignJobTechnician } from "../actions";
 import { JobDetail } from "./job-detail";
 import { JobTimeTracking, type TimeEntryView } from "./job-time-tracking";
+import { HighVoltageSection } from "./high-voltage-section";
 
 type Job = {
   id: string;
@@ -19,6 +21,7 @@ type Job = {
   location_id: string;
   booking_id: string | null;
   assigned_to: string | null;
+  high_voltage: boolean;
   customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
   vehicle: { id: string; registration: string; make: string | null; model: string | null; year: number | null } | null;
 };
@@ -45,7 +48,7 @@ export default async function JobDetailPage({
     admin
       .from("jobs")
       .select(
-        "id, status, description, notes, created_at, completed_at, location_id, booking_id, assigned_to, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
+        "id, status, description, notes, created_at, completed_at, location_id, booking_id, assigned_to, high_voltage, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model, year)",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -83,6 +86,19 @@ export default async function JobDetailPage({
 
   const job = jobRes.data as Job | null;
   if (!job || job.location_id !== ctx.location.id) notFound();
+
+  // HV qualification check for the warning banner (cheap: only when flagged).
+  const { data: quals } = job.high_voltage
+    ? await admin
+        .from("staff_ev_quals")
+        .select("user_id, level, expires_at")
+        .eq("location_id", ctx.location.id)
+    : { data: [] };
+  type QualRow = { user_id: string; level: number; expires_at: string | null };
+  const qualRows = (quals ?? []) as QualRow[];
+  const assigneeQual = job.assigned_to
+    ? (qualRows.find((q) => q.user_id === job.assigned_to) ?? null)
+    : null;
 
   const items = (itemsRes.data ?? []) as JobItem[];
   const products = (productsRes.data ?? []) as {
@@ -159,6 +175,18 @@ export default async function JobDetailPage({
           assignAction={assignJobTechnician}
         />
       </section>
+
+      <HighVoltageSection
+        jobId={job.id}
+        initialHighVoltage={job.high_voltage}
+        warning={hvWarningFor({
+          highVoltage: job.high_voltage,
+          assigneeName: job.assigned_to ? (staffNames.get(job.assigned_to) ?? "Assigned technician") : null,
+          assigneeLevel: assigneeQual?.level ?? null,
+          assigneeExpiresAt: assigneeQual?.expires_at ?? null,
+          locationHasQualified: qualRows.some((q) => isHvQualified(q.level) && !qualExpired(q.expires_at)),
+        })}
+      />
 
       <JobTimeTracking
         jobId={job.id}

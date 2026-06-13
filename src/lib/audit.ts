@@ -134,6 +134,10 @@ export type AuditAction =
   | "courtesy_car.update"
   | "courtesy_car.checkout"
   | "courtesy_car.return"
+  // EV / SERMI readiness
+  | "ev.sermi_update"
+  | "ev.qual_update"
+  | "job.high_voltage_toggle"
   // DVI / mid-job upsell quotes
   | "quote.create"
   | "quote.send"
