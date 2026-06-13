@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { saveSermiStatus } from "./actions";
+import { saveSermiStatus } from "./sermi-actions";
 
 const INPUT_CLASS =
   "w-full rounded-md border border-black/20 dark:border-white/25 bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";

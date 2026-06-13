@@ -13,7 +13,7 @@ export type StaffQualView = {
   expired: boolean;
 };
 
-export function QualsTable({ rows }: { rows: StaffQualView[] }) {
+export function EvQualsRoster({ rows }: { rows: StaffQualView[] }) {
   if (rows.length === 0) {
     return <p className="text-sm text-muted-foreground">No staff at this location yet.</p>;
   }

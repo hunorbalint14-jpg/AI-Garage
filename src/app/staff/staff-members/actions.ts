@@ -484,7 +484,7 @@ export async function updateStaffEvQual(
   });
 
   revalidatePath("/staff/staff-members");
-  revalidatePath("/staff/ev-readiness");
+  revalidatePath("/staff/settings");
   return { success: true };
 }
 

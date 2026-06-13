@@ -5,8 +5,9 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit";
 
-// SERMI status + technician EV qualifications. Owner/admin writes only —
-// this is compliance record-keeping, not day-to-day ops.
+// SERMI accreditation status (location-level compliance). Owner/admin only.
+// Lives under Settings → Compliance; per-technician EV qualifications are on
+// the Team page (location_users), shown read-only here as a roster.
 
 type ActionResult = { error: string } | { success: true };
 
@@ -48,6 +49,6 @@ export async function saveSermiStatus(formData: FormData): Promise<ActionResult>
     metadata: { sermi_status: status, has_reference: !!reference, expires_at: expiresAt },
   });
 
-  revalidatePath("/staff/ev-readiness");
+  revalidatePath("/staff/settings");
   return { success: true };
 }
