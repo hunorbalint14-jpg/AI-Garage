@@ -85,12 +85,15 @@ export async function sendTenantSubscriptionReceipt(sub: Stripe.Subscription): P
       "You can update your card, switch plan or cancel any time from Settings → Billing.",
     ];
 
-    await sendEmail({
+    const sent = await sendEmail({
       to: email,
       subject: `Your AI Garage ${tierName} subscription is active`,
       text: lines.join("\n\n"),
       cta,
     });
+    if (!sent.success) {
+      console.error("[receipts] tenant: sendEmail failed", { sub: sub.id, to: email, error: sent.error });
+    }
   } catch (err) {
     console.error("[receipts] sendTenantSubscriptionReceipt threw", err);
   }
@@ -162,12 +165,15 @@ export async function sendServicePlanReceipt(admin: Admin, sub: Stripe.Subscript
       .filter(Boolean)
       .join("\n\n");
 
-    await sendEmail({
+    const sent = await sendEmail({
       to: cust.email,
       subject: `Your ${planName} membership at ${garageName}`,
       text,
       html,
     });
+    if (!sent.success) {
+      console.error("[receipts] service plan: sendEmail failed", { sub: sub.id, to: cust.email, error: sent.error });
+    }
   } catch (err) {
     console.error("[receipts] sendServicePlanReceipt threw", err);
   }
