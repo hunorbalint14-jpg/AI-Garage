@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { CustomerVehiclePicker } from "@/components/staff/customer-vehicle-picker";
 import {
@@ -9,6 +9,8 @@ import {
   checkOutCourtesyCar,
   prepareLoanPhotoUploads,
   attachLoanPhotos,
+  prepareLoanSignatureUpload,
+  attachLoanSignature,
 } from "./actions";
 import { dvlaLookup } from "@/app/staff/customers/actions";
 
@@ -41,6 +43,124 @@ export async function uploadLoanPhotos(
   }
   const attach = await attachLoanPhotos(loanId, direction, prep.uploads.map((u) => u.path));
   return "error" in attach ? attach.error : null;
+}
+
+// Export the drawn signature as a PNG, mint a signed URL, PUT it, attach the path.
+async function uploadLoanSignature(loanId: string, canvas: HTMLCanvasElement): Promise<string | null> {
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) return "Could not capture the signature.";
+  const prep = await prepareLoanSignatureUpload(loanId);
+  if ("error" in prep) return prep.error;
+  const res = await fetch(prep.url, {
+    method: "PUT",
+    headers: { "Content-Type": "image/png" },
+    body: blob,
+  });
+  if (!res.ok) return `Signature upload failed (HTTP ${res.status}).`;
+  const attach = await attachLoanSignature(loanId, prep.path);
+  return "error" in attach ? attach.error : null;
+}
+
+// Reset the canvas to a crisp, white, blank pad. Sizing the backing store to
+// the element box × DPR keeps strokes sharp on tablets; re-running it (on clear)
+// also wipes the bitmap since setting canvas.width resets it.
+function resetSignatureCanvas(canvas: HTMLCanvasElement): void {
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (rect.width === 0) return;
+  canvas.width = Math.round(rect.width * ratio);
+  canvas.height = Math.round(rect.height * ratio);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, rect.width, rect.height);
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#111827";
+}
+
+// Hand-rolled signature pad (pointer events, no dependency). The parent owns the
+// canvas ref so it can toBlob() on submit; onInkChange reports whether anything
+// has been drawn so the upload is skipped for an untouched pad.
+function SignaturePad({
+  canvasRef,
+  onInkChange,
+  disabled,
+}: {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  onInkChange: (hasInk: boolean) => void;
+  disabled?: boolean;
+}) {
+  const drawing = useRef(false);
+  const inked = useRef(false);
+
+  useEffect(() => {
+    if (canvasRef.current) resetSignatureCanvas(canvasRef.current);
+  }, [canvasRef]);
+
+  function point(e: React.PointerEvent<HTMLCanvasElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  function start(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (disabled) return;
+    const ctx = e.currentTarget.getContext("2d");
+    if (!ctx) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drawing.current = true;
+    const { x, y } = point(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  }
+
+  function move(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawing.current) return;
+    const ctx = e.currentTarget.getContext("2d");
+    if (!ctx) return;
+    const { x, y } = point(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    if (!inked.current) {
+      inked.current = true;
+      onInkChange(true);
+    }
+  }
+
+  function stop() {
+    drawing.current = false;
+  }
+
+  function clear() {
+    if (canvasRef.current) resetSignatureCanvas(canvasRef.current);
+    inked.current = false;
+    onInkChange(false);
+  }
+
+  return (
+    <div className="mt-1">
+      <canvas
+        ref={canvasRef}
+        className="h-40 w-full rounded-md border border-black/20 bg-white dark:border-white/25"
+        style={{ touchAction: "none" }}
+        onPointerDown={start}
+        onPointerMove={move}
+        onPointerUp={stop}
+        onPointerLeave={stop}
+        onPointerCancel={stop}
+      />
+      <button
+        type="button"
+        onClick={clear}
+        disabled={disabled}
+        className="mt-1 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+      >
+        Clear signature
+      </button>
+    </div>
+  );
 }
 
 export type OpenJobView = { id: string; customerId: string; label: string };
@@ -76,6 +196,10 @@ export function FleetSection({
   const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Drawn check-out signature: the canvas lives in SignaturePad; we read it on
+  // submit. sigInk gates the upload so an untouched pad is skipped.
+  const sigCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [sigInk, setSigInk] = useState(false);
   // Add-car form: registration/make/model are controlled so a DVLA lookup can
   // prefill them. Notes stays uncontrolled (form.reset clears it on success).
   const [addReg, setAddReg] = useState("");
@@ -149,7 +273,7 @@ export function FleetSection({
         setError(result.error);
         return;
       }
-      // Loan exists; photos are best-effort on top.
+      // Loan exists; photos and signature are best-effort on top.
       if (photos.length > 0) {
         const photoError = await uploadLoanPhotos(result.loanId, "out", photos);
         if (photoError) {
@@ -157,9 +281,17 @@ export function FleetSection({
           return;
         }
       }
+      if (sigInk && sigCanvasRef.current) {
+        const sigError = await uploadLoanSignature(result.loanId, sigCanvasRef.current);
+        if (sigError) {
+          setError(`Checked out, but signature failed: ${sigError}`);
+          return;
+        }
+      }
       setCheckoutCarId(null);
       setPhotos([]);
       setPickedCustomerId(null);
+      setSigInk(false);
     });
   }
 
@@ -379,6 +511,10 @@ export function FleetSection({
               Customer signs by typing their full name *
               <input name="agreementName" className={`${INPUT_CLASS} mt-1`} required disabled={pending} />
             </label>
+            <div className="mt-3 text-xs text-muted-foreground">
+              Signature (sign with finger or stylus)
+              <SignaturePad canvasRef={sigCanvasRef} onInkChange={setSigInk} disabled={pending} />
+            </div>
           </div>
 
           <div>

@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { AGREEMENT_VERSION } from "@/lib/courtesy-agreement";
 import {
   loanPhotoPath,
+  loanSignaturePath,
   createPhotoUploadUrl,
   photoExists,
   isAllowedPhotoMime,
@@ -257,6 +258,59 @@ export async function attachLoanPhotos(
   const { error } = await admin
     .from("courtesy_car_loans")
     .update({ [column]: merged })
+    .eq("id", loanId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/staff/courtesy-cars");
+  return { success: true };
+}
+
+// ── Drawn signature ──────────────────────────────────────────────────────────
+
+export type PrepareSignatureUploadResult =
+  | { error: string }
+  | { success: true; path: string; url: string };
+
+// Mint a single signed PUT URL for the check-out signature PNG. Mirrors the
+// photo flow: the client draws on a canvas, PUTs the blob, then calls
+// attachLoanSignature with the same path.
+export async function prepareLoanSignatureUpload(loanId: string): Promise<PrepareSignatureUploadResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+
+  const admin = createAdminClient();
+  const { data: loan } = await admin
+    .from("courtesy_car_loans")
+    .select("id")
+    .eq("id", loanId)
+    .eq("location_id", ctx.location.id)
+    .maybeSingle();
+  if (!loan) return { error: "Loan not found." };
+
+  const path = loanSignaturePath(ctx.location.id, loanId);
+  const minted = await createPhotoUploadUrl(path);
+  if ("error" in minted) return { error: minted.error };
+  return { success: true, path, url: minted.url };
+}
+
+export async function attachLoanSignature(loanId: string, path: string): Promise<ActionResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+  if (!path.startsWith(`${ctx.location.id}/${loanId}/`)) return { error: "Invalid signature path." };
+  if (!(await photoExists(path))) return { error: "Signature failed to upload — try again." };
+
+  const admin = createAdminClient();
+  const { data: loan } = await admin
+    .from("courtesy_car_loans")
+    .select("id")
+    .eq("id", loanId)
+    .eq("location_id", ctx.location.id)
+    .maybeSingle();
+  if (!loan) return { error: "Loan not found." };
+
+  const { error } = await admin
+    .from("courtesy_car_loans")
+    .update({ signature_url: path })
     .eq("id", loanId);
   if (error) return { error: error.message };
 

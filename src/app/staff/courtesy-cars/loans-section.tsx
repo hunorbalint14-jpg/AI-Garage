@@ -31,6 +31,7 @@ export type LoanView = {
   agreementName: string | null;
   photoUrlsOut: string[];
   photoUrlsIn: string[];
+  signatureUrl: string | null;
 };
 
 function PhotoStrip({ urls, label }: { urls: string[]; label: string }) {
@@ -133,6 +134,19 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                         </p>
                       )}
                       <PhotoStrip urls={loan.photoUrlsOut} label="Out" />
+                      {loan.signatureUrl && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Signed</span>
+                          <a href={loan.signatureUrl} target="_blank" rel="noreferrer">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={loan.signatureUrl}
+                              alt="Customer signature"
+                              className="h-12 rounded-md border bg-white object-contain px-1"
+                            />
+                          </a>
+                        </div>
+                      )}
                     </div>
                     <Button size="sm" variant="outline" onClick={() => setReturningId(isReturning ? null : loan.id)}>
                       {isReturning ? "Close" : "Return car"}
@@ -215,6 +229,16 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                     <td className="px-3 py-2 text-xs text-muted-foreground">
                       {loan.conditionIn || "—"}
                       <PhotoStrip urls={[...loan.photoUrlsOut, ...loan.photoUrlsIn]} label="" />
+                      {loan.signatureUrl && (
+                        <a href={loan.signatureUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={loan.signatureUrl}
+                            alt="Customer signature"
+                            className="h-10 rounded-md border bg-white object-contain px-1"
+                          />
+                        </a>
+                      )}
                     </td>
                   </tr>
                 ))}
