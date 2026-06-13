@@ -46,6 +46,7 @@ export default async function CustomerInvoicePage({
   // "Spread the cost" (Bumper) — only on a payable invoice above the garage's
   // minimum, and only when the customer has the email + mobile Bumper needs.
   let financeAvailable = false;
+  let financePending = false;
   if (invoice.status !== "paid" && invoice.status !== "draft") {
     const financeCfg = await getActiveFinanceConfig(org.id);
     if (financeCfg && Number(invoice.total) >= financeCfg.minAmount) {
@@ -55,6 +56,22 @@ export default async function CustomerInvoicePage({
         .eq("id", customer.id)
         .maybeSingle();
       financeAvailable = Boolean(contact?.phone && contact?.email);
+    }
+    // Don't offer a second application while one is still open for this
+    // invoice — show a "being processed" note instead of the card.
+    if (financeAvailable) {
+      const { data: openApp } = await admin
+        .from("finance_applications")
+        .select("id")
+        .eq("subject_type", "invoice")
+        .eq("subject_id", invoice.id)
+        .in("status", ["pending", "in_progress"])
+        .limit(1)
+        .maybeSingle();
+      if (openApp) {
+        financeAvailable = false;
+        financePending = true;
+      }
     }
   }
 
@@ -225,6 +242,13 @@ export default async function CustomerInvoicePage({
             primaryColor={org.primary_color}
             totalFormatted={fmt(invoice.total)}
           />
+        )}
+
+        {financePending && !banner && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+            Your finance application is being processed. We&apos;ll update this invoice once Bumper
+            confirms it.
+          </div>
         )}
       </main>
     </div>
