@@ -19,6 +19,14 @@ export function qualExpired(expiresAt: string | null | undefined, now: Date = ne
   return new Date(expiresAt) < now;
 }
 
+// Whether a DVLA fuel type means the vehicle carries a high-voltage battery.
+// VES uses "ELECTRICITY" for pure EVs and "HYBRID ELECTRIC" for hybrids;
+// match any "electric" wording defensively, but exclude petrol/diesel-only.
+export function isHighVoltageFuel(fuelType: string | null | undefined): boolean {
+  if (!fuelType) return false;
+  return /electric|hybrid/i.test(fuelType);
+}
+
 export type HvWarning =
   | { kind: "none" }
   | { kind: "no_qualified_techs" }
