@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Play, Pause, Square, Clock, Pencil } from "lucide-react";
 import { clockIn, clockOut, pauseClock, resumeClock, adjustEntryDuration } from "../actions";
@@ -16,6 +16,8 @@ export type TimeEntryView = {
 };
 
 type ClockResult = { error: string } | { success: true };
+
+type ClockPhase = "out" | "running" | "paused";
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   running: { label: "Running", className: "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" },
@@ -42,9 +44,17 @@ export function JobTimeTracking({
   const actual = entries.reduce((s, e) => s + e.minutes, 0);
   const overEstimate = estimateMinutes > 0 && actual > estimateMinutes;
 
-  function run(fn: () => Promise<ClockResult>) {
+  // Optimistic clock phase so the button reacts the instant it's tapped,
+  // rather than waiting for the server action + router.refresh() round-trip.
+  // useOptimistic reverts to the real (prop-derived) phase once the refreshed
+  // server data lands, so a failed action self-corrects.
+  const realPhase: ClockPhase = myActive ? (myActive.status === "paused" ? "paused" : "running") : "out";
+  const [phase, setPhase] = useOptimistic<ClockPhase>(realPhase);
+
+  function run(fn: () => Promise<ClockResult>, optimistic?: ClockPhase) {
     setError(null);
     startTransition(async () => {
+      if (optimistic) setPhase(optimistic);
       const r = await fn();
       if ("error" in r) setError(r.error);
       else router.refresh();
@@ -72,40 +82,51 @@ export function JobTimeTracking({
         </div>
 
         <div className="flex items-center gap-2">
-          {!myActive && (
+          {phase === "out" && (
             <button
               type="button"
-              onClick={() => run(() => clockIn(jobId))}
+              onClick={() => run(() => clockIn(jobId), "running")}
               disabled={pending}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
             >
               <Play className="h-4 w-4" /> Clock in
             </button>
           )}
-          {myActive?.status === "running" && (
+          {/* Optimistic clock-in flips the phase before the new entry id exists;
+              show a disabled placeholder until router.refresh() lands myActive. */}
+          {phase !== "out" && !myActive && (
             <button
               type="button"
-              onClick={() => run(() => pauseClock(myActive.id))}
+              disabled
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground opacity-50"
+            >
+              <Play className="h-4 w-4" /> Starting…
+            </button>
+          )}
+          {phase === "running" && myActive && (
+            <button
+              type="button"
+              onClick={() => run(() => pauseClock(myActive.id), "paused")}
               disabled={pending}
               className="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-50"
             >
               <Pause className="h-4 w-4" /> Pause
             </button>
           )}
-          {myActive?.status === "paused" && (
+          {phase === "paused" && myActive && (
             <button
               type="button"
-              onClick={() => run(() => resumeClock(myActive.id))}
+              onClick={() => run(() => resumeClock(myActive.id), "running")}
               disabled={pending}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
             >
               <Play className="h-4 w-4" /> Resume
             </button>
           )}
-          {myActive && (
+          {phase !== "out" && myActive && (
             <button
               type="button"
-              onClick={() => run(() => clockOut(myActive.id))}
+              onClick={() => run(() => clockOut(myActive.id), "out")}
               disabled={pending}
               className="inline-flex items-center gap-2 rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
             >

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
@@ -39,26 +40,33 @@ export type LabourEstimateResult = { error: string } | { hours: number; note: st
 
 export type ClockResult = { error: string } | { success: true };
 
+// Defer an audit write until after the response is sent (rides Vercel's
+// waitUntil) so the clocking actions don't pay the audit insert on the hot
+// path. Falls back to inline when there's no request scope (tests/scripts),
+// mirroring recordAiUsage in lib/ai-usage.ts.
+function deferAudit(args: Parameters<typeof logAudit>[0]): void {
+  try {
+    after(() => logAudit(args));
+  } catch {
+    void logAudit(args);
+  }
+}
+
 // Clock the current staff member onto a job. One open entry per user — they
 // must clock out of any current job first. Any location member can track time.
 export async function clockIn(jobId: string): Promise<ClockResult> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const { data: job } = await admin
-    .from("jobs")
-    .select("id, location_id")
-    .eq("id", jobId)
-    .maybeSingle();
+  // The job validity check and the "already clocked in" check are independent —
+  // run them together so clock-in pays one round-trip instead of two.
+  const [jobRes, openRes] = await Promise.all([
+    admin.from("jobs").select("id, location_id").eq("id", jobId).maybeSingle(),
+    admin.from("job_time_entries").select("id").eq("user_id", ctx.user.id).is("ended_at", null).limit(1),
+  ]);
+  const job = jobRes.data;
   if (!job || job.location_id !== ctx.location.id) return { error: "Job not found." };
-
-  const { data: openRows } = await admin
-    .from("job_time_entries")
-    .select("id")
-    .eq("user_id", ctx.user.id)
-    .is("ended_at", null)
-    .limit(1);
-  if (openRows && openRows.length > 0) {
+  if (openRes.data && openRes.data.length > 0) {
     return { error: "You're already clocked in. Clock out of your current job first." };
   }
 
@@ -74,7 +82,7 @@ export async function clockIn(jobId: string): Promise<ClockResult> {
   });
   if (error) return { error: error.message };
 
-  await logAudit({
+  deferAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
@@ -130,7 +138,7 @@ export async function pauseClock(entryId: string): Promise<ClockResult> {
     .eq("id", entryId);
   if (error) return { error: error.message };
 
-  await logAudit({
+  deferAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
@@ -169,7 +177,7 @@ export async function resumeClock(entryId: string): Promise<ClockResult> {
     .eq("id", entryId);
   if (error) return { error: error.message };
 
-  await logAudit({
+  deferAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
@@ -204,7 +212,7 @@ export async function clockOut(entryId: string): Promise<ClockResult> {
     .eq("id", entryId);
   if (error) return { error: error.message };
 
-  await logAudit({
+  deferAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
@@ -252,7 +260,7 @@ export async function adjustEntryDuration(entryId: string, minutes: number): Pro
     .eq("id", entryId);
   if (error) return { error: error.message };
 
-  await logAudit({
+  deferAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
