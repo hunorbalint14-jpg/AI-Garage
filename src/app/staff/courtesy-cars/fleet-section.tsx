@@ -10,6 +10,7 @@ import {
   prepareLoanPhotoUploads,
   attachLoanPhotos,
 } from "./actions";
+import { dvlaLookup } from "@/app/staff/customers/actions";
 
 // Mint signed URLs, raw-PUT each file, then attach the verified paths.
 // Exported for the return flow in loans-section.
@@ -75,6 +76,14 @@ export function FleetSection({
   const [photos, setPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Add-car form: registration/make/model are controlled so a DVLA lookup can
+  // prefill them. Notes stays uncontrolled (form.reset clears it on success).
+  const [addReg, setAddReg] = useState("");
+  const [addMake, setAddMake] = useState("");
+  const [addModel, setAddModel] = useState("");
+  const [lookupPending, startLookup] = useTransition();
+  const [lookupHint, setLookupHint] = useState<string | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
   const onLoan = new Set(openLoanCarIds);
   const customerJobs = pickedCustomerId
     ? openJobs.filter((j) => j.customerId === pickedCustomerId)
@@ -91,7 +100,34 @@ export function FleetSection({
       else {
         form.reset();
         setShowAdd(false);
+        setAddReg("");
+        setAddMake("");
+        setAddModel("");
+        setLookupHint(null);
+        setLookupError(null);
       }
+    });
+  }
+
+  // Prefill make/model from the DVLA lookup by registration (same wrapper the
+  // customer vehicle form uses). Road tax isn't relevant for a courtesy car,
+  // so we skip the VED call.
+  function handleAddLookup() {
+    const reg = addReg.trim();
+    if (!reg) return;
+    setLookupError(null);
+    setLookupHint(null);
+    startLookup(async () => {
+      const result = await dvlaLookup(reg);
+      if ("error" in result) {
+        setLookupError(result.error);
+        return;
+      }
+      const v = result.vehicle;
+      if (v.make) setAddMake(v.make);
+      if (v.model) setAddModel(v.model);
+      const filled = [v.make, v.model, v.year].filter(Boolean);
+      setLookupHint(`Found: ${filled.join(", ") || "vehicle exists"}.`);
     });
   }
 
@@ -144,19 +180,58 @@ export function FleetSection({
 
       {showAdd && (
         <form onSubmit={handleAdd} className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-4">
-          <label className="text-xs text-muted-foreground">
+          <label className="text-xs text-muted-foreground sm:col-span-2">
             Registration *
-            <input name="registration" className={`${INPUT_CLASS} mt-1`} required disabled={pending} />
+            <div className="mt-1 flex gap-2">
+              <input
+                name="registration"
+                className={`${INPUT_CLASS} font-mono uppercase`}
+                required
+                disabled={pending}
+                placeholder="AB12 CDE"
+                autoComplete="off"
+                value={addReg}
+                onChange={(e) => {
+                  setAddReg(e.target.value.toUpperCase());
+                  setLookupHint(null);
+                  setLookupError(null);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={!addReg.trim() || pending}
+                loading={lookupPending}
+                onClick={handleAddLookup}
+              >
+                Look up
+              </Button>
+            </div>
+            {lookupHint && <span className="mt-1 block text-xs text-green-700">{lookupHint}</span>}
+            {lookupError && <span className="mt-1 block text-xs text-red-600">{lookupError}</span>}
           </label>
           <label className="text-xs text-muted-foreground">
             Make
-            <input name="make" className={`${INPUT_CLASS} mt-1`} disabled={pending} />
+            <input
+              name="make"
+              className={`${INPUT_CLASS} mt-1`}
+              disabled={pending}
+              value={addMake}
+              onChange={(e) => setAddMake(e.target.value)}
+            />
           </label>
           <label className="text-xs text-muted-foreground">
             Model
-            <input name="model" className={`${INPUT_CLASS} mt-1`} disabled={pending} />
+            <input
+              name="model"
+              className={`${INPUT_CLASS} mt-1`}
+              disabled={pending}
+              value={addModel}
+              onChange={(e) => setAddModel(e.target.value)}
+            />
           </label>
-          <label className="text-xs text-muted-foreground">
+          <label className="text-xs text-muted-foreground sm:col-span-4">
             Notes
             <input name="notes" className={`${INPUT_CLASS} mt-1`} disabled={pending} />
           </label>
