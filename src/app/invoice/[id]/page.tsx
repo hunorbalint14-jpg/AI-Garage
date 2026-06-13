@@ -160,7 +160,19 @@ export default async function CustomerInvoicePage({
           <p className="text-sm text-gray-400">{invoice.notes}</p>
         )}
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Pay link → /pay/[id] mints a Stripe Checkout session on the
+              garage's connected account and redirects. Hidden once paid (and
+              for drafts, which aren't payable yet). */}
+          {invoice.status !== "paid" && invoice.status !== "draft" && (
+            <a
+              href={`/pay/${invoice.id}`}
+              className="rounded-xl px-5 py-2 text-sm font-semibold text-white shadow-lg transition-opacity hover:opacity-90"
+              style={{ backgroundColor: org.primary_color }}
+            >
+              Pay now · {fmt(invoice.total)}
+            </a>
+          )}
           {/* Opens the clean A4 invoice (src/app/invoice/[id]/print) in a new
               tab, which auto-triggers the print dialog → Save as PDF. */}
           <a
