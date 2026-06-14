@@ -135,7 +135,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
   }
 
   const [customerRes, vehicleRes, orgRes, serviceRes] = await Promise.all([
-    admin.from("customers").select("id, full_name, email, phone, location_id").eq("id", customerId).maybeSingle(),
+    admin.from("customers").select("id, full_name, email, phone, organization_id").eq("id", customerId).maybeSingle(),
     vehicleId
       ? admin.from("vehicles").select("id, registration, customer_id, location_id").eq("id", vehicleId).maybeSingle()
       : Promise.resolve({ data: null }),
@@ -145,9 +145,9 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       : Promise.resolve({ data: null }),
   ]);
 
-  const customer = customerRes.data as { id: string; full_name: string | null; email: string | null; phone: string | null; location_id: string } | null;
-  if (!customer || customer.location_id !== ctx.location.id) {
-    return { error: "Customer not found at this location." };
+  const customer = customerRes.data as { id: string; full_name: string | null; email: string | null; phone: string | null; organization_id: string } | null;
+  if (!customer || customer.organization_id !== ctx.organization.id) {
+    return { error: "Customer not found in this organisation." };
   }
 
   const vehicle = vehicleRes.data as { id: string; registration: string; customer_id: string; location_id: string } | null;

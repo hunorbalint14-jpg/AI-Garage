@@ -44,7 +44,6 @@ export default async function DocumentsPage() {
     .from("jobs")
     .select("id, status, description, completed_at, vehicle:vehicles(registration)")
     .eq("customer_id", customer.id)
-    .eq("location_id", location.id)
     .order("completed_at", { ascending: false, nullsFirst: false });
   const jobs = (jobRows ?? []) as unknown as JobRow[];
   const jobIds = jobs.map((j) => j.id);
@@ -54,7 +53,6 @@ export default async function DocumentsPage() {
       .from("invoices")
       .select("id, invoice_number, total, status, issued_at")
       .eq("customer_id", customer.id)
-      .eq("location_id", location.id)
       .order("issued_at", { ascending: false, nullsFirst: false }),
     jobIds.length
       ? admin.from("job_quotes").select("id, title, created_at, job_id").in("job_id", jobIds).order("created_at", { ascending: false })

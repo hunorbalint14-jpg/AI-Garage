@@ -161,19 +161,14 @@ export async function impersonateCustomer(customerId: string): Promise<Impersona
 
   const { data: customer } = await admin
     .from("customers")
-    .select("id, email, full_name, user_id, location_id")
+    .select("id, email, full_name, user_id, organization_id")
     .eq("id", customerId)
     .maybeSingle();
 
   if (!customer) return { error: "Customer not found." };
   if (!customer.email) return { error: "Customer has no email address." };
 
-  const { data: loc } = await admin
-    .from("locations")
-    .select("organization_id")
-    .eq("id", customer.location_id)
-    .maybeSingle();
-  if (!loc || loc.organization_id !== ctx.organization.id) {
+  if (customer.organization_id !== ctx.organization.id) {
     return { error: "Customer not in this organisation." };
   }
 

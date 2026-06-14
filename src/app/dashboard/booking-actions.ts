@@ -34,14 +34,14 @@ async function getCustomerAndBooking(bookingId: string) {
   const location = locationRes.data as { id: string; name: string; organization: { id: string; name: string; phone: string | null } | null } | null;
   const booking = bookingRes.data as { id: string; customer_id: string | null; scheduled_at: string; type: string; status: string; location_id: string } | null;
 
-  if (!location || !booking) return { error: "Not found.", customer: null, booking: null, org: null };
+  if (!location || !booking || !location.organization) return { error: "Not found.", customer: null, booking: null, org: null };
   if (booking.location_id !== location.id) return { error: "Not found.", customer: null, booking: null, org: null };
 
-  // Verify customer owns this booking
+  // Verify customer owns this booking (customers are org-scoped, not per-branch)
   const { data: customer } = await admin
     .from("customers")
     .select("id, full_name, email, phone")
-    .eq("location_id", location.id)
+    .eq("organization_id", location.organization.id)
     .eq("email", user.email ?? "")
     .maybeSingle();
 

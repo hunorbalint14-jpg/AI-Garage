@@ -23,8 +23,7 @@ export async function updateContactPreferences(emailConsent: boolean, smsConsent
       marketing_sms_consent: smsConsent,
       consent_updated_at: new Date().toISOString(),
     })
-    .eq("id", customer.id)
-    .eq("location_id", location.id);
+    .eq("id", customer.id);
 
   if (error) return { error: error.message };
 

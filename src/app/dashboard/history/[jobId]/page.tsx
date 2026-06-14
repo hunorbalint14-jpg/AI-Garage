@@ -59,7 +59,7 @@ export default async function ServiceHistoryDetailPage({
   const { location, customer } = await getPortalContext();
   if (!customer) notFound();
 
-  const job = await requireOwnedJob(customer.id, location.id, jobId);
+  const job = await requireOwnedJob(customer.id, jobId);
   const org = location.organization;
   const admin = createAdminClient();
 

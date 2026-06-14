@@ -120,7 +120,7 @@ export async function approveQuoteAsOwner(quoteId: string): Promise<OwnerApprove
   const { location, customer } = await getPortalContext();
   if (!customer) return { error: "We couldn't find your account." };
 
-  const quote = await requireOwnedQuote(customer.id, location.id, quoteId);
+  const quote = await requireOwnedQuote(customer.id, quoteId);
   if (quote.status !== "pending") return { error: "This quote has already been responded to." };
 
   const admin = createAdminClient();
@@ -247,7 +247,7 @@ export async function declineQuoteAsOwner(quoteId: string, reason: string | null
   const { location, customer } = await getPortalContext();
   if (!customer) return { error: "We couldn't find your account." };
 
-  const quote = await requireOwnedQuote(customer.id, location.id, quoteId);
+  const quote = await requireOwnedQuote(customer.id, quoteId);
   if (quote.status !== "pending") return { error: "This quote has already been responded to." };
 
   const admin = createAdminClient();

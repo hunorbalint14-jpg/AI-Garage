@@ -44,7 +44,7 @@ export default async function BookPage() {
   const { data: customer } = await admin
     .from("customers")
     .select("id")
-    .eq("location_id", location.id)
+    .eq("organization_id", location.organization.id)
     .or(`user_id.eq.${user.id},email.eq.${user.email ?? ""}`)
     .maybeSingle();
 
