@@ -152,6 +152,13 @@ export default async function SettingsPage({
       {/* ── Booking ──────────────────────────────────────────────── */}
       {tab === "booking" && (
         <>
+          {ctx.accessibleLocations.length > 1 && (
+            <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+              Editing business hours for{" "}
+              <span className="font-medium text-foreground">{ctx.location.name}</span>. Use the branch
+              switcher in the top bar to configure a different branch.
+            </p>
+          )}
           <BusinessHoursForm
             initialStart={locHours?.business_hours_start ?? 8}
             initialEnd={locHours?.business_hours_end ?? 18}
@@ -233,6 +240,13 @@ export default async function SettingsPage({
       {/* ── Compliance ───────────────────────────────────────────── */}
       {tab === "compliance" && sermi && (
         <>
+          {ctx.accessibleLocations.length > 1 && (
+            <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+              SERMI &amp; EV qualifications shown for{" "}
+              <span className="font-medium text-foreground">{ctx.location.name}</span>. Use the branch
+              switcher in the top bar to configure a different branch.
+            </p>
+          )}
           <SermiCard sermi={sermi} canManage={isOwner} />
 
           <section className="flex flex-col gap-3">
