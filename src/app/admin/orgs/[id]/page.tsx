@@ -166,6 +166,21 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
       <div>
         <h2 className="mb-2 text-sm font-semibold">Locations &amp; subdomains</h2>
         <LocationSlugEditor locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name, slug: l.slug }))} />
+        {(locations ?? []).length > 1 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-[#5a6170]">Open a specific branch as admin:</span>
+            {(locations ?? []).map((l) => (
+              // Full navigation (not next/link) — crosses to the tenant subdomain.
+              <a
+                key={l.id}
+                href={`/admin/orgs/${id}/open?location=${l.id}`}
+                className="rounded-md border border-[#2a5a3a] bg-[#13301f] px-2 py-1 text-xs font-medium text-[#5fdd9d] hover:bg-[#163a26]"
+              >
+                {l.name} ↗
+              </a>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* AI receptionist — buy/release a Twilio number per location */}

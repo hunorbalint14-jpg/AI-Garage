@@ -31,16 +31,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const admin = createAdminClient();
-  const { data: location } = await admin
-    .from("locations")
-    .select("slug")
-    .eq("organization_id", id)
-    .order("created_at", { ascending: true })
-    .limit(1)
+  // Open a specific branch if requested (?location=<id>), else the org's primary
+  // branch, falling back to the alphabetically-first.
+  const requestedLocationId = new URL(request.url).searchParams.get("location");
+  const { data: org } = await admin
+    .from("organizations")
+    .select("primary_location_id, locations:locations(id, slug, name)")
+    .eq("id", id)
     .maybeSingle();
-  if (!location?.slug) {
+  const locs = ((org?.locations ?? []) as { id: string; slug: string; name: string }[]).slice();
+  if (locs.length === 0) {
     return NextResponse.redirect(`${origin}/admin/orgs/${id}`);
   }
+  locs.sort((a, b) => a.name.localeCompare(b.name));
+  const location =
+    (requestedLocationId ? locs.find((l) => l.id === requestedLocationId) : undefined) ??
+    locs.find((l) => l.id === (org as { primary_location_id?: string | null } | null)?.primary_location_id) ??
+    locs[0];
 
   const { data: linkData, error } = await admin.auth.admin.generateLink({ type: "magiclink", email: user.email });
   const tokenHash = linkData?.properties?.hashed_token;
