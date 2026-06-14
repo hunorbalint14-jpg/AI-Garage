@@ -2,7 +2,7 @@
 
 AI-powered cloud SaaS for UK garages — MOT/service tracking, automated reminders, and AI-assisted client communication.
 
-The app is multi-tenant (white-label per garage with custom subdomains and branding) and serves two audiences: garage staff and the garage's own customers (vehicle owners).
+The app is multi-tenant: the tenant is an **organization** (a garage business with one or more branch **locations**), white-labelled on its own subdomain. A customer registers once per organization and can be served at any of its branches. It serves two audiences: garage staff and the garage's own customers (vehicle owners).
 
 ## Stack
 
@@ -106,14 +106,14 @@ Bypass with `git commit --no-verify` when needed (e.g. WIP commits).
 
 ## Tenant resolution
 
-Hosts ending in `${NEXT_PUBLIC_ROOT_DOMAIN}` (e.g. `acme.ai-garage.co.uk`) resolve to the `acme` tenant. For Vercel Preview deploys, set `PREVIEW_TENANT_SLUG` in the Preview env scope to pin a single garage on every preview URL — see `src/lib/tenant.ts`.
+Hosts ending in `${NEXT_PUBLIC_ROOT_DOMAIN}` (e.g. `acme.ai-garage.co.uk`) resolve to the `acme` **organization** — the subdomain is the org slug, not a branch. An org owns one or more branch locations; staff switch the active branch in-app via the `active_location` cookie (top-bar switcher), not the URL. For Vercel Preview deploys, set `PREVIEW_TENANT_SLUG` in the Preview env scope to pin a single tenant on every preview URL — see `src/lib/tenant.ts`.
 
 ## Permissions model
 
 Two-tier:
 
-- **Org-level**: `owner` / `admin` (in `org_users`) — full access across every location in the org.
-- **Location-level**: `manager` / `service_advisor` / `mechanic` / `apprentice` / `receptionist` / `parts` / `bookkeeper` / `staff` (in `location_users`) with a `permissions` JSONB column listing 23 capability keys.
+- **Org-level**: `owner` / `admin` / `accountant` (in `org_users`). Owner/admin have full access across every location in the org; **`accountant`** is global finance read-only (invoices, quotes, finance applications, revenue) with no operational reach.
+- **Location-level**: `manager` / `service_advisor` / `mechanic` / `apprentice` / `receptionist` / `parts` / `bookkeeper` / `staff` (in `location_users`) with a `permissions` JSONB column listing 23 capability keys. Customers, vehicles, plans and communications are visible org-wide to any staff; jobs/bookings are scoped to the active branch.
 
 `hasPermission(ctx, key)` returns `true` for any org-level user. Hard-locked perms (`staff_manage`, `org_settings`, `gdpr_actions`) can only be granted via orgRole — never via a location template. See `src/lib/permissions.ts`.
 

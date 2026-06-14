@@ -37,7 +37,7 @@ export default async function RegisterPage() {
       </nav>
 
       <main className="relative z-10 flex min-h-[calc(100vh-72px)] items-center justify-center px-6 pb-12">
-        <RegisterForm garageName={orgName} primaryColor={primaryColor} />
+        <RegisterForm garageName={orgName} primaryColor={primaryColor} locations={tenant.locations} />
       </main>
     </div>
   );

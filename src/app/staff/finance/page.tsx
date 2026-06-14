@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
+import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -44,14 +45,34 @@ function subjectTarget(a: AppRow): string | null {
   return null;
 }
 
-export default async function FinancePage() {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string }>;
+}) {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const { data } = await admin
-    .from("finance_applications")
-    .select("id, provider, subject_type, subject_id, subject_ref, amount, status, created_at")
-    .eq("location_id", ctx.location.id)
+  // Org finance roles (owner/admin/accountant) default to all-locations;
+  // ?scope=<locationId> drops to a specific branch. Location-only staff stay
+  // scoped to their branch.
+  const { scope } = await searchParams;
+  const accessibleIds = new Set(ctx.accessibleLocations.map((l) => l.id));
+  const selectedBranch = !!ctx.orgRole && scope && scope !== "all" && accessibleIds.has(scope) ? scope : null;
+  const orgWide = !!ctx.orgRole && !selectedBranch;
+  const branchId = selectedBranch ?? ctx.location.id;
+  const branchName = ctx.accessibleLocations.find((l) => l.id === branchId)?.name ?? ctx.location.name;
+
+  const { data } = await (orgWide
+    ? admin
+        .from("finance_applications")
+        .select("id, provider, subject_type, subject_id, subject_ref, amount, status, created_at")
+        .eq("organization_id", ctx.organization.id)
+    : admin
+        .from("finance_applications")
+        .select("id, provider, subject_type, subject_id, subject_ref, amount, status, created_at")
+        .eq("location_id", branchId)
+  )
     .order("created_at", { ascending: false })
     .limit(200);
   const apps = (data ?? []) as AppRow[];
@@ -79,8 +100,15 @@ export default async function FinancePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Finance"
-        description="Customer finance applications (Bumper) raised at this location."
+        description={
+          orgWide
+            ? "Customer finance applications (Bumper) across all branches."
+            : `Customer finance applications (Bumper) raised at ${branchName}.`
+        }
       />
+      {ctx.orgRole && ctx.accessibleLocations.length > 1 && (
+        <FinanceScopeToggle locations={ctx.accessibleLocations} />
+      )}
 
       {apps.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
