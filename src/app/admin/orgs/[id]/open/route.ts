@@ -31,14 +31,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const admin = createAdminClient();
-  const { data: location } = await admin
-    .from("locations")
+  const { data: org } = await admin
+    .from("organizations")
     .select("slug")
-    .eq("organization_id", id)
-    .order("created_at", { ascending: true })
-    .limit(1)
+    .eq("id", id)
     .maybeSingle();
-  if (!location?.slug) {
+  if (!org?.slug) {
     return NextResponse.redirect(`${origin}/admin/orgs/${id}`);
   }
 
@@ -53,9 +51,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     actorUserId: user.id,
     actorEmail: user.email,
     organizationId: id,
-    metadata: { via: "platform_admin", location_slug: location.slug },
+    metadata: { via: "platform_admin", org_slug: org.slug },
   });
 
-  const target = `${PROTO}://${location.slug}.${ROOT_HOST}${PORT}/auth/handoff?token_hash=${encodeURIComponent(tokenHash)}&next=${encodeURIComponent("/staff")}`;
+  const target = `${PROTO}://${org.slug}.${ROOT_HOST}${PORT}/auth/handoff?token_hash=${encodeURIComponent(tokenHash)}&next=${encodeURIComponent("/staff")}`;
   return NextResponse.redirect(target);
 }

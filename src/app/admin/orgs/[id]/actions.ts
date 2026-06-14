@@ -23,20 +23,19 @@ async function requirePlatformAdmin(): Promise<{ id: string; email?: string | nu
 
 export type SlugResult = { error: string } | { success: true; slug: string };
 
-// Change a location's slug (its subdomain). Platform-admin only. Validates the
-// format/reserved list, enforces global uniqueness across organizations AND
-// locations (a subdomain must be unique across both, like at signup), and keeps
-// the org slug in sync when it currently matches the location's old slug (the
-// single-location case where they were created equal).
+// Change an organisation's slug (its subdomain). Platform-admin only. Validates
+// the format/reserved list and enforces global uniqueness across organizations
+// and retired slugs. The subdomain is the org slug now; locations carry internal
+// branch identifiers that are not web addresses.
 //
 // WARNING surfaced in the UI: this changes the garage's web address — old links,
-// bookmarks, and already-sent email links stop resolving.
-export async function updateLocationSlug(formData: FormData): Promise<SlugResult> {
+// bookmarks, and already-sent email links redirect to the new one.
+export async function updateOrgSlug(formData: FormData): Promise<SlugResult> {
   const actor = await requirePlatformAdmin();
 
-  const locationId = String(formData.get("locationId") ?? "");
+  const orgId = String(formData.get("orgId") ?? "");
   const rawSlug = String(formData.get("slug") ?? "");
-  if (!locationId) return { error: "Missing location." };
+  if (!orgId) return { error: "Missing organisation." };
 
   const slug = rawSlug.trim().toLowerCase();
   const formatError = validateSlug(slug);
@@ -44,66 +43,52 @@ export async function updateLocationSlug(formData: FormData): Promise<SlugResult
 
   const admin = createAdminClient();
 
-  const { data: location } = await admin
-    .from("locations")
-    .select("id, slug, organization_id")
-    .eq("id", locationId)
+  const { data: org } = await admin
+    .from("organizations")
+    .select("id, slug")
+    .eq("id", orgId)
     .maybeSingle();
-  if (!location) return { error: "Location not found." };
+  if (!org) return { error: "Organisation not found." };
 
-  const oldSlug = location.slug;
+  const oldSlug = org.slug;
   if (slug === oldSlug) return { success: true, slug };
 
-  // Global uniqueness across orgs, locations, AND retired slugs (history).
-  const conflict = await findSlugConflict(admin, slug, {
-    excludeLocationId: locationId,
-    excludeOrgId: location.organization_id,
-  });
+  // Global uniqueness across orgs AND retired slugs (history).
+  const conflict = await findSlugConflict(admin, slug, { excludeOrgId: orgId });
   if (conflict) return { error: conflict };
 
-  const { error: updErr } = await admin.from("locations").update({ slug }).eq("id", locationId);
+  const { error: updErr } = await admin.from("organizations").update({ slug }).eq("id", orgId);
   if (updErr) {
     // Unique-constraint violation under a race, or other DB error.
     return { error: updErr.message.includes("duplicate") ? "That subdomain was just taken." : updErr.message };
   }
 
-  // Permanently reserve the old slug + point its subdomain at this location, so
-  // the proxy can 308-redirect old links and no one can reuse it.
+  // Permanently reserve the old slug + point its subdomain at this org, so the
+  // proxy can 308-redirect old links and no one can reuse it.
   await admin
-    .from("location_slug_history")
+    .from("org_slug_history")
     .upsert(
-      { old_slug: oldSlug, location_id: locationId, organization_id: location.organization_id },
+      { old_slug: oldSlug, organization_id: orgId },
       { onConflict: "old_slug", ignoreDuplicates: true },
     );
 
-  // Keep the org slug in sync when it mirrored the old location slug.
-  const { data: org } = await admin
-    .from("organizations")
-    .select("slug")
-    .eq("id", location.organization_id)
-    .maybeSingle();
-  if (org?.slug === oldSlug) {
-    await admin.from("organizations").update({ slug }).eq("id", location.organization_id);
-  }
-
   await logAudit({
-    action: "location.slug_change",
+    action: "org.slug_change",
     actorUserId: actor.id,
     actorEmail: actor.email ?? null,
-    organizationId: location.organization_id,
-    entityType: "location",
-    entityId: locationId,
-    metadata: { old_slug: oldSlug, new_slug: slug, via: "platform_admin", org_slug_synced: org?.slug === oldSlug },
+    organizationId: orgId,
+    entityType: "organization",
+    entityId: orgId,
+    metadata: { old_slug: oldSlug, new_slug: slug, via: "platform_admin" },
   });
 
-  // Evict the proxy's retired-slug cache for both slugs: the old one is now
-  // retired (drop its stale "not retired" negative entry) and the new one may
-  // have been cached as retired before. Also drop the cached tenant branding
-  // under both slugs. Best-effort; entries also expire by TTL.
+  // Evict the proxy's retired-slug cache for both slugs (old one now retired,
+  // new one may have been cached as retired) + the cached tenant branding +
+  // staff org row under both slugs. Best-effort; entries also expire by TTL.
   await Promise.all([cacheDel(`slughist:${oldSlug}`), cacheDel(`slughist:${slug}`)]);
   await invalidateTenantCache([oldSlug, slug]);
   await invalidateStaffLocationCache([oldSlug, slug]);
 
-  revalidatePath(`/admin/orgs/${location.organization_id}`);
+  revalidatePath(`/admin/orgs/${orgId}`);
   return { success: true, slug };
 }

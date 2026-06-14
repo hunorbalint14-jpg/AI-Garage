@@ -10,8 +10,12 @@ import { readSentrySnapshot } from "@/lib/platform/sentry";
 
 export type TenantStatus = "operational" | "degraded" | "down";
 
+export type TenantBranch = { id: string; name: string; slug: string };
+
+// One row per ORGANISATION (the subdomain is the org slug). `branches` lists the
+// org's locations for the expandable roster row — internal identifiers, not URLs.
 export type TenantHealth = {
-  locationId: string;
+  organizationId: string;
   slug: string;
   orgName: string;
   host: string;
@@ -19,6 +23,8 @@ export type TenantHealth = {
   p95Ms: number | null;
   uptime24h: number | null;
   lastCheckedAt: string | null;
+  locationCount: number;
+  branches: TenantBranch[];
 };
 
 const STATUS_RANK: Record<TenantStatus, number> = { down: 0, degraded: 1, operational: 2 };
@@ -35,7 +41,7 @@ export async function fetchTenantHealth(opts: {
 
   let q = admin
     .from("platform_tenant_health")
-    .select("location_id, slug, org_name, host, status, p95_ms, uptime_24h, last_checked_at", { count: "exact" });
+    .select("organization_id, slug, org_name, host, status, p95_ms, uptime_24h, last_checked_at, location_count, branches", { count: "exact" });
 
   if (status !== "all") q = q.eq("status", status);
   if (search) q = q.or(`slug.ilike.%${search}%,org_name.ilike.%${search}%`);
@@ -43,7 +49,7 @@ export async function fetchTenantHealth(opts: {
   const { data, count } = await q.range(offset, offset + limit - 1);
 
   const rows = (data ?? []).map((r) => ({
-    locationId: r.location_id as string,
+    organizationId: r.organization_id as string,
     slug: r.slug as string,
     orgName: r.org_name as string,
     host: r.host as string,
@@ -51,6 +57,8 @@ export async function fetchTenantHealth(opts: {
     p95Ms: r.p95_ms as number | null,
     uptime24h: r.uptime_24h as number | null,
     lastCheckedAt: r.last_checked_at as string | null,
+    locationCount: Number(r.location_count ?? 0),
+    branches: (r.branches as TenantBranch[] | null) ?? [],
   }));
   rows.sort((a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status] || a.slug.localeCompare(b.slug));
   return { rows, total: count ?? rows.length };

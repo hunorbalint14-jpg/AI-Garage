@@ -9,8 +9,9 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Synthetic uptime/latency probe. Runs every few minutes via Vercel Cron: pings
-// every location subdomain + core platform endpoints, records one sample per
-// target. Alert evaluation / auto-incident lands in a later PR.
+// every organization subdomain + core platform endpoints, records one sample per
+// target. (The subdomain is the org slug; locations share the one app, so we
+// probe once per org.) Alert evaluation / auto-incident lands in a later PR.
 //
 // Conventions mirror /api/cron/tick: Bearer CRON_SECRET via safeEqual, the
 // service-role admin client, JSON summary return.
@@ -37,7 +38,7 @@ const PLATFORM_ENDPOINTS: { key: string; url: string }[] = [
 type Sample = {
   target_kind: "tenant" | "service" | "endpoint";
   target_key: string;
-  location_id: string | null;
+  organization_id: string | null;
   ok: boolean;
   status_code: number | null;
   latency_ms: number | null;
@@ -81,21 +82,21 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
   const __t0 = Date.now();
 
-  const { data: locations } = await admin
-    .from("locations")
+  const { data: orgs } = await admin
+    .from("organizations")
     .select("id, slug")
     .order("slug");
 
-  const tenantTargets = (locations ?? []).map((l) => ({
+  const tenantTargets = (orgs ?? []).map((o) => ({
     kind: "tenant" as const,
-    key: l.slug,
-    location_id: l.id,
-    url: tenantUrl(l.slug),
+    key: o.slug,
+    organization_id: o.id,
+    url: tenantUrl(o.slug),
   }));
   const endpointTargets = PLATFORM_ENDPOINTS.map((e) => ({
     kind: "endpoint" as const,
     key: e.key,
-    location_id: null,
+    organization_id: null,
     url: e.url,
   }));
   const all = [...endpointTargets, ...tenantTargets];
@@ -105,7 +106,7 @@ export async function GET(request: NextRequest) {
     return {
       target_kind: t.kind,
       target_key: t.key,
-      location_id: t.location_id,
+      organization_id: t.organization_id,
       ok: r.ok,
       status_code: r.status,
       latency_ms: r.ms,
