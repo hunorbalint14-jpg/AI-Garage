@@ -39,11 +39,15 @@ export default async function InvoicesPage({
   const { q, scope } = await searchParams;
   const query = q?.trim() ?? "";
 
-  // Org finance roles default to all-locations; ?scope=branch drops to the
-  // active branch. Location-only staff stay scoped to their branch.
-  const orgWide = !!ctx.orgRole && scope !== "branch";
+  // Org finance roles default to all-locations; ?scope=<locationId> drops to a
+  // specific branch. Location-only staff stay scoped to their branch.
+  const accessibleIds = new Set(ctx.accessibleLocations.map((l) => l.id));
+  const selectedBranch = !!ctx.orgRole && scope && scope !== "all" && accessibleIds.has(scope) ? scope : null;
+  const orgWide = !!ctx.orgRole && !selectedBranch;
+  const branchId = selectedBranch ?? ctx.location.id;
   const scopeColumn = orgWide ? "organization_id" : "location_id";
-  const scopeValue = orgWide ? ctx.organization.id : ctx.location.id;
+  const scopeValue = orgWide ? ctx.organization.id : branchId;
+  const branchName = ctx.accessibleLocations.find((l) => l.id === branchId)?.name ?? ctx.location.name;
 
   let invoices: InvoiceRow[] | null = null;
 
@@ -103,10 +107,10 @@ export default async function InvoicesPage({
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Invoices"
-        description={orgWide ? "All invoices across all branches." : "All invoices raised at this location."}
+        description={orgWide ? "All invoices across all branches." : `All invoices raised at ${branchName}.`}
       />
       {ctx.orgRole && ctx.accessibleLocations.length > 1 && (
-        <FinanceScopeToggle branchName={ctx.location.name} />
+        <FinanceScopeToggle locations={ctx.accessibleLocations} />
       )}
 
       <InvoiceSearch initialQ={query} />

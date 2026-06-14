@@ -54,10 +54,14 @@ export default async function FinancePage({
   const admin = createAdminClient();
 
   // Org finance roles (owner/admin/accountant) default to all-locations;
-  // ?scope=branch drops to the active branch. Location-only staff stay scoped
-  // to their branch.
+  // ?scope=<locationId> drops to a specific branch. Location-only staff stay
+  // scoped to their branch.
   const { scope } = await searchParams;
-  const orgWide = !!ctx.orgRole && scope !== "branch";
+  const accessibleIds = new Set(ctx.accessibleLocations.map((l) => l.id));
+  const selectedBranch = !!ctx.orgRole && scope && scope !== "all" && accessibleIds.has(scope) ? scope : null;
+  const orgWide = !!ctx.orgRole && !selectedBranch;
+  const branchId = selectedBranch ?? ctx.location.id;
+  const branchName = ctx.accessibleLocations.find((l) => l.id === branchId)?.name ?? ctx.location.name;
 
   const { data } = await (orgWide
     ? admin
@@ -67,7 +71,7 @@ export default async function FinancePage({
     : admin
         .from("finance_applications")
         .select("id, provider, subject_type, subject_id, subject_ref, amount, status, created_at")
-        .eq("location_id", ctx.location.id)
+        .eq("location_id", branchId)
   )
     .order("created_at", { ascending: false })
     .limit(200);
@@ -99,11 +103,11 @@ export default async function FinancePage({
         description={
           orgWide
             ? "Customer finance applications (Bumper) across all branches."
-            : "Customer finance applications (Bumper) raised at this location."
+            : `Customer finance applications (Bumper) raised at ${branchName}.`
         }
       />
       {ctx.orgRole && ctx.accessibleLocations.length > 1 && (
-        <FinanceScopeToggle branchName={ctx.location.name} />
+        <FinanceScopeToggle locations={ctx.accessibleLocations} />
       )}
 
       {apps.length > 0 && (

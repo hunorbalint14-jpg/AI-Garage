@@ -60,12 +60,16 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const toIso = to.toISOString();
   const periodLabel = PERIODS.find((p) => p.key === key)?.label ?? "This quarter";
 
-  // Org finance roles default to all-locations; ?scope=branch drops to the
-  // active branch. Location-only staff stay scoped to their branch.
-  const orgWide = !!ctx.orgRole && scope !== "branch";
-  const locationIds = orgWide ? ctx.accessibleLocations.map((l) => l.id) : [ctx.location.id];
+  // Org finance roles default to all-locations; ?scope=<locationId> drops to a
+  // specific branch. Location-only staff stay scoped to their branch.
+  const accessibleIds = new Set(ctx.accessibleLocations.map((l) => l.id));
+  const selectedBranch = !!ctx.orgRole && scope && scope !== "all" && accessibleIds.has(scope) ? scope : null;
+  const orgWide = !!ctx.orgRole && !selectedBranch;
+  const branchId = selectedBranch ?? ctx.location.id;
+  const branchName = ctx.accessibleLocations.find((l) => l.id === branchId)?.name ?? ctx.location.name;
+  const locationIds = orgWide ? ctx.accessibleLocations.map((l) => l.id) : [branchId];
   const scopeColumn = orgWide ? "organization_id" : "location_id";
-  const scopeValue = orgWide ? ctx.organization.id : ctx.location.id;
+  const scopeValue = orgWide ? ctx.organization.id : branchId;
 
   const admin = createAdminClient();
 
@@ -164,7 +168,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   let techHoursPerDay = 0;
   for (const [locId, techs] of techsByLoc) techHoursPerDay += techs.size * (hoursByLoc.get(locId) ?? 0);
   const techCount = new Set(entries.map((e) => e.user_id)).size;
-  const singleBranchHoursPerDay = hoursByLoc.get(ctx.location.id) ?? 0;
+  const singleBranchHoursPerDay = hoursByLoc.get(branchId) ?? 0;
   const workedMinutes = entries.reduce((s, e) => s + e.duration_minutes, 0);
   const util = utilisationSummary({ workedMinutes, labourLines, techCount: techHoursPerDay, hoursPerDay: 1, workingDays });
   const fmtHours = (mins: number) => `${Math.round((mins / 60) * 10) / 10}h`;
@@ -181,11 +185,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         description={
           orgWide
             ? "Outstanding money, labour productivity, and VAT — across all branches."
-            : "Outstanding money, labour productivity, and VAT — for this location."
+            : `Outstanding money, labour productivity, and VAT — for ${branchName}.`
         }
       />
       {ctx.orgRole && ctx.accessibleLocations.length > 1 && (
-        <FinanceScopeToggle branchName={ctx.location.name} />
+        <FinanceScopeToggle locations={ctx.accessibleLocations} />
       )}
 
       {/* Aged debtors */}

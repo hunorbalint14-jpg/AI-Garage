@@ -1,38 +1,40 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
-// "All locations" vs the active branch for the finance pages. Org-wide is the
-// default for owner/admin/accountant (no ?scope param); selecting the branch
-// adds ?scope=branch, which the page reads to fall back to ctx.location. Other
-// query params (?q, ?period) are preserved. Only rendered for org roles with
-// more than one accessible branch.
-export function FinanceScopeToggle({ branchName }: { branchName: string }) {
+// Finance scope picker for owner/admin/accountant: "All locations" (the org-wide
+// roll-up, the default) plus every accessible branch. Selecting a branch adds
+// ?scope=<locationId>, which the page reads to scope its queries to that branch;
+// "All locations" clears it. Other query params (?q, ?period) are preserved.
+// Only rendered for org roles with more than one accessible branch; location
+// staff never see it and stay scoped to their own branch.
+export function FinanceScopeToggle({ locations }: { locations: { id: string; name: string }[] }) {
+  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const current = params.get("scope") === "branch" ? "branch" : "all";
+  const current = params.get("scope") ?? "all";
 
-  function href(scope: "all" | "branch") {
+  function onChange(value: string) {
     const sp = new URLSearchParams(params.toString());
-    if (scope === "branch") sp.set("scope", "branch");
-    else sp.delete("scope");
+    if (value === "all") sp.delete("scope");
+    else sp.set("scope", value);
     const qs = sp.toString();
-    return qs ? `${pathname}?${qs}` : pathname;
+    router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
-  const base = "rounded-md px-3 py-1 text-sm font-medium transition-colors";
-  const on = "bg-background text-foreground shadow-sm";
-  const off = "text-muted-foreground hover:text-foreground";
-
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-lg border bg-muted/50 p-0.5" role="group" aria-label="Finance scope">
-      <Link href={href("all")} className={`${base} ${current === "all" ? on : off}`}>
-        All locations
-      </Link>
-      <Link href={href("branch")} className={`${base} ${current === "branch" ? on : off}`}>
-        {branchName}
-      </Link>
-    </div>
+    <select
+      value={current}
+      onChange={(e) => onChange(e.target.value)}
+      className="rounded-md border bg-background px-3 py-1.5 text-sm"
+      aria-label="Finance scope"
+    >
+      <option value="all">All locations</option>
+      {locations.map((l) => (
+        <option key={l.id} value={l.id}>
+          {l.name}
+        </option>
+      ))}
+    </select>
   );
 }
