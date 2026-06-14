@@ -5,7 +5,7 @@ import { normalisePermissions } from "@/app/staff/staff-members/constants";
 export function mockStaffContext(overrides: Partial<StaffContext> = {}): StaffContext {
   return {
     user: { id: "u_test", email: "test@garage.test", fullName: "Test User" },
-    organization: { id: "o_test", slug: "test-garage", name: "Test Garage" },
+    organization: { id: "o_test", slug: "test-garage", name: "Test Garage", primary_location_id: "l_test" },
     location: { id: "l_test", slug: "test-garage", name: "Test Garage" },
     activeLocation: { id: "l_test", slug: "test-garage", name: "Test Garage" },
     accessibleLocations: [{ id: "l_test", slug: "test-garage", name: "Test Garage" }],
