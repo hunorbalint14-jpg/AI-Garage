@@ -126,6 +126,8 @@ export type AuditAction =
   // AI receptionist
   | "receptionist.booking_created"
   | "receptionist.handed_off"
+  | "receptionist.number_provisioned"
+  | "receptionist.number_released"
   | "receptionist.config_update"
   // No-show defence
   | "booking.no_show_charged"

@@ -9,6 +9,7 @@ import {
   formatGbp,
 } from "@/lib/platform-stats";
 import { LocationSlugEditor } from "./location-slug-editor";
+import { ReceptionistNumbers, type ReceptionistLoc } from "./receptionist-numbers";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,23 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
     .eq("organization_id", id)
     .order("created_at", { ascending: true });
   const locationIds = (locations ?? []).map((l) => l.id);
+
+  // Receptionist Twilio numbers, keyed by location, for the provisioning panel.
+  const { data: receptionistConfigs } = await admin
+    .from("receptionist_configs")
+    .select("location_id, twilio_number, enabled")
+    .in("location_id", locationIds.length > 0 ? locationIds : ["00000000-0000-0000-0000-000000000000"]);
+  const configByLocation = new Map(
+    ((receptionistConfigs ?? []) as { location_id: string; twilio_number: string | null; enabled: boolean }[]).map(
+      (c) => [c.location_id, c],
+    ),
+  );
+  const receptionistLocations: ReceptionistLoc[] = (locations ?? []).map((l) => ({
+    id: l.id,
+    name: l.name,
+    twilioNumber: configByLocation.get(l.id)?.twilio_number ?? null,
+    enabled: configByLocation.get(l.id)?.enabled ?? false,
+  }));
 
   // AI usage for the org's locations over the last 30 days, aggregated in TS.
   // eslint-disable-next-line react-hooks/purity -- server component: a 30-day window boundary; freshness is the point
@@ -148,6 +166,12 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
       <div>
         <h2 className="mb-2 text-sm font-semibold">Locations &amp; subdomains</h2>
         <LocationSlugEditor locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name, slug: l.slug }))} />
+      </div>
+
+      {/* AI receptionist — buy/release a Twilio number per location */}
+      <div>
+        <h2 className="mb-2 text-sm font-semibold">AI receptionist numbers</h2>
+        <ReceptionistNumbers locations={receptionistLocations} />
       </div>
     </div>
   );
