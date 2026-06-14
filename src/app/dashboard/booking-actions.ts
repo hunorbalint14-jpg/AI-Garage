@@ -41,7 +41,7 @@ async function getCustomerAndBooking(bookingId: string) {
   const { data: customer } = await admin
     .from("customers")
     .select("id, full_name, email, phone")
-    .eq("location_id", location.id)
+    .eq("organization_id", location.organization?.id ?? "")
     .eq("email", user.email ?? "")
     .maybeSingle();
 

@@ -72,7 +72,6 @@ export async function registerCustomer(
   // chosen home branch as both the legacy location_id and preferred_location_id.
   const { error: customerErr } = await admin.from("customers").insert({
     organization_id: org.id,
-    location_id: homeLocation.id,
     preferred_location_id: homeLocation.id,
     user_id: userId,
     full_name: fullName,

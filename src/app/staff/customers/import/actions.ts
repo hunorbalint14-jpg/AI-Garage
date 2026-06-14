@@ -121,7 +121,6 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
           .from("customers")
           .insert({
             organization_id: ctx.organization.id,
-            location_id: ctx.location.id,
             preferred_location_id: ctx.location.id,
             full_name: fullName,
             email,
@@ -159,6 +158,7 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
     }
 
     const { error: vErr } = await admin.from("vehicles").insert({
+      organization_id: ctx.organization.id,
       location_id: ctx.location.id,
       customer_id: customerId,
       registration, make, model, year,

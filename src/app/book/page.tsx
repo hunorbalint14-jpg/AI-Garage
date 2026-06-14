@@ -75,7 +75,7 @@ export default async function BookingWidgetPage({
     const { data: customer } = await admin
       .from("customers")
       .select("id, full_name, email, phone")
-      .eq("location_id", location.id)
+      .eq("organization_id", org.id)
       .eq("email", user.email)
       .maybeSingle();
     if (customer) {

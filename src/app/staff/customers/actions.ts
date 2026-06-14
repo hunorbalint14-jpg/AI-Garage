@@ -49,7 +49,6 @@ export async function addCustomer(formData: FormData): Promise<AddCustomerResult
     .from("customers")
     .insert({
       organization_id: ctx.organization.id,
-      location_id: ctx.location.id,
       preferred_location_id: ctx.location.id,
       full_name: fullName,
       email,
@@ -155,7 +154,7 @@ export async function addVehicle(customerId: string, formData: FormData): Promis
 
   const { data, error } = await ctx.supabase
     .from("vehicles")
-    .insert({ location_id: ctx.location.id, customer_id: customerId, registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue, tax_due_date: taxDueDate })
+    .insert({ organization_id: ctx.organization.id, location_id: ctx.location.id, customer_id: customerId, registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue, tax_due_date: taxDueDate })
     .select("id")
     .single();
 

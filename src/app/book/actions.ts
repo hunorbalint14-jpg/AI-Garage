@@ -136,7 +136,6 @@ export async function submitWidgetBooking(
       .from("customers")
       .insert({
         organization_id: org.id,
-        location_id: branch.id,
         preferred_location_id: branch.id,
         full_name: fullName,
         email,
