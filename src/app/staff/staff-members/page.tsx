@@ -21,7 +21,7 @@ export type StaffEntry = {
   lastSignIn: string | null;
   isCurrentUser: boolean;
   hasMfa: boolean;
-  orgRole: "owner" | "admin" | null;
+  orgRole: "owner" | "admin" | "accountant" | null;
   locationEntries: {
     locationId: string;
     locationName: string;
@@ -171,7 +171,7 @@ export default async function StaffMembersPage() {
       hasMfa:
         (authUser.factors ?? []).filter((f: { status: string }) => f.status === "verified").length > 0 ||
         passkeyUserIds.has(userId),
-      orgRole: orgUser ? (orgUser.role as "owner" | "admin") : null,
+      orgRole: orgUser ? (orgUser.role as "owner" | "admin" | "accountant") : null,
       locationEntries: locEntries,
     });
   }

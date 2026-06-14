@@ -57,9 +57,11 @@ function RoleBadge({ role }: { role: string }) {
     receptionist: "bg-pink-100 text-pink-800 dark:bg-pink-950/40 dark:text-pink-300",
     parts: "bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300",
     bookkeeper: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300",
+    accountant: "bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300",
     staff: "bg-muted text-muted-foreground",
   };
-  const label = ROLE_OPTIONS.find((r) => r.value === role)?.label ?? role;
+  const ORG_LABELS: Record<string, string> = { owner: "Owner", admin: "Admin", accountant: "Accountant" };
+  const label = ORG_LABELS[role] ?? ROLE_OPTIONS.find((r) => r.value === role)?.label ?? role;
   return (
     <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${styles[role] ?? styles.staff}`}>
       {label}
@@ -946,15 +948,26 @@ export function StaffManager({
                   <input
                     type="radio"
                     checked={invite.scope === "org"}
-                    onChange={() => setInvite((p) => ({ ...p, scope: "org", role: "admin" }))}
+                    onChange={() => setInvite((p) => ({ ...p, scope: "org", role: p.role === "accountant" ? "accountant" : "admin" }))}
                     disabled={pending}
                     className="mt-0.5"
                   />
-                  <div>
-                    <p className="text-sm font-medium">All locations (Admin)</p>
-                    <p className="text-xs text-muted-foreground">
-                      Full access to every location in the organisation.
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">All locations</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Organisation-wide. Admins manage everything; accountants see finance across every branch.
                     </p>
+                    {invite.scope === "org" && (
+                      <select
+                        value={invite.role === "accountant" ? "accountant" : "admin"}
+                        onChange={(e) => setInvite((p) => ({ ...p, role: e.target.value }))}
+                        disabled={pending}
+                        className={inputClass + " sm:max-w-xs"}
+                      >
+                        <option value="admin">Admin — full access</option>
+                        <option value="accountant">Accountant — finance only</option>
+                      </select>
+                    )}
                   </div>
                 </label>
               )}
@@ -966,7 +979,7 @@ export function StaffManager({
                     setInvite((p) => ({
                       ...p,
                       scope: "location",
-                      role: p.role === "admin" ? defaultTemplate?.key ?? "mechanic" : p.role,
+                      role: p.role === "admin" || p.role === "accountant" ? defaultTemplate?.key ?? "mechanic" : p.role,
                     }))
                   }
                   disabled={pending}
