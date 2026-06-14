@@ -153,7 +153,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     const { data } = (await admin
       .from("organizations")
       .select(
-        "id, slug, name, primary_color, logo_url, dpa_version, primary_location_id, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations(id, slug, name)",
+        "id, slug, name, primary_color, logo_url, dpa_version, primary_location_id, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, slug, name)",
       )
       .eq("slug", slug)
       .maybeSingle()) as { data: OrgWithLocations | null };

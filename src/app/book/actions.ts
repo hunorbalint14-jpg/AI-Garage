@@ -45,7 +45,7 @@ export async function submitWidgetBooking(
   const { data: org } = (await admin
     .from("organizations")
     .select(
-      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations(id, name, slug)",
+      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, name, slug)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {

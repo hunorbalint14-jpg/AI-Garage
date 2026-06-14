@@ -101,7 +101,7 @@ export const getCurrentTenant = cache(async (): Promise<TenantContext | null> =>
   const { data } = (await admin
     .from("organizations")
     .select(
-      "id, slug, name, primary_color, logo_url, custom_domain, primary_location_id, locations:locations(id, slug, name)",
+      "id, slug, name, primary_color, logo_url, custom_domain, primary_location_id, locations:locations!organization_id(id, slug, name)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
