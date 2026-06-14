@@ -47,12 +47,12 @@ export async function GET(
 
   const { data: location } = (await admin
     .from("locations")
-    .select("id, organization:organizations(name, phone, logo_url, primary_color)")
+    .select("id, organization:organizations(id, name, phone, logo_url, primary_color)")
     .eq("slug", slug)
     .maybeSingle()) as {
     data: {
       id: string;
-      organization: { name: string; phone: string | null; logo_url: string | null; primary_color: string | null } | null;
+      organization: { id: string; name: string; phone: string | null; logo_url: string | null; primary_color: string | null } | null;
     } | null;
   };
   if (!location?.organization) return new NextResponse("Not found", { status: 404 });
@@ -60,7 +60,7 @@ export async function GET(
   const { data: customer } = await admin
     .from("customers")
     .select("id")
-    .eq("location_id", location.id)
+    .eq("organization_id", location.organization.id)
     .eq("email", user.email ?? "")
     .maybeSingle();
   if (!customer) return new NextResponse("Not found", { status: 404 });

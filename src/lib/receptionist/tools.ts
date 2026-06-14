@@ -177,14 +177,14 @@ async function createBooking(
   const { data: existing } = await admin
     .from("customers")
     .select("id")
-    .eq("location_id", ctx.locationId)
+    .eq("organization_id", ctx.organizationId)
     .eq("phone", ctx.customerPhone)
     .maybeSingle();
   let customerId = (existing as { id: string } | null)?.id ?? null;
   if (!customerId) {
     const { data: created, error } = await admin
       .from("customers")
-      .insert({ location_id: ctx.locationId, full_name: fullName, phone: ctx.customerPhone })
+      .insert({ organization_id: ctx.organizationId, preferred_location_id: ctx.locationId, full_name: fullName, phone: ctx.customerPhone })
       .select("id")
       .single();
     if (error || !created) return { result: "Couldn't save the customer record — hand off to the garage." };
