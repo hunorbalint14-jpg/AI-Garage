@@ -84,16 +84,27 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
   if (!scheduledAt) return { error: "Preferred date and time is required." };
   if (!serviceIdInput) return { error: "Please choose an appointment type." };
 
+  // Org-scoped customers can book at any branch in the org. Validate the chosen
+  // branch (the form's locationId) against the org's locations; fall back to the
+  // landing branch when absent/invalid.
+  const requestedBranchId = (formData.get("locationId") as string | null)?.trim() || null;
+  const { data: branchData } = await admin
+    .from("locations")
+    .select("id")
+    .eq("organization_id", location.organization.id);
+  const branchIds = new Set((branchData ?? []).map((b) => (b as { id: string }).id));
+  const branchId = requestedBranchId && branchIds.has(requestedBranchId) ? requestedBranchId : location.id;
+
   const { data: service } = await admin
     .from("services")
     .select("id, name, category, price")
     .eq("id", serviceIdInput)
-    .eq("location_id", location.id)
+    .eq("location_id", branchId)
     .maybeSingle();
   if (!service) return { error: "Selected service is no longer available." };
 
   const capacity = await bayCapacityAt({
-    locationId: location.id,
+    locationId: branchId,
     scheduledAt: new Date(scheduledAt).toISOString(),
     durationMinutes: 60,
   });
@@ -113,7 +124,7 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
   const { data: booking, error } = await admin
     .from("bookings")
     .insert({
-      location_id: location.id,
+      location_id: branchId,
       customer_id: cust.id,
       vehicle_id: vehicleId || null,
       service_id: service.id,

@@ -42,21 +42,36 @@ export default async function BookingWidgetPage({
 
   const org = location.organization;
 
-  const { data: servicesData } = await admin
-    .from("services")
-    .select("id, name, category, duration_minutes, price")
-    .eq("location_id", location.id)
-    .eq("active", true)
-    .order("category")
-    .order("name");
-
-  const services = (servicesData ?? []) as {
+  // Every branch in the org + each branch's active services, so the widget's
+  // branch picker can re-filter the services list per branch. The subdomain
+  // resolves to the org; `location` (slug-matched) is the default landing branch.
+  type Service = {
     id: string;
     name: string;
     category: string;
     duration_minutes: number;
     price: number | null;
-  }[];
+  };
+  const { data: branchData } = await admin
+    .from("locations")
+    .select("id, name")
+    .eq("organization_id", org.id)
+    .order("name");
+  const locations = (branchData ?? []) as { id: string; name: string }[];
+
+  const { data: servicesData } = await admin
+    .from("services")
+    .select("id, name, category, duration_minutes, price, location_id")
+    .in("location_id", locations.map((l) => l.id))
+    .eq("active", true)
+    .order("category")
+    .order("name");
+  const servicesByLocation: Record<string, Service[]> = {};
+  for (const l of locations) servicesByLocation[l.id] = [];
+  for (const s of (servicesData ?? []) as (Service & { location_id: string })[]) {
+    (servicesByLocation[s.location_id] ??= []).push(s);
+  }
+  const defaultLocationId = location.id;
 
   // If the visitor is already logged in as a customer, pre-fill the form
   // and skip the contact-details prompt.
@@ -214,7 +229,9 @@ export default async function BookingWidgetPage({
         <BookingWidgetForm
           orgColor={org.primary_color}
           garageName={org.name}
-          services={services}
+          locations={locations}
+          servicesByLocation={servicesByLocation}
+          defaultLocationId={defaultLocationId}
           privacyPolicyUrl={org.privacy_policy_url}
           prefill={prefill}
           paymentsEnabled={paymentsEnabled}

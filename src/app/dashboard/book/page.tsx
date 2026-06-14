@@ -48,15 +48,37 @@ export default async function BookPage() {
     .or(`user_id.eq.${user.id},email.eq.${user.email ?? ""}`)
     .maybeSingle();
 
+  // Every branch in the org + each branch's active services, so the form's
+  // branch picker can re-filter services per branch. Services have no
+  // organization_id, so fetch branches first then services by location id.
+  type Service = { id: string; name: string; category: string; duration_minutes: number; price: number | null };
+  const { data: branchData } = await admin
+    .from("locations")
+    .select("id, name")
+    .eq("organization_id", location.organization.id)
+    .order("name");
+  const locations = (branchData ?? []) as { id: string; name: string }[];
+
   const [vehiclesRes, servicesRes] = await Promise.all([
     customer
       ? admin.from("vehicles").select("id, registration, make, model").eq("customer_id", customer.id).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
-    admin.from("services").select("id, name, category, duration_minutes, price").eq("location_id", location.id).eq("active", true).order("category").order("name"),
+    admin
+      .from("services")
+      .select("id, name, category, duration_minutes, price, location_id")
+      .in("location_id", locations.map((l) => l.id))
+      .eq("active", true)
+      .order("category")
+      .order("name"),
   ]);
 
   const vehicles = vehiclesRes.data ?? [];
-  const services = (servicesRes.data ?? []) as { id: string; name: string; category: string; duration_minutes: number; price: number | null }[];
+  const servicesByLocation: Record<string, Service[]> = {};
+  for (const l of locations) servicesByLocation[l.id] = [];
+  for (const s of (servicesRes.data ?? []) as (Service & { location_id: string })[]) {
+    (servicesByLocation[s.location_id] ??= []).push(s);
+  }
+  const defaultLocationId = location.id;
 
   const orgColor = location.organization.primary_color;
   const orgName = location.organization.name;
@@ -97,7 +119,9 @@ export default async function BookPage() {
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-sm">
           <BookingRequestForm
             vehicles={vehicles as { id: string; registration: string; make: string | null; model: string | null }[]}
-            services={services}
+            locations={locations}
+            servicesByLocation={servicesByLocation}
+            defaultLocationId={defaultLocationId}
             orgColor={orgColor}
             paymentsEnabled={paymentsEnabled}
           />

@@ -10,9 +10,14 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/auth-constants";
 export function RegisterForm({
   garageName,
   primaryColor = "#6366f1",
+  locations,
 }: {
   garageName: string;
   primaryColor?: string;
+  // Every branch in the org. When there's more than one, the customer chooses a
+  // home branch (-> customers.preferred_location_id); a single branch is
+  // auto-selected and the picker is hidden.
+  locations: { id: string; name: string }[];
 }) {
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
@@ -60,6 +65,25 @@ export function RegisterForm({
           onChange={(e) => setEmail(e.target.value)}
         />
         <Field id="phone" label="Phone (optional)" name="phone" type="tel" autoComplete="tel" placeholder="07123 456789" />
+        {locations.length > 1 && (
+          <div>
+            <label htmlFor="locationId" className="mb-1.5 block text-xs font-medium text-gray-300">
+              Preferred branch
+            </label>
+            <select
+              id="locationId"
+              name="locationId"
+              defaultValue={locations[0].id}
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:border-white/30 focus:outline-none"
+            >
+              {locations.map((l) => (
+                <option key={l.id} value={l.id} className="bg-[#0b1220] text-white">
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <Field
             id="password"
