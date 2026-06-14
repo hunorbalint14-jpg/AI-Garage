@@ -15,7 +15,11 @@ type Service = {
 
 type Props = {
   vehicles: Vehicle[];
-  services: Service[];
+  // Branch picker drives the services list: each branch's active services keyed
+  // by location id, plus the landing branch.
+  locations: { id: string; name: string }[];
+  servicesByLocation: Record<string, Service[]>;
+  defaultLocationId: string;
   orgColor: string;
   paymentsEnabled: boolean;
 };
@@ -31,11 +35,23 @@ function fmtGbp(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
-export function BookingRequestForm({ vehicles, services, orgColor, paymentsEnabled }: Props) {
+export function BookingRequestForm({ vehicles, locations, servicesByLocation, defaultLocationId, orgColor, paymentsEnabled }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [locationId, setLocationId] = useState<string>(defaultLocationId);
+  const services = useMemo(
+    () => servicesByLocation[locationId] ?? [],
+    [servicesByLocation, locationId],
+  );
   const [serviceId, setServiceId] = useState<string>(services[0]?.id ?? "");
+
+  // Switching branch re-points the services list and resets the chosen service.
+  function onBranchChange(next: string) {
+    setLocationId(next);
+    const list = servicesByLocation[next] ?? [];
+    setServiceId(list[0]?.id ?? "");
+  }
 
   const selectedService = useMemo(
     () => services.find((s) => s.id === serviceId) ?? null,
@@ -84,6 +100,25 @@ export function BookingRequestForm({ vehicles, services, orgColor, paymentsEnabl
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {locations.length > 1 ? (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Branch</label>
+          <select
+            name="locationId"
+            disabled={pending}
+            value={locationId}
+            onChange={(e) => onBranchChange(e.target.value)}
+            className={inputClass}
+          >
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>{l.name}</option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <input type="hidden" name="locationId" value={locationId} />
+      )}
+
       <div className="flex flex-col gap-1.5">
         <label className="text-xs font-semibold uppercase tracking-wider text-gray-500">Vehicle</label>
         <select name="vehicleId" disabled={pending} className={inputClass}>
