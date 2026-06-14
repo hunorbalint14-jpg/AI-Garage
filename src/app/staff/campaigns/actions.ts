@@ -31,7 +31,7 @@ export async function draftBroadcastPreview(
   const admin = createAdminClient();
 
   const [customersRes, orgRes] = await Promise.all([
-    admin.from("customers").select("email, phone").eq("location_id", ctx.location.id),
+    admin.from("customers").select("email, phone").eq("organization_id", ctx.organization.id),
     admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
   ]);
 
@@ -104,12 +104,12 @@ export async function sendBroadcast(
   const { data: customersData } = await admin
     .from("customers")
     .select("id, email, phone, marketing_email_consent, marketing_sms_consent, anonymized_at")
-    .eq("location_id", ctx.location.id)
+    .eq("organization_id", ctx.organization.id)
     .is("anonymized_at", null)
     .limit(MAX_CUSTOMERS);
 
   const customers = customersData ?? [];
-  if (!customers.length) return { error: "No customers found at this location." };
+  if (!customers.length) return { error: "No customers found." };
 
   const cleanSubject = subjectInput.trim().slice(0, 120);
   if (!cleanSubject) return { error: "Subject is required." };

@@ -5,9 +5,10 @@ import { MFA_COOKIE, readMfaUser } from "@/lib/mfa-cookie";
 // hard-blocking is gated behind OWNER_MFA_ENFORCED so we can ship the flow,
 // nudge owners to enrol, then flip enforcement on once they have.
 
-// Org-level roles that must complete MFA. Phase 2 scope: owners + admins.
-export function mfaAppliesToRole(orgRole: "owner" | "admin" | null): boolean {
-  return orgRole === "owner" || orgRole === "admin";
+// Org-level roles that must complete MFA. Owners + admins + the finance-scoped
+// accountant (all have org-wide access worth a step-up).
+export function mfaAppliesToRole(orgRole: "owner" | "admin" | "accountant" | null): boolean {
+  return orgRole === "owner" || orgRole === "admin" || orgRole === "accountant";
 }
 
 // Hard block when true; nudge-only when false (default). Set OWNER_MFA_ENFORCED

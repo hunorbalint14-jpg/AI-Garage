@@ -97,7 +97,7 @@ export const NAV_MODULES: NavModule[] = [
 ];
 
 type FilterCtx = {
-  orgRole: "owner" | "admin" | null | undefined;
+  orgRole: "owner" | "admin" | "accountant" | null | undefined;
   locationPermissions?: Partial<Record<PermissionKey, boolean>> | null;
 };
 
@@ -109,8 +109,14 @@ export function filterModulesForRole(ctxOrOrgRole: FilterCtx | "owner" | "admin"
       : { orgRole: ctxOrOrgRole ?? null, locationPermissions: null };
 
   const isOwnerOrAdmin = ctx.orgRole === "owner" || ctx.orgRole === "admin";
+  // Accountant is global finance read-only — a fixed allow-list, no ops/shop/grow
+  // and no settings/team. (Permission gates don't apply: accountants have no
+  // location permissions.)
+  const isAccountant = ctx.orgRole === "accountant";
+  const ACCOUNTANT_ITEMS = new Set(["dashboard", "revenue", "invoices", "finance", "reports"]);
 
   const itemAllowed = (i: NavItem): boolean => {
+    if (isAccountant) return ACCOUNTANT_ITEMS.has(i.key);
     if (i.adminOnly && !isOwnerOrAdmin) return false;
     if (i.permission && !isOwnerOrAdmin) {
       return ctx.locationPermissions?.[i.permission] === true;

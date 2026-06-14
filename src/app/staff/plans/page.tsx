@@ -16,7 +16,7 @@ export default async function PlansPage() {
       .select(
         "id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active, discount_type, discount_value",
       )
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .order("active", { ascending: false })
       .order("name", { ascending: true }),
     admin
@@ -27,7 +27,7 @@ export default async function PlansPage() {
     admin
       .from("plan_subscriptions")
       .select("service_plan_id, status")
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .in("status", ["active", "trialing", "past_due"]),
     admin
       .from("services")

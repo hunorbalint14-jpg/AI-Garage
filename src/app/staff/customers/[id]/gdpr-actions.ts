@@ -27,7 +27,7 @@ export async function updateConsent(
       consent_updated_at: new Date().toISOString(),
     })
     .eq("id", customerId)
-    .eq("location_id", ctx.location.id);
+    .eq("organization_id", ctx.organization.id);
 
   if (error) return { error: error.message };
 
@@ -59,11 +59,11 @@ export async function anonymizeCustomer(
 
   const { data: customer } = await admin
     .from("customers")
-    .select("id, location_id, email, anonymized_at")
+    .select("id, organization_id, email, anonymized_at")
     .eq("id", customerId)
     .maybeSingle();
 
-  if (!customer || customer.location_id !== ctx.location.id) {
+  if (!customer || customer.organization_id !== ctx.organization.id) {
     return { error: "Customer not found." };
   }
   if (customer.anonymized_at) {
@@ -121,13 +121,15 @@ export async function exportCustomerData(customerId: string): Promise<
   if (!hasPermission(ctx, "gdpr_actions")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
+  // Customers are org-global; export ALL of the customer's data across every
+  // branch (scoped by customer_id, which is unique within the org).
   const [custRes, vehRes, bookingsRes, jobsRes, invoicesRes, remindersRes] = await Promise.all([
-    admin.from("customers").select("*").eq("id", customerId).eq("location_id", ctx.location.id).maybeSingle(),
-    admin.from("vehicles").select("*").eq("customer_id", customerId).eq("location_id", ctx.location.id),
-    admin.from("bookings").select("*").eq("customer_id", customerId).eq("location_id", ctx.location.id),
-    admin.from("jobs").select("*").eq("customer_id", customerId).eq("location_id", ctx.location.id),
-    admin.from("invoices").select("*").eq("customer_id", customerId).eq("location_id", ctx.location.id),
-    admin.from("reminders").select("*").eq("customer_id", customerId).eq("location_id", ctx.location.id),
+    admin.from("customers").select("*").eq("id", customerId).eq("organization_id", ctx.organization.id).maybeSingle(),
+    admin.from("vehicles").select("*").eq("customer_id", customerId),
+    admin.from("bookings").select("*").eq("customer_id", customerId),
+    admin.from("jobs").select("*").eq("customer_id", customerId),
+    admin.from("invoices").select("*").eq("customer_id", customerId),
+    admin.from("reminders").select("*").eq("customer_id", customerId),
   ]);
 
   if (!custRes.data) return { error: "Customer not found." };
@@ -175,11 +177,11 @@ export async function deleteCustomerHard(
 
   const { data: customer } = await admin
     .from("customers")
-    .select("id, location_id, email")
+    .select("id, organization_id, email")
     .eq("id", customerId)
     .maybeSingle();
 
-  if (!customer || customer.location_id !== ctx.location.id) {
+  if (!customer || customer.organization_id !== ctx.organization.id) {
     return { error: "Customer not found." };
   }
 

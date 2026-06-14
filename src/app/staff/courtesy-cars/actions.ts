@@ -121,7 +121,7 @@ export async function checkOutCourtesyCar(formData: FormData): Promise<CheckOutR
       .from("customers")
       .select("id, full_name")
       .eq("id", customerId)
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .maybeSingle(),
   ]);
   if (!car || !(car as { active: boolean }).active) return { error: "Car not found or inactive." };

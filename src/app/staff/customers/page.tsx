@@ -55,14 +55,14 @@ export default async function CustomersPage({
       admin
         .from("customers")
         .select(CUSTOMER_SELECT)
-        .eq("location_id", ctx.location.id)
+        .eq("organization_id", ctx.organization.id)
         .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
         .order("full_name", { ascending: true })
         .limit(SEARCH_LIMIT),
       admin
         .from("vehicles")
         .select("customer_id")
-        .eq("location_id", ctx.location.id)
+        .eq("organization_id", ctx.organization.id)
         .ilike("registration", `%${query}%`)
         .limit(SEARCH_LIMIT),
     ]);
@@ -81,7 +81,7 @@ export default async function CustomersPage({
         const { data: regCustomers } = await admin
           .from("customers")
           .select(CUSTOMER_SELECT)
-          .eq("location_id", ctx.location.id)
+          .eq("organization_id", ctx.organization.id)
           .in("id", missingIds)
           .order("full_name", { ascending: true });
         customers = [...byNamePhone, ...((regCustomers as unknown as CustomerRow[]) ?? [])];
@@ -95,7 +95,7 @@ export default async function CustomersPage({
     const res = await admin
       .from("customers")
       .select(CUSTOMER_SELECT, { count: "exact" })
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
     customers = res.data as unknown as CustomerRow[] | null;
@@ -110,7 +110,7 @@ export default async function CustomersPage({
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Customers"
-        description="All customers registered at this location."
+        description="All customers across your garages."
         action={
           <div className="flex gap-2">
             <Button

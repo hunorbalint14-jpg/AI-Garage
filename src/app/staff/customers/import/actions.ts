@@ -109,7 +109,7 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
       const { data: existing } = await admin
         .from("customers")
         .select("id")
-        .eq("location_id", ctx.location.id)
+        .eq("organization_id", ctx.organization.id)
         .eq("email", email)
         .maybeSingle();
 
@@ -119,7 +119,14 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
       } else {
         const { data, error } = await admin
           .from("customers")
-          .insert({ location_id: ctx.location.id, full_name: fullName, email, phone })
+          .insert({
+            organization_id: ctx.organization.id,
+            location_id: ctx.location.id,
+            preferred_location_id: ctx.location.id,
+            full_name: fullName,
+            email,
+            phone,
+          })
           .select("id")
           .single();
 

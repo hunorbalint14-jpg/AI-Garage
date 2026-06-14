@@ -19,7 +19,7 @@ export default async function RemindersPage() {
       .select(
         "id, registration, make, model, year, mot_expiry, service_due, customer:customers(id, full_name, email, phone)",
       )
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .or(
         `mot_expiry.lte.${in60.toISOString().split("T")[0]},service_due.lte.${in60.toISOString().split("T")[0]}`,
       )
@@ -30,7 +30,7 @@ export default async function RemindersPage() {
       .select(
         "id, type, channel, subject, status, sent_at, message_text, customer:customers(id, full_name), vehicle:vehicles(id, registration)",
       )
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .order("sent_at", { ascending: false })
       .limit(300),
   ]);

@@ -21,7 +21,7 @@ export default async function WinBackPage() {
     .select(
       "id, registration, make, model, year, mot_expiry, last_mot_test_date, moted_elsewhere_at, customer:customers!inner(id, full_name, email, phone, marketing_email_consent, marketing_sms_consent, anonymized_at)",
     )
-    .eq("location_id", ctx.location.id)
+    .eq("organization_id", ctx.organization.id)
     .not("moted_elsewhere_at", "is", null)
     .is("customers.anonymized_at", null)
     .order("moted_elsewhere_at", { ascending: false })

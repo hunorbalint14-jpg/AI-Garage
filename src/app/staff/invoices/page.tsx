@@ -52,7 +52,7 @@ export default async function InvoicesPage({
       admin
         .from("customers")
         .select("id")
-        .eq("location_id", ctx.location.id)
+        .eq("organization_id", ctx.organization.id)
         .ilike("full_name", `%${query}%`),
     ]);
 

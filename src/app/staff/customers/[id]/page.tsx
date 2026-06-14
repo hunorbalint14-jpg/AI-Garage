@@ -16,7 +16,7 @@ import { subscriptionStatusLabel, isSubscriptionLive } from "@/lib/service-plans
 
 type Customer = {
   id: string;
-  location_id: string;
+  organization_id: string;
   full_name: string | null;
   email: string | null;
   phone: string | null;
@@ -82,7 +82,7 @@ export default async function CustomerDetailPage({
   const [customerRes, vehiclesRes, remindersRes, plansRes, membershipsRes] = await Promise.all([
     admin
       .from("customers")
-      .select("id, location_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
+      .select("id, organization_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
       .eq("id", id)
       .maybeSingle(),
     admin
@@ -101,24 +101,23 @@ export default async function CustomerDetailPage({
     admin
       .from("service_plans")
       .select("id, name")
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .eq("active", true)
       .order("name", { ascending: true }),
     admin
       .from("plan_subscriptions")
       .select("id, status, interval, current_period_end, cancel_at_period_end, service_plan:service_plans(name, discount_type, discount_value)")
       .eq("customer_id", id)
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: false }),
   ]);
 
-  // Tenant isolation: the customer must belong to the staff member's current
-  // location. Compares the admin-fetched row against ctx.location — the same
-  // RLS-independent pattern as the job/booking detail pages (the old check
-  // here did a separate RLS round-trip, which 404'd whenever the customers
-  // SELECT policy changed underneath it).
+  // Tenant isolation: customers are org-global now, so the row must belong to
+  // the staff member's ORGANISATION (any branch). Compares the admin-fetched
+  // row against ctx.organization — the same RLS-independent pattern as the
+  // job/booking detail pages.
   const customer = customerRes.data as Customer | null;
-  if (!customer || customer.location_id !== ctx.location.id) notFound();
+  if (!customer || customer.organization_id !== ctx.organization.id) notFound();
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];

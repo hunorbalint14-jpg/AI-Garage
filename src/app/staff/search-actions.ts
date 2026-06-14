@@ -23,9 +23,9 @@ export type SearchResults = {
 const EMPTY: SearchResults = { customers: [], vehicles: [], invoices: [] };
 const GROUP_LIMIT = 5;
 
-// Global staff search behind the Cmd+K palette. All queries scoped to the
-// current location; service-role client is fine because requireStaffContext
-// has already authenticated the member.
+// Global staff search behind the Cmd+K palette. Customers + vehicles are
+// org-global; invoices stay scoped to the active branch (ops-local). Service-
+// role client is fine because requireStaffContext has authenticated the member.
 export async function globalSearch(rawQuery: string): Promise<SearchResults> {
   const q = rawQuery.trim();
   if (q.length < 2) return EMPTY;
@@ -37,14 +37,14 @@ export async function globalSearch(rawQuery: string): Promise<SearchResults> {
     admin
       .from("customers")
       .select("id, full_name, phone, email")
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .or(`full_name.ilike.${like},phone.ilike.${like},email.ilike.${like}`)
       .order("full_name", { ascending: true })
       .limit(GROUP_LIMIT),
     admin
       .from("vehicles")
       .select("registration, make, model, customer:customers(id, full_name)")
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .ilike("registration", like)
       .limit(GROUP_LIMIT),
     admin

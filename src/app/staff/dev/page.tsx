@@ -36,7 +36,7 @@ export default async function DevPage() {
     admin
       .from("customers")
       .select("id, full_name, email, user_id")
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .order("full_name", { ascending: true })
       .limit(200),
     admin

@@ -16,11 +16,11 @@ export async function saveTyreCheck(
 
   const { data: vehicle } = await admin
     .from("vehicles")
-    .select("id, location_id")
+    .select("id, organization_id")
     .eq("id", vehicleId)
     .maybeSingle();
 
-  if (!vehicle || vehicle.location_id !== ctx.location.id) {
+  if (!vehicle || vehicle.organization_id !== ctx.organization.id) {
     return { error: "Vehicle not found." };
   }
 

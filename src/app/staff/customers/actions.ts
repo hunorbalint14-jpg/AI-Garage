@@ -47,7 +47,14 @@ export async function addCustomer(formData: FormData): Promise<AddCustomerResult
 
   const { data, error } = await ctx.supabase
     .from("customers")
-    .insert({ location_id: ctx.location.id, full_name: fullName, email, phone: phone ?? null })
+    .insert({
+      organization_id: ctx.organization.id,
+      location_id: ctx.location.id,
+      preferred_location_id: ctx.location.id,
+      full_name: fullName,
+      email,
+      phone: phone ?? null,
+    })
     .select("id")
     .single();
 
@@ -85,7 +92,7 @@ export async function checkRecalls(vehicleId: string, registration: string): Pro
     recall_status: result.hasRecall ? "has_recall" : "clear",
     recall_checked_at: new Date().toISOString(),
     recall_detail: result.hasRecall ? JSON.stringify(result.recalls) : null,
-  }).eq("id", vehicleId).eq("location_id", ctx.location.id);
+  }).eq("id", vehicleId).eq("organization_id", ctx.organization.id);
 
   revalidatePath("/staff/customers");
   return { hasRecall: result.hasRecall, recalls: result.recalls };
@@ -541,7 +548,7 @@ export async function updateCustomer(customerId: string, formData: FormData): Pr
     .from("customers")
     .update({ full_name: fullName, email, phone: phone || null })
     .eq("id", customerId)
-    .eq("location_id", ctx.location.id);
+    .eq("organization_id", ctx.organization.id);
 
   if (error) {
     if (error.code === "23505") return { error: "A customer with that email already exists." };
@@ -574,7 +581,7 @@ export async function deleteCustomer(customerId: string): Promise<DeleteCustomer
     .from("customers")
     .delete()
     .eq("id", customerId)
-    .eq("location_id", ctx.location.id);
+    .eq("organization_id", ctx.organization.id);
 
   if (error) return { error: error.message };
 
@@ -624,7 +631,7 @@ export async function updateVehicle(vehicleId: string, customerId: string, formD
     .from("vehicles")
     .update({ registration, make, model, year, mot_expiry: motExpiry, service_due: serviceDue, tax_due_date: taxDueDate })
     .eq("id", vehicleId)
-    .eq("location_id", ctx.location.id);
+    .eq("organization_id", ctx.organization.id);
 
   if (error) {
     if (error.code === "23505") return { error: "A vehicle with that registration is already on file." };
@@ -646,7 +653,7 @@ export async function deleteVehicle(vehicleId: string, customerId: string): Prom
     .from("vehicles")
     .delete()
     .eq("id", vehicleId)
-    .eq("location_id", ctx.location.id);
+    .eq("organization_id", ctx.organization.id);
 
   if (error) return { error: error.message };
 

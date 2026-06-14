@@ -46,15 +46,15 @@ function toPickerCustomers(data: unknown): PickerCustomer[] {
   }));
 }
 
-// Fetch one customer (with vehicles) for ?customer= deep links. Scoped to the
-// caller's location.
+// Fetch one customer (with vehicles) for ?customer= deep links. Customers are
+// org-global, so scoped to the caller's organisation.
 export async function getPickerCustomer(customerId: string): Promise<PickerCustomer | null> {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
   const { data } = await admin
     .from("customers")
     .select(PICKER_SELECT)
-    .eq("location_id", ctx.location.id)
+    .eq("organization_id", ctx.organization.id)
     .eq("id", customerId)
     .maybeSingle();
   return data ? toPickerCustomers([data])[0] : null;
@@ -72,7 +72,7 @@ export async function searchCustomersForPicker(query: string): Promise<PickerCus
     const { data } = await admin
       .from("customers")
       .select(PICKER_SELECT)
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .order("full_name", { ascending: true })
       .limit(PICKER_LIMIT);
     return toPickerCustomers(data);
@@ -82,14 +82,14 @@ export async function searchCustomersForPicker(query: string): Promise<PickerCus
     admin
       .from("customers")
       .select(PICKER_SELECT)
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .or(`full_name.ilike.%${q}%,phone.ilike.%${q}%,email.ilike.%${q}%`)
       .order("full_name", { ascending: true })
       .limit(PICKER_LIMIT),
     admin
       .from("vehicles")
       .select("customer_id")
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .ilike("registration", `%${q}%`)
       .limit(PICKER_LIMIT),
   ]);
@@ -105,7 +105,7 @@ export async function searchCustomersForPicker(query: string): Promise<PickerCus
     const { data } = await admin
       .from("customers")
       .select(PICKER_SELECT)
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .in("id", missingIds);
     byReg = toPickerCustomers(data);
   }

@@ -23,6 +23,11 @@ export type Location = {
 
 export type TenantContext = {
   organization: Organization;
+  // Every location in the org (the subdomain now resolves to the ORGANISATION).
+  locations: Location[];
+  // Back-compat convenience: the org's primary (first) location. Customer-facing
+  // branding came off this; org-level branding lives on `organization`. Kept
+  // non-null (a tenant with zero locations resolves to null overall).
   location: Location;
 };
 
@@ -89,30 +94,35 @@ export const getCurrentTenant = cache(async (): Promise<TenantContext | null> =>
   const cached = await cacheGet<TenantContext>(tenantKey(slug));
   if (cached) return cached;
 
-  // Use admin client — locations have a members-only RLS policy but the
-  // branding data (name, colour) must be readable by anyone visiting the
-  // tenant subdomain before they are logged in.
+  // The subdomain resolves to an ORGANISATION. Use the admin client — orgs are
+  // publicly selectable but locations are members-only; the branding (name,
+  // colour) must be readable by anyone visiting the tenant subdomain pre-login.
   const admin = createAdminClient();
   const { data } = (await admin
-    .from("locations")
+    .from("organizations")
     .select(
-      "id, slug, name, organization:organizations(id, slug, name, primary_color, logo_url, custom_domain)",
+      "id, slug, name, primary_color, logo_url, custom_domain, locations:locations(id, slug, name)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
-    data: {
-      id: string;
-      slug: string;
-      name: string;
-      organization: Organization | null;
-    } | null;
+    data: (Organization & { locations: Location[] | null }) | null;
   };
 
-  if (!data || !data.organization) return null;
+  if (!data) return null;
+  const locations = (data.locations ?? []).slice().sort((a, b) => a.name.localeCompare(b.name));
+  if (locations.length === 0) return null;
 
   const ctx: TenantContext = {
-    organization: data.organization,
-    location: { id: data.id, slug: data.slug, name: data.name },
+    organization: {
+      id: data.id,
+      slug: data.slug,
+      name: data.name,
+      primary_color: data.primary_color,
+      logo_url: data.logo_url,
+      custom_domain: data.custom_domain,
+    },
+    locations,
+    location: locations[0],
   };
   await cacheSet(tenantKey(slug), ctx, TENANT_TTL_SEC);
   return ctx;
@@ -128,6 +138,12 @@ export async function invalidateTenantCache(slugs: string[]): Promise<void> {
 // branding edit (name / colour / logo). One light query on a rare write.
 export async function invalidateTenantCacheForOrg(organizationId: string): Promise<void> {
   const admin = createAdminClient();
-  const { data } = await admin.from("locations").select("slug").eq("organization_id", organizationId);
-  await invalidateTenantCache((data ?? []).map((l) => l.slug as string));
+  // The tenant cache is keyed by the ORG slug now; also evict any location slugs
+  // for safety during the transition.
+  const [{ data: org }, { data: locs }] = await Promise.all([
+    admin.from("organizations").select("slug").eq("id", organizationId).maybeSingle(),
+    admin.from("locations").select("slug").eq("organization_id", organizationId),
+  ]);
+  const slugs = [org?.slug as string | undefined, ...((locs ?? []).map((l) => l.slug as string))];
+  await invalidateTenantCache(slugs.filter(Boolean) as string[]);
 }

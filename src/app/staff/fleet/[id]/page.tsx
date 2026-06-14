@@ -66,11 +66,11 @@ export default async function FleetDetailPage({
         .order("registration", { ascending: true })
     : { data: [] };
 
-  // Unassigned customers at this location (for adding to fleet)
+  // Unassigned customers across the org (for adding to fleet)
   const { data: unassigned } = await admin
     .from("customers")
     .select("id, full_name, email")
-    .eq("location_id", ctx.location.id)
+    .eq("organization_id", ctx.organization.id)
     .is("fleet_company_id", null)
     .order("full_name", { ascending: true })
     .limit(200);
