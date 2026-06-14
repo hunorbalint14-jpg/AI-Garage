@@ -3,6 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { InvoiceSearch } from "./invoice-search";
+import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -31,12 +32,22 @@ function fmt(n: number) {
 export default async function InvoicesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; scope?: string }>;
 }) {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
-  const { q } = await searchParams;
+  const { q, scope } = await searchParams;
   const query = q?.trim() ?? "";
+
+  // Org finance roles default to all-locations; ?scope=<locationId> drops to a
+  // specific branch. Location-only staff stay scoped to their branch.
+  const accessibleIds = new Set(ctx.accessibleLocations.map((l) => l.id));
+  const selectedBranch = !!ctx.orgRole && scope && scope !== "all" && accessibleIds.has(scope) ? scope : null;
+  const orgWide = !!ctx.orgRole && !selectedBranch;
+  const branchId = selectedBranch ?? ctx.location.id;
+  const scopeColumn = orgWide ? "organization_id" : "location_id";
+  const scopeValue = orgWide ? ctx.organization.id : branchId;
+  const branchName = ctx.accessibleLocations.find((l) => l.id === branchId)?.name ?? ctx.location.name;
 
   let invoices: InvoiceRow[] | null = null;
 
@@ -45,7 +56,7 @@ export default async function InvoicesPage({
       admin
         .from("invoices")
         .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
-        .eq("location_id", ctx.location.id)
+        .eq(scopeColumn, scopeValue)
         .ilike("invoice_number", `%${query}%`)
         .order("created_at", { ascending: false })
         .limit(200),
@@ -65,7 +76,7 @@ export default async function InvoicesPage({
       const { data } = await admin
         .from("invoices")
         .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
-        .eq("location_id", ctx.location.id)
+        .eq(scopeColumn, scopeValue)
         .in("customer_id", customerIds)
         .order("created_at", { ascending: false })
         .limit(200);
@@ -77,7 +88,7 @@ export default async function InvoicesPage({
     const { data } = await admin
       .from("invoices")
       .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
-      .eq("location_id", ctx.location.id)
+      .eq(scopeColumn, scopeValue)
       .order("created_at", { ascending: false })
       .limit(200);
     invoices = data as InvoiceRow[] | null;
@@ -96,8 +107,11 @@ export default async function InvoicesPage({
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Invoices"
-        description="All invoices raised at this location."
+        description={orgWide ? "All invoices across all branches." : `All invoices raised at ${branchName}.`}
       />
+      {ctx.orgRole && ctx.accessibleLocations.length > 1 && (
+        <FinanceScopeToggle locations={ctx.accessibleLocations} />
+      )}
 
       <InvoiceSearch initialQ={query} />
 
