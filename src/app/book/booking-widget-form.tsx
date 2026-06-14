@@ -23,7 +23,11 @@ type Prefill = {
 type Props = {
   orgColor: string;
   garageName: string;
-  services: Service[];
+  // Branch picker drives the services list: each branch's active services keyed
+  // by location id, plus the landing branch.
+  locations: { id: string; name: string }[];
+  servicesByLocation: Record<string, Service[]>;
+  defaultLocationId: string;
   privacyPolicyUrl?: string | null;
   prefill: Prefill;
   paymentsEnabled: boolean;
@@ -48,7 +52,9 @@ function fmtGbp(n: number) {
 export function BookingWidgetForm({
   orgColor,
   garageName,
-  services,
+  locations,
+  servicesByLocation,
+  defaultLocationId,
   privacyPolicyUrl,
   prefill,
   paymentsEnabled,
@@ -58,7 +64,19 @@ export function BookingWidgetForm({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<{ paid: boolean } | null>(null);
+  const [locationId, setLocationId] = useState<string>(defaultLocationId);
+  const services = useMemo(
+    () => servicesByLocation[locationId] ?? [],
+    [servicesByLocation, locationId],
+  );
   const [serviceId, setServiceId] = useState<string>(services[0]?.id ?? "");
+
+  // Switching branch re-points the services list and resets the chosen service.
+  function onBranchChange(next: string) {
+    setLocationId(next);
+    const list = servicesByLocation[next] ?? [];
+    setServiceId(list[0]?.id ?? "");
+  }
 
   // Reg-first lookup: type the plate → DVSA fills in the car + MOT due date.
   const [reg, setReg] = useState("");
@@ -165,6 +183,28 @@ export function BookingWidgetForm({
           </a>{" "}
           to skip filling these in.
         </p>
+      )}
+
+      {locations.length > 1 ? (
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-semibold text-gray-600">Branch *</label>
+          <select
+            name="locationId"
+            required
+            disabled={pending}
+            value={locationId}
+            onChange={(e) => onBranchChange(e.target.value)}
+            className={INPUT}
+          >
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : (
+        <input type="hidden" name="locationId" value={locationId} />
       )}
 
       {/* Reg first — least typing, instant "we know your car" trust signal */}
