@@ -6,7 +6,7 @@ import { cacheGet, cacheSet } from "@/lib/redis";
 
 // Retired-slug lookups are cached for this long. Almost no slug is retired, so
 // the cache is mostly negative hits ("" = not retired) that spare a DB query on
-// every tenant navigation. updateLocationSlug invalidates the keys on a change.
+// every tenant navigation. updateOrgSlug invalidates the keys on a change.
 const SLUG_HISTORY_TTL_SEC = 60;
 
 const ROOT = process.env.ROOT_DOMAIN ?? process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
@@ -26,11 +26,11 @@ async function retiredSlugRedirect(request: NextRequest, slug: string): Promise<
     if (current === null) {
       const admin = createAdminClient();
       const { data } = (await admin
-        .from("location_slug_history")
-        .select("location:locations(slug)")
+        .from("org_slug_history")
+        .select("organization:organizations(slug)")
         .eq("old_slug", slug)
-        .maybeSingle()) as { data: { location: { slug: string } | null } | null };
-      const resolved = data?.location?.slug ?? null;
+        .maybeSingle()) as { data: { organization: { slug: string } | null } | null };
+      const resolved = data?.organization?.slug ?? null;
       current = resolved && resolved !== slug ? resolved : "";
       await cacheSet(cacheKey, current, SLUG_HISTORY_TTL_SEC);
     }
