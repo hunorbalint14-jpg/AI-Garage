@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { BranchBadge } from "@/components/staff/branch-badge";
 
 export type CustomerListRow = {
   id: string;
@@ -10,12 +11,13 @@ export type CustomerListRow = {
   phone: string | null;
   created_at: string;
   registrations: string[];
+  preferredLocationName: string | null;
 };
 
 // Clickable customer list. Whole row (desktop) / card (mobile) navigates to the
 // customer detail page — the old layout only offered a small "View" link at the
 // far right. Edit stays a discrete link and stops propagation.
-export function CustomerTable({ rows }: { rows: CustomerListRow[] }) {
+export function CustomerTable({ rows, showBranch = false }: { rows: CustomerListRow[]; showBranch?: boolean }) {
   const router = useRouter();
   const go = (id: string) => router.push(`/staff/customers/${id}`);
 
@@ -30,6 +32,7 @@ export function CustomerTable({ rows }: { rows: CustomerListRow[] }) {
               <th className="px-4 py-2 font-medium">Vehicles</th>
               <th className="px-4 py-2 font-medium">Email</th>
               <th className="px-4 py-2 font-medium">Phone</th>
+              {showBranch && <th className="px-4 py-2 font-medium">Branch</th>}
               <th className="px-4 py-2 font-medium">Added</th>
               <th className="px-4 py-2" />
             </tr>
@@ -47,6 +50,11 @@ export function CustomerTable({ rows }: { rows: CustomerListRow[] }) {
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">{c.email ?? "—"}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{c.phone ?? "—"}</td>
+                {showBranch && (
+                  <td className="px-4 py-2.5">
+                    <BranchBadge name={c.preferredLocationName} />
+                  </td>
+                )}
                 <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
                   {new Date(c.created_at).toLocaleDateString("en-GB")}
                 </td>
@@ -79,8 +87,9 @@ export function CustomerTable({ rows }: { rows: CustomerListRow[] }) {
                   {new Date(c.created_at).toLocaleDateString("en-GB")}
                 </span>
               </div>
-              <div className="mt-1.5">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <RegBadges regs={c.registrations} />
+                {showBranch && <BranchBadge name={c.preferredLocationName} />}
               </div>
               <div className="mt-1.5 flex flex-col gap-0.5 text-xs text-muted-foreground">
                 {c.phone && <span>{c.phone}</span>}

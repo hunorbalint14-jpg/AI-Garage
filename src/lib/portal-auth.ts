@@ -42,6 +42,8 @@ export type PortalCustomer = {
   full_name: string | null;
   user_id: string | null;
   email: string | null;
+  // The customer's home branch name (customers.preferred_location_id → name).
+  home_garage: string | null;
 };
 
 export type PortalContext = {
@@ -50,6 +52,8 @@ export type PortalContext = {
   // Back-compat: the org's primary location (the subdomain resolves to the org
   // now). Branding lives on `location.organization` / `organization`.
   location: PortalLocation;
+  // True when the org has more than one branch — gate branch / home-garage UI.
+  multiLocation: boolean;
   // Null when the authenticated user has no matching customer row at this
   // tenant — callers decide whether that's a soft state (dashboard shows a
   // "no account found" panel) or a hard notFound() (id-addressed pages).
@@ -74,17 +78,23 @@ export async function getPortalContext(): Promise<PortalContext> {
   const { data: org } = (await admin
     .from("organizations")
     .select(
-      "id, slug, name, primary_color, logo_url, phone, locations:locations(id, slug, name)",
+      "id, slug, name, primary_color, logo_url, phone, primary_location_id, locations:locations(id, slug, name)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
     data:
-      | (PortalOrganization & { slug: string; locations: { id: string; slug: string; name: string }[] | null })
+      | (PortalOrganization & {
+          slug: string;
+          primary_location_id: string | null;
+          locations: { id: string; slug: string; name: string }[] | null;
+        })
       | null;
   };
   if (!org || !org.locations || org.locations.length === 0) redirect("/");
 
-  const primary = org.locations.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
+  const primary =
+    org.locations.find((l) => l.id === org.primary_location_id) ??
+    org.locations.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
   const organization: PortalOrg = { id: org.id, slug: org.slug, name: org.name };
   const location: PortalLocation = {
     id: primary.id,
@@ -95,19 +105,28 @@ export async function getPortalContext(): Promise<PortalContext> {
 
   const { data: customerRow } = await admin
     .from("customers")
-    .select("id, full_name, user_id, email")
+    .select("id, full_name, user_id, email, preferred_location:locations(name)")
     .eq("organization_id", org.id)
     .eq("email", user.email ?? "")
     .maybeSingle();
 
-  const customer = (customerRow ?? null) as PortalCustomer | null;
+  const customer: PortalCustomer | null = customerRow
+    ? {
+        id: customerRow.id as string,
+        full_name: (customerRow.full_name as string | null) ?? null,
+        user_id: (customerRow.user_id as string | null) ?? null,
+        email: (customerRow.email as string | null) ?? null,
+        home_garage:
+          (customerRow as unknown as { preferred_location?: { name: string | null } | null }).preferred_location?.name ?? null,
+      }
+    : null;
 
   if (customer && !customer.user_id) {
     await admin.from("customers").update({ user_id: user.id }).eq("id", customer.id);
     customer.user_id = user.id;
   }
 
-  return { user, organization, location, customer };
+  return { user, organization, location, multiLocation: org.locations.length > 1, customer };
 }
 
 export type PortalInvoice = {

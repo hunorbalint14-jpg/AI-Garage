@@ -3,6 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./settings-form";
 import { AddLocationForm } from "./add-location-form";
+import { LocationsManager } from "./locations-manager";
 import { BusinessHoursForm } from "./business-hours-form";
 import { PasskeysSection, type PasskeyRow } from "./passkeys-section";
 import { PaymentsSection } from "./payments-section";
@@ -151,6 +152,13 @@ export default async function SettingsPage({
       {/* ── Booking ──────────────────────────────────────────────── */}
       {tab === "booking" && (
         <>
+          {ctx.accessibleLocations.length > 1 && (
+            <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+              Editing business hours for{" "}
+              <span className="font-medium text-foreground">{ctx.location.name}</span>. Use the branch
+              switcher in the top bar to configure a different branch.
+            </p>
+          )}
           <BusinessHoursForm
             initialStart={locHours?.business_hours_start ?? 8}
             initialEnd={locHours?.business_hours_end ?? 18}
@@ -232,6 +240,13 @@ export default async function SettingsPage({
       {/* ── Compliance ───────────────────────────────────────────── */}
       {tab === "compliance" && sermi && (
         <>
+          {ctx.accessibleLocations.length > 1 && (
+            <p className="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground">
+              SERMI &amp; EV qualifications shown for{" "}
+              <span className="font-medium text-foreground">{ctx.location.name}</span>. Use the branch
+              switcher in the top bar to configure a different branch.
+            </p>
+          )}
           <SermiCard sermi={sermi} canManage={isOwner} />
 
           <section className="flex flex-col gap-3">
@@ -274,19 +289,12 @@ export default async function SettingsPage({
             </p>
           </div>
 
-          <div className="flex flex-col gap-1">
-            {locations.map((l) => (
-              <div
-                key={l.id}
-                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-              >
-                <span className="font-medium">{l.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {l.slug}.{ROOT_HOST}
-                </span>
-              </div>
-            ))}
-          </div>
+          <LocationsManager
+            locations={locations}
+            primaryLocationId={ctx.organization.primary_location_id}
+            canManage={isOwner}
+            rootHost={ROOT_HOST}
+          />
 
           {isOwner && <AddLocationForm />}
         </section>

@@ -69,8 +69,8 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
   const motTester = formData.get("mot_tester") === "on";
   const motQcReviewer = formData.get("mot_qc_reviewer") === "on";
   if (scope === "location" && !locationId) return { error: "Select a location." };
-  if (scope === "org" && role !== "admin") {
-    // Org scope is always admin; auto-coerce.
+  if (scope === "org" && role !== "admin" && role !== "accountant") {
+    return { error: "Invalid role." };
   }
   if (scope === "location" && !ALLOWED_LOCATION_ROLES.includes(role)) {
     return { error: "Invalid role." };
@@ -137,8 +137,11 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
 
   // Assign to org or location
   if (scope === "org" || role === "admin") {
+    // Org-scope invites carry the chosen org role (admin | accountant); a
+    // location-scope invite with role "admin" is the legacy org-admin path.
+    const orgRole = scope === "org" ? role : "admin";
     const { error } = await admin.from("org_users").upsert(
-      { organization_id: ctx.organization.id, user_id: userId, role: "admin" },
+      { organization_id: ctx.organization.id, user_id: userId, role: orgRole },
       { onConflict: "organization_id,user_id" },
     );
     if (error) return { error: error.message };

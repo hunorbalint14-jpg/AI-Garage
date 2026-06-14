@@ -9,6 +9,8 @@ export type AuditAction =
   | "settings.business_hours_update"
   | "settings.logo_upload"
   | "settings.location_add"
+  | "settings.location_rename"
+  | "settings.location_set_primary"
   // Stripe Connect
   | "stripe.connect_start"
   | "stripe.connect_complete"

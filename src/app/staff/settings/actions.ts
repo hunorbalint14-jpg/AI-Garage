@@ -179,3 +179,86 @@ export async function addLocation(
   revalidatePath("/staff/settings");
   return { success: true, slug: slugInput };
 }
+
+export type LocationActionResult = { error: string } | { success: true };
+
+// Rename a branch's display name. The slug/subdomain is deliberately NOT
+// editable here — that stays platform-admin-only (the /admin console).
+export async function renameLocation(formData: FormData): Promise<LocationActionResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "org_settings")) return { error: "Permission denied." };
+
+  const locationId = (formData.get("locationId") as string | null)?.trim();
+  const name = (formData.get("name") as string | null)?.trim();
+  if (!locationId) return { error: "Location is required." };
+  if (!name) return { error: "Location name is required." };
+
+  const admin = createAdminClient();
+  const { data: loc } = await admin
+    .from("locations")
+    .select("id, name")
+    .eq("id", locationId)
+    .eq("organization_id", ctx.organization.id)
+    .maybeSingle();
+  if (!loc) return { error: "Location not found." };
+
+  const { error } = await admin.from("locations").update({ name }).eq("id", locationId);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "settings.location_rename",
+    entityType: "location",
+    entityId: locationId,
+    metadata: { from: (loc as { name: string | null }).name, to: name },
+  });
+
+  // Name shows in tenant branding + the staff switcher — evict both caches.
+  await invalidateTenantCacheForOrg(ctx.organization.id);
+  await invalidateStaffLocationCacheForOrg(ctx.organization.id);
+  revalidatePath("/staff/settings");
+  return { success: true };
+}
+
+// Set the org's primary/default branch (organizations.primary_location_id) —
+// the fallback used for public branding, the portal, and the active-branch
+// default.
+export async function setPrimaryLocation(formData: FormData): Promise<LocationActionResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "org_settings")) return { error: "Permission denied." };
+
+  const locationId = (formData.get("locationId") as string | null)?.trim();
+  if (!locationId) return { error: "Location is required." };
+
+  const admin = createAdminClient();
+  const { data: loc } = await admin
+    .from("locations")
+    .select("id, name")
+    .eq("id", locationId)
+    .eq("organization_id", ctx.organization.id)
+    .maybeSingle();
+  if (!loc) return { error: "Location not found." };
+
+  const { error } = await admin
+    .from("organizations")
+    .update({ primary_location_id: locationId })
+    .eq("id", ctx.organization.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "settings.location_set_primary",
+    entityType: "location",
+    entityId: locationId,
+    metadata: { name: (loc as { name: string | null }).name },
+  });
+
+  await invalidateTenantCacheForOrg(ctx.organization.id);
+  await invalidateStaffLocationCacheForOrg(ctx.organization.id);
+  revalidatePath("/staff/settings");
+  return { success: true };
+}

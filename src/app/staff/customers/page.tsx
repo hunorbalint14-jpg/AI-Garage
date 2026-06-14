@@ -19,9 +19,11 @@ type CustomerRow = {
   phone: string | null;
   created_at: string;
   vehicles: { registration: string }[] | null;
+  preferred_location: { name: string | null } | null;
 };
 
-const CUSTOMER_SELECT = "id, full_name, email, phone, created_at, vehicles(registration)";
+const CUSTOMER_SELECT =
+  "id, full_name, email, phone, created_at, vehicles(registration), preferred_location:locations(name)";
 
 function toListRow(c: CustomerRow): CustomerListRow {
   return {
@@ -31,6 +33,7 @@ function toListRow(c: CustomerRow): CustomerListRow {
     phone: c.phone,
     created_at: c.created_at,
     registrations: (c.vehicles ?? []).map((v) => v.registration),
+    preferredLocationName: c.preferred_location?.name ?? null,
   };
 }
 
@@ -157,7 +160,7 @@ export default async function CustomersPage({
               {rows.length >= SEARCH_LIMIT ? " (showing first matches — refine to narrow down)" : ""}
             </p>
           )}
-          <CustomerTable rows={rows} />
+          <CustomerTable rows={rows} showBranch={ctx.accessibleLocations.length > 1} />
           {!query && totalCount !== null && totalCount > PAGE_SIZE && (
             <Pagination page={page} totalPages={totalPages} totalCount={totalCount} />
           )}
