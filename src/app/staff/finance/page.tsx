@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
+import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -44,14 +45,30 @@ function subjectTarget(a: AppRow): string | null {
   return null;
 }
 
-export default async function FinancePage() {
+export default async function FinancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string }>;
+}) {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const { data } = await admin
-    .from("finance_applications")
-    .select("id, provider, subject_type, subject_id, subject_ref, amount, status, created_at")
-    .eq("location_id", ctx.location.id)
+  // Org finance roles (owner/admin/accountant) default to all-locations;
+  // ?scope=branch drops to the active branch. Location-only staff stay scoped
+  // to their branch.
+  const { scope } = await searchParams;
+  const orgWide = !!ctx.orgRole && scope !== "branch";
+
+  const { data } = await (orgWide
+    ? admin
+        .from("finance_applications")
+        .select("id, provider, subject_type, subject_id, subject_ref, amount, status, created_at")
+        .eq("organization_id", ctx.organization.id)
+    : admin
+        .from("finance_applications")
+        .select("id, provider, subject_type, subject_id, subject_ref, amount, status, created_at")
+        .eq("location_id", ctx.location.id)
+  )
     .order("created_at", { ascending: false })
     .limit(200);
   const apps = (data ?? []) as AppRow[];
@@ -79,8 +96,15 @@ export default async function FinancePage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Finance"
-        description="Customer finance applications (Bumper) raised at this location."
+        description={
+          orgWide
+            ? "Customer finance applications (Bumper) across all branches."
+            : "Customer finance applications (Bumper) raised at this location."
+        }
       />
+      {ctx.orgRole && ctx.accessibleLocations.length > 1 && (
+        <FinanceScopeToggle branchName={ctx.location.name} />
+      )}
 
       {apps.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

@@ -18,6 +18,7 @@ import {
   type LabourLineLite,
 } from "@/lib/reports";
 import { PeriodSelector } from "./period-selector";
+import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
 export const dynamic = "force-dynamic";
 
@@ -46,48 +47,56 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
   );
 }
 
-export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ period?: string; scope?: string }> }) {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "reports")) {
     return <p className="text-sm text-muted-foreground">You don&apos;t have access to reports.</p>;
   }
 
-  const { period = "this_quarter" } = await searchParams;
+  const { period = "this_quarter", scope } = await searchParams;
   const now = new Date();
   const { from, to, key } = periodRange(period, now);
   const fromIso = from.toISOString();
   const toIso = to.toISOString();
   const periodLabel = PERIODS.find((p) => p.key === key)?.label ?? "This quarter";
 
+  // Org finance roles default to all-locations; ?scope=branch drops to the
+  // active branch. Location-only staff stay scoped to their branch.
+  const orgWide = !!ctx.orgRole && scope !== "branch";
+  const locationIds = orgWide ? ctx.accessibleLocations.map((l) => l.id) : [ctx.location.id];
+  const scopeColumn = orgWide ? "organization_id" : "location_id";
+  const scopeValue = orgWide ? ctx.organization.id : ctx.location.id;
+
   const admin = createAdminClient();
 
-  const [unpaidRes, paidRes, entriesRes, staff, locationRes] = await Promise.all([
+  const [unpaidRes, paidRes, entriesRes, staffArrays, hoursRes] = await Promise.all([
     admin
       .from("invoices")
       .select("id, invoice_number, total, due_at, customer:customers(full_name)")
-      .eq("location_id", ctx.location.id)
+      .eq(scopeColumn, scopeValue)
       .eq("status", "sent")
       .order("due_at", { ascending: true }),
     admin
       .from("invoices")
       .select("subtotal, vat_amount, total, job_id")
-      .eq("location_id", ctx.location.id)
+      .eq(scopeColumn, scopeValue)
       .eq("status", "paid")
       .gte("paid_at", fromIso)
       .lt("paid_at", toIso),
     admin
       .from("job_time_entries")
-      .select("user_id, job_id, duration_minutes")
-      .eq("location_id", ctx.location.id)
+      .select("user_id, job_id, duration_minutes, location_id")
+      .in("location_id", locationIds)
       .not("duration_minutes", "is", null)
       .gte("started_at", fromIso)
       .lt("started_at", toIso),
-    listLocationStaff(ctx.location.id, ctx.organization.id),
+    // listLocationStaff already folds in org-level members; merge across the
+    // in-scope branches to resolve every technician who clocked time.
+    Promise.all(locationIds.map((id) => listLocationStaff(id, ctx.organization.id))),
     admin
       .from("locations")
-      .select("business_hours_start, business_hours_end")
-      .eq("id", ctx.location.id)
-      .maybeSingle(),
+      .select("id, business_hours_start, business_hours_end")
+      .in("id", locationIds),
   ]);
 
   // --- Aged debtors ---
@@ -115,7 +124,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   }
 
   // --- Productivity ---
-  const entries = (entriesRes.data ?? []) as { user_id: string; job_id: string; duration_minutes: number }[];
+  const entries = (entriesRes.data ?? []) as { user_id: string; job_id: string; duration_minutes: number; location_id: string }[];
   const jobIds = [...new Set(entries.map((e) => e.job_id))];
   const estimateByJob = new Map<string, number>();
   if (jobIds.length > 0) {
@@ -134,24 +143,50 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const lite: TimeEntryLite[] = entries.map((e) => ({ userId: e.user_id, jobId: e.job_id, minutes: e.duration_minutes }));
   const productivity = rollupProductivity(lite, estimateByJob);
 
-  const hours = locationRes?.data as { business_hours_start: number; business_hours_end: number } | null;
-  const hoursPerDay = Math.max(0, (hours?.business_hours_end ?? 18) - (hours?.business_hours_start ?? 8));
+  // Per-branch open hours + the distinct techs who clocked time at each branch
+  // this period. Capacity is summed across the in-scope branches so a roll-up
+  // adds up each branch's (techs × open hours).
+  const hoursByLoc = new Map<string, number>();
+  for (const r of (hoursRes.data ?? []) as { id: string; business_hours_start: number | null; business_hours_end: number | null }[]) {
+    hoursByLoc.set(r.id, Math.max(0, (r.business_hours_end ?? 18) - (r.business_hours_start ?? 8)));
+  }
+  const techsByLoc = new Map<string, Set<string>>();
+  for (const e of entries) {
+    if (!techsByLoc.has(e.location_id)) techsByLoc.set(e.location_id, new Set());
+    techsByLoc.get(e.location_id)!.add(e.user_id);
+  }
   // Live periods (this month/quarter/ytd) clamp to today — future days aren't
   // missed capacity yet.
   const capacityEnd = to > now ? now : to;
   const workingDays = workingDaysBetween(from, capacityEnd);
+  // Σ (techs × open hours) over branches; utilisationSummary multiplies by
+  // workingDays. For a single branch this equals techCount × hoursPerDay.
+  let techHoursPerDay = 0;
+  for (const [locId, techs] of techsByLoc) techHoursPerDay += techs.size * (hoursByLoc.get(locId) ?? 0);
   const techCount = new Set(entries.map((e) => e.user_id)).size;
+  const singleBranchHoursPerDay = hoursByLoc.get(ctx.location.id) ?? 0;
   const workedMinutes = entries.reduce((s, e) => s + e.duration_minutes, 0);
-  const util = utilisationSummary({ workedMinutes, labourLines, techCount, hoursPerDay, workingDays });
+  const util = utilisationSummary({ workedMinutes, labourLines, techCount: techHoursPerDay, hoursPerDay: 1, workingDays });
   const fmtHours = (mins: number) => `${Math.round((mins / 60) * 10) / 10}h`;
-  const nameMap = new Map(staff.map((s) => [s.id, s.name]));
+  const nameMap = new Map<string, string>();
+  for (const arr of staffArrays) for (const s of arr) nameMap.set(s.id, s.name);
   const prodRows = [...productivity.entries()]
     .map(([userId, row]) => ({ name: nameMap.get(userId) ?? "Staff", ...row }))
     .sort((a, b) => b.actualMinutes - a.actualMinutes);
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Reports" description="Outstanding money, labour productivity, and VAT — for this location." />
+      <PageHeader
+        title="Reports"
+        description={
+          orgWide
+            ? "Outstanding money, labour productivity, and VAT — across all branches."
+            : "Outstanding money, labour productivity, and VAT — for this location."
+        }
+      />
+      {ctx.orgRole && ctx.accessibleLocations.length > 1 && (
+        <FinanceScopeToggle branchName={ctx.location.name} />
+      )}
 
       {/* Aged debtors */}
       <section className="flex flex-col gap-3">
@@ -217,7 +252,11 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           <StatCard
             label="Utilisation"
             value={util.utilisationPct !== null ? `${util.utilisationPct}%` : "—"}
-            sub={`worked ÷ capacity (${techCount} tech${techCount === 1 ? "" : "s"} × ${hoursPerDay}h × ${workingDays} days)`}
+            sub={
+              orgWide
+                ? `worked ÷ capacity · ${techCount} tech${techCount === 1 ? "" : "s"} across ${locationIds.length} branches`
+                : `worked ÷ capacity (${techCount} tech${techCount === 1 ? "" : "s"} × ${singleBranchHoursPerDay}h × ${workingDays} days)`
+            }
             accent={util.utilisationPct !== null && util.utilisationPct < 50 ? "text-amber-600" : ""}
           />
           <StatCard
