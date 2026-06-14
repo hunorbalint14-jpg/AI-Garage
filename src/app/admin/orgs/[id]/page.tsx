@@ -8,7 +8,7 @@ import {
   orgMrrPence,
   formatGbp,
 } from "@/lib/platform-stats";
-import { LocationSlugEditor } from "./location-slug-editor";
+import { OrgSlugEditor } from "./org-slug-editor";
 import { ReceptionistNumbers, type ReceptionistLoc } from "./receptionist-numbers";
 
 export const dynamic = "force-dynamic";
@@ -60,13 +60,13 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
     enabled: configByLocation.get(l.id)?.enabled ?? false,
   }));
 
-  // AI usage for the org's locations over the last 30 days, aggregated in TS.
+  // AI usage for the org over the last 30 days, aggregated in TS.
   // eslint-disable-next-line react-hooks/purity -- server component: a 30-day window boundary; freshness is the point
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
   const { data: aiEvents } = (await admin
     .from("ai_usage_events")
     .select("feature, model, input_tokens, output_tokens, cost_pence")
-    .in("location_id", locationIds.length > 0 ? locationIds : ["00000000-0000-0000-0000-000000000000"])
+    .eq("organization_id", id)
     .gte("created_at", since)
     .limit(10000)) as { data: AiRow[] | null };
 
@@ -162,25 +162,14 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
-      {/* Locations — slug (subdomain) editable on client request */}
+      {/* Web address — the org slug (subdomain), editable on client request */}
       <div>
-        <h2 className="mb-2 text-sm font-semibold">Locations &amp; subdomains</h2>
-        <LocationSlugEditor locations={(locations ?? []).map((l) => ({ id: l.id, name: l.name, slug: l.slug }))} />
-        {(locations ?? []).length > 1 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-[#5a6170]">Open a specific branch as admin:</span>
-            {(locations ?? []).map((l) => (
-              // Full navigation (not next/link) — crosses to the tenant subdomain.
-              <a
-                key={l.id}
-                href={`/admin/orgs/${id}/open?location=${l.id}`}
-                className="rounded-md border border-[#2a5a3a] bg-[#13301f] px-2 py-1 text-xs font-medium text-[#5fdd9d] hover:bg-[#163a26]"
-              >
-                {l.name} ↗
-              </a>
-            ))}
-          </div>
-        )}
+        <h2 className="mb-2 text-sm font-semibold">Web address</h2>
+        <OrgSlugEditor
+          orgId={id}
+          slug={orgRow.slug}
+          branches={(locations ?? []).map((l) => ({ id: l.id, name: l.name, slug: l.slug }))}
+        />
       </div>
 
       {/* AI receptionist — buy/release a Twilio number per location */}

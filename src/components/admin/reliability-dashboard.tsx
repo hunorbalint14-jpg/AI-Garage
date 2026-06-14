@@ -147,9 +147,29 @@ export function ReliabilityDashboard({
               {tenants.rows.map((t) => {
                 const m = STATUS_META[t.status];
                 return (
-                  <tr key={t.locationId} className="border-t border-[#23272f] hover:bg-white/[0.02]">
-                    <td className="px-3 py-2">
-                      <div className="font-medium text-white">{t.orgName}</div>
+                  <tr key={t.organizationId} className="border-t border-[#23272f] hover:bg-white/[0.02]">
+                    <td className="px-3 py-2 align-top">
+                      {t.branches.length > 0 ? (
+                        <details className="group">
+                          <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-white">
+                            <span className="text-[10px] text-[#5a6170] transition-transform group-open:rotate-90">▸</span>
+                            {t.orgName}
+                            <span className="text-[10px] font-normal text-[#5a6170]">
+                              {t.locationCount} branch{t.locationCount === 1 ? "" : "es"}
+                            </span>
+                          </summary>
+                          <ul className="ml-4 mt-1 flex flex-col gap-0.5">
+                            {t.branches.map((b) => (
+                              <li key={b.id} className="flex items-center gap-2 text-xs text-[#9aa1ad]">
+                                <span>{b.name}</span>
+                                <span className="font-mono text-[10px] text-[#5a6170]">{b.slug}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      ) : (
+                        <div className="font-medium text-white">{t.orgName}</div>
+                      )}
                       <a
                         href={`https://${t.host}`}
                         target="_blank"
