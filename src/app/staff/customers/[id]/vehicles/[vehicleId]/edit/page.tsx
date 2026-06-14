@@ -34,7 +34,7 @@ export default async function EditVehiclePage({
       .select("id, registration, make, model, year, mot_expiry, service_due")
       .eq("id", vehicleId)
       .eq("customer_id", id)
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .maybeSingle(),
     admin
       .from("tyre_checks")

@@ -1,4 +1,4 @@
-import { getStaffContext, type StaffContext } from "@/lib/staff-context";
+import { getStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StaffShell } from "@/components/staff/staff-shell";
 import { ColorSchemeSync } from "@/components/staff/color-scheme-sync";
@@ -11,7 +11,6 @@ import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa } from "@/lib/mfa"
 import { MfaNudge } from "@/components/staff/mfa-nudge";
 import { TenantBillingNudge } from "@/components/staff/tenant-billing-nudge";
 
-type Admin = ReturnType<typeof createAdminClient>;
 type BillingNudge = { reason: "past_due" | "trial_ending"; date: string | null };
 
 function computeBillingNudge(
@@ -26,34 +25,6 @@ function computeBillingNudge(
     return { reason: "trial_ending", date: trialEnd.toLocaleDateString("en-GB", { day: "numeric", month: "long" }) };
   }
   return null;
-}
-
-// Locations the user can switch between: org-level staff (owner/admin) see all
-// in the org; location-level staff see only the ones they're a member of.
-async function loadAccessibleLocations(
-  admin: Admin,
-  ctx: StaffContext,
-): Promise<{ id: string; slug: string; name: string }[]> {
-  if (ctx.orgRole) {
-    const { data } = await admin
-      .from("locations")
-      .select("id, slug, name")
-      .eq("organization_id", ctx.organization.id)
-      .order("created_at", { ascending: true });
-    return data ?? [];
-  }
-  const { data: accessRows } = await admin
-    .from("location_users")
-    .select("location_id")
-    .eq("user_id", ctx.user.id);
-  const ids = (accessRows ?? []).map((r) => r.location_id);
-  if (!ids.length) return [];
-  const { data } = await admin
-    .from("locations")
-    .select("id, slug, name")
-    .in("id", ids)
-    .order("created_at", { ascending: true });
-  return data ?? [];
 }
 
 export default async function StaffLayout({
@@ -78,12 +49,13 @@ export default async function StaffLayout({
   // Independent reads in parallel (previously a sequential waterfall): locations,
   // notifications, and — when relevant — the MFA step-up flag. Branding + DPA
   // version now ride along on the staff context, so the separate org query is gone.
-  const [locationsData, unreadCount, recentNotifications, mfaVerified] = await Promise.all([
-    loadAccessibleLocations(admin, ctx),
+  const [unreadCount, recentNotifications, mfaVerified] = await Promise.all([
     unreadNotificationCount(ctx.location.id),
     listRecentNotifications(ctx.location.id, 8),
     mfaApplies ? hasVerifiedMfa(ctx.user.id) : Promise.resolve(true),
   ]);
+  // Branches the user can switch between come straight off the staff context.
+  const locationsData = ctx.accessibleLocations;
 
   // DPA acceptance gate — skip on the acceptance page itself + login.
   if (!onAcceptancePage && !isDpaAccepted(ctx.branding.dpaVersion)) {
@@ -142,7 +114,7 @@ export default async function StaffLayout({
         userEmail={ctx.user.email ?? null}
         userInitials={userInitials}
         locations={locationsData}
-        currentSlug={ctx.location.slug}
+        currentLocationId={ctx.activeLocation.id}
         role={role}
       >
         {showMfaNudge && <MfaNudge />}

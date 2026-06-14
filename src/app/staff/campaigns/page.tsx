@@ -55,13 +55,13 @@ export default async function CampaignsPage() {
   const admin = createAdminClient();
 
   const [customersRes, campaignsRes] = await Promise.all([
-    admin.from("customers").select("id", { count: "exact", head: true }).eq("location_id", ctx.location.id),
+    admin.from("customers").select("id", { count: "exact", head: true }).eq("organization_id", ctx.organization.id),
     admin
       .from("reminders")
       .select(
         "subject, channel, status, sent_at, delivered_at, opened_at, clicked_at, message_text, error_message, recipient_email, recipient_phone",
       )
-      .eq("location_id", ctx.location.id)
+      .eq("organization_id", ctx.organization.id)
       .eq("type", "campaign")
       .order("sent_at", { ascending: false })
       .limit(500),

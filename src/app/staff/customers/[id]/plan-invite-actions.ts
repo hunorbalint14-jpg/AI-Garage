@@ -35,7 +35,7 @@ export async function sendPlanInvite(
     .from("customers")
     .select("id, full_name, email, phone")
     .eq("id", customerId)
-    .eq("location_id", ctx.location.id)
+    .eq("organization_id", ctx.organization.id)
     .maybeSingle();
   const cust = customer as
     | { id: string; full_name: string | null; email: string | null; phone: string | null }
@@ -46,7 +46,7 @@ export async function sendPlanInvite(
     .from("service_plans")
     .select("id, name, active")
     .eq("id", planId)
-    .eq("location_id", ctx.location.id)
+    .eq("organization_id", ctx.organization.id)
     .maybeSingle();
   const p = plan as { id: string; name: string; active: boolean } | null;
   if (!p || !p.active) return { error: "This plan isn't available." };

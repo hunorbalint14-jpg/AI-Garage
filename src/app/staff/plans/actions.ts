@@ -110,7 +110,7 @@ export async function upsertServicePlan(formData: FormData, planId?: string): Pr
       .from("service_plans")
       .update({ name, description, ...discount })
       .eq("id", planId)
-      .eq("location_id", ctx.location.id);
+      .eq("organization_id", ctx.organization.id);
     if (error) return { error: error.message };
 
     await syncPlanItems(admin, ctx.location.id, planId, formData);
@@ -182,7 +182,7 @@ export async function togglePlanActive(planId: string, active: boolean): Promise
     .from("service_plans")
     .update({ active })
     .eq("id", planId)
-    .eq("location_id", ctx.location.id)
+    .eq("organization_id", ctx.organization.id)
     .select(
       "id, location_id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active, discount_type, discount_value",
     )
@@ -230,7 +230,7 @@ export async function deleteServicePlan(planId: string): Promise<PlanResult> {
     .from("service_plans")
     .delete()
     .eq("id", planId)
-    .eq("location_id", ctx.location.id);
+    .eq("organization_id", ctx.organization.id);
   if (error) return { error: error.message };
 
   await logAudit({

@@ -31,6 +31,12 @@ export type PortalLocation = {
   organization: PortalOrganization;
 };
 
+export type PortalOrg = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
 export type PortalCustomer = {
   id: string;
   full_name: string | null;
@@ -40,6 +46,9 @@ export type PortalCustomer = {
 
 export type PortalContext = {
   user: User;
+  organization: PortalOrg;
+  // Back-compat: the org's primary location (the subdomain resolves to the org
+  // now). Branding lives on `location.organization` / `organization`.
   location: PortalLocation;
   // Null when the authenticated user has no matching customer row at this
   // tenant — callers decide whether that's a soft state (dashboard shows a
@@ -60,17 +69,34 @@ export async function getPortalContext(): Promise<PortalContext> {
 
   const admin = createAdminClient();
 
-  const { data: location } = (await admin
-    .from("locations")
-    .select("id, slug, name, organization:organizations(id, name, primary_color, logo_url, phone)")
+  // The subdomain resolves to the ORGANISATION; the customer is registered once
+  // per org. Resolve the org (+ its primary location for back-compat branding).
+  const { data: org } = (await admin
+    .from("organizations")
+    .select(
+      "id, slug, name, primary_color, logo_url, phone, locations:locations(id, slug, name)",
+    )
     .eq("slug", slug)
-    .maybeSingle()) as { data: PortalLocation | null };
-  if (!location?.organization) redirect("/");
+    .maybeSingle()) as {
+    data:
+      | (PortalOrganization & { slug: string; locations: { id: string; slug: string; name: string }[] | null })
+      | null;
+  };
+  if (!org || !org.locations || org.locations.length === 0) redirect("/");
+
+  const primary = org.locations.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
+  const organization: PortalOrg = { id: org.id, slug: org.slug, name: org.name };
+  const location: PortalLocation = {
+    id: primary.id,
+    slug: primary.slug,
+    name: primary.name,
+    organization: { id: org.id, name: org.name, primary_color: org.primary_color, logo_url: org.logo_url, phone: org.phone },
+  };
 
   const { data: customerRow } = await admin
     .from("customers")
     .select("id, full_name, user_id, email")
-    .eq("location_id", location.id)
+    .eq("organization_id", org.id)
     .eq("email", user.email ?? "")
     .maybeSingle();
 
@@ -81,7 +107,7 @@ export async function getPortalContext(): Promise<PortalContext> {
     customer.user_id = user.id;
   }
 
-  return { user, location, customer };
+  return { user, organization, location, customer };
 }
 
 export type PortalInvoice = {

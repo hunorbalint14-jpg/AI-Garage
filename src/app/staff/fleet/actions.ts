@@ -61,7 +61,7 @@ export async function deleteFleetCompany(companyId: string): Promise<FleetResult
 
   // Unlink customers first
   await admin.from("customers").update({ fleet_company_id: null })
-    .eq("fleet_company_id", companyId).eq("location_id", ctx.location.id);
+    .eq("fleet_company_id", companyId).eq("organization_id", ctx.organization.id);
 
   const { error } = await admin.from("fleet_companies").delete()
     .eq("id", companyId).eq("location_id", ctx.location.id);
@@ -83,7 +83,7 @@ export async function assignCustomerToFleet(
   const { error } = await admin.from("customers")
     .update({ fleet_company_id: fleetCompanyId })
     .eq("id", customerId)
-    .eq("location_id", ctx.location.id);
+    .eq("organization_id", ctx.organization.id);
 
   if (error) return { error: error.message };
 

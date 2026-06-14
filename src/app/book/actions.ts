@@ -27,33 +27,38 @@ export async function submitWidgetBooking(
 
   const admin = createAdminClient();
 
-  const { data: location } = await admin
-    .from("locations")
+  // The subdomain resolves to the organisation; the widget books into a branch.
+  // Use the requested branch (a later picker passes locationId) else the primary.
+  type OrgFields = {
+    id: string;
+    name: string;
+    phone: string | null;
+    primary_color: string;
+    stripe_account_id: string | null;
+    stripe_charges_enabled: boolean | null;
+    no_show_fee_pence: number | null;
+    tenant_plan: string | null;
+    tenant_subscription_status: string | null;
+    tenant_current_period_end: string | null;
+    tenant_trial_end: string | null;
+  };
+  const { data: org } = (await admin
+    .from("organizations")
     .select(
-      "id, name, organization:organizations(id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
+      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations(id, name, slug)",
     )
     .eq("slug", slug)
-    .maybeSingle() as {
-    data: {
-      id: string;
-      name: string;
-      organization: {
-        id: string;
-        name: string;
-        phone: string | null;
-        primary_color: string;
-        stripe_account_id: string | null;
-        stripe_charges_enabled: boolean | null;
-        no_show_fee_pence: number | null;
-        tenant_plan: string | null;
-        tenant_subscription_status: string | null;
-        tenant_current_period_end: string | null;
-        tenant_trial_end: string | null;
-      } | null;
-    } | null;
+    .maybeSingle()) as {
+    data: (OrgFields & { locations: { id: string; name: string; slug: string }[] | null }) | null;
   };
+  if (!org || !org.locations || org.locations.length === 0) return { error: "Garage not found." };
 
-  if (!location?.organization) return { error: "Garage not found." };
+  const requestedBranchId = (formData.get("locationId") as string | null) ?? null;
+  const branch = org.locations.find((l) => l.id === requestedBranchId) ?? org.locations[0];
+  // Re-shaped to the old `location` object so the downstream booking/payment
+  // code is unchanged; `location.id` is the chosen branch. `org` satisfies
+  // OrgFields (the extra `locations` key is harmless at runtime).
+  const location = { id: branch.id, name: branch.name, organization: org as OrgFields };
 
   const fullName = (formData.get("fullName") as string | null)?.trim();
   const email = (formData.get("email") as string | null)?.trim().toLowerCase();
@@ -108,11 +113,11 @@ export async function submitWidgetBooking(
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Find or create customer
+  // Find or create customer — one per ORG (matched across all branches).
   const { data: existingCustomer } = await admin
     .from("customers")
     .select("id, full_name, email, phone, user_id")
-    .eq("location_id", location.id)
+    .eq("organization_id", org.id)
     .eq("email", email)
     .maybeSingle();
 
@@ -130,7 +135,9 @@ export async function submitWidgetBooking(
     const { data: newCustomer, error: custErr } = await admin
       .from("customers")
       .insert({
-        location_id: location.id,
+        organization_id: org.id,
+        location_id: branch.id,
+        preferred_location_id: branch.id,
         full_name: fullName,
         email,
         phone,
@@ -145,13 +152,13 @@ export async function submitWidgetBooking(
     customerId = newCustomer.id;
   }
 
-  // Find or create vehicle
+  // Find or create vehicle — one per ORG (matched by registration org-wide).
   let vehicleId: string | null = null;
   if (registration) {
     const { data: existingVehicle } = await admin
       .from("vehicles")
       .select("id")
-      .eq("location_id", location.id)
+      .eq("organization_id", org.id)
       .eq("registration", registration)
       .maybeSingle();
 
@@ -160,7 +167,7 @@ export async function submitWidgetBooking(
     } else {
       const { data: newVehicle } = await admin
         .from("vehicles")
-        .insert({ location_id: location.id, customer_id: customerId, registration })
+        .insert({ organization_id: org.id, location_id: branch.id, customer_id: customerId, registration })
         .select("id")
         .single();
       if (newVehicle) vehicleId = newVehicle.id;

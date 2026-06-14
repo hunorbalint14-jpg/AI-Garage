@@ -32,19 +32,25 @@ export async function registerCustomer(
 
   const admin = createAdminClient();
 
-  const { data: location } = await admin
-    .from("locations")
-    .select("id, organization_id")
+  // The subdomain resolves to the organisation; a customer registers once per
+  // org. Pick the home/preferred branch (a later picker can pass locationId).
+  const { data: org } = (await admin
+    .from("organizations")
+    .select("id, locations:locations(id)")
     .eq("slug", slug)
-    .maybeSingle();
-  if (!location) return { error: "Garage not found." };
+    .maybeSingle()) as { data: { id: string; locations: { id: string }[] | null } | null };
+  if (!org || !org.locations || org.locations.length === 0) return { error: "Garage not found." };
 
-  // Reject if a customer record with that email already exists at this location
+  const requestedLocationId = (formData.get("locationId") as string | null) ?? null;
+  const homeLocation =
+    org.locations.find((l) => l.id === requestedLocationId) ?? org.locations[0];
+
+  // Reject if a customer record with that email already exists in this ORG.
   const { data: existingCustomer } = await admin
     .from("customers")
     .select("id")
     .eq("email", email)
-    .eq("location_id", location.id)
+    .eq("organization_id", org.id)
     .maybeSingle();
   if (existingCustomer) {
     return { error: "An account already exists for this email. Please sign in instead." };
@@ -62,9 +68,12 @@ export async function registerCustomer(
   }
   const userId = userRes.user.id;
 
-  // Create the customer record linked to this location and auth user
+  // Create the customer record linked to this org (one per org), with the
+  // chosen home branch as both the legacy location_id and preferred_location_id.
   const { error: customerErr } = await admin.from("customers").insert({
-    location_id: location.id,
+    organization_id: org.id,
+    location_id: homeLocation.id,
+    preferred_location_id: homeLocation.id,
     user_id: userId,
     full_name: fullName,
     email,

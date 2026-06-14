@@ -1,31 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { setActiveLocation } from "@/app/staff/active-location-actions";
 
 type Location = { id: string; slug: string; name: string };
 
-const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
-const ROOT_HOST = ROOT.split(":")[0];
-
-function locationUrl(slug: string) {
-  const protocol =
-    typeof window !== "undefined" ? window.location.protocol : "http:";
-  const port = ROOT.includes(":") ? `:${ROOT.split(":")[1]}` : "";
-  return `${protocol}//${slug}.${ROOT_HOST}${port}/staff`;
-}
-
+// The subdomain is the ORGANISATION; the active branch is a cookie. Switching
+// posts the chosen location id to setActiveLocation (which re-checks membership)
+// then refreshes so server components re-read the new operational scope.
 export function LocationSwitcher({
   locations,
-  currentSlug,
+  currentId,
   dark = true,
 }: {
   locations: Location[];
-  currentSlug: string;
+  currentId: string;
   dark?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const current = locations.find((l) => l.slug === currentSlug);
-  const others = locations.filter((l) => l.slug !== currentSlug);
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+  const current = locations.find((l) => l.id === currentId);
+  const others = locations.filter((l) => l.id !== currentId);
 
   const textCls = dark ? "text-gray-400" : "text-gray-500";
   const btnCls = dark
@@ -39,31 +36,39 @@ export function LocationSwitcher({
     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900";
 
   if (locations.length <= 1) {
-    return (
-      <p className={`px-1 text-sm ${textCls}`}>{current?.name ?? currentSlug}</p>
-    );
+    return <p className={`px-1 text-sm ${textCls}`}>{current?.name ?? "—"}</p>;
+  }
+
+  function switchTo(id: string) {
+    setOpen(false);
+    startTransition(async () => {
+      await setActiveLocation(id);
+      router.refresh();
+    });
   }
 
   return (
     <div className="relative">
       <button
         type="button"
+        disabled={pending}
         onClick={() => setOpen((o) => !o)}
-        className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-sm transition-colors ${btnCls}`}
+        className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${btnCls}`}
       >
-        <span className="truncate">{current?.name ?? currentSlug}</span>
+        <span className="truncate">{current?.name ?? "Select branch"}</span>
         <span className="ml-1 opacity-50">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
         <div className={`absolute left-0 right-0 top-full z-20 mt-1 rounded-lg ${dropdownCls}`}>
           {others.map((l) => (
-            <a
+            <button
               key={l.id}
-              href={locationUrl(l.slug)}
-              className={`block px-3 py-2 text-sm transition-colors ${dropItemCls}`}
+              type="button"
+              onClick={() => switchTo(l.id)}
+              className={`block w-full px-3 py-2 text-left text-sm transition-colors ${dropItemCls}`}
             >
               {l.name}
-            </a>
+            </button>
           ))}
         </div>
       )}

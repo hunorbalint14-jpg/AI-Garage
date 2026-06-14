@@ -34,7 +34,7 @@ export default async function FleetPage() {
         admin.from("customers").select("id", { count: "exact", head: true })
           .eq("fleet_company_id", c.id),
         admin.from("vehicles").select("id", { count: "exact", head: true })
-          .eq("location_id", ctx.location.id)
+          .eq("organization_id", ctx.organization.id)
           .in("customer_id",
             (await admin.from("customers").select("id").eq("fleet_company_id", c.id)).data?.map((r) => r.id) ?? []
           ),

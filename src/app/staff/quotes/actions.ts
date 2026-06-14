@@ -111,25 +111,25 @@ export async function createStandaloneQuote(args: {
     if (!Number.isFinite(it.unit_price) || it.unit_price < 0) return { error: "Unit price must be 0 or greater." };
   }
 
-  // Verify customer + vehicle belong to this location.
+  // Verify customer + vehicle belong to this org (both are org-global now).
   const { data: customer } = await admin
     .from("customers")
-    .select("id, location_id")
+    .select("id, organization_id")
     .eq("id", args.customerId)
     .maybeSingle();
-  if (!customer || (customer as { location_id: string }).location_id !== ctx.location.id) {
-    return { error: "Customer not found at this location." };
+  if (!customer || (customer as { organization_id: string }).organization_id !== ctx.organization.id) {
+    return { error: "Customer not found." };
   }
   if (args.vehicleId) {
     const { data: vehicle } = await admin
       .from("vehicles")
-      .select("id, location_id, customer_id")
+      .select("id, organization_id, customer_id")
       .eq("id", args.vehicleId)
       .maybeSingle();
-    type V = { id: string; location_id: string; customer_id: string };
+    type V = { id: string; organization_id: string; customer_id: string };
     const v = vehicle as V | null;
-    if (!v || v.location_id !== ctx.location.id) {
-      return { error: "Vehicle not found at this location." };
+    if (!v || v.organization_id !== ctx.organization.id) {
+      return { error: "Vehicle not found." };
     }
     if (v.customer_id !== args.customerId) {
       return { error: "Vehicle does not belong to the selected customer." };

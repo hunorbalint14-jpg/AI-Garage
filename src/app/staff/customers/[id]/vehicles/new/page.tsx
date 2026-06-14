@@ -17,11 +17,11 @@ export default async function NewVehiclePage({
   const admin = createAdminClient();
   const { data: customer } = await admin
     .from("customers")
-    .select("id, location_id, full_name")
+    .select("id, organization_id, full_name")
     .eq("id", id)
     .maybeSingle();
 
-  if (!customer || (customer as { location_id: string }).location_id !== ctx.location.id) notFound();
+  if (!customer || (customer as { organization_id: string }).organization_id !== ctx.organization.id) notFound();
 
   return (
     <div className="flex flex-col gap-4">

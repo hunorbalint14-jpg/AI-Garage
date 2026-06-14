@@ -17,7 +17,7 @@ export default async function EditCustomerPage({
     .from("customers")
     .select("id, full_name, email, phone")
     .eq("id", id)
-    .eq("location_id", ctx.location.id)
+    .eq("organization_id", ctx.organization.id)
     .maybeSingle();
 
   if (!customer) notFound();

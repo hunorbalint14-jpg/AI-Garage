@@ -34,12 +34,12 @@ export function StaffShell({
   userEmail,
   userInitials,
   locations,
-  currentSlug,
+  currentLocationId,
   role,
   children,
 }: {
   brandColor: string;
-  orgRole?: "owner" | "admin" | null;
+  orgRole?: "owner" | "admin" | "accountant" | null;
   locationPermissions?: Permissions | null;
   orgName: string;
   orgInitials: string;
@@ -48,7 +48,7 @@ export function StaffShell({
   userEmail: string | null;
   userInitials: string;
   locations: Location[];
-  currentSlug: string;
+  currentLocationId: string;
   role: string;
   children: React.ReactNode;
 }) {
@@ -147,7 +147,7 @@ export function StaffShell({
           orgName={orgName}
           role={role}
           locations={locations}
-          currentSlug={currentSlug}
+          currentLocationId={currentLocationId}
           userName={userName}
           userEmail={userEmail}
           onCloseDrawer={() => setDrawerOpen(false)}
@@ -312,7 +312,7 @@ function ContextPane({
   orgName,
   role,
   locations,
-  currentSlug,
+  currentLocationId,
   userName,
   userEmail,
   onCloseDrawer,
@@ -323,7 +323,7 @@ function ContextPane({
   orgName: string;
   role: string;
   locations: Location[];
-  currentSlug: string;
+  currentLocationId: string;
   userName: string;
   userEmail: string | null;
   onCloseDrawer: () => void;
@@ -350,7 +350,7 @@ function ContextPane({
       <div className="border-b border-[#2a2f37] px-3 py-3">
         <LocationSwitcher
           locations={locations}
-          currentSlug={currentSlug}
+          currentId={currentLocationId}
           dark={true}
         />
       </div>
