@@ -50,11 +50,14 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
     } | null;
   } | null;
   if (!location) return { error: "Location not found." };
+  if (!location.organization) return { error: "Garage not found." };
 
+  // Customers are org-scoped (registered once per org); resolve by organization,
+  // not by the branch the booking is being made at.
   let { data: customer } = await admin
     .from("customers")
     .select("id, full_name, email, phone")
-    .eq("location_id", location.id)
+    .eq("organization_id", location.organization.id)
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -63,7 +66,7 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
     const { data: byEmail } = await admin
       .from("customers")
       .select("id, full_name, email, phone")
-      .eq("location_id", location.id)
+      .eq("organization_id", location.organization.id)
       .eq("email", user.email ?? "")
       .maybeSingle();
     if (!byEmail) return { error: "Customer record not found." };

@@ -34,7 +34,7 @@ export async function subscribeToPlan(planId: string, interval: PlanInterval): P
     .from("service_plans")
     .select(PLAN_SELECT)
     .eq("id", planId)
-    .eq("location_id", location.id)
+    .eq("organization_id", location.organization.id)
     .maybeSingle();
   const plan = planRow as ServicePlanRow | null;
   if (!plan || !plan.active) return { error: "This plan isn't available." };
@@ -71,7 +71,10 @@ export async function subscribeToPlan(planId: string, interval: PlanInterval): P
     kind: "service_plan",
     service_plan_id: plan.id,
     customer_id: customer.id,
-    location_id: location.id,
+    // The plan's own branch is the servicing location — the webhook stamps this
+    // onto plan_subscriptions.location_id. May differ from the portal's primary
+    // location in a multi-location org.
+    location_id: plan.location_id,
     interval,
   };
 
@@ -119,13 +122,13 @@ export async function cancelSubscription(subscriptionRowId: string): Promise<Can
   const admin = createAdminClient();
   const { data: subRow } = await admin
     .from("plan_subscriptions")
-    .select("id, stripe_subscription_id, customer_id, location_id")
+    .select("id, stripe_subscription_id, customer_id")
     .eq("id", subscriptionRowId)
     .maybeSingle();
   const sub = subRow as
-    | { id: string; stripe_subscription_id: string | null; customer_id: string | null; location_id: string }
+    | { id: string; stripe_subscription_id: string | null; customer_id: string | null }
     | null;
-  if (!sub || sub.customer_id !== customer.id || sub.location_id !== location.id || !sub.stripe_subscription_id) {
+  if (!sub || sub.customer_id !== customer.id || !sub.stripe_subscription_id) {
     return { error: "Subscription not found." };
   }
 

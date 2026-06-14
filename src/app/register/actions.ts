@@ -69,10 +69,9 @@ export async function registerCustomer(
   const userId = userRes.user.id;
 
   // Create the customer record linked to this org (one per org), with the
-  // chosen home branch as both the legacy location_id and preferred_location_id.
+  // chosen home branch as preferred_location_id.
   const { error: customerErr } = await admin.from("customers").insert({
     organization_id: org.id,
-    location_id: homeLocation.id,
     preferred_location_id: homeLocation.id,
     user_id: userId,
     full_name: fullName,

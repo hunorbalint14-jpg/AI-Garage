@@ -31,7 +31,7 @@ export default async function CustomerInvoicePage({
   const { location, customer } = await getPortalContext();
   if (!customer) notFound();
 
-  const invoice = await requireOwnedInvoice(customer.id, location.id, id);
+  const invoice = await requireOwnedInvoice(customer.id, id);
 
   const admin = createAdminClient();
   const itemsRes = invoice.job_id

@@ -63,13 +63,12 @@ export default async function PlansPage({
     admin
       .from("service_plans")
       .select("id, name, description, price_monthly_pence, price_annual_pence, discount_type, discount_value")
-      .eq("location_id", location.id)
+      .eq("organization_id", location.organization.id)
       .eq("active", true)
       .order("name", { ascending: true }),
     admin
       .from("plan_subscriptions")
       .select("id, service_plan_id, status, interval, current_period_end, cancel_at_period_end")
-      .eq("location_id", location.id)
       .eq("customer_id", customer.id)
       .order("created_at", { ascending: false }),
   ]);
@@ -139,7 +138,6 @@ export default async function PlansPage({
     admin
       .from("invoices")
       .select("discount_amount, membership_credit_amount")
-      .eq("location_id", location.id)
       .eq("customer_id", customer.id),
   ]);
   const remainingBySub = new Map<string, RemainingItem[]>(remainingResults);

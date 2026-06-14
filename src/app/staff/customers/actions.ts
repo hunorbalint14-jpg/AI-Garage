@@ -49,7 +49,6 @@ export async function addCustomer(formData: FormData): Promise<AddCustomerResult
     .from("customers")
     .insert({
       organization_id: ctx.organization.id,
-      location_id: ctx.location.id,
       preferred_location_id: ctx.location.id,
       full_name: fullName,
       email,

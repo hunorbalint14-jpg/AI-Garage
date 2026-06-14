@@ -128,14 +128,16 @@ export type PortalInvoice = {
   notes: string | null;
   customer_id: string;
   job_id: string | null;
+  location_id: string;
 };
 
-// Fetch an invoice and assert it belongs to this customer at this location.
-// notFound() (404) on any miss — wrong owner, wrong tenant, or absent — so we
-// never confirm the existence of a row the caller doesn't own.
+// Fetch an invoice and assert it belongs to this customer. The customer is
+// resolved per-org (getPortalContext matches organization_id + email) and a
+// customer belongs to exactly one org, so a customer_id match alone proves
+// ownership across every branch. notFound() (404) on any miss — wrong owner or
+// absent — so we never confirm the existence of a row the caller doesn't own.
 export async function requireOwnedInvoice(
   customerId: string,
-  locationId: string,
   invoiceId: string,
 ): Promise<PortalInvoice> {
   const admin = createAdminClient();
@@ -147,8 +149,8 @@ export async function requireOwnedInvoice(
     .eq("id", invoiceId)
     .maybeSingle();
 
-  const invoice = data as (PortalInvoice & { location_id: string }) | null;
-  if (!invoice || invoice.customer_id !== customerId || invoice.location_id !== locationId) {
+  const invoice = data as PortalInvoice | null;
+  if (!invoice || invoice.customer_id !== customerId) {
     notFound();
   }
   return invoice;
@@ -166,11 +168,10 @@ export type PortalJob = {
   location_id: string;
 };
 
-// Fetch a job and assert it belongs to this customer at this location.
-// notFound() (404) on any miss — same non-leaking rule as requireOwnedInvoice.
+// Fetch a job and assert it belongs to this customer. notFound() (404) on any
+// miss — same customer-scoped, non-leaking rule as requireOwnedInvoice.
 export async function requireOwnedJob(
   customerId: string,
-  locationId: string,
   jobId: string,
 ): Promise<PortalJob> {
   const admin = createAdminClient();
@@ -181,7 +182,7 @@ export async function requireOwnedJob(
     .maybeSingle();
 
   const job = data as PortalJob | null;
-  if (!job || job.customer_id !== customerId || job.location_id !== locationId) {
+  if (!job || job.customer_id !== customerId) {
     notFound();
   }
   return job;
@@ -197,12 +198,12 @@ export type PortalQuote = {
 };
 
 // Resolve a quote (job_quotes or standalone_quotes) by id and assert this
-// customer owns it at this location. job_quotes are owned via their parent
-// job's customer; standalone_quotes carry customer_id directly. notFound()
-// (404) on any miss — never leak another customer's / tenant's quote.
+// customer owns it. job_quotes are owned via their parent job's customer;
+// standalone_quotes carry customer_id directly. Ownership is customer-scoped,
+// not branch-scoped — a customer belongs to exactly one org. notFound() (404)
+// on any miss — never leak another customer's quote.
 export async function requireOwnedQuote(
   customerId: string,
-  locationId: string,
   quoteId: string,
 ): Promise<PortalQuote> {
   const admin = createAdminClient();
@@ -222,7 +223,7 @@ export async function requireOwnedQuote(
       status: string;
       job: { customer_id: string | null; location_id: string } | null;
     };
-    if (row.location_id === locationId && row.job?.customer_id === customerId) {
+    if (row.job?.customer_id === customerId) {
       return { id: row.id, source: "job", job_id: row.job_id, location_id: row.location_id, customer_id: customerId, status: row.status };
     }
     notFound();
@@ -235,7 +236,7 @@ export async function requireOwnedQuote(
     .maybeSingle();
   if (sq) {
     const row = sq as { id: string; location_id: string; customer_id: string | null; status: string };
-    if (row.location_id === locationId && row.customer_id === customerId) {
+    if (row.customer_id === customerId) {
       return { id: row.id, source: "standalone", job_id: null, location_id: row.location_id, customer_id: customerId, status: row.status };
     }
   }

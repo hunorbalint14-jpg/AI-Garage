@@ -47,7 +47,7 @@ export default async function PortalQuoteDetailPage({
   const { location, customer } = await getPortalContext();
   if (!customer) notFound();
 
-  const quote = await requireOwnedQuote(customer.id, location.id, id);
+  const quote = await requireOwnedQuote(customer.id, id);
   const org = location.organization;
   const admin = createAdminClient();
 

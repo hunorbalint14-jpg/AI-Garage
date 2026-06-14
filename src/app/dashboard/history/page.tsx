@@ -40,7 +40,6 @@ export default async function ServiceHistoryPage() {
     .from("jobs")
     .select("id, status, description, completed_at, created_at, vehicle:vehicles(id, registration, make, model, year)")
     .eq("customer_id", customer.id)
-    .eq("location_id", location.id)
     .in("status", ["complete", "invoiced"])
     .order("completed_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });

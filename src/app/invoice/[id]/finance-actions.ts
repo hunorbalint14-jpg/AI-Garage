@@ -22,7 +22,7 @@ export async function startInvoiceFinance(
   const { location, customer } = await getPortalContext();
   if (!customer) return { error: "Please sign in to use finance." };
 
-  const invoice = await requireOwnedInvoice(customer.id, location.id, invoiceId);
+  const invoice = await requireOwnedInvoice(customer.id, invoiceId);
   if (invoice.status === "paid") return { error: "This invoice has already been paid." };
   if (invoice.status === "draft") return { error: "This invoice isn't ready for payment yet." };
 
@@ -111,7 +111,9 @@ export async function startInvoiceFinance(
 
   const { error: insertError } = await admin.from("finance_applications").insert({
     organization_id: org.id,
-    location_id: location.id,
+    // The financed invoice's own branch — not the portal's primary location,
+    // which can differ in a multi-location org.
+    location_id: invoice.location_id,
     provider: "bumper",
     subject_type: "invoice",
     subject_id: invoice.id,
