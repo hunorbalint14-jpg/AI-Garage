@@ -82,7 +82,7 @@ export default async function CustomerDetailPage({
   const [customerRes, vehiclesRes, remindersRes, plansRes, membershipsRes] = await Promise.all([
     admin
       .from("customers")
-      .select("id, organization_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
+      .select("id, organization_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at, preferred_location:locations(name)")
       .eq("id", id)
       .maybeSingle(),
     admin
@@ -118,6 +118,8 @@ export default async function CustomerDetailPage({
   // job/booking detail pages.
   const customer = customerRes.data as Customer | null;
   if (!customer || customer.organization_id !== ctx.organization.id) notFound();
+  const homeGarage =
+    (customer as unknown as { preferred_location?: { name: string | null } | null }).preferred_location?.name ?? null;
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];
@@ -211,6 +213,12 @@ export default async function CustomerDetailPage({
                     <dd>{customer.phone ?? "—"}</dd>
                     <dt className="text-muted-foreground">Customer since</dt>
                     <dd>{formatDate(customer.created_at)}</dd>
+                    {ctx.accessibleLocations.length > 1 && (
+                      <>
+                        <dt className="text-muted-foreground">Home garage</dt>
+                        <dd>{homeGarage ?? "—"}</dd>
+                      </>
+                    )}
                   </dl>
                 </section>
 

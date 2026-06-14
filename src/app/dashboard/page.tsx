@@ -85,7 +85,7 @@ function typeLabel(t: string) {
 }
 
 export default async function CustomerDashboard() {
-  const { user, location, customer } = await getPortalContext();
+  const { user, location, customer, multiLocation } = await getPortalContext();
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
@@ -165,7 +165,8 @@ export default async function CustomerDashboard() {
         <div>
           <h1 className="text-3xl font-bold">Hi {firstName} 👋</h1>
           <p className="mt-1 text-sm text-gray-400">
-            Your vehicles and appointments with {orgName}.
+            Your vehicles and appointments with {orgName}
+            {multiLocation && customer?.home_garage ? ` · ${customer.home_garage}` : ""}.
           </p>
         </div>
 
