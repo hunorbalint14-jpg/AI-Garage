@@ -1,5 +1,9 @@
 # Org-scoped tenancy — staging verification & RLS proof (#344)
 
+> **Status (2026-06-14):** all application + migration code is merged (#339, #345,
+> #346, #347, #348). The **only remaining step** is running the migrations against
+> staging → prod per this gate — the schema changes are not yet applied to prod.
+
 Verification gate for the org-scoped tenancy migrations. **Do not run on prod
 until this passes on a staging branch with prod-like data.**
 
