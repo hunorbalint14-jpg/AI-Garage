@@ -80,10 +80,6 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
-function typeLabel(t: string) {
-  return t === "mot" ? "MOT" : t.charAt(0).toUpperCase() + t.slice(1);
-}
-
 export default async function CustomerDashboard() {
   const { user, location, customer, multiLocation } = await getPortalContext();
 
