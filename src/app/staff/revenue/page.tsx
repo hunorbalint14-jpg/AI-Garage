@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import Link from "next/link";
 import { RevenueChart } from "./revenue-chart-lazy";
+import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
 type InvoiceRow = {
   id: string;
@@ -54,26 +55,48 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
   );
 }
 
-export default async function RevenuePage() {
+export default async function RevenuePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string }>;
+}) {
   const ctx = await requireStaffContext();
   if (!ctx.orgRole) redirect("/staff");
+
+  // Org roles default to the all-locations roll-up; ?scope=<locationId> drops to
+  // a specific branch (any accessible branch, not just the active one).
+  const { scope } = await searchParams;
+  const accessibleIds = new Set(ctx.accessibleLocations.map((l) => l.id));
+  const selectedBranch = scope && scope !== "all" && accessibleIds.has(scope) ? scope : null;
+  const orgWide = !selectedBranch;
+  const branchId = selectedBranch ?? ctx.location.id;
+  const branchName = ctx.accessibleLocations.find((l) => l.id === branchId)?.name ?? ctx.location.name;
+  const locationIds = ctx.accessibleLocations.map((l) => l.id);
 
   const admin = createAdminClient();
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
 
   const [statsRes, recentInvoicesRes, jobsThisMonthRes] = await Promise.all([
-    admin.rpc("revenue_stats", { p_location_id: ctx.location.id }).single(),
-    admin
-      .from("invoices")
-      .select("id, invoice_number, total, status, issued_at, due_at, paid_at, customer:customers(id, full_name)")
-      .eq("location_id", ctx.location.id)
+    orgWide
+      ? admin.rpc("revenue_stats_org", { p_organization_id: ctx.organization.id }).single()
+      : admin.rpc("revenue_stats", { p_location_id: branchId }).single(),
+    (orgWide
+      ? admin
+          .from("invoices")
+          .select("id, invoice_number, total, status, issued_at, due_at, paid_at, customer:customers(id, full_name)")
+          .eq("organization_id", ctx.organization.id)
+      : admin
+          .from("invoices")
+          .select("id, invoice_number, total, status, issued_at, due_at, paid_at, customer:customers(id, full_name)")
+          .eq("location_id", branchId)
+    )
       .order("issued_at", { ascending: false })
       .limit(10),
-    admin
-      .from("jobs")
-      .select("id", { count: "exact", head: true })
-      .eq("location_id", ctx.location.id)
+    (orgWide
+      ? admin.from("jobs").select("id", { count: "exact", head: true }).in("location_id", locationIds)
+      : admin.from("jobs").select("id", { count: "exact", head: true }).eq("location_id", branchId)
+    )
       .in("status", ["complete", "invoiced"])
       .gte("completed_at", monthStart),
   ]);
@@ -107,7 +130,11 @@ export default async function RevenuePage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title="Revenue" description={`Financial overview for ${ctx.location.name}`} />
+      <PageHeader
+        title="Revenue"
+        description={orgWide ? "Financial overview across all branches" : `Financial overview for ${branchName}`}
+      />
+      {ctx.accessibleLocations.length > 1 && <FinanceScopeToggle locations={ctx.accessibleLocations} />}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard label="This month" value={fmt(revenueThisMonth)} accent="green" />
