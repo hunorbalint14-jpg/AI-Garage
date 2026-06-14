@@ -74,17 +74,23 @@ export async function getPortalContext(): Promise<PortalContext> {
   const { data: org } = (await admin
     .from("organizations")
     .select(
-      "id, slug, name, primary_color, logo_url, phone, locations:locations(id, slug, name)",
+      "id, slug, name, primary_color, logo_url, phone, primary_location_id, locations:locations(id, slug, name)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
     data:
-      | (PortalOrganization & { slug: string; locations: { id: string; slug: string; name: string }[] | null })
+      | (PortalOrganization & {
+          slug: string;
+          primary_location_id: string | null;
+          locations: { id: string; slug: string; name: string }[] | null;
+        })
       | null;
   };
   if (!org || !org.locations || org.locations.length === 0) redirect("/");
 
-  const primary = org.locations.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
+  const primary =
+    org.locations.find((l) => l.id === org.primary_location_id) ??
+    org.locations.slice().sort((a, b) => a.name.localeCompare(b.name))[0];
   const organization: PortalOrg = { id: org.id, slug: org.slug, name: org.name };
   const location: PortalLocation = {
     id: primary.id,

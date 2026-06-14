@@ -101,11 +101,11 @@ export const getCurrentTenant = cache(async (): Promise<TenantContext | null> =>
   const { data } = (await admin
     .from("organizations")
     .select(
-      "id, slug, name, primary_color, logo_url, custom_domain, locations:locations(id, slug, name)",
+      "id, slug, name, primary_color, logo_url, custom_domain, primary_location_id, locations:locations(id, slug, name)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
-    data: (Organization & { locations: Location[] | null }) | null;
+    data: (Organization & { locations: Location[] | null; primary_location_id: string | null }) | null;
   };
 
   if (!data) return null;
@@ -122,7 +122,7 @@ export const getCurrentTenant = cache(async (): Promise<TenantContext | null> =>
       custom_domain: data.custom_domain,
     },
     locations,
-    location: locations[0],
+    location: locations.find((l) => l.id === data.primary_location_id) ?? locations[0],
   };
   await cacheSet(tenantKey(slug), ctx, TENANT_TTL_SEC);
   return ctx;

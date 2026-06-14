@@ -87,7 +87,7 @@ export async function invalidateStaffLocationCacheForOrg(organizationId: string)
 
 export type StaffContext = {
   user: { id: string; email: string | undefined; fullName: string | null };
-  organization: { id: string; slug: string; name: string };
+  organization: { id: string; slug: string; name: string; primary_location_id: string | null };
   // The active branch (operational scope). Defaults to the first accessible
   // location when no valid cookie is set. Kept non-null so the many
   // `ctx.location.id` operational call sites stay correct.
@@ -120,6 +120,7 @@ type OrgWithLocations = {
   tenant_subscription_status: string | null;
   tenant_current_period_end: string | null;
   tenant_trial_end: string | null;
+  primary_location_id: string | null;
   locations: StaffLocation[];
 };
 
@@ -152,7 +153,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     const { data } = (await admin
       .from("organizations")
       .select(
-        "id, slug, name, primary_color, logo_url, dpa_version, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations(id, slug, name)",
+        "id, slug, name, primary_color, logo_url, dpa_version, primary_location_id, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations(id, slug, name)",
       )
       .eq("slug", slug)
       .maybeSingle()) as { data: OrgWithLocations | null };
@@ -229,7 +230,9 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
   const cookieStore = await cookies();
   const cookieLoc = cookieStore.get(ACTIVE_LOCATION_COOKIE)?.value;
   const activeLocation =
-    accessibleLocations.find((l) => l.id === cookieLoc) ?? accessibleLocations[0];
+    accessibleLocations.find((l) => l.id === cookieLoc) ??
+    accessibleLocations.find((l) => l.id === org.primary_location_id) ??
+    accessibleLocations[0];
 
   const activeLocRow = membership.locRows[activeLocation.id] ?? null;
   // Org-level access bypasses per-location permission checks (null signals that).
@@ -245,7 +248,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
       email: user.email,
       fullName: (user.user_metadata?.full_name as string | undefined) ?? null,
     },
-    organization: { id: org.id, slug: org.slug, name: org.name },
+    organization: { id: org.id, slug: org.slug, name: org.name, primary_location_id: org.primary_location_id },
     location: activeLocation,
     activeLocation,
     accessibleLocations,

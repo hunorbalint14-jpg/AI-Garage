@@ -3,6 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SettingsForm } from "./settings-form";
 import { AddLocationForm } from "./add-location-form";
+import { LocationsManager } from "./locations-manager";
 import { BusinessHoursForm } from "./business-hours-form";
 import { PasskeysSection, type PasskeyRow } from "./passkeys-section";
 import { PaymentsSection } from "./payments-section";
@@ -274,19 +275,12 @@ export default async function SettingsPage({
             </p>
           </div>
 
-          <div className="flex flex-col gap-1">
-            {locations.map((l) => (
-              <div
-                key={l.id}
-                className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-              >
-                <span className="font-medium">{l.name}</span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {l.slug}.{ROOT_HOST}
-                </span>
-              </div>
-            ))}
-          </div>
+          <LocationsManager
+            locations={locations}
+            primaryLocationId={ctx.organization.primary_location_id}
+            canManage={isOwner}
+            rootHost={ROOT_HOST}
+          />
 
           {isOwner && <AddLocationForm />}
         </section>
