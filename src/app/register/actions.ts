@@ -36,7 +36,7 @@ export async function registerCustomer(
   // org. Pick the home/preferred branch (a later picker can pass locationId).
   const { data: org } = (await admin
     .from("organizations")
-    .select("id, locations:locations(id)")
+    .select("id, locations:locations!organization_id(id)")
     .eq("slug", slug)
     .maybeSingle()) as { data: { id: string; locations: { id: string }[] | null } | null };
   if (!org || !org.locations || org.locations.length === 0) return { error: "Garage not found." };
