@@ -39,3 +39,38 @@ export async function updateContactPreferences(emailConsent: boolean, smsConsent
 
   return { success: true };
 }
+
+// Customer picks their home/preferred branch (customers.preferred_location_id).
+// Authorised by the portal session; the chosen branch must belong to their org.
+export async function updateHomeGarage(locationId: string): Promise<PrefsResult> {
+  const { user, location, customer } = await getPortalContext();
+  if (!customer) return { error: "We couldn't find your account." };
+  const orgId = location.organization.id;
+
+  const admin = createAdminClient();
+  const { data: loc } = await admin
+    .from("locations")
+    .select("id")
+    .eq("id", locationId)
+    .eq("organization_id", orgId)
+    .maybeSingle();
+  if (!loc) return { error: "That branch isn't available." };
+
+  const { error } = await admin
+    .from("customers")
+    .update({ preferred_location_id: locationId })
+    .eq("id", customer.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: orgId,
+    actorUserId: user.id,
+    actorEmail: user.email ?? null,
+    action: "customer.update",
+    entityType: "customer",
+    entityId: customer.id,
+    metadata: { field: "home_garage", preferred_location_id: locationId, via: "portal" },
+  });
+
+  return { success: true };
+}

@@ -526,6 +526,49 @@ export async function sendDraftedMessage(
   return { success: true, summary: results.join(", ") };
 }
 
+// ── Home garage (preferred branch) ──────────────────────────────────────────
+
+export type SetHomeGarageResult = { error: string } | { success: true };
+
+// Set a customer's home/preferred branch. Org-scoped: the target branch must
+// belong to the staff member's organisation, and the customer is matched by org.
+export async function setCustomerHomeGarage(
+  customerId: string,
+  locationId: string,
+): Promise<SetHomeGarageResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const { data: loc } = await admin
+    .from("locations")
+    .select("id")
+    .eq("id", locationId)
+    .eq("organization_id", ctx.organization.id)
+    .maybeSingle();
+  if (!loc) return { error: "That branch isn't in your organisation." };
+
+  const { error } = await admin
+    .from("customers")
+    .update({ preferred_location_id: locationId })
+    .eq("id", customerId)
+    .eq("organization_id", ctx.organization.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "customer.update",
+    entityType: "customer",
+    entityId: customerId,
+    metadata: { field: "home_garage", preferred_location_id: locationId },
+  });
+
+  revalidatePath(`/staff/customers/${customerId}`);
+  return { success: true };
+}
+
 // ── Edit / delete ──────────────────────────────────────────────────────────
 
 export type UpdateCustomerResult = { error: string } | { success: true };

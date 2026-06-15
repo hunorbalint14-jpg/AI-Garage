@@ -13,10 +13,13 @@ import { PlanInvitePanel, type InvitePlanOption } from "./plan-invite-panel";
 import { CustomerTabs } from "./customer-tabs";
 import { MembershipsSection, type MembershipRow } from "./memberships-section";
 import { subscriptionStatusLabel, isSubscriptionLive } from "@/lib/service-plans";
+import { HomeGarageSelect } from "@/components/home-garage-select";
+import { setCustomerHomeGarage } from "../actions";
 
 type Customer = {
   id: string;
   organization_id: string;
+  preferred_location_id: string | null;
   full_name: string | null;
   email: string | null;
   phone: string | null;
@@ -82,7 +85,7 @@ export default async function CustomerDetailPage({
   const [customerRes, vehiclesRes, remindersRes, plansRes, membershipsRes] = await Promise.all([
     admin
       .from("customers")
-      .select("id, organization_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at, preferred_location:locations(name)")
+      .select("id, organization_id, preferred_location_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
       .eq("id", id)
       .maybeSingle(),
     admin
@@ -118,8 +121,6 @@ export default async function CustomerDetailPage({
   // job/booking detail pages.
   const customer = customerRes.data as Customer | null;
   if (!customer || customer.organization_id !== ctx.organization.id) notFound();
-  const homeGarage =
-    (customer as unknown as { preferred_location?: { name: string | null } | null }).preferred_location?.name ?? null;
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];
@@ -216,7 +217,13 @@ export default async function CustomerDetailPage({
                     {ctx.accessibleLocations.length > 1 && (
                       <>
                         <dt className="text-muted-foreground">Home garage</dt>
-                        <dd>{homeGarage ?? "—"}</dd>
+                        <dd>
+                          <HomeGarageSelect
+                            branches={ctx.accessibleLocations.map((l) => ({ id: l.id, name: l.name }))}
+                            currentId={customer.preferred_location_id}
+                            action={setCustomerHomeGarage.bind(null, customer.id)}
+                          />
+                        </dd>
                       </>
                     )}
                   </dl>
