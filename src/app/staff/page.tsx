@@ -1,6 +1,9 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isFeatureEnabled } from "@/lib/feature-flags";
+import { CardGridSkeleton, BlockSkeleton, TableSkeleton } from "@/components/staff/skeletons";
 
 export const dynamic = "force-dynamic";
 
@@ -472,7 +475,29 @@ function WeeklyChart({
   );
 }
 
+// Dashboard-shaped fallback (header line + 8-tile KPI grid + schedule block +
+// attention table) so the streamed render swaps in without a layout jump.
+function DashboardSkeleton() {
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="mb-1 h-7 w-80 max-w-[70%] animate-pulse rounded bg-white/[0.06]" />
+      <CardGridSkeleton count={8} className="grid-cols-2 gap-px md:grid-cols-4" />
+      <BlockSkeleton className="h-64" />
+      <TableSkeleton rows={6} cols={6} />
+    </div>
+  );
+}
+
 export default async function StaffDashboard() {
+  if (!(await isFeatureEnabled("streaming_dashboard"))) return <DashboardContent />;
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+async function DashboardContent() {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 

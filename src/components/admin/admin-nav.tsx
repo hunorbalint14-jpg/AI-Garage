@@ -13,6 +13,7 @@ const NAV: { href: string; label: string; match: (p: string) => boolean }[] = [
   { href: "/admin/health", label: "Reliability", match: (p) => p.startsWith("/admin/health") },
   { href: "/admin/incidents", label: "Incidents", match: (p) => p.startsWith("/admin/incidents") },
   { href: "/admin/admins", label: "Admins", match: (p) => p.startsWith("/admin/admins") },
+  { href: "/admin/feature-flags", label: "Feature flags", match: (p) => p.startsWith("/admin/feature-flags") },
 ];
 
 export function AdminNav({ activeIncidents }: { activeIncidents: number }) {
