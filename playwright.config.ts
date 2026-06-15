@@ -13,6 +13,9 @@ const baseURL = `http://localhost:${PORT}`;
 export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.spec.ts",
+  // The user-manual screenshot capture (e2e/screenshots) needs a seeded local
+  // tenant + login — it runs via playwright.screenshots.config.ts, never here.
+  testIgnore: "screenshots/**",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

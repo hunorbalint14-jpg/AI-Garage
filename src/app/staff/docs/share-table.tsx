@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 
 const DOC_OPTIONS = [
   { value: "technical", label: "Technical reference" },
+  { value: "userguide", label: "User manual" },
   // Add more entries here as DOC_MAP in route.ts grows.
 ];
 

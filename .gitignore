@@ -18,6 +18,11 @@
 /test-results/
 /.playwright/
 
+# user-manual generator — intermediate artifacts; the built HTML
+# (docs/internal/user-guide.html) is the committed deliverable.
+/e2e/screenshots/.auth/
+/docs/internal/help-images/
+
 # next.js
 /.next/
 /out/

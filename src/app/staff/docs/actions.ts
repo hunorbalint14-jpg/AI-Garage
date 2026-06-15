@@ -12,7 +12,7 @@ import {
 import { logAudit } from "@/lib/audit";
 
 // Doc keys allowed from the UI. Must match keys in src/app/docs/[slug]/route.ts.
-const ALLOWED_DOC_KEYS = ["technical"] as const;
+const ALLOWED_DOC_KEYS = ["technical", "userguide"] as const;
 type AllowedDocKey = (typeof ALLOWED_DOC_KEYS)[number];
 
 export type CreateShareActionResult =

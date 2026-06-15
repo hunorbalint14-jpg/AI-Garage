@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>AI Garage — User Manual</title>
+  <link rel="icon" href="/brand/icon/aigarage-favicon.svg" type="image/svg+xml" />
+  <style>
+    @font-face { font-family:"Space Grotesk"; font-style:normal; font-weight:300 700; font-display:swap; src:url(/fonts/space-grotesk-latin.woff2) format("woff2"); }
+    @font-face { font-family:"JetBrains Mono"; font-style:normal; font-weight:100 800; font-display:swap; src:url(/fonts/jetbrains-mono-latin.woff2) format("woff2"); }
+    :root{
+      --green:#22c55e; --ink:#0b0d11; --ink-2:#374151; --ink-3:#5b6270;
+      --rule:#cfd1c8; --paper:#f5f4f0; --card:#ffffff;
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+      font-family:"Space Grotesk",system-ui,-apple-system,sans-serif;line-height:1.55;}
+    a{color:inherit;}
+    code{font-family:"JetBrains Mono",ui-monospace,monospace;}
+    .wrap{display:grid;grid-template-columns:260px 1fr;gap:0;max-width:1240px;margin:0 auto;}
+    /* ---- sticky table of contents ---- */
+    .toc{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;
+      padding:28px 20px;border-right:1px solid var(--rule);background:var(--paper);}
+    .toc__brand{display:flex;align-items:center;gap:10px;margin-bottom:22px;}
+    .toc__brand img{height:24px;}
+    .toc__group{margin-bottom:20px;}
+    .toc__h{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.16em;
+      text-transform:uppercase;color:var(--ink-3);margin-bottom:8px;}
+    .toc ul{list-style:none;margin:0;padding:0;}
+    .toc li{margin:0;}
+    .toc a{display:block;padding:4px 8px;font-size:13px;color:var(--ink-2);
+      border-radius:6px;text-decoration:none;}
+    .toc a:hover{background:#fff;color:var(--ink);}
+    /* ---- main column ---- */
+    main{padding:40px 44px 96px;min-width:0;}
+    .cover{border-bottom:1px solid var(--rule);padding-bottom:24px;margin-bottom:8px;}
+    .eyebrow{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+      text-transform:uppercase;color:var(--ink-3);}
+    .cover h1{font-size:34px;line-height:1.1;letter-spacing:-.02em;margin:10px 0 8px;}
+    .cover p{color:var(--ink-3);margin:0;max-width:60ch;}
+    .cover .meta{margin-top:14px;font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-3);}
+    .part__head{margin:48px 0 8px;padding-top:8px;}
+    .part__head h2{font-size:24px;letter-spacing:-.01em;margin:0;}
+    .part__head p{color:var(--ink-3);margin:4px 0 0;}
+    /* ---- a section card ---- */
+    .sec{background:var(--card);border:1px solid var(--rule);border-radius:10px;
+      padding:22px 24px;margin:20px 0;position:relative;}
+    .sec__head h3{font-size:18px;margin:0;}
+    .sec__head .purpose{color:var(--ink-3);margin:4px 0 0;font-size:14px;}
+    .sec__body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
+      gap:24px;margin-top:16px;align-items:start;}
+    .sec__shot{margin:0;}
+    .shot{width:100%;height:auto;display:block;border:1px solid var(--rule);
+      border-radius:8px;background:#fff;}
+    .shot--pending{aspect-ratio:16/10;display:flex;flex-direction:column;gap:8px;
+      align-items:center;justify-content:center;color:var(--ink-3);
+      background:repeating-linear-gradient(45deg,#fbfbf9,#fbfbf9 10px,#f1f1ec 10px,#f1f1ec 20px);}
+    .shot--pending code{font-size:11px;}
+    .steps{list-style:none;margin:0;padding:0;counter-reset:step;}
+    .steps li{display:flex;gap:12px;align-items:flex-start;margin:0 0 14px;}
+    .steps p{margin:0;font-size:14px;color:var(--ink-2);}
+    .badge{flex:0 0 auto;width:22px;height:22px;border-radius:999px;background:var(--ink);
+      color:#fff;font-family:"JetBrains Mono",monospace;font-size:12px;font-weight:600;
+      display:grid;place-items:center;margin-top:1px;}
+    .notes{margin-top:8px;border-left:3px solid var(--green);background:#f3faf4;
+      border-radius:0 8px 8px 0;padding:10px 14px;}
+    .notes__h{font-family:"JetBrains Mono",monospace;font-size:10px;letter-spacing:.14em;
+      text-transform:uppercase;color:#15803d;margin-bottom:4px;}
+    .notes ul{margin:0;padding-left:18px;}
+    .notes li{font-size:13px;color:var(--ink-2);margin-bottom:4px;}
+    footer{margin-top:56px;padding-top:20px;border-top:1px dashed var(--rule);
+      font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--ink-3);
+      display:flex;align-items:center;gap:10px;}
+    footer .dot{width:8px;height:8px;border-radius:999px;background:var(--green);}
+    @media (max-width:900px){
+      .wrap{grid-template-columns:1fr;}
+      .toc{position:static;height:auto;border-right:0;border-bottom:1px solid var(--rule);}
+      .sec__body{grid-template-columns:1fr;}
+      main{padding:28px 20px 64px;}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <nav class="toc">
+      <div class="toc__brand">
+        <img src="/brand/aigarage-logo-horizontal-on-light.svg" alt="AI Garage" />
+      </div>
+      <div class="toc__group"><div class="toc__h">Customer guide</div><ul><li><a href="#customer-register">Create your account</a></li><li><a href="#customer-login">Sign in</a></li><li><a href="#customer-dashboard">Your dashboard</a></li><li><a href="#customer-mot-history">MOT history</a></li><li><a href="#customer-book">Book an appointment</a></li><li><a href="#customer-quotes">Quotes</a></li><li><a href="#customer-quote-detail">Reviewing a quote</a></li><li><a href="#customer-history">Service history</a></li><li><a href="#customer-documents">Documents</a></li><li><a href="#customer-invoice">Invoices &amp; paying</a></li><li><a href="#customer-plans">Plans &amp; membership</a></li><li><a href="#customer-settings">Settings</a></li></ul></div>
+<div class="toc__group"><div class="toc__h">Staff guide</div><ul><li><a href="#staff-login">Staff sign-in</a></li><li><a href="#staff-dashboard">Staff dashboard</a></li><li><a href="#staff-bookings">Bookings</a></li><li><a href="#staff-jobs">Jobs</a></li><li><a href="#staff-customers">Customers</a></li><li><a href="#staff-customer-detail">Customer detail</a></li><li><a href="#staff-invoices">Invoices</a></li><li><a href="#staff-quotes">Quotes</a></li><li><a href="#staff-revenue">Revenue</a></li><li><a href="#staff-reports">Reports</a></li><li><a href="#staff-services">Services</a></li><li><a href="#staff-products">Products</a></li><li><a href="#staff-plans">Service plans</a></li><li><a href="#staff-reminders">Reminders</a></li><li><a href="#staff-settings">Settings</a></li><li><a href="#staff-staff-members">Team &amp; roles</a></li><li><a href="#staff-audit-log">Audit log</a></li><li><a href="#staff-docs">Doc shares (this manual)</a></li></ul></div>
+    </nav>
+    <main>
+      <div class="cover">
+        <div class="eyebrow">User manual</div>
+        <h1>AI Garage — User Manual</h1>
+        <p>An end-to-end guide to the customer portal and the staff back office.</p>
+        <div class="meta">Generated 15 June 2026</div>
+      </div>
+      
+  <div class="part" id="part-customer">
+    <div class="part__head">
+      <h2>Customer guide</h2>
+      <p>For vehicle owners using the garage's online portal.</p>
+    </div>
+    
+  <section class="sec" id="customer-register">
+    <header class="sec__head">
+      <h3>Create your account</h3>
+      <p class="purpose">Register once with your garage to track your vehicles, bookings and invoices in one place.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/register.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Enter your full name, email and mobile number.</p></li>
+<li><span class="badge">2</span><p>Pick your home garage — the branch you usually visit (skipped if the garage has a single location).</p></li>
+<li><span class="badge">3</span><p>Agree to the garage's privacy policy, then submit. You'll be signed in straight away.</p></li></ol>
+        <div class="notes"><div class="notes__h">Good to know</div><ul><li>One account covers every branch of the same garage group — you don't register twice.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-login">
+    <header class="sec__head">
+      <h3>Sign in</h3>
+      <p class="purpose">Return to your portal with a one-tap secure link sent to your email.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/login.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Type the email you registered with.</p></li>
+<li><span class="badge">2</span><p>Press 'Send link' — we email you a secure sign-in link (no password to remember).</p></li>
+<li><span class="badge">3</span><p>Open the link on the same device to land back on your dashboard.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-dashboard">
+    <header class="sec__head">
+      <h3>Your dashboard</h3>
+      <p class="purpose">Your home screen: every vehicle with its MOT, service and tax status, plus upcoming visits.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/dashboard.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Each vehicle card shows MOT, service and tax due dates with a colour cue — green (fine), amber (due soon), red (due now or overdue).</p></li>
+<li><span class="badge">2</span><p>Use 'Book an appointment' to start a new booking pre-filled with your details.</p></li>
+<li><span class="badge">3</span><p>Upcoming bookings and recent invoices are listed below; tap any to open it.</p></li>
+<li><span class="badge">4</span><p>The AI assistant panel can answer quick questions about a warning light or noise.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-mot-history">
+    <header class="sec__head">
+      <h3>MOT history</h3>
+      <p class="purpose">The full official DVLA MOT test history for a vehicle, including advisories.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/mot-history.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Open a vehicle's MOT history from its dashboard card.</p></li>
+<li><span class="badge">2</span><p>Each past test shows the result (pass/fail), mileage and any advisory or failure items.</p></li>
+<li><span class="badge">3</span><p>Use this to spot recurring advisories before they become failures.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-book">
+    <header class="sec__head">
+      <h3>Book an appointment</h3>
+      <p class="purpose">Request a visit: choose branch, service, vehicle and a preferred time.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/book.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Pick the branch (if the garage has more than one) and the service you need.</p></li>
+<li><span class="badge">2</span><p>Choose the vehicle and a preferred date and time.</p></li>
+<li><span class="badge">3</span><p>If the service is covered by your plan you'll see 'Included in your plan' and pay nothing; otherwise any deposit or fee is shown before you confirm.</p></li>
+<li><span class="badge">4</span><p>Submit the request — the garage confirms the slot and you get a notification.</p></li></ol>
+        <div class="notes"><div class="notes__h">Good to know</div><ul><li>A green 'Included in your {plan}' banner means no payment is taken — see Plans &amp; membership.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-quotes">
+    <header class="sec__head">
+      <h3>Quotes</h3>
+      <p class="purpose">Work the garage has recommended, waiting for your decision.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/quotes.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Quotes awaiting your response sit at the top; approved/declined ones move to history.</p></li>
+<li><span class="badge">2</span><p>Open a quote to see the line items, any inspection video and the total.</p></li>
+<li><span class="badge">3</span><p>Approve to authorise the work, decline if you don't want it, or rebook to pick a new slot.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-quote-detail">
+    <header class="sec__head">
+      <h3>Reviewing a quote</h3>
+      <p class="purpose">The detail of a single quote, with everything you need to decide.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/quote-detail.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Review each recommended item and its price; watch the inspection video if one is attached.</p></li>
+<li><span class="badge">2</span><p>Approve &amp; authorise the work, or Decline.</p></li>
+<li><span class="badge">3</span><p>If a deposit is required, pay it securely here to lock the booking.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-history">
+    <header class="sec__head">
+      <h3>Service history</h3>
+      <p class="purpose">A record of completed work across all your vehicles.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/history.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Jobs are grouped by vehicle, newest first.</p></li>
+<li><span class="badge">2</span><p>Open any job to see the line items, related quotes and any tyre-check results.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-documents">
+    <header class="sec__head">
+      <h3>Documents</h3>
+      <p class="purpose">One place for your invoices, inspection reports, service records and MOT links.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/documents.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Invoices, inspection reports (DVIs) and service records are grouped by type.</p></li>
+<li><span class="badge">2</span><p>Open an invoice to view or pay it; open a report to read the inspection findings.</p></li>
+<li><span class="badge">3</span><p>MOT history links jump straight to the official gov.uk record.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-invoice">
+    <header class="sec__head">
+      <h3>Invoices &amp; paying</h3>
+      <p class="purpose">View an invoice in full and pay it by card.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/invoice.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Line items, VAT and any membership credit or discount are itemised; savings show in green.</p></li>
+<li><span class="badge">2</span><p>Press 'Pay now' to pay securely by card via Stripe.</p></li>
+<li><span class="badge">3</span><p>Use 'Spread the cost' to apply for finance where the garage offers it and the amount qualifies.</p></li>
+<li><span class="badge">4</span><p>Print or save a PDF copy for your records.</p></li></ol>
+        <div class="notes"><div class="notes__h">Good to know</div><ul><li>Membership credits and plan discounts are applied automatically before you pay.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-plans">
+    <header class="sec__head">
+      <h3>Plans &amp; membership</h3>
+      <p class="purpose">Manage your service plan — what's included, what's left this period, and how to cancel.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/plans.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Active plans show the included services and how many of each you have left this period.</p></li>
+<li><span class="badge">2</span><p>Available plans can be subscribed monthly or annually.</p></li>
+<li><span class="badge">3</span><p>'Cancel plan' stops the plan immediately and refunds your unspent balance (see notes).</p></li></ol>
+        <div class="notes"><div class="notes__h">Good to know</div><ul><li>How included services work: a covered service is free once your payments-in cover it (the 'funding gate'). Until then — or once you've used your allowance for the period — the plan's member discount applies instead of £0.</li><li>Onboarding: covered services begin 12 months after you join, unless the garage enrols you right after a full service + MOT (then they start once funded).</li><li>Cancelling: you can cancel any time. We refund what you've paid in, minus any services you've already taken (charged at the normal walk-in price). You keep those services; you're never left out of pocket and neither is the garage. A 14-day cooling-off applies to new plans.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="customer-settings">
+    <header class="sec__head">
+      <h3>Settings</h3>
+      <p class="purpose">Your contact preferences and home garage.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>customer/settings.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Toggle marketing email and SMS consent — service reminders are sent regardless.</p></li>
+<li><span class="badge">2</span><p>Change your home garage (the branch you usually visit) if the garage has multiple locations.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+  </div>
+
+  <div class="part" id="part-staff">
+    <div class="part__head">
+      <h2>Staff guide</h2>
+      <p>For garage employees running the back office.</p>
+    </div>
+    
+  <section class="sec" id="staff-login">
+    <header class="sec__head">
+      <h3>Staff sign-in</h3>
+      <p class="purpose">Sign in to the garage's back office. Owners and admins use multi-factor (passkey) sign-in.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/login.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Enter your work email and password.</p></li>
+<li><span class="badge">2</span><p>If prompted, complete passkey verification (Face ID / fingerprint / security key).</p></li>
+<li><span class="badge">3</span><p>You land on the dashboard for your active branch.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-dashboard">
+    <header class="sec__head">
+      <h3>Staff dashboard</h3>
+      <p class="purpose">Today at a glance: schedule, vehicles needing attention, open work and key numbers.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/dashboard.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Today's bookings are laid out by bay and time.</p></li>
+<li><span class="badge">2</span><p>'Needs attention' surfaces vehicles with expiring MOTs or due services.</p></li>
+<li><span class="badge">3</span><p>Tiles track open jobs, uninvoiced work, pending invoices and quotes, and this week's revenue.</p></li>
+<li><span class="badge">4</span><p>Use the branch switcher in the top bar to change your active location.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-bookings">
+    <header class="sec__head">
+      <h3>Bookings</h3>
+      <p class="purpose">Manage appointments in calendar or list view.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/bookings.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Switch between month, day and list views; filter by status or assignee.</p></li>
+<li><span class="badge">2</span><p>Open a booking to assign a staff member and bay, confirm with the customer, or reschedule.</p></li>
+<li><span class="badge">3</span><p>Create a new booking with 'New booking'.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-jobs">
+    <header class="sec__head">
+      <h3>Jobs</h3>
+      <p class="purpose">The workshop board — every job by stage: open, completed, invoiced.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/jobs.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Cards show the vehicle, customer, assignee and any high-voltage (EV) flag.</p></li>
+<li><span class="badge">2</span><p>Open a job to update items, record work and mark it complete.</p></li>
+<li><span class="badge">3</span><p>Completed jobs flow through to invoicing.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-customers">
+    <header class="sec__head">
+      <h3>Customers</h3>
+      <p class="purpose">The customer directory, searchable across the whole organisation.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/customers.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Search by name, email or phone; results paginate.</p></li>
+<li><span class="badge">2</span><p>Open a customer to see vehicles, reminders, memberships and GDPR tools.</p></li>
+<li><span class="badge">3</span><p>Add a new customer with 'New customer'.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-customer-detail">
+    <header class="sec__head">
+      <h3>Customer detail</h3>
+      <p class="purpose">Everything about one customer across tabs: overview, vehicles, reminders, memberships.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/customer-detail.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Overview shows contact details and consent.</p></li>
+<li><span class="badge">2</span><p>The Memberships tab lists plans; staff can bring plan benefits forward when a customer enrols right after a service + MOT.</p></li>
+<li><span class="badge">3</span><p>Reminder history records every MOT/service nudge sent and its delivery status.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-invoices">
+    <header class="sec__head">
+      <h3>Invoices</h3>
+      <p class="purpose">The invoice register with status totals and search.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/invoices.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Filter by status — draft, sent, paid, overdue — or search by customer or number.</p></li>
+<li><span class="badge">2</span><p>Totals by status sit across the top.</p></li>
+<li><span class="badge">3</span><p>Open an invoice to send, record payment or refund.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-quotes">
+    <header class="sec__head">
+      <h3>Quotes</h3>
+      <p class="purpose">Job and standalone quotes through their whole lifecycle.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/quotes.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Filter by status (draft, pending, approved, declined, expired) or search.</p></li>
+<li><span class="badge">2</span><p>Track which quotes the customer has viewed and responded to.</p></li>
+<li><span class="badge">3</span><p>Create a new quote with the action button.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-revenue">
+    <header class="sec__head">
+      <h3>Revenue</h3>
+      <p class="purpose">Cash-flow at a glance with a monthly trend.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/revenue.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>See this month's revenue, year-to-date, paid, outstanding and overdue.</p></li>
+<li><span class="badge">2</span><p>The trend chart plots monthly revenue; org roles can view all locations or one branch.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-reports">
+    <header class="sec__head">
+      <h3>Reports</h3>
+      <p class="purpose">Analytics: VAT, aged debt, labour productivity and bay utilisation.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/reports.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Pick a period — this month, year-to-date or a custom range.</p></li>
+<li><span class="badge">2</span><p>Review the VAT summary and aged-debtor buckets.</p></li>
+<li><span class="badge">3</span><p>Productivity and utilisation break down billable hours by mechanic.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-services">
+    <header class="sec__head">
+      <h3>Services</h3>
+      <p class="purpose">Your service catalogue and pricing.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/services.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Services are grouped by category (MOT, servicing, brakes, tyres…).</p></li>
+<li><span class="badge">2</span><p>Add a service or edit its price, duration, VAT treatment and active flag.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-products">
+    <header class="sec__head">
+      <h3>Products</h3>
+      <p class="purpose">Parts inventory with stock levels and reorder points.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/products.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Edit name, SKU, cost and unit price, stock quantity and reorder level inline.</p></li>
+<li><span class="badge">2</span><p>Low stock against the reorder level flags items to order.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-plans">
+    <header class="sec__head">
+      <h3>Service plans</h3>
+      <p class="purpose">Create and manage membership plans (e.g. MOT + service every 12 months).</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/plans.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Set the plan name, monthly/annual price and included items (service + quantity per period).</p></li>
+<li><span class="badge">2</span><p>Active subscriptions per plan are shown; prices sync to Stripe.</p></li></ol>
+        <div class="notes"><div class="notes__h">Good to know</div><ul><li>Included services follow the prepayment funding gate — see the customer 'Plans &amp; membership' section.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-reminders">
+    <header class="sec__head">
+      <h3>Reminders</h3>
+      <p class="purpose">Send MOT, service and tax reminders to customers.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/reminders.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Vehicles due in the next 60 days are listed.</p></li>
+<li><span class="badge">2</span><p>Compose and send a reminder by email, SMS or push; sent history shows delivery status.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-settings">
+    <header class="sec__head">
+      <h3>Settings</h3>
+      <p class="purpose">Organisation configuration: branding, locations, team, integrations and compliance.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/settings.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Business: logo, brand colour, opening hours and contact details.</p></li>
+<li><span class="badge">2</span><p>Locations: add branches and set the primary location.</p></li>
+<li><span class="badge">3</span><p>Integrations: connect Stripe and Xero, set deposit % and quote validity.</p></li>
+<li><span class="badge">4</span><p>Compliance: DPA acceptance and MFA enforcement.</p></li></ol>
+        <div class="notes"><div class="notes__h">Good to know</div><ul><li>Owners and admins only. Some actions (team, GDPR) are locked to owner/admin even with other permissions.</li></ul></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-staff-members">
+    <header class="sec__head">
+      <h3>Team &amp; roles</h3>
+      <p class="purpose">Invite teammates and control what each can see and do.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/staff-members.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Invite staff by email and set an org role (owner, admin, accountant) or a per-branch role.</p></li>
+<li><span class="badge">2</span><p>Grant location permissions by group — operational, financial, quotes, catalogue, sensitive, MOT.</p></li>
+<li><span class="badge">3</span><p>Flag MOT testers/QC reviewers and EV certification where relevant.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-audit-log">
+    <header class="sec__head">
+      <h3>Audit log</h3>
+      <p class="purpose">An append-only trail of staff actions for GDPR and finance compliance.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/audit-log.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Filter by action group (GDPR, financial, quotes, integrations, auth), actor or action.</p></li>
+<li><span class="badge">2</span><p>Each row records who did what, when, and from where.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="staff-docs">
+    <header class="sec__head">
+      <h3>Doc shares (this manual)</h3>
+      <p class="purpose">Mint a private, signed link to this manual to hand to staff or customers.</p>
+    </header>
+    <div class="sec__body">
+      <figure class="sec__shot"><div class="shot shot--pending"><span>Screenshot pending</span><code>staff/docs.png</code></div></figure>
+      <div class="sec__steps">
+        <ol class="steps"><li><span class="badge">1</span><p>Pick 'User manual', an expiry and an optional view cap, then 'Mint share link'.</p></li>
+<li><span class="badge">2</span><p>Copy the link once — the token is shown a single time and stored only as a hash.</p></li>
+<li><span class="badge">3</span><p>Revoke a link any time; revoked links return a 'Link revoked' page.</p></li></ol>
+        
+      </div>
+    </div>
+  </section>
+  </div>
+      <footer><span class="dot"></span> AI Garage · user documentation</footer>
+    </main>
+  </div>
+</body>
+</html>

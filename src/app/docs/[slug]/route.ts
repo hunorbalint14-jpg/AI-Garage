@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 // live OUTSIDE public/ so the only way to reach them is through this gate.
 const DOC_MAP: Record<string, string> = {
   technical: "docs/internal/technical-doc.html",
+  userguide: "docs/internal/user-guide.html",
   // Add more docs here:
   // runbook: "docs/internal/runbook.html",
 };
