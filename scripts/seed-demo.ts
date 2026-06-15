@@ -146,12 +146,18 @@ async function main() {
   }
   const locId = loc.id as string;
 
-  // Branding so headers/logo areas look real.
-  await step("set org branding", async () => {
+  // Branding + DPA acceptance (the staff portal redirects to /staff/dpa-acceptance
+  // until the org's dpa_version matches CURRENT_DPA_VERSION — "1.0").
+  await step("set org branding + accept DPA", async () => {
     must(
       await db
         .from("organizations")
-        .update({ name: "Smith Motors", primary_color: "#dc2626" })
+        .update({
+          name: "Smith Motors",
+          primary_color: "#dc2626",
+          dpa_version: "1.0",
+          dpa_accepted_at: new Date().toISOString(),
+        })
         .eq("id", orgId)
         .select("id"),
     );
@@ -300,7 +306,7 @@ async function main() {
   await step("bookings (upcoming + completed)", async () => {
     const rows = [
       { scheduled_at: daysFromNow(3).toISOString(), type: "mot", status: "scheduled", service_id: motId, notes: "Annual MOT" },
-      { scheduled_at: daysFromNow(-10).toISOString(), type: "service", status: "completed", service_id: fullServiceId, notes: "Full service" },
+      { scheduled_at: daysFromNow(-10).toISOString(), type: "service", status: "complete", service_id: fullServiceId, notes: "Full service" },
     ];
     for (const r of rows) {
       const existing = await db.from("bookings").select("id").eq("customer_id", customerId).eq("scheduled_at", r.scheduled_at).maybeSingle();
@@ -331,11 +337,14 @@ async function main() {
     );
     jobId = job.id as string;
     must(
-      await db.from("job_items").insert([
-        { job_id: jobId, description: "Full Service", type: "labour", quantity: 1, unit_price: 189, service_id: fullServiceId },
-        { job_id: jobId, description: "Oil filter", type: "part", quantity: 1, unit_price: 12.5 },
-        { job_id: jobId, description: "Brake pads (front)", type: "part", quantity: 1, unit_price: 48 },
-      ]),
+      await db
+        .from("job_items")
+        .insert([
+          { job_id: jobId, description: "Full Service", type: "labour", quantity: 1, unit_price: 189, service_id: fullServiceId },
+          { job_id: jobId, description: "Oil filter", type: "part", quantity: 1, unit_price: 12.5 },
+          { job_id: jobId, description: "Brake pads (front)", type: "part", quantity: 1, unit_price: 48 },
+        ])
+        .select("id"),
     );
   });
 

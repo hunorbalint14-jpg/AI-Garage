@@ -29,10 +29,21 @@ for (const { portal, section } of allSections()) {
       viewport: { width: 1440, height: 900 },
       deviceScaleFactor: 2,
     });
+    // Pre-acknowledge the cookie banner (it's localStorage-gated) before any page
+    // script runs, so it never renders into a screenshot.
+    await ctx.addInitScript(() => {
+      try {
+        localStorage.setItem("ai-garage-cookies-acknowledged", "1");
+      } catch {
+        /* storage unavailable — ignore */
+      }
+    });
     const page = await ctx.newPage();
     try {
       const origin = section.host === "root" ? ROOT_ORIGIN : TENANT_ORIGIN;
-      await page.goto(origin + section.route, { waitUntil: "networkidle", timeout: 30_000 });
+      // domcontentloaded, not networkidle: Next dev keeps an HMR websocket open,
+      // so networkidle never settles and every goto would time out.
+      await page.goto(origin + section.route, { waitUntil: "domcontentloaded", timeout: 30_000 });
 
       if (section.capture?.waitFor) {
         await page.waitForSelector(section.capture.waitFor, { timeout: 15_000 }).catch(() => {});
@@ -43,11 +54,19 @@ for (const { portal, section } of allSections()) {
         const link = page.locator(section.capture.clickToDetail).first();
         if (await link.count()) {
           await link.click();
-          await page.waitForLoadState("networkidle").catch(() => {});
+          await page.waitForLoadState("domcontentloaded").catch(() => {});
         } else {
           console.warn(`[capture] ${portal}/${section.id}: no '${section.capture.clickToDetail}' to click`);
         }
       }
+
+      // Hide the Next.js dev indicator — it only shows in dev, never in a manual.
+      await page
+        .addStyleTag({
+          content:
+            "nextjs-portal,[data-next-badge-root],[data-nextjs-toast],#__next-build-watcher{display:none!important}",
+        })
+        .catch(() => {});
 
       // Let fonts / images settle so the shot is crisp and deterministic.
       await page.waitForTimeout(500);
