@@ -13,10 +13,14 @@ export function HomeGarageSelect({
   branches,
   currentId,
   action,
+  dark = false,
 }: {
   branches: Branch[];
   currentId: string | null;
   action: (locationId: string) => Promise<unknown>;
+  // Dark portal theme vs light staff theme — a bare transparent select is
+  // invisible (dark option text) on the dark portal, so style explicitly.
+  dark?: boolean;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(currentId ?? "");
@@ -42,13 +46,17 @@ export function HomeGarageSelect({
     });
   }
 
+  const selectCls = dark
+    ? "rounded-md border border-white/20 bg-white/10 px-3 py-2 text-sm text-white outline-none focus:border-white/40 disabled:opacity-50 [&>option]:text-black"
+    : "rounded-md border bg-background px-2 py-1 text-sm text-foreground outline-none disabled:opacity-50";
+
   return (
     <span className="inline-flex items-center gap-2">
       <select
         value={value}
         disabled={pending}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-current/20 bg-transparent px-2 py-1 text-sm outline-none disabled:opacity-50"
+        className={selectCls}
       >
         {currentId === null && <option value="">Not set</option>}
         {branches.map((b) => (

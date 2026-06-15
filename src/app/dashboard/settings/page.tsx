@@ -72,7 +72,7 @@ export default async function PortalSettingsPage() {
             <MapPin className="h-4 w-4" /> Home garage
           </h2>
           <p className="mb-2 text-sm text-gray-400">The branch you usually visit.</p>
-          <HomeGarageSelect branches={branches} currentId={prefs.preferred_location_id} action={updateHomeGarage} />
+          <HomeGarageSelect branches={branches} currentId={prefs.preferred_location_id} action={updateHomeGarage} dark />
         </section>
       )}
     </PortalShell>
