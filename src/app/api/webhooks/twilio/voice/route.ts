@@ -10,7 +10,6 @@ import {
 } from "@/lib/receptionist/inbound";
 import type { TranscriptMessage } from "@/lib/receptionist/agent";
 
-export const runtime = "nodejs";
 export const maxDuration = 30;
 
 // Missed-call capture. The location's Twilio number rings the garage's real

@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 // Staff-only diagnostic. Returns a redacted view of a quote row given its
 // public slug so we can sanity-check what's actually in the database when

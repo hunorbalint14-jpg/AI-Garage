@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/staff/page-header";
 import { Button } from "@/components/ui/button";
 import { QuoteFilters } from "./quote-filters";
 
-export const dynamic = "force-dynamic";
 
 type QuoteRow = {
   id: string;

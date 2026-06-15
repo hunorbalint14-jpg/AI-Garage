@@ -6,7 +6,6 @@ import { recordCronRun } from "@/lib/platform/cron-runs";
 
 // Runs every Monday at 08:00 UTC via Vercel Cron.
 // Sends a weekly MOT/service due report to org owners and admins.
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const WINDOW_DAYS_DEFAULT = 30;

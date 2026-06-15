@@ -6,7 +6,6 @@ import { createPhotoReadUrls } from "@/lib/courtesy-photos";
 import { FleetSection, type CourtesyCarView, type OpenJobView } from "./fleet-section";
 import { LoansSection, type LoanView } from "./loans-section";
 
-export const dynamic = "force-dynamic";
 
 export default async function CourtesyCarsPage() {
   const ctx = await requireStaffContext();

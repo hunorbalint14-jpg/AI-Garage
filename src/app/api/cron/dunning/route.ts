@@ -12,7 +12,6 @@ import { dunningStage, daysOverdue, DEFAULT_DUNNING_CADENCE } from "@/lib/dunnin
 // emails an escalating reminder with a "Pay now" link, capped by the cadence.
 // Paid invoices flip to status='paid' (Stripe webhook) and drop out of the
 // query, so reminders stop automatically.
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type LocationRow = {

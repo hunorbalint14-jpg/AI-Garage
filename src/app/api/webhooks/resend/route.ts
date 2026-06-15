@@ -3,7 +3,6 @@ import { Webhook } from "svix";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordWebhookDelivery } from "@/lib/platform/webhooks";
 
-export const runtime = "nodejs";
 
 type ResendEvent = {
   type: string;

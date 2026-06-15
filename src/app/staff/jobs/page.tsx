@@ -5,7 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { PageHeader } from "@/components/staff/page-header";
 
-export const dynamic = "force-dynamic";
 
 // Workshop jobs board: every job grouped by lifecycle stage. Until now jobs
 // had no index at all — a job was only reachable through its booking, so

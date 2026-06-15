@@ -18,7 +18,6 @@ import {
 // skips channels that already sent the same reminder type within DEDUP_DAYS,
 // then renders a Claude-drafted template (one per location/type/channel kind,
 // not per customer) and sends via email/SMS/WhatsApp.
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const REMIND_DAYS_BEFORE_DEFAULT = 30;

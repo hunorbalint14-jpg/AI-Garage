@@ -5,7 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createSignedReadUrl } from "@/lib/quote-storage";
 import { QuoteDetailActions } from "./quote-detail-actions";
 
-export const dynamic = "force-dynamic";
 
 type QuoteRow = {
   id: string;

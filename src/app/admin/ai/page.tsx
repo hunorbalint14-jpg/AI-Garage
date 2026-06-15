@@ -1,12 +1,13 @@
+import { connection } from "next/server";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchOrgOverview, formatGbp } from "@/lib/platform-stats";
 
-export const dynamic = "force-dynamic";
 
 type AiRow = { feature: string; model: string; input_tokens: number; output_tokens: number; cost_pence: number };
 
 export default async function AdminAiPage() {
+  await connection(); // PPR: 30-day window uses Date.now() before any data read
   const admin = createAdminClient();
   // eslint-disable-next-line react-hooks/purity -- server component: a 30-day window boundary; freshness is the point
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();

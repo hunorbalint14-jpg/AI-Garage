@@ -12,7 +12,6 @@ import {
   TRANSCRIPT_MODEL_WINDOW,
 } from "@/lib/receptionist/inbound";
 
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Inbound SMS/WhatsApp for the AI receptionist. Twilio expects a response

@@ -7,7 +7,6 @@ import { tenantQuoteUrl } from "@/lib/quote-links";
 import { tenantOrigin } from "@/lib/stripe";
 import { logAudit } from "@/lib/audit";
 
-export const runtime = "nodejs";
 
 // Customer lands here from Bumper's hosted checkout (success_url and
 // failure_url both point at this route; Bumper appends token, success and

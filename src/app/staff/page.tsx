@@ -5,7 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { CardGridSkeleton, BlockSkeleton, TableSkeleton } from "@/components/staff/skeletons";
 
-export const dynamic = "force-dynamic";
 
 type Vehicle = {
   id: string;

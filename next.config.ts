@@ -52,6 +52,13 @@ const SECURITY_HEADERS = [
   { key: "Content-Security-Policy", value: CSP },
 ];
 
+// Partial Prerendering (PPR) is a BUILD-TIME switch — Next bakes the static
+// shell + postponed state at `next build`, so it cannot be toggled on a live
+// server. Gate it on an env var so we can ship one deploy with it on and one
+// without to compare cold-load latency. GLOBAL (whole app), not per-tenant. The
+// admin /admin/feature-flags page surfaces this as a read-only status row.
+const PPR_ENABLED = process.env.ENABLE_PPR === "true";
+
 const nextConfig: NextConfig = {
   // Tree-shake barrel imports from these icon/UI/chart packages so a route only
   // ships the components it actually uses (lucide-react in particular has 1000+
@@ -59,6 +66,9 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts", "@base-ui/react"],
   },
+
+  // PPR + `use cache` + dynamicIO, unified. Off unless ENABLE_PPR=true at build.
+  cacheComponents: PPR_ENABLED,
 
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];

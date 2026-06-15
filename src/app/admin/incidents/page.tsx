@@ -3,8 +3,6 @@ import { IncidentsPanel } from "@/components/admin/incidents-panel";
 
 // Incident management — its own admin section. Declare / update / publish /
 // resolve platform incidents. The title lives in the topbar (AdminTopbar).
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export default async function IncidentsPage() {
   const incidents = await fetchActiveIncidents();

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
 
 // Liveness probe pinged by /api/cron/uptime for every tenant subdomain and the
 // platform "web" target. Intentionally DB-free and cheap — it measures app +

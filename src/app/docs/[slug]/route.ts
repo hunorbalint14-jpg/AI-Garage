@@ -3,8 +3,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { verifyShareAccess, recordView, type VerifyReason } from "@/lib/doc-shares";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 // Map doc_key → path on disk (relative to the project root). The HTML files
 // live OUTSIDE public/ so the only way to reach them is through this gate.

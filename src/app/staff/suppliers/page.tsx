@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { SupplierManager, type Supplier } from "./supplier-manager";
 
-export const dynamic = "force-dynamic";
 
 export default async function SuppliersPage() {
   const ctx = await requireStaffContext();

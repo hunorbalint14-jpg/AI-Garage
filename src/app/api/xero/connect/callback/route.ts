@@ -5,8 +5,6 @@ import { verifyOAuthState } from "@/lib/oauth-state";
 import { encrypt } from "@/lib/encryption";
 import { logAudit } from "@/lib/audit";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 // Step 2 of Xero OAuth. Xero redirects here on the apex domain with
 // ?code=...&state=<signed-token>. The state token carries the orgId +

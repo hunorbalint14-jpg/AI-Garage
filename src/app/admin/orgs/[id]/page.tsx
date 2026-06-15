@@ -11,7 +11,6 @@ import {
 import { OrgSlugEditor } from "./org-slug-editor";
 import { ReceptionistNumbers, type ReceptionistLoc } from "./receptionist-numbers";
 
-export const dynamic = "force-dynamic";
 
 type AiRow = { feature: string; model: string; input_tokens: number; output_tokens: number; cost_pence: number };
 

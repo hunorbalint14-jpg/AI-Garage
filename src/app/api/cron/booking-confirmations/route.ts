@@ -11,7 +11,6 @@ import {
   tenantBookingConfirmUrl,
 } from "@/lib/booking-confirm";
 
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Booking no-show defence: T-24h confirmation messages. Dispatched per

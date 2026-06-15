@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieBanner } from "@/components/cookie-banner";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { AigLoader } from "@/components/ui/aig-loader";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -75,8 +77,17 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
-        <ImpersonationBanner />
+        {/* PPR (cacheComponents): nearly every page reads cookies/headers for
+            auth + tenancy, which can't prerender. This app-wide boundary lets
+            the static shell (this fallback) flush instantly while the page
+            streams at request time — one boundary instead of per-page surgery.
+            Coarse first pass: the shell is a generic loader, not per-route
+            chrome. Granular per-route shells are a follow-up. No-op when
+            cacheComponents is off (ENABLE_PPR unset). */}
+        <Suspense fallback={<AigLoader />}>
+          {children}
+          <ImpersonationBanner />
+        </Suspense>
         <CookieBanner />
         {/* Real-user TTFB/LCP/CLS per route → Vercel dashboard. Script + beacon
             are same-origin (/_vercel/speed-insights/*), so the CSP needs no change. */}

@@ -2,7 +2,6 @@ import { verifyBookingConfirmAccess } from "@/lib/booking-confirm";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ConfirmButtons } from "./confirm-buttons";
 
-export const dynamic = "force-dynamic";
 
 type OrgBrand = { name: string; primary_color: string | null; logo_url: string | null };
 

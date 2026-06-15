@@ -5,7 +5,6 @@ import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
 import { ensureDefaultTasks, type TaskType } from "./actions";
 import { TaskCard } from "./task-card";
 
-export const dynamic = "force-dynamic";
 
 type ScheduledTask = {
   id: string;

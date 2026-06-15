@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revokePlatformAdmin } from "./actions";
 import { InviteForm, SetPasswordForm } from "./admins-forms";
 
-export const dynamic = "force-dynamic";
 
 type AdminRow = { user_id: string; invited_by: string | null; created_at: string };
 

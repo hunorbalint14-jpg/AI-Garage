@@ -4,7 +4,6 @@ import { safeEqual } from "@/lib/safe-equal";
 import { logAudit } from "@/lib/audit";
 import { recordCronRun } from "@/lib/platform/cron-runs";
 
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Sweeps pending quotes that passed their expires_at and flips them to

@@ -12,8 +12,6 @@ import { recordTenantSubscription } from "@/lib/tenant-plans";
 import { sendTenantSubscriptionReceipt, sendServicePlanReceipt } from "@/lib/subscription-receipts";
 import { recordWebhookDelivery } from "@/lib/platform/webhooks";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 // Stripe Connect + invoice pay webhook handler. Verifies the signature
 // against STRIPE_WEBHOOK_SECRET, then routes the event:

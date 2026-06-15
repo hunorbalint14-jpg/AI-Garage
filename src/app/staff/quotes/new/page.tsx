@@ -3,7 +3,6 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { QuoteBuilder } from "./quote-builder";
 
-export const dynamic = "force-dynamic";
 
 export default async function NewQuotePage() {
   const ctx = await requireStaffContext();

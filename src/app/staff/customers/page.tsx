@@ -7,7 +7,6 @@ import { PageHeader } from "@/components/staff/page-header";
 import { CustomerSearch } from "./customer-search";
 import { CustomerTable, type CustomerListRow } from "./customer-table";
 
-export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
 const SEARCH_LIMIT = 100;

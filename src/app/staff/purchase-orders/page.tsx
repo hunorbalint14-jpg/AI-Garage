@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { PurchaseOrderManager, type PORow, type POProduct, type POSupplier } from "./po-manager";
 
-export const dynamic = "force-dynamic";
 
 export default async function PurchaseOrdersPage() {
   const ctx = await requireStaffContext();

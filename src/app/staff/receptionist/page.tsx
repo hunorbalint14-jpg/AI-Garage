@@ -7,7 +7,6 @@ import { ConfigCard } from "./config-card";
 import { ConversationList, type ConversationView } from "./conversation-list";
 import type { TranscriptMessage } from "@/lib/receptionist/agent";
 
-export const dynamic = "force-dynamic";
 
 export default async function ReceptionistPage() {
   const ctx = await requireStaffContext();

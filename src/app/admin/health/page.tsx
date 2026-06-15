@@ -9,8 +9,6 @@ import { ReliabilityDashboard } from "@/components/admin/reliability-dashboard";
 
 // /admin/health — Platform Reliability. The admin layout already gates this to
 // platform admins, so no extra auth here. Ops data → always fresh.
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 const PAGE_SIZE = 25;
 

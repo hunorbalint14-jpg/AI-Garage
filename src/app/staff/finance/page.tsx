@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
-export const dynamic = "force-dynamic";
 
 // Bumper "Spread the cost" applications raised at this location — quotes and
 // invoices alike. Read-only oversight: who started finance, what completed

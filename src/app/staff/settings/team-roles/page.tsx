@@ -6,7 +6,6 @@ import { PageHeader } from "@/components/staff/page-header";
 import { type Permissions, normalisePermissions } from "@/app/staff/staff-members/constants";
 import { TemplateEditor } from "./template-editor";
 
-export const dynamic = "force-dynamic";
 
 type RoleTemplate = {
   id: string;

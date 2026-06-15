@@ -10,7 +10,6 @@ import { recordCronRun } from "@/lib/platform/cron-runs";
 // /api/cron/tick when the `review_requests` scheduled_task is due (daily ~09:00
 // → "next morning" after the job completes). Mints a fresh token at send time
 // and stores only its hash, so the raw token is never persisted.
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 type LocationRow = {

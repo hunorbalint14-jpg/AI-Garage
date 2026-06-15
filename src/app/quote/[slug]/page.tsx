@@ -6,8 +6,6 @@ import { logAudit } from "@/lib/audit";
 import { QuoteResponse } from "./quote-response";
 import { SpreadTheCost } from "./spread-the-cost";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 type Org = { id: string; name: string; logo_url: string | null; primary_color: string | null; phone: string | null; quote_deposit_pct?: number | null };
 type Customer = { full_name: string | null };

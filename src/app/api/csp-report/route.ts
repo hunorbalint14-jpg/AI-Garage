@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { parseCspReports } from "@/lib/csp-report";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 // Sink for CSP violation reports (report-to / report-uri target). Unauthenticated
 // by necessity — browsers POST these without credentials. We only log a compact

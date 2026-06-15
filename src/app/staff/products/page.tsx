@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { seedDefaultProducts } from "./actions";
 import { ProductManager } from "./product-manager";
 
-export const dynamic = "force-dynamic";
 
 type ProductRow = {
   id: string;

@@ -5,7 +5,6 @@ import { evaluateAlerts } from "@/lib/platform/alerts";
 import { recordCronRun } from "@/lib/platform/cron-runs";
 import { refreshSentry } from "@/lib/platform/sentry";
 
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Synthetic uptime/latency probe. Runs every few minutes via Vercel Cron: pings

@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveTenantFromHost } from "@/lib/tenant";
 
-export const dynamic = "force-dynamic";
 
 export default async function DebugPage() {
   const headersList = await headers();

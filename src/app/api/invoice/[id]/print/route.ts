@@ -3,7 +3,6 @@ import { getStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildInvoicePrintHtml } from "@/lib/invoice-print-html";
 
-export const runtime = "nodejs";
 
 type Invoice = {
   id: string;

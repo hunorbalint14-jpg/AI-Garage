@@ -5,7 +5,6 @@ import { CURRENT_DPA_VERSION, CURRENT_DPA_EFFECTIVE_DATE, isDpaAccepted } from "
 import { DpaBody } from "@/app/legal/dpa/page";
 import { AcceptForm } from "./accept-form";
 
-export const dynamic = "force-dynamic";
 
 export default async function DpaAcceptancePage() {
   const ctx = await requireStaffContext();

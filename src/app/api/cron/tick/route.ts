@@ -6,7 +6,6 @@ import { runUptimeMaintenance } from "@/lib/platform/uptime-maintenance";
 import { reconcileFinanceApplications } from "@/lib/finance/reconcile";
 import { recordCronRun } from "@/lib/platform/cron-runs";
 
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Runs hourly via Vercel Cron. Finds scheduled_tasks where next_run_at <= now,

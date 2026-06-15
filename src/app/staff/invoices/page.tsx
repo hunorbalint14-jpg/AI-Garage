@@ -5,7 +5,6 @@ import { PageHeader } from "@/components/staff/page-header";
 import { InvoiceSearch } from "./invoice-search";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
-export const dynamic = "force-dynamic";
 
 type InvoiceRow = {
   id: string;

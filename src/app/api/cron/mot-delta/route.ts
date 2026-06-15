@@ -11,7 +11,6 @@ import {
   type DeltaVehicleUpdate,
 } from "@/lib/dvsa-bulk";
 
-export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Nightly MOT delta sync. Downloads the DVSA daily delta files (full record

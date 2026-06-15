@@ -20,7 +20,6 @@ import {
 import { PeriodSelector } from "./period-selector";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
-export const dynamic = "force-dynamic";
 
 const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 

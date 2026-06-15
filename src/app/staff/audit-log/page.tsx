@@ -5,7 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { AuditTable, type AuditRow } from "./audit-table";
 
-export const dynamic = "force-dynamic";
 
 const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   {

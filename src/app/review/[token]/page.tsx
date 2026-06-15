@@ -2,7 +2,6 @@ import { verifyReviewAccess } from "@/lib/review-links";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ReviewForm } from "./review-form";
 
-export const dynamic = "force-dynamic";
 
 type OrgBrand = { name: string; primary_color: string | null; logo_url: string | null };
 

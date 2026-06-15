@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 // Auth/DB reachability probe — pinged once per uptime-cron run as the platform
 // "auth" target (not per tenant, so a real Supabase round-trip here is fine). A

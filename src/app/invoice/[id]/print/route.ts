@@ -3,8 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildInvoicePrintHtml } from "@/lib/invoice-print-html";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 type Invoice = {
   id: string;

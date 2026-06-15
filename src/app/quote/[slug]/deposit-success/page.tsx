@@ -3,8 +3,6 @@ import { Check } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 export default async function DepositSuccessPage({
   params,

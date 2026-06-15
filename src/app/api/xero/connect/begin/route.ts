@@ -5,8 +5,6 @@ import { makeXeroClient } from "@/lib/xero";
 import { signOAuthState } from "@/lib/oauth-state";
 import { entitledTo, type OrgBilling } from "@/lib/tenant-plans";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 // Step 1 of Xero OAuth — staff (owner/admin) hits this and we redirect
 // to Xero's consent screen. State carries the org_id so the callback

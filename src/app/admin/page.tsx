@@ -8,7 +8,6 @@ import {
 } from "@/lib/platform-stats";
 import { OrgTable, type AdminOrgRow } from "@/components/admin/org-table";
 
-export const dynamic = "force-dynamic";
 
 function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (

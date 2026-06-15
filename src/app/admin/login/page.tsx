@@ -1,6 +1,5 @@
 import { PlatformLoginForm } from "./login-form";
 
-export const dynamic = "force-dynamic";
 
 export default function PlatformLoginPage() {
   return (

@@ -9,7 +9,6 @@ import { PLATFORM_COMPONENTS } from "@/lib/platform/components";
 // (and only their public updates). No auth. Component statuses are derived from
 // published, unresolved incidents until per-service synthetic checks land.
 // Root-domain only — not served on tenant subdomains or the admin host.
-export const dynamic = "force-dynamic";
 
 // Explicit AI Garage favicon + title (the root metadata icons weren't coming
 // through on this standalone page). Title template makes it "System status ·

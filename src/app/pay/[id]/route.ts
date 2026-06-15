@@ -3,8 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe, platformFeePence, publicOrigin } from "@/lib/stripe";
 import { effectiveFeePercent } from "@/lib/tenant-plans";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 // Customer-facing pay link. Anyone with the invoice ID can hit this route;
 // we don't expose financial detail until the Stripe Checkout page itself.
