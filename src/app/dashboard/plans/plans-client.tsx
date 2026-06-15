@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
-import { subscribeToPlan, cancelSubscription } from "./actions";
+import { subscribeToPlan, cancelSubscriptionWithRefund } from "./actions";
 import type { PlanInterval } from "@/lib/service-plans";
 
 export function SubscribeButtons({
@@ -61,19 +61,31 @@ export function SubscribeButtons({
 export function CancelButton({ subscriptionId }: { subscriptionId: string }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<{ refundedPence: number } | null>(null);
 
   function go() {
-    if (!confirm("Cancel this plan at the end of the current period?")) return;
+    if (
+      !confirm(
+        "Cancel this plan now? We'll refund any unspent balance — what you've paid, minus any services already taken (charged at the normal price).",
+      )
+    )
+      return;
     setError(null);
     start(async () => {
-      const res = await cancelSubscription(subscriptionId);
+      const res = await cancelSubscriptionWithRefund(subscriptionId);
       if ("error" in res) setError(res.error);
-      else setDone(true);
+      else setDone({ refundedPence: res.refundedPence });
     });
   }
 
-  if (done) return <p className="shrink-0 text-sm text-gray-400">Cancelling at period end.</p>;
+  if (done) {
+    const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(done.refundedPence / 100);
+    return (
+      <p className="shrink-0 text-sm text-gray-400">
+        Cancelled.{done.refundedPence > 0 ? ` Refund of ${gbp} on its way.` : ""}
+      </p>
+    );
+  }
 
   return (
     <div className="shrink-0 text-right">

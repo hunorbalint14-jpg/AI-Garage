@@ -13,6 +13,14 @@ type Service = {
   price: number | null;
 };
 
+// Per-service plan coverage computed server-side (display-only). Absent service
+// id ⇒ full walk-in price.
+export type ServiceCoverage = {
+  kind: "covered" | "discount";
+  chargePence: number;
+  label: string;
+};
+
 type Props = {
   vehicles: Vehicle[];
   // Branch picker drives the services list: each branch's active services keyed
@@ -22,6 +30,7 @@ type Props = {
   defaultLocationId: string;
   orgColor: string;
   paymentsEnabled: boolean;
+  coverageByServiceId: Record<string, ServiceCoverage>;
 };
 
 function defaultDateTime() {
@@ -35,7 +44,7 @@ function fmtGbp(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
-export function BookingRequestForm({ vehicles, locations, servicesByLocation, defaultLocationId, orgColor, paymentsEnabled }: Props) {
+export function BookingRequestForm({ vehicles, locations, servicesByLocation, defaultLocationId, orgColor, paymentsEnabled, coverageByServiceId }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -57,8 +66,11 @@ export function BookingRequestForm({ vehicles, locations, servicesByLocation, de
     () => services.find((s) => s.id === serviceId) ?? null,
     [services, serviceId],
   );
-  const willPayNow =
-    paymentsEnabled && !!selectedService?.price && selectedService.price > 0;
+  const coverage = serviceId ? coverageByServiceId[serviceId] : undefined;
+  const walkInPence = selectedService?.price ? Math.round(selectedService.price * 100) : 0;
+  // Coverage (covered → £0, discount → member price) wins over the walk-in price.
+  const chargePence = coverage ? coverage.chargePence : walkInPence;
+  const willPayNow = paymentsEnabled && chargePence > 0;
 
   const inputClass =
     "w-full rounded-xl border border-white/15 bg-[#0d1525] px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-white/30 transition-colors [&>option]:bg-[#0d1525] [&>option]:text-white";
@@ -184,14 +196,28 @@ export function BookingRequestForm({ vehicles, locations, servicesByLocation, de
         />
       </div>
 
+      {coverage?.kind === "covered" && selectedService && (
+        <div className="rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2.5 text-sm">
+          <p className="font-semibold text-green-400">{coverage.label}</p>
+          <p className="mt-0.5 text-xs text-gray-400">
+            No payment needed — this appointment is covered by your plan.
+          </p>
+        </div>
+      )}
+
       {willPayNow && selectedService && (
         <div
           className="rounded-xl border px-3 py-2.5 text-sm"
           style={{ borderColor: `${orgColor}55`, backgroundColor: `${orgColor}18` }}
         >
           <p className="font-semibold" style={{ color: orgColor }}>
-            Pay {fmtGbp(selectedService.price ?? 0)} now to confirm
+            Pay {fmtGbp(chargePence / 100)} now to confirm
           </p>
+          {coverage?.kind === "discount" && walkInPence > chargePence && (
+            <p className="mt-0.5 text-xs text-green-400">
+              {coverage.label} — was {fmtGbp(walkInPence / 100)}
+            </p>
+          )}
           <p className="text-xs text-gray-400 mt-0.5">
             Secure card payment via Stripe. Your booking is held once payment succeeds.
           </p>
@@ -211,7 +237,7 @@ export function BookingRequestForm({ vehicles, locations, servicesByLocation, de
             ? "Redirecting to payment…"
             : "Submitting…"
           : willPayNow
-          ? `Pay ${fmtGbp(selectedService?.price ?? 0)} and book`
+          ? `Pay ${fmtGbp(chargePence / 100)} and book`
           : "Request appointment"}
       </button>
     </form>

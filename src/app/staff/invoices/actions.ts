@@ -16,6 +16,7 @@ import {
   computeMemberDiscount,
   applyInvoiceTotals,
   discountDescription,
+  finalizeCoverage,
 } from "@/lib/service-plans";
 import { logAudit } from "@/lib/audit";
 
@@ -29,7 +30,7 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   const [jobRes, itemsRes] = await Promise.all([
     admin
       .from("jobs")
-      .select("id, location_id, customer_id, status")
+      .select("id, location_id, customer_id, status, booking_id")
       .eq("id", jobId)
       .maybeSingle(),
     admin
@@ -38,7 +39,9 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
       .eq("job_id", jobId),
   ]);
 
-  const job = jobRes.data as { id: string; location_id: string; customer_id: string | null; status: string } | null;
+  const job = jobRes.data as {
+    id: string; location_id: string; customer_id: string | null; status: string; booking_id: string | null;
+  } | null;
   if (!job || job.location_id !== ctx.location.id) return { error: "Job not found." };
   if (job.status === "open") return { error: "Complete the job before creating an invoice." };
   if (job.status === "invoiced") return { error: "Invoice already exists for this job." };
@@ -54,7 +57,7 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   // up to the per-period quota; the plan discount then applies to the rest.
   let membershipCredit = 0;
   let membershipCreditDescription: string | null = null;
-  let usageWrites: { service_id: string; covered_qty: number }[] = [];
+  let usageWrites: { service_id: string; covered_qty: number; walk_in_pence: number }[] = [];
   let memberSubscriptionId: string | null = null;
   let memberPeriodEnd: string | null = null;
   let discountAmount = 0;
@@ -72,7 +75,8 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
         .from("plan_service_usage")
         .select("service_id, covered_qty")
         .eq("plan_subscription_id", benefits.subscriptionId)
-        .eq("period_end", benefits.currentPeriodEnd);
+        .eq("period_end", benefits.currentPeriodEnd)
+        .in("status", ["reserved", "consumed"]);
       const usedMap = new Map<string, number>();
       for (const u of (used ?? []) as { service_id: string; covered_qty: number }[]) {
         usedMap.set(u.service_id, (usedMap.get(u.service_id) ?? 0) + Number(u.covered_qty));
@@ -85,11 +89,17 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
         remaining,
       );
       if (coveredValue > 0) {
+        const priceByService = new Map<string, number>();
+        for (const i of items) if (i.service_id) priceByService.set(i.service_id, Number(i.unit_price));
         membershipCredit = coveredValue;
         membershipCreditDescription = `${benefits.planName} – included services`;
         memberSubscriptionId = benefits.subscriptionId;
         memberPeriodEnd = benefits.currentPeriodEnd;
-        usageWrites = [...perService.entries()].map(([service_id, covered_qty]) => ({ service_id, covered_qty }));
+        usageWrites = [...perService.entries()].map(([service_id, covered_qty]) => ({
+          service_id,
+          covered_qty,
+          walk_in_pence: Math.round(covered_qty * (priceByService.get(service_id) ?? 0) * 100),
+        }));
       }
     }
 
@@ -98,6 +108,26 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
       const base = Math.max(0, subtotal - membershipCredit);
       discountAmount = computeMemberDiscount(base, benefits.discount);
       if (discountAmount > 0) discountDescriptionText = discountDescription(benefits.planName, benefits.discount);
+    }
+  }
+
+  // A booking covered at booking time already reserved its allowance — fold that
+  // pre-reserved value into the credit (the reservation is finalised below). The
+  // `used` query above counts the reservation, so the generic coverage won't
+  // double-cover the same line.
+  if (job.booking_id) {
+    const { data: reserved } = await admin
+      .from("plan_service_usage")
+      .select("plan_subscription_id, period_end, walk_in_pence")
+      .eq("booking_id", job.booking_id)
+      .eq("status", "reserved");
+    const rrows = (reserved ?? []) as { plan_subscription_id: string; period_end: string | null; walk_in_pence: number }[];
+    const reservedPence = rrows.reduce((s, r) => s + Number(r.walk_in_pence), 0);
+    if (reservedPence > 0) {
+      membershipCredit = Math.round((membershipCredit + reservedPence / 100) * 100) / 100;
+      membershipCreditDescription = membershipCreditDescription ?? `${benefits?.planName ?? "Plan"} – included services`;
+      memberSubscriptionId = memberSubscriptionId ?? rrows[0]?.plan_subscription_id ?? null;
+      memberPeriodEnd = memberPeriodEnd ?? rrows[0]?.period_end ?? null;
     }
   }
 
@@ -153,8 +183,15 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
         invoice_id: invoice.id,
         period_end: memberPeriodEnd,
         covered_qty: u.covered_qty,
+        walk_in_pence: u.walk_in_pence,
       })),
     );
+  }
+
+  // Finalise a covered booking's reservation against this invoice (reserved →
+  // consumed) so the drawn allowance + value are permanently recorded.
+  if (job.booking_id) {
+    await finalizeCoverage(admin, job.booking_id, invoice.id);
   }
 
   // Fire-and-forget: push to Xero. Logs internally, never blocks the

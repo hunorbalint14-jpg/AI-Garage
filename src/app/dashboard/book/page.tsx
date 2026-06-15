@@ -4,7 +4,20 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AnimatedBackground } from "@/components/animated-background";
 import { CustomerSignOutButton } from "../sign-out-button";
-import { BookingRequestForm } from "./booking-request-form";
+import { BookingRequestForm, type ServiceCoverage } from "./booking-request-form";
+import {
+  getCustomerPlanState,
+  evaluateCoverage,
+  computeMemberDiscount,
+  type DiscountConfig,
+} from "@/lib/service-plans";
+
+// Discounted charge for a non-free member service — identical maths to the
+// server charge in requestBooking (computeMemberDiscount on pounds). Display-only.
+function discountedPence(priceGbp: number, config: DiscountConfig): number {
+  const pricePence = Math.round(priceGbp * 100);
+  return Math.max(0, pricePence - Math.round(computeMemberDiscount(priceGbp, config) * 100));
+}
 
 export default async function BookPage() {
   const supabase = await createClient();
@@ -80,6 +93,40 @@ export default async function BookPage() {
   }
   const defaultLocationId = location.id;
 
+  // Member coverage badges: evaluate each service against the customer's live
+  // plan so the form can show "Included in your {plan}" or a member price.
+  // Plan state is branch-scoped (a plan belongs to one branch), so compute it per
+  // branch — matching requestBooking, which re-evaluates server-side for the
+  // chosen branch authoritatively. Display-only.
+  const coverageByServiceId: Record<string, ServiceCoverage> = {};
+  if (customer) {
+    await Promise.all(
+      locations.map(async (l) => {
+        const list = servicesByLocation[l.id] ?? [];
+        if (list.length === 0) return;
+        const planState = await getCustomerPlanState(admin, customer.id, l.id);
+        if (!planState) return;
+        for (const s of list) {
+          const pricePence = s.price ? Math.round(s.price * 100) : 0;
+          const cov = evaluateCoverage(planState, { id: s.id, pricePence });
+          if (cov.kind === "covered") {
+            const left = planState.remaining.get(s.id) ?? 0;
+            coverageByServiceId[s.id] = {
+              kind: "covered",
+              chargePence: 0,
+              label: `Included in your ${cov.planName}${left > 0 ? ` · ${left} left this period` : ""}`,
+            };
+          } else if (cov.kind === "discount") {
+            const charge = discountedPence(Number(s.price ?? 0), cov.config);
+            if (charge < pricePence) {
+              coverageByServiceId[s.id] = { kind: "discount", chargePence: charge, label: `${cov.planName} member price` };
+            }
+          }
+        }
+      }),
+    );
+  }
+
   const orgColor = location.organization.primary_color;
   const orgName = location.organization.name;
   const logoUrl = location.organization.logo_url;
@@ -124,6 +171,7 @@ export default async function BookPage() {
             defaultLocationId={defaultLocationId}
             orgColor={orgColor}
             paymentsEnabled={paymentsEnabled}
+            coverageByServiceId={coverageByServiceId}
           />
         </div>
       </main>
