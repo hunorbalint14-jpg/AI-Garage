@@ -109,7 +109,7 @@ export default async function CustomerDetailPage({
       .order("name", { ascending: true }),
     admin
       .from("plan_subscriptions")
-      .select("id, status, interval, current_period_end, cancel_at_period_end, service_plan:service_plans(name, discount_type, discount_value)")
+      .select("id, status, interval, current_period_end, cancel_at_period_end, benefits_start_at, service_plan:service_plans(name, discount_type, discount_value)")
       .eq("customer_id", id)
       .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: false }),

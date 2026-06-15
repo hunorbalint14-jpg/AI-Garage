@@ -230,6 +230,20 @@ export async function recordSubscriptionFromStripe(
       });
       return { ok: false };
     }
+
+    // Onboarding gate (docs/ai-garage-policy-build-spec.md §3.1): the first
+    // covered draw is no earlier than 12 months after signup, unless staff later
+    // mark "enrolled right after a service+MOT". Set once, on first insert (while
+    // still null) so renewals don't move it.
+    const startMs = sub.created ? sub.created * 1000 : Date.now();
+    const benefitsStart = new Date(startMs);
+    benefitsStart.setMonth(benefitsStart.getMonth() + 12);
+    await admin
+      .from("plan_subscriptions")
+      .update({ benefits_start_at: benefitsStart.toISOString() })
+      .eq("stripe_subscription_id", sub.id)
+      .is("benefits_start_at", null);
+
     return { ok: true };
   } catch (err) {
     console.error("[service-plans] recordSubscriptionFromStripe threw", err);

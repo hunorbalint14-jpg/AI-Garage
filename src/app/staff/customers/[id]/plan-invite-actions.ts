@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -116,4 +117,45 @@ export async function sendPlanInvite(
   });
 
   return { url, sent };
+}
+
+// Override the onboarding gate (docs §3.1): when a customer is enrolled right
+// after a service + MOT, their next service is naturally ~12 months out, so they
+// qualify for covered draws immediately (still gated by funding). Staff bring
+// benefits_start_at forward to now. Only touches a subscription in this org.
+export async function markPlanBenefitsStartNow(
+  subscriptionId: string,
+): Promise<{ error: string } | { success: true }> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "services")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const { data: subRow } = await admin
+    .from("plan_subscriptions")
+    .select("id, customer_id")
+    .eq("id", subscriptionId)
+    .eq("organization_id", ctx.organization.id)
+    .maybeSingle();
+  const sub = subRow as { id: string; customer_id: string | null } | null;
+  if (!sub) return { error: "Subscription not found." };
+
+  const now = new Date().toISOString();
+  const { error } = await admin
+    .from("plan_subscriptions")
+    .update({ benefits_start_at: now, updated_at: now })
+    .eq("id", sub.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "plan.benefits_start_override",
+    entityType: "service_plan",
+    entityId: sub.id,
+    metadata: { customer_id: sub.customer_id, benefits_start_at: now, reason: "enrolled_after_service_mot" },
+  });
+
+  if (sub.customer_id) revalidatePath(`/staff/customers/${sub.customer_id}`);
+  return { success: true };
 }
