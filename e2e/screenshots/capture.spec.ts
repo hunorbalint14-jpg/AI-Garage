@@ -1,7 +1,7 @@
 import { test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { allSections } from "../../docs/help/manual.content";
+import { shotSections } from "../../docs/help/manual.content";
 import {
   TENANT_ORIGIN,
   ROOT_ORIGIN,
@@ -15,7 +15,7 @@ import {
 // detail page, then writes docs/internal/help-images/<portal>/<id>.png. The HTML
 // builder inlines whatever lands there; missing shots degrade to placeholders.
 
-for (const { portal, section } of allSections()) {
+for (const { portal, section } of shotSections()) {
   test(`${portal}/${section.id}`, async ({ browser }) => {
     const storageState =
       section.persona === "staff"
@@ -49,12 +49,18 @@ for (const { portal, section } of allSections()) {
         await page.waitForSelector(section.capture.waitFor, { timeout: 15_000 }).catch(() => {});
       }
 
-      // Drill into a detail page (e.g. first invoice / quote) when asked.
+      // Drill into a detail page (e.g. first invoice / quote) when asked. Wait
+      // for the URL to actually change (App Router client nav streams the RSC
+      // payload — a plain domcontentloaded fires too early and shoots the
+      // transitional/blank frame).
       if (section.capture?.clickToDetail) {
         const link = page.locator(section.capture.clickToDetail).first();
         if (await link.count()) {
+          const before = page.url();
           await link.click();
+          await page.waitForURL((u) => u.toString() !== before, { timeout: 15_000 }).catch(() => {});
           await page.waitForLoadState("domcontentloaded").catch(() => {});
+          await page.waitForTimeout(1200);
         } else {
           console.warn(`[capture] ${portal}/${section.id}: no '${section.capture.clickToDetail}' to click`);
         }

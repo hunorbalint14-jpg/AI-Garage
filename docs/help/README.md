@@ -7,7 +7,7 @@ doc-shares gate) from a single section manifest + auto-captured screenshots.
 
 | File | Role |
 |---|---|
-| `docs/help/manual.content.ts` | **Source of truth.** One entry per section (both portals): title, purpose, numbered steps, route, persona. Drives capture *and* the HTML. |
+| `docs/help/manual.content.ts` | **Source of truth.** One entry per section (both portals): title, purpose, numbered steps, route, persona. Drives capture *and* the HTML. Sections with `noShot: true` are **concept pages** (Part 0, "How it works") — full-width `prose`, no screenshot, skipped by the capturer. |
 | `scripts/seed-demo.ts` | Builds a deterministic, populated demo tenant on `smith-motors`. **Local Supabase only** (hard-guarded). |
 | `scripts/demo-constants.ts` | Shared demo logins/tenant, imported by the seed *and* the capture login. |
 | `playwright.screenshots.config.ts` + `e2e/screenshots/*` | Logs in (staff + customer) and screenshots every section → `docs/internal/help-images/`. Separate from the smoke suite; never runs in CI. |
@@ -57,6 +57,12 @@ npm run help:build
   per reset or the seed fails at the first query with `permission denied`.
 - **The seed is local-only.** It uses the service-role key + creates auth users,
   so it refuses any non-local `NEXT_PUBLIC_SUPABASE_URL`.
+- **MOT history fixtures.** The seeded demo vehicles have no real DVSA record, so
+  the MOT-history page would be empty. `lookupMotHistory` (`src/lib/dvla.ts`)
+  returns canned records for the demo registrations when `DEMO_MOT_FIXTURES=1`.
+  The capture config sets this env on the dev server it boots (and forces
+  `reuseExistingServer: false` so a plain `npm run dev` can't shadow it); prod
+  never sets it. Add a vehicle to the seed → add its reg to `DEMO_MOT_FIXTURES`.
 
 Demo logins (also printed by the seed): `owner@smith-motors.demo` /
 `demo.customer@smith-motors.demo`, password `DemoPassw0rd!`.
@@ -82,3 +88,7 @@ Append one entry to `docs/help/manual.content.ts` (id, title, purpose, steps,
 route, persona) and re-run `npm run help:gen`. The screenshot filename is
 `<portal>/<id>.png`; dynamic detail pages use `capture.clickToDetail` to drill in
 from a listing route.
+
+For a **concept page** (no UI to shoot), set `noShot: true` and use `prose` (array
+of paragraphs) instead of `steps`. It's skipped by the capturer, so a plain
+`npm run help:build` is enough — no seed/capture needed.

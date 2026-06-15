@@ -66,11 +66,45 @@ export type MotHistoryResult =
 // customer portal. Same DVSA trade endpoint as lookupVehicle, but returns the
 // whole test list instead of just the summary. Kept separate so the
 // long-standing lookupVehicle path stays untouched.
+// Demo fixtures for the user-manual screenshots ONLY. Returned in place of a
+// live DVSA call when DEMO_MOT_FIXTURES=1 (set only on the screenshot-capture
+// dev server — never in prod), so the MOT-history page renders real-looking
+// records for the seeded demo vehicles that have no real DVSA record. Keyed by
+// the space-stripped, upper-cased registration. See docs/help/README.md.
+const DEMO_MOT_FIXTURES: Record<string, MotHistoryResult> = {
+  LD68KMV: {
+    success: true,
+    registration: "LD68 KMV",
+    make: "FORD",
+    model: "FIESTA",
+    tests: [
+      { completedDate: "2025-03-20T14:30:00.000Z", testResult: "PASSED", expiryDate: "2026-03-19", odometerValue: "52110", odometerUnit: "MI", defects: [{ type: "ADVISORY", text: "Nearside front tyre worn close to the legal limit (5.2.3 (e))" }] },
+      { completedDate: "2024-03-18T09:05:00.000Z", testResult: "PASSED", expiryDate: "2025-03-17", odometerValue: "41020", odometerUnit: "MI", defects: [] },
+      { completedDate: "2023-03-22T11:48:00.000Z", testResult: "FAILED", expiryDate: null, odometerValue: "33870", odometerUnit: "MI", defects: [{ type: "MAJOR", text: "Offside front brake disc worn, pitted or scored, but not seriously weakened (1.1.14)" }, { type: "ADVISORY", text: "Oil leak, but not excessive (8.4.1 (a) (i))" }] },
+    ],
+  },
+  AB19CDE: {
+    success: true,
+    registration: "AB19 CDE",
+    make: "VOLKSWAGEN",
+    model: "GOLF",
+    tests: [
+      { completedDate: "2025-01-08T09:14:00.000Z", testResult: "PASSED", expiryDate: "2026-01-07", odometerValue: "48210", odometerUnit: "MI", defects: [{ type: "ADVISORY", text: "Front brake disc worn but not seriously weakened (1.1.14)" }] },
+      { completedDate: "2024-01-05T10:02:00.000Z", testResult: "PASSED", expiryDate: "2025-01-04", odometerValue: "39880", odometerUnit: "MI", defects: [] },
+    ],
+  },
+};
+
 export async function lookupMotHistory(registration: string): Promise<MotHistoryResult> {
+  const reg = registration.replace(/\s+/g, "").toUpperCase();
+
+  // Manual-screenshot fixtures (env-gated; prod never sets DEMO_MOT_FIXTURES).
+  if (process.env.DEMO_MOT_FIXTURES === "1" && DEMO_MOT_FIXTURES[reg]) {
+    return DEMO_MOT_FIXTURES[reg];
+  }
+
   const apiKey = process.env.DVSA_API_KEY;
   if (!apiKey) return { success: false, error: "DVSA API key not configured." };
-
-  const reg = registration.replace(/\s+/g, "").toUpperCase();
 
   let token: string;
   try {

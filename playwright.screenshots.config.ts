@@ -33,7 +33,10 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     url: ROOT_ORIGIN,
-    reuseExistingServer: true,
+    // Force a fresh dev server so DEMO_MOT_FIXTURES is applied (a reused server
+    // from a plain `npm run dev` wouldn't have it).
+    reuseExistingServer: false,
+    env: { ...(process.env as Record<string, string>), DEMO_MOT_FIXTURES: "1" },
     timeout: 120_000,
   },
 });

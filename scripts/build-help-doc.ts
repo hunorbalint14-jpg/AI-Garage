@@ -23,7 +23,9 @@ const IMAGES_DIR = path.join(ROOT, "docs/internal/help-images");
 const OUT = path.join(ROOT, "docs/internal/user-guide.html");
 
 function portalOf(part: Part): string {
-  return part.name === "Customer guide" ? "customer" : "staff";
+  if (part.name === "Customer guide") return "customer";
+  if (part.name === "Staff guide") return "staff";
+  return "concept";
 }
 
 function esc(s: string): string {
@@ -43,16 +45,35 @@ function imageTag(portal: string, section: Section): string {
   return `<div class="shot shot--pending"><span>Screenshot pending</span><code>${portal}/${section.id}.png</code></div>`;
 }
 
+function notesBlock(section: Section): string {
+  if (!section.notes?.length) return "";
+  return `<div class="notes"><div class="notes__h">Good to know</div><ul>${section.notes
+    .map((n) => `<li>${esc(n)}</li>`)
+    .join("")}</ul></div>`;
+}
+
 function sectionBlock(portal: string, section: Section): string {
   const anchor = `${portal}-${section.id}`;
-  const steps = section.steps
+
+  // Concept page: no screenshot, full-width prose.
+  if (section.noShot) {
+    const paras = (section.prose ?? []).map((p) => `<p class="prose">${esc(p)}</p>`).join("\n");
+    return `
+  <section class="sec sec--concept" id="${anchor}">
+    <header class="sec__head">
+      <h3>${esc(section.title)}</h3>
+      <p class="purpose">${esc(section.purpose)}</p>
+    </header>
+    <div class="sec__prose">
+      ${paras}
+      ${notesBlock(section)}
+    </div>
+  </section>`;
+  }
+
+  const steps = (section.steps ?? [])
     .map((s, i) => `<li><span class="badge">${i + 1}</span><p>${esc(s)}</p></li>`)
     .join("\n");
-  const notes = section.notes?.length
-    ? `<div class="notes"><div class="notes__h">Good to know</div><ul>${section.notes
-        .map((n) => `<li>${esc(n)}</li>`)
-        .join("")}</ul></div>`
-    : "";
   return `
   <section class="sec" id="${anchor}">
     <header class="sec__head">
@@ -63,7 +84,7 @@ function sectionBlock(portal: string, section: Section): string {
       <figure class="sec__shot">${imageTag(portal, section)}</figure>
       <div class="sec__steps">
         <ol class="steps">${steps}</ol>
-        ${notes}
+        ${notesBlock(section)}
       </div>
     </div>
   </section>`;
@@ -148,6 +169,10 @@ const html = `<!doctype html>
     .sec__head .purpose{color:var(--ink-3);margin:4px 0 0;font-size:14px;}
     .sec__body{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);
       gap:24px;margin-top:16px;align-items:start;}
+    .sec--concept{border-left:3px solid var(--ink);}
+    .sec__prose{margin-top:14px;}
+    .sec__prose .prose{margin:0 0 12px;font-size:14.5px;line-height:1.6;color:var(--ink-2);max-width:82ch;}
+    .sec--concept .notes{max-width:82ch;}
     .sec__shot{margin:0;}
     .shot{width:100%;height:auto;display:block;border:1px solid var(--rule);
       border-radius:8px;background:#fff;}
@@ -205,13 +230,17 @@ fs.mkdirSync(path.dirname(OUT), { recursive: true });
 fs.writeFileSync(OUT, html, "utf-8");
 
 const total = MANUAL.parts.reduce((n, p) => n + p.sections.length, 0);
+let shotTotal = 0;
 let withShots = 0;
 for (const part of MANUAL.parts) {
   const portal = portalOf(part);
   for (const s of part.sections) {
+    if (s.noShot) continue;
+    shotTotal++;
     if (fs.existsSync(path.join(IMAGES_DIR, portal, `${s.id}.png`))) withShots++;
   }
 }
+const concepts = total - shotTotal;
 console.log(
-  `[help] wrote ${path.relative(ROOT, OUT)} — ${total} sections, ${withShots} with screenshots, ${total - withShots} pending.`,
+  `[help] wrote ${path.relative(ROOT, OUT)} — ${total} sections (${concepts} concept, ${shotTotal} screenshot: ${withShots} present, ${shotTotal - withShots} pending).`,
 );
