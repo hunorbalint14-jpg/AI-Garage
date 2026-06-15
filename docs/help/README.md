@@ -19,17 +19,44 @@ The seed creates auth users with the service-role key, so it **refuses any
 non-local Supabase**. Point the app at a local instance first:
 
 ```bash
-supabase start                 # local Postgres + Auth
+supabase start                 # local Postgres + Auth (config.toml is committed)
 supabase db reset              # apply migrations + supabase/seed.sql (the two base orgs)
-# set NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in .env.local to the
-# local instance (supabase start prints them)
+
+# ⚠️ Restore the API-role grants (see "Gotchas" below) — a fresh local reset
+# doesn't grant anon/authenticated/service_role on public tables like the cloud
+# baseline does, so the seed (and the app) get "permission denied" without this:
+docker exec -i "$(docker ps --format '{{.Names}}' | grep supabase_db)" \
+  psql -U postgres -d postgres <<'SQL'
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
+grant all on all functions in schema public to anon, authenticated, service_role;
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+SQL
+
+# point .env.local at the local stack (back up your cloud one first):
+#   NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+#   NEXT_PUBLIC_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY = values `supabase start` printed
+#   NEXT_PUBLIC_ROOT_DOMAIN=localtest.me:3000   (leave as-is)
+# stop any running `npm run dev` first (capture boots its own, reuseExistingServer).
 
 npm run help:gen               # seed → capture → build
 # or individually:
 npm run help:seed
 npm run help:capture           # boots `npm run dev`, drives the seeded tenant
 npm run help:build
+# afterwards: restore your cloud .env.local
 ```
+
+## Gotchas
+
+- **Grants.** As above — `supabase db reset` on a fresh local stack leaves the
+  API roles without `SELECT/INSERT/...` on the app's tables (cloud projects get
+  these from the platform baseline, not a migration). Run the grant block once
+  per reset or the seed fails at the first query with `permission denied`.
+- **The seed is local-only.** It uses the service-role key + creates auth users,
+  so it refuses any non-local `NEXT_PUBLIC_SUPABASE_URL`.
 
 Demo logins (also printed by the seed): `owner@smith-motors.demo` /
 `demo.customer@smith-motors.demo`, password `DemoPassw0rd!`.
