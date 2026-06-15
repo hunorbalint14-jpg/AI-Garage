@@ -11,6 +11,12 @@ import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { bayCapacityAt } from "@/lib/bay-availability";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { createStaffNotification } from "@/lib/staff-notifications";
+import {
+  getCustomerPlanState,
+  evaluateCoverage,
+  reserveCoverage,
+  computeMemberDiscount,
+} from "@/lib/service-plans";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -177,13 +183,27 @@ export async function submitWidgetBooking(
   // so dashboards keep working unchanged.
   const type = service.category || "service";
 
+  // Plan coverage: included services are free for a funded member (funding gate),
+  // an active-but-not-free member gets the plan discount, everyone else pays the
+  // walk-in price. See docs/ai-garage-policy-build-spec.md §3.1.
+  const servicePricePence = Math.round(Number(service.price ?? 0) * 100);
+  const planState = await getCustomerPlanState(admin, customerId, location.id);
+  const coverage = evaluateCoverage(planState, { id: service.id, pricePence: servicePricePence });
+  let chargePence = servicePricePence;
+  const coveredByPlan = coverage.kind === "covered";
+  if (coverage.kind === "covered") {
+    chargePence = 0;
+  } else if (coverage.kind === "discount") {
+    const discountPounds = computeMemberDiscount(Number(service.price ?? 0), coverage.config);
+    chargePence = Math.max(0, servicePricePence - Math.round(discountPounds * 100));
+  }
+
   // Create booking — payment_pending if we're about to redirect to Stripe,
   // scheduled otherwise.
   const willPayNow =
     !!location.organization.stripe_account_id &&
     !!location.organization.stripe_charges_enabled &&
-    !!service.price &&
-    Number(service.price) > 0;
+    chargePence > 0;
 
   // Resolve the originating quote if the customer came in via the "Decline
   // & book separate" flow. The booking row carries from_quote_id so that
@@ -208,6 +228,8 @@ export async function submitWidgetBooking(
     type,
     notes,
     status: willPayNow ? "payment_pending" : "scheduled",
+    covered_by_plan: coveredByPlan,
+    plan_subscription_id: coveredByPlan && planState ? planState.subscriptionId : null,
   };
 
   let booking: { id: string } | null = null;
@@ -235,6 +257,12 @@ export async function submitWidgetBooking(
   }
 
   if (bookingErr || !booking) return { error: bookingErr?.message ?? "Failed to create booking." };
+
+  // Reserve the included-service allowance against this booking (released on
+  // cancel/no-show, consumed when the £0 invoice is raised).
+  if (coveredByPlan && planState) {
+    await reserveCoverage(admin, planState, { id: service.id, pricePence: servicePricePence }, booking.id);
+  }
 
   // If the booking was rebooked from a quote, drop an in-app notification
   // for the location's staff so the mechanic sees the trail from quote → booking.
@@ -272,9 +300,9 @@ export async function submitWidgetBooking(
   });
   const firstName = fullName.split(" ")[0];
 
-  // Stripe Checkout when the service has a price and the garage is connected.
+  // Stripe Checkout when there's an amount to charge and the garage is connected.
   if (willPayNow) {
-    const amountPence = Math.round(Number(service.price) * 100);
+    const amountPence = chargePence;
     try {
       const session = await stripe.checkout.sessions.create(
         {

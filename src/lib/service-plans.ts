@@ -365,3 +365,175 @@ export function computeCoverage(
   }
   return { coveredValue, perService };
 }
+
+// ── Booking-time coverage: the prepayment funding gate ───────────────────────
+// docs/ai-garage-policy-build-spec.md §3.1: a covered service is only free once
+// the customer's cumulative payments-in cover the cumulative value drawn (at
+// walk-in price), AND the per-period allowance has room, AND we're past the
+// onboarding gate (benefits_start_at). Otherwise the live plan's discount
+// applies; a non-member / expired / arrears plan pays full price.
+
+export type PlanState = {
+  subscriptionId: string;
+  planName: string;
+  currentPeriodEnd: string | null;
+  benefitsStartAt: string | null;
+  paidInPence: number;
+  valueDrawnPence: number; // lifetime cumulative, at walk-in price
+  discount: DiscountConfig | null;
+  remaining: Map<string, number>; // qty left per included service_id, this period
+};
+
+// The customer's current membership state at this location, with everything the
+// booking flow needs: funding (paid-in vs value-drawn), the onboarding gate, and
+// the per-period included-service allowance. Null if no live subscription.
+export async function getCustomerPlanState(
+  admin: Admin,
+  customerId: string,
+  locationId: string,
+): Promise<PlanState | null> {
+  const { data } = await admin
+    .from("plan_subscriptions")
+    .select(
+      "id, status, current_period_end, paid_in_pence, benefits_start_at, created_at, service_plan:service_plans(id, name, discount_type, discount_value)",
+    )
+    .eq("customer_id", customerId)
+    .eq("location_id", locationId)
+    .in("status", ["active", "trialing"])
+    .order("created_at", { ascending: false });
+
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    current_period_end: string | null;
+    paid_in_pence: number | null;
+    benefits_start_at: string | null;
+    service_plan: { id: string; name: string; discount_type: string; discount_value: number } | null;
+  }[];
+  const row = rows.find((r) => r.service_plan);
+  if (!row || !row.service_plan) return null;
+  const sp = row.service_plan;
+
+  const [{ data: itemRows }, { data: usageRows }] = await Promise.all([
+    admin.from("service_plan_items").select("service_id, quantity_per_period").eq("service_plan_id", sp.id),
+    admin
+      .from("plan_service_usage")
+      .select("service_id, covered_qty, walk_in_pence, period_end, status")
+      .eq("plan_subscription_id", row.id)
+      .in("status", ["reserved", "consumed"]),
+  ]);
+
+  const usage = (usageRows ?? []) as {
+    service_id: string;
+    covered_qty: number;
+    walk_in_pence: number;
+    period_end: string | null;
+    status: string;
+  }[];
+
+  // Lifetime value drawn (for the funding gate + cancel refund).
+  const valueDrawnPence = usage.reduce((s, u) => s + Number(u.walk_in_pence), 0);
+
+  // Per-period usage per service (allowance resets each period).
+  const usedThisPeriod = new Map<string, number>();
+  for (const u of usage) {
+    if (row.current_period_end && u.period_end === row.current_period_end) {
+      usedThisPeriod.set(u.service_id, (usedThisPeriod.get(u.service_id) ?? 0) + Number(u.covered_qty));
+    }
+  }
+  const remaining = new Map<string, number>();
+  for (const i of (itemRows ?? []) as { service_id: string; quantity_per_period: number }[]) {
+    remaining.set(i.service_id, Math.max(0, Number(i.quantity_per_period) - (usedThisPeriod.get(i.service_id) ?? 0)));
+  }
+
+  const discount =
+    sp.discount_type !== "none" && Number(sp.discount_value) > 0
+      ? { type: sp.discount_type as DiscountType, value: Number(sp.discount_value) }
+      : null;
+
+  return {
+    subscriptionId: row.id,
+    planName: sp.name,
+    currentPeriodEnd: row.current_period_end,
+    benefitsStartAt: row.benefits_start_at,
+    paidInPence: Number(row.paid_in_pence ?? 0),
+    valueDrawnPence,
+    discount,
+    remaining,
+  };
+}
+
+export type Coverage =
+  | { kind: "covered"; planName: string }
+  | { kind: "discount"; config: DiscountConfig; planName: string }
+  | { kind: "full" };
+
+// The single booking decision for one service. `pricePence` is the walk-in price.
+export function evaluateCoverage(
+  state: PlanState | null,
+  service: { id: string; pricePence: number },
+): Coverage {
+  if (!state) return { kind: "full" };
+
+  const inBundle = state.remaining.has(service.id);
+  const hasRoom = (state.remaining.get(service.id) ?? 0) > 0;
+  const funded = state.paidInPence >= state.valueDrawnPence + service.pricePence;
+  const pastGate = !state.benefitsStartAt || Date.now() >= new Date(state.benefitsStartAt).getTime();
+
+  if (inBundle && hasRoom && funded && pastGate && state.currentPeriodEnd) {
+    return { kind: "covered", planName: state.planName };
+  }
+  if (state.discount) return { kind: "discount", config: state.discount, planName: state.planName };
+  return { kind: "full" };
+}
+
+// Reserve one unit of included-service allowance against a booking (status
+// 'reserved'). The walk-in value is recorded for the funding gate + refund.
+export async function reserveCoverage(
+  admin: Admin,
+  state: PlanState,
+  service: { id: string; pricePence: number },
+  bookingId: string,
+): Promise<void> {
+  await admin.from("plan_service_usage").insert({
+    plan_subscription_id: state.subscriptionId,
+    service_id: service.id,
+    booking_id: bookingId,
+    period_end: state.currentPeriodEnd,
+    covered_qty: 1,
+    walk_in_pence: service.pricePence,
+    status: "reserved",
+  });
+}
+
+// Release a booking's reservations (cancel / no-show) — frees the allowance and
+// removes the drawn value from the funding total.
+export async function releaseCoverage(admin: Admin, bookingId: string): Promise<void> {
+  await admin
+    .from("plan_service_usage")
+    .update({ status: "released" })
+    .eq("booking_id", bookingId)
+    .eq("status", "reserved");
+}
+
+// Finalise a covered booking's reservations at invoice time (reserved →
+// consumed). Returns the £ value covered (for the invoice's membership credit).
+export async function finalizeCoverage(admin: Admin, bookingId: string, invoiceId: string): Promise<number> {
+  const { data } = await admin
+    .from("plan_service_usage")
+    .select("walk_in_pence")
+    .eq("booking_id", bookingId)
+    .eq("status", "reserved");
+  const coveredPence = ((data ?? []) as { walk_in_pence: number }[]).reduce((s, r) => s + Number(r.walk_in_pence), 0);
+  await admin
+    .from("plan_service_usage")
+    .update({ status: "consumed", invoice_id: invoiceId })
+    .eq("booking_id", bookingId)
+    .eq("status", "reserved");
+  return round2(coveredPence / 100);
+}
+
+// §6 cancellation refund: unspent balance = payments-in − value drawn at walk-in
+// price, in pence, never negative (the funding gate keeps it non-negative).
+export function computeCancellationRefund(state: PlanState): number {
+  return Math.max(0, state.paidInPence - state.valueDrawnPence);
+}

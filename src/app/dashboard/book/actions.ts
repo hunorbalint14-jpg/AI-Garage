@@ -8,6 +8,12 @@ import { sendSms } from "@/lib/sms";
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
 import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { bayCapacityAt } from "@/lib/bay-availability";
+import {
+  getCustomerPlanState,
+  evaluateCoverage,
+  reserveCoverage,
+  computeMemberDiscount,
+} from "@/lib/service-plans";
 
 export type BookingRequestResult =
   | { error: string }
@@ -115,11 +121,24 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
   }
 
   const type = service.category || "service";
+
+  // Plan coverage (funding gate) — same rules as the public widget.
+  const servicePricePence = Math.round(Number(service.price ?? 0) * 100);
+  const planState = await getCustomerPlanState(admin, cust.id, branchId);
+  const coverage = evaluateCoverage(planState, { id: service.id, pricePence: servicePricePence });
+  let chargePence = servicePricePence;
+  const coveredByPlan = coverage.kind === "covered";
+  if (coverage.kind === "covered") {
+    chargePence = 0;
+  } else if (coverage.kind === "discount") {
+    const discountPounds = computeMemberDiscount(Number(service.price ?? 0), coverage.config);
+    chargePence = Math.max(0, servicePricePence - Math.round(discountPounds * 100));
+  }
+
   const willPayNow =
     !!location.organization?.stripe_account_id &&
     !!location.organization?.stripe_charges_enabled &&
-    !!service.price &&
-    Number(service.price) > 0;
+    chargePence > 0;
 
   const { data: booking, error } = await admin
     .from("bookings")
@@ -133,11 +152,17 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
       type,
       notes,
       status: willPayNow ? "payment_pending" : "scheduled",
+      covered_by_plan: coveredByPlan,
+      plan_subscription_id: coveredByPlan && planState ? planState.subscriptionId : null,
     })
     .select("id")
     .single();
 
   if (error || !booking) return { error: error?.message ?? "Failed to create booking." };
+
+  if (coveredByPlan && planState) {
+    await reserveCoverage(admin, planState, { id: service.id, pricePence: servicePricePence }, booking.id);
+  }
 
   const orgName = location.organization?.name ?? location.name;
   const firstName = cust.full_name?.split(" ")[0] ?? "there";
@@ -151,7 +176,7 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
   });
 
   if (willPayNow) {
-    const amountPence = Math.round(Number(service.price) * 100);
+    const amountPence = chargePence;
     try {
       const session = await stripe.checkout.sessions.create(
         {

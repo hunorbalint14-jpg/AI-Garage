@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { releaseCoverage } from "@/lib/service-plans";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 
@@ -63,6 +64,8 @@ export async function cancelCustomerBooking(bookingId: string): Promise<BookingA
 
   const admin = createAdminClient();
   await admin.from("bookings").update({ status: "cancelled" }).eq("id", bookingId);
+  // Free any included-service allowance this booking reserved.
+  await releaseCoverage(admin, bookingId);
 
   const garageName = org?.name ?? "";
   const firstName = customer!.full_name?.split(" ")[0] ?? "there";

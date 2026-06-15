@@ -458,6 +458,36 @@ async function handleStripeEvent(
       break;
     }
 
+    case "invoice.paid": {
+      // Accrue a service-plan subscription's cumulative payments-in — the
+      // measure for the prepayment funding gate (docs/ai-garage-policy-build-spec
+      // §3.1). Ignored for tenant-billing / non-subscription invoices.
+      const inv = event.data.object as Stripe.Invoice;
+      const parentSub = (
+        inv as unknown as { parent?: { subscription_details?: { subscription?: string | { id: string } } } }
+      ).parent?.subscription_details?.subscription;
+      const directSub = (inv as unknown as { subscription?: string | { id: string } | null }).subscription;
+      const raw = parentSub ?? directSub ?? null;
+      const subId = typeof raw === "string" ? raw : raw?.id ?? null;
+      const amountPaid = inv.amount_paid ?? 0;
+      if (subId && amountPaid > 0) {
+        const { data: ps } = await admin
+          .from("plan_subscriptions")
+          .select("id, paid_in_pence")
+          .eq("stripe_subscription_id", subId)
+          .maybeSingle();
+        if (ps) {
+          const row = ps as { id: string; paid_in_pence: number | null };
+          await admin
+            .from("plan_subscriptions")
+            .update({ paid_in_pence: Number(row.paid_in_pence ?? 0) + amountPaid })
+            .eq("id", row.id);
+          console.log("[stripe-webhook] plan funding accrued", { sub: subId, amountPaid });
+        }
+      }
+      break;
+    }
+
     case "payout.paid": {
       // Fires on the connected account when Stripe pays the garage's
       // balance out to their real bank. We post a matching Receive Money

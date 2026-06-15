@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { releaseCoverage } from "@/lib/service-plans";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { isBayFreeAt } from "@/lib/bay-availability";
@@ -329,6 +330,7 @@ export async function cancelBooking(bookingId: string): Promise<UpdateBookingSta
     .eq("location_id", ctx.location.id);
 
   if (error) return { error: error.message };
+  await releaseCoverage(admin, bookingId);
 
   revalidatePath("/staff/bookings");
   revalidatePath(`/staff/bookings/${bookingId}`);
@@ -348,6 +350,7 @@ export async function markNoShow(bookingId: string): Promise<UpdateBookingStatus
     .eq("location_id", ctx.location.id);
 
   if (error) return { error: error.message };
+  await releaseCoverage(admin, bookingId);
 
   revalidatePath("/staff/bookings");
   revalidatePath(`/staff/bookings/${bookingId}`);
