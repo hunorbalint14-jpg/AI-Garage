@@ -12,9 +12,55 @@ import {
   type ServicePlanRow,
   type PlanInterval,
 } from "@/lib/service-plans";
+import type Stripe from "stripe";
 
 export type SubscribeResult = { error: string } | { url: string };
 export type CancelResult = { error: string } | { success: true };
+export type CancelRefundResult = { error: string } | { success: true; refundedPence: number };
+
+// Refund up to `amountPence` (the unspent prepaid balance) across a Stripe
+// subscription's paid charges on the garage's connected account, newest first.
+// Per docs/ai-garage-policy-build-spec.md §6. Never throws — returns how much
+// was actually refunded so the caller can surface a shortfall.
+async function refundUnspentAcrossCharges(
+  stripeSubId: string,
+  amountPence: number,
+  stripeAccountId: string,
+): Promise<{ refundedPence: number; refundIds: string[] }> {
+  if (amountPence <= 0) return { refundedPence: 0, refundIds: [] };
+  let remaining = amountPence;
+  const refundIds: string[] = [];
+  let invoices: Stripe.Invoice[] = [];
+  try {
+    const list = await stripe.invoices.list(
+      { subscription: stripeSubId, status: "paid", limit: 100 },
+      { stripeAccount: stripeAccountId },
+    );
+    invoices = list.data;
+  } catch (err) {
+    console.error("[plans] list invoices for refund failed", err);
+    return { refundedPence: 0, refundIds: [] };
+  }
+  for (const inv of invoices) {
+    if (remaining <= 0) break;
+    const piRaw = (inv as unknown as { payment_intent?: string | { id: string } | null }).payment_intent;
+    const pi = typeof piRaw === "string" ? piRaw : piRaw?.id ?? null;
+    const paid = inv.amount_paid ?? 0;
+    if (!pi || paid <= 0) continue;
+    const amount = Math.min(remaining, paid);
+    try {
+      const r = await stripe.refunds.create(
+        { payment_intent: pi, amount, metadata: { plan_refund: "unspent", subscription: stripeSubId } },
+        { stripeAccount: stripeAccountId },
+      );
+      refundIds.push(r.id);
+      remaining -= amount;
+    } catch (err) {
+      console.error("[plans] unspent refund chunk failed", { invoice: inv.id, err });
+    }
+  }
+  return { refundedPence: amountPence - remaining, refundIds };
+}
 
 const PLAN_SELECT =
   "id, location_id, name, description, price_monthly_pence, price_annual_pence, stripe_product_id, stripe_price_monthly_id, stripe_price_annual_id, active";
@@ -167,4 +213,77 @@ export async function cancelSubscription(subscriptionRowId: string): Promise<Can
     console.error("[plans] cancel failed", err);
     return { error: "Could not cancel right now. Please try again later." };
   }
+}
+
+// Immediate cancellation with the §6 refund: stop the plan now and refund the
+// unspent prepaid balance = payments-in − value drawn at walk-in price. Used for
+// the 14-day cooling-off and for getting out of an annual (prepaid) term. The
+// funding gate guarantees the customer never drew more than they paid, so the
+// unspent figure is never negative and the garage is never out of pocket.
+export async function cancelSubscriptionWithRefund(subscriptionRowId: string): Promise<CancelRefundResult> {
+  const { location, customer } = await getPortalContext();
+  if (!customer) return { error: "We couldn't find your customer record." };
+
+  const admin = createAdminClient();
+  const { data: subRow } = await admin
+    .from("plan_subscriptions")
+    .select("id, stripe_subscription_id, customer_id, paid_in_pence")
+    .eq("id", subscriptionRowId)
+    .maybeSingle();
+  const sub = subRow as
+    | { id: string; stripe_subscription_id: string | null; customer_id: string | null; paid_in_pence: number | null }
+    | null;
+  if (!sub || sub.customer_id !== customer.id || !sub.stripe_subscription_id) {
+    return { error: "Subscription not found." };
+  }
+
+  const { data: orgRow } = await admin
+    .from("organizations")
+    .select("stripe_account_id")
+    .eq("id", location.organization.id)
+    .maybeSingle();
+  const acct = (orgRow as { stripe_account_id: string | null } | null)?.stripe_account_id;
+  if (!acct) return { error: "Subscription not found." };
+
+  // Value drawn at walk-in price (reserved + consumed).
+  const { data: usage } = await admin
+    .from("plan_service_usage")
+    .select("walk_in_pence")
+    .eq("plan_subscription_id", sub.id)
+    .in("status", ["reserved", "consumed"]);
+  const valueDrawnPence = ((usage ?? []) as { walk_in_pence: number }[]).reduce((s, u) => s + Number(u.walk_in_pence), 0);
+  const unspentPence = Math.max(0, Number(sub.paid_in_pence ?? 0) - valueDrawnPence);
+
+  try {
+    await stripe.subscriptions.cancel(sub.stripe_subscription_id, undefined, { stripeAccount: acct });
+  } catch (err) {
+    console.error("[plans] immediate cancel failed", err);
+    return { error: "Could not cancel right now. Please try again later." };
+  }
+
+  const { refundedPence } = await refundUnspentAcrossCharges(sub.stripe_subscription_id, unspentPence, acct);
+
+  await admin
+    .from("plan_subscriptions")
+    .update({ status: "canceled", cancel_at_period_end: false, updated_at: new Date().toISOString() })
+    .eq("id", sub.id);
+
+  await logAudit({
+    organizationId: location.organization.id,
+    actorUserId: customer.user_id,
+    actorEmail: customer.email ?? null,
+    action: "plan.cancel",
+    entityType: "service_plan",
+    entityId: sub.id,
+    metadata: {
+      stripe_subscription_id: sub.stripe_subscription_id,
+      immediate: true,
+      unspent_pence: unspentPence,
+      refunded_pence: refundedPence,
+      value_drawn_pence: valueDrawnPence,
+    },
+  });
+
+  revalidatePath("/dashboard/plans");
+  return { success: true, refundedPence };
 }
