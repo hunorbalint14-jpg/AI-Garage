@@ -14,6 +14,10 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "help:seed": "tsx scripts/seed-demo.ts",
+    "help:capture": "playwright test -c playwright.screenshots.config.ts",
+    "help:build": "tsx scripts/build-help-doc.ts",
+    "help:gen": "npm run help:seed && npm run help:capture && npm run help:build",
     "prepare": "husky"
   },
   "dependencies": {
@@ -61,6 +65,7 @@
     "jsdom": "^29.1.1",
     "lint-staged": "^17.0.7",
     "tailwindcss": "^4",
+    "tsx": "^4.22.4",
     "typescript": "^6",
     "vitest": "^4.1.7"
   },

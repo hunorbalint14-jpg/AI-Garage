@@ -32,7 +32,7 @@ export default async function BookPage() {
 
   const { data: location } = await admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name, primary_color, logo_url, stripe_account_id, stripe_charges_enabled)")
+    .select("id, name, organization:organizations!organization_id(id, name, primary_color, logo_url, stripe_account_id, stripe_charges_enabled)")
     .eq("slug", slug)
     .maybeSingle() as {
     data: {
