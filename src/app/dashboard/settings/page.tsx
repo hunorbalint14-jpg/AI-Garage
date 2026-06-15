@@ -1,14 +1,17 @@
-import { Mail } from "lucide-react";
+import { Mail, MapPin } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext } from "@/lib/portal-auth";
 import { PortalShell } from "../portal-shell";
 import { ContactPrefsForm } from "./contact-prefs-form";
+import { HomeGarageSelect } from "@/components/home-garage-select";
+import { updateHomeGarage } from "./actions";
 
 type PrefsRow = {
   marketing_email_consent: boolean | null;
   marketing_sms_consent: boolean | null;
   email: string | null;
   phone: string | null;
+  preferred_location_id: string | null;
 };
 
 export default async function PortalSettingsPage() {
@@ -29,12 +32,20 @@ export default async function PortalSettingsPage() {
   }
 
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("customers")
-    .select("marketing_email_consent, marketing_sms_consent, email, phone")
-    .eq("id", customer.id)
-    .maybeSingle();
+  const [{ data }, { data: branchRows }] = await Promise.all([
+    admin
+      .from("customers")
+      .select("marketing_email_consent, marketing_sms_consent, email, phone, preferred_location_id")
+      .eq("id", customer.id)
+      .maybeSingle(),
+    admin
+      .from("locations")
+      .select("id, name")
+      .eq("organization_id", org.id)
+      .order("name", { ascending: true }),
+  ]);
   const prefs = (data ?? {}) as PrefsRow;
+  const branches = (branchRows ?? []) as { id: string; name: string }[];
 
   return (
     <PortalShell org={org}>
@@ -54,6 +65,16 @@ export default async function PortalSettingsPage() {
           orgColor={org.primary_color}
         />
       </section>
+
+      {branches.length > 1 && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-gray-500">
+            <MapPin className="h-4 w-4" /> Home garage
+          </h2>
+          <p className="mb-2 text-sm text-gray-400">The branch you usually visit.</p>
+          <HomeGarageSelect branches={branches} currentId={prefs.preferred_location_id} action={updateHomeGarage} dark />
+        </section>
+      )}
     </PortalShell>
   );
 }
