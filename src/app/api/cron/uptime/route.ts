@@ -4,6 +4,7 @@ import { safeEqual } from "@/lib/safe-equal";
 import { evaluateAlerts } from "@/lib/platform/alerts";
 import { recordCronRun } from "@/lib/platform/cron-runs";
 import { refreshSentry } from "@/lib/platform/sentry";
+import { cacheGet, cacheSet } from "@/lib/redis";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -118,6 +119,77 @@ export async function GET(request: NextRequest) {
     const { error: insErr } = await admin.from("uptime_checks").insert(results);
     if (insErr) console.error("[cron/uptime] insert failed", insErr.message);
   }
+
+  // ── real latency telemetry (latency_samples) ────────────────────────────────
+  // Separate from the DB-free uptime probe above: this captures the actual stack
+  // cost so /admin/health shows real responsiveness, not just reachability.
+  type LatencyRow = {
+    kind: "infra" | "tenant";
+    organization_id: string | null;
+    target_key: string | null;
+    db_ms: number | null;
+    redis_ms: number | null;
+    total_ms: number | null;
+  };
+  const latencyRows: LatencyRow[] = [];
+
+  // Infra: time a Postgres round-trip + a Redis round-trip from this in-region
+  // function — the hop cost, and a direct check that region co-location worked.
+  const tDb = performance.now();
+  const { error: dbErr } = await admin.from("organizations").select("id").limit(1);
+  const infraDbMs = dbErr ? null : Math.round(performance.now() - tDb);
+
+  const tRedis = performance.now();
+  await cacheSet("latency:ping", Date.now(), 30);
+  const redisGot = await cacheGet<number>("latency:ping");
+  const infraRedisMs = redisGot === null ? null : Math.round(performance.now() - tRedis);
+
+  latencyRows.push({
+    kind: "infra",
+    organization_id: null,
+    target_key: null,
+    db_ms: infraDbMs,
+    redis_ms: infraRedisMs,
+    total_ms: null,
+  });
+
+  // Per-tenant: probe the DB-touching deep endpoint → real backend latency
+  // (db_ms from the body, total_ms = end-to-end incl. network/TLS).
+  const deep = await mapLimit(tenantTargets, CONCURRENCY, async (t) => {
+    const started = performance.now();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), PER_CHECK_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${PROTO}://${t.key}.${ROOT_HOST}${PORT}/api/health/deep`, {
+        method: "GET",
+        redirect: "manual",
+        cache: "no-store",
+        signal: ctrl.signal,
+      });
+      const total = Math.round(performance.now() - started);
+      let dbMs: number | null = null;
+      try {
+        const body = (await res.json()) as { db_ms?: number };
+        if (typeof body?.db_ms === "number") dbMs = body.db_ms;
+      } catch {
+        // non-JSON / error body — keep db_ms null, still record total
+      }
+      return { organization_id: t.organization_id, target_key: t.key, db_ms: dbMs, total_ms: total } satisfies Omit<
+        LatencyRow,
+        "kind" | "redis_ms"
+      >;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+  for (const d of deep) {
+    if (d) latencyRows.push({ kind: "tenant", redis_ms: null, ...d });
+  }
+
+  const { error: latErr } = await admin.from("latency_samples").insert(latencyRows);
+  if (latErr) console.error("[cron/uptime] latency insert failed", latErr.message);
 
   // Refresh the Sentry cache first so evaluateAlerts sees a fresh error rate
   // for the error_rate_pct rule (and the dashboard reads it on next render).

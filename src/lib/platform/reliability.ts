@@ -141,6 +141,84 @@ export async function fetchPlatformKpis(): Promise<PlatformKpis> {
   };
 }
 
+// ── real latency telemetry (latency_samples, written by /api/cron/uptime) ────
+// Infra = function→Postgres/Redis hop cost; tenant = per-org backend latency
+// from the DB-touching deep probe. Distinct from the uptime KPIs above, which
+// measure a DB-free liveness endpoint (reachability/cold-start, not real work).
+
+function percentile(sortedAsc: number[], p: number): number | null {
+  if (sortedAsc.length === 0) return null;
+  const idx = Math.min(sortedAsc.length - 1, Math.floor((p / 100) * sortedAsc.length));
+  return sortedAsc[idx];
+}
+
+export type LatencyMetrics = {
+  infra: { dbP50: number | null; dbP95: number | null; redisP50: number | null; redisP95: number | null; samples: number };
+  tenant: { totalP50: number | null; totalP95: number | null; dbP95: number | null; samples: number };
+  slowestTenants: { organizationId: string; slug: string | null; renderP95: number | null; dbP95: number | null; samples: number }[];
+};
+
+export async function fetchLatencyMetrics(hours = 24, topN = 8): Promise<LatencyMetrics> {
+  const admin = createAdminClient();
+  const since = new Date(Date.now() - hours * 3_600_000).toISOString();
+  const { data } = await admin
+    .from("latency_samples")
+    .select("kind, organization_id, target_key, db_ms, redis_ms, total_ms")
+    .gte("checked_at", since)
+    .limit(50000);
+  const rows = (data ?? []) as {
+    kind: "infra" | "tenant";
+    organization_id: string | null;
+    target_key: string | null;
+    db_ms: number | null;
+    redis_ms: number | null;
+    total_ms: number | null;
+  }[];
+
+  const asc = (xs: (number | null)[]) => xs.filter((x): x is number => x != null).sort((a, b) => a - b);
+  const infraDb = asc(rows.filter((r) => r.kind === "infra").map((r) => r.db_ms));
+  const infraRedis = asc(rows.filter((r) => r.kind === "infra").map((r) => r.redis_ms));
+  const tenantTotal = asc(rows.filter((r) => r.kind === "tenant").map((r) => r.total_ms));
+  const tenantDb = asc(rows.filter((r) => r.kind === "tenant").map((r) => r.db_ms));
+
+  const byOrg = new Map<string, { slug: string | null; totals: number[]; dbs: number[] }>();
+  for (const r of rows) {
+    if (r.kind !== "tenant" || !r.organization_id) continue;
+    const e = byOrg.get(r.organization_id) ?? { slug: r.target_key, totals: [], dbs: [] };
+    if (r.total_ms != null) e.totals.push(r.total_ms);
+    if (r.db_ms != null) e.dbs.push(r.db_ms);
+    byOrg.set(r.organization_id, e);
+  }
+  const slowestTenants = [...byOrg.entries()]
+    .map(([organizationId, e]) => ({
+      organizationId,
+      slug: e.slug,
+      renderP95: percentile(e.totals.slice().sort((a, b) => a - b), 95),
+      dbP95: percentile(e.dbs.slice().sort((a, b) => a - b), 95),
+      samples: e.totals.length,
+    }))
+    .filter((t) => t.renderP95 != null)
+    .sort((a, b) => (b.renderP95 ?? 0) - (a.renderP95 ?? 0))
+    .slice(0, topN);
+
+  return {
+    infra: {
+      dbP50: percentile(infraDb, 50),
+      dbP95: percentile(infraDb, 95),
+      redisP50: percentile(infraRedis, 50),
+      redisP95: percentile(infraRedis, 95),
+      samples: infraDb.length,
+    },
+    tenant: {
+      totalP50: percentile(tenantTotal, 50),
+      totalP95: percentile(tenantTotal, 95),
+      dbP95: percentile(tenantDb, 95),
+      samples: tenantTotal.length,
+    },
+    slowestTenants,
+  };
+}
+
 export type TrendSeries = { availability: number[]; p95: number[]; labels: string[] };
 
 // Hourly availability% + worst-target p95 over the last `hours`, from the
