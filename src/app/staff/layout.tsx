@@ -1,13 +1,19 @@
+import { Suspense } from "react";
 import { getStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StaffShell } from "@/components/staff/staff-shell";
 import { ColorSchemeSync } from "@/components/staff/color-scheme-sync";
 import { NotificationsBell } from "@/components/staff/notifications-bell";
+import {
+  StreamedNotificationsBell,
+  NotificationsBellFallback,
+} from "@/components/staff/notifications-bell-slot";
 import { listRecentNotifications, unreadNotificationCount } from "@/lib/staff-notifications";
 import { headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
 import { isDpaAccepted } from "@/lib/dpa";
 import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa } from "@/lib/mfa";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { MfaNudge } from "@/components/staff/mfa-nudge";
 import { TenantBillingNudge } from "@/components/staff/tenant-billing-nudge";
 
@@ -45,15 +51,31 @@ export default async function StaffLayout({
     pathname.startsWith("/staff/dpa-acceptance") || pathname.startsWith("/staff/login");
   const onMfaPage = pathname.startsWith("/staff/mfa") || pathname.startsWith("/staff/login");
   const mfaApplies = mfaAppliesToRole(ctx.orgRole) && !onMfaPage;
+  const streaming = await isFeatureEnabled("streaming_dashboard");
 
-  // Independent reads in parallel (previously a sequential waterfall): locations,
-  // notifications, and — when relevant — the MFA step-up flag. Branding + DPA
-  // version now ride along on the staff context, so the separate org query is gone.
-  const [unreadCount, recentNotifications, mfaVerified] = await Promise.all([
-    unreadNotificationCount(ctx.location.id),
-    listRecentNotifications(ctx.location.id, 8),
-    mfaApplies ? hasVerifiedMfa(ctx.user.id) : Promise.resolve(true),
-  ]);
+  // The MFA step-up flag gates a redirect below, so it must resolve before we
+  // render — it can't be deferred behind Suspense. Notifications are
+  // display-only: when streaming, defer them behind a Suspense boundary so the
+  // nav chrome paints before the two notification queries resolve; otherwise
+  // fetch everything up front in parallel (the original behaviour).
+  let bell: React.ReactNode;
+  let mfaVerified: boolean;
+  if (streaming) {
+    mfaVerified = mfaApplies ? await hasVerifiedMfa(ctx.user.id) : true;
+    bell = (
+      <Suspense fallback={<NotificationsBellFallback />}>
+        <StreamedNotificationsBell locationId={ctx.location.id} />
+      </Suspense>
+    );
+  } else {
+    const [unreadCount, recentNotifications, verified] = await Promise.all([
+      unreadNotificationCount(ctx.location.id),
+      listRecentNotifications(ctx.location.id, 8),
+      mfaApplies ? hasVerifiedMfa(ctx.user.id) : Promise.resolve(true),
+    ]);
+    mfaVerified = verified;
+    bell = <NotificationsBell unreadCount={unreadCount} recent={recentNotifications} />;
+  }
   // Branches the user can switch between come straight off the staff context.
   const locationsData = ctx.accessibleLocations;
 
@@ -102,7 +124,7 @@ export default async function StaffLayout({
   return (
     <>
       <ColorSchemeSync dark={true} />
-      <NotificationsBell unreadCount={unreadCount} recent={recentNotifications} />
+      {bell}
       <StaffShell
         brandColor={brandColor}
         orgRole={ctx.orgRole}
