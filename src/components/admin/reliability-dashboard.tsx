@@ -7,7 +7,8 @@ import { WebhooksPanel } from "@/components/admin/webhooks-panel";
 import { JobsPanel } from "@/components/admin/jobs-panel";
 import { IssuesPanel } from "@/components/admin/issues-panel";
 import { EventsPanel } from "@/components/admin/events-panel";
-import type { PlatformKpis, TenantHealth, TrendSeries } from "@/lib/platform/reliability";
+import { LatencyPanel } from "@/components/admin/latency-panel";
+import type { PlatformKpis, TenantHealth, TrendSeries, LatencyMetrics } from "@/lib/platform/reliability";
 import type { AlertRuleView } from "@/lib/platform/alerts";
 import type { ServiceCard, Slo, TelemetrySource } from "@/lib/platform/services";
 import type { WebhookHealth } from "@/lib/platform/webhooks";
@@ -39,6 +40,7 @@ export function ReliabilityDashboard({
   kpis,
   tenants,
   trend,
+  latency,
   alertRules,
   services,
   slos,
@@ -54,6 +56,7 @@ export function ReliabilityDashboard({
   kpis: PlatformKpis;
   tenants: { rows: TenantHealth[]; total: number };
   trend: TrendSeries;
+  latency: LatencyMetrics;
   alertRules: AlertRuleView[];
   services: ServiceCard[];
   slos: Slo[];
@@ -112,6 +115,9 @@ export function ReliabilityDashboard({
           <TrendChart data={trend.p95} tone="info" suffix="ms" />
         </div>
       </div>
+
+      {/* Real latency (DB/Redis hop + per-tenant backend) */}
+      <LatencyPanel latency={latency} />
 
       {/* Services (telemetry + service cards + SLOs) */}
       <ServicesPanel telemetry={telemetry} services={services} slos={slos} />
