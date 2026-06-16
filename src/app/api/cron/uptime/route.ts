@@ -139,8 +139,11 @@ export async function GET(request: NextRequest) {
   const { error: dbErr } = await admin.from("organizations").select("id").limit(1);
   const infraDbMs = dbErr ? null : Math.round(performance.now() - tDb);
 
+  // Warm the key with an UNTIMED write, then time a single GET. The app's hot
+  // path is reads (cacheGet for org/membership); timing a write too inflated
+  // this on a Global/Free-tier Upstash DB, where writes replicate before ack.
+  await cacheSet("latency:ping", Date.now(), 60);
   const tRedis = performance.now();
-  await cacheSet("latency:ping", Date.now(), 30);
   const redisGot = await cacheGet<number>("latency:ping");
   const infraRedisMs = redisGot === null ? null : Math.round(performance.now() - tRedis);
 
