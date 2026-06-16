@@ -45,6 +45,7 @@ async function retiredSlugRedirect(request: NextRequest, slug: string): Promise<
 }
 
 export async function proxy(request: NextRequest) {
+  const start = performance.now();
   const tenant = resolveTenantFromHost(request.headers.get("host"));
 
   const extraHeaders: Record<string, string> = {
@@ -71,7 +72,11 @@ export async function proxy(request: NextRequest) {
     extraHeaders["x-tenant-slug"] = tenant.slug;
   }
 
-  return updateSession(request, extraHeaders);
+  const response = await updateSession(request, extraHeaders);
+  // Surface middleware cost (auth verify + Redis lookups) in DevTools → Network
+  // → Timing, so per-navigation latency is measurable instead of guessed.
+  response.headers.set("Server-Timing", `mw;dur=${(performance.now() - start).toFixed(1)};desc="middleware"`);
+  return response;
 }
 
 export const config = {

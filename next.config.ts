@@ -58,6 +58,15 @@ const nextConfig: NextConfig = {
   // icons behind a single entrypoint).
   experimental: {
     optimizePackageImports: ["lucide-react", "recharts", "@base-ui/react"],
+    // Cache page segments in the client router so re-navigation (incl.
+    // back/forward and quick A→B→A) is instant instead of re-fetching the RSC
+    // payload. Mutations use revalidatePath in their actions, which busts the
+    // client cache for the affected path — so a user never sees their own write
+    // go stale; only unrelated cross-user changes can lag up to `dynamic`.
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
 
   async headers() {
