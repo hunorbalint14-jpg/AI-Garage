@@ -5,11 +5,22 @@ import { Redis } from "@upstash/redis";
 // environment not yet provisioned. Every caller must treat a cache miss as the
 // normal path and fail OPEN: caching must never block or break a request.
 //
-// Accepts both our own env names and the ones Vercel's Upstash Marketplace
-// integration injects (`UPSTASH_KV_REST_API_*`). Mirrors rate-limit.ts, which
-// now imports this client.
-const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.UPSTASH_KV_REST_API_URL;
-const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.UPSTASH_KV_REST_API_TOKEN;
+// Accepts our own env names, the ones Vercel's Upstash Marketplace integration
+// injects (`UPSTASH_KV_REST_API_*`), and the prefixed names Vercel assigns to a
+// SECOND Upstash database (`upstash_redis2_*` — the Frankfurt instance). The
+// prefixed names are checked first so the current DB wins even if the old
+// canonical vars linger. Use the read-WRITE token (the app does cacheSet) — NOT
+// `upstash_redis2_KV_REST_API_READ_ONLY_TOKEN`. The REST URL is
+// `*_KV_REST_API_URL`, not `*_KV_URL` / `*_REDIS_URL` (those are TCP redis://).
+// Env var names are case-sensitive on Linux — match Vercel exactly.
+const url =
+  process.env.upstash_redis2_KV_REST_API_URL ??
+  process.env.UPSTASH_REDIS_REST_URL ??
+  process.env.UPSTASH_KV_REST_API_URL;
+const token =
+  process.env.upstash_redis2_KV_REST_API_TOKEN ??
+  process.env.UPSTASH_REDIS_REST_TOKEN ??
+  process.env.UPSTASH_KV_REST_API_TOKEN;
 
 export const redis = url && token ? new Redis({ url, token }) : null;
 
