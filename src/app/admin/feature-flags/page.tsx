@@ -5,7 +5,7 @@ export default async function FeatureFlagsPage() {
   const flags = await listFeatureFlags();
   // Build-time flag: PPR is baked at `next build`, so it can't be toggled on a
   // live server — we can only report the running build's state.
-  const pprEnabled = process.env.ENABLE_PPR === "true";
+  const pprEnabled = (process.env.ENABLE_PPR ?? "").trim().toLowerCase() === "true";
 
   return (
     <div className="flex flex-col gap-6">

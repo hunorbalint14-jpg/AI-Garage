@@ -57,7 +57,7 @@ const SECURITY_HEADERS = [
 // server. Gate it on an env var so we can ship one deploy with it on and one
 // without to compare cold-load latency. GLOBAL (whole app), not per-tenant. The
 // admin /admin/feature-flags page surfaces this as a read-only status row.
-const PPR_ENABLED = process.env.ENABLE_PPR === "true";
+const PPR_ENABLED = (process.env.ENABLE_PPR ?? "").trim().toLowerCase() === "true";
 
 const nextConfig: NextConfig = {
   // Tree-shake barrel imports from these icon/UI/chart packages so a route only
