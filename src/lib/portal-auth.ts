@@ -1,6 +1,5 @@
 import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -47,7 +46,10 @@ export type PortalCustomer = {
 };
 
 export type PortalContext = {
-  user: User;
+  // Local-verified JWT claims (id + email), not a full Auth-server user object —
+  // no network round-trip. The middleware already validates the session
+  // (signature + 12h absolute timeout), mirroring staff-context.
+  user: { id: string; email: string | undefined };
   organization: PortalOrg;
   // Back-compat: the org's primary location (the subdomain resolves to the org
   // now). Branding lives on `location.organization` / `organization`.
@@ -62,10 +64,12 @@ export type PortalContext = {
 
 export async function getPortalContext(): Promise<PortalContext> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  // Local JWT (JWKS) verification — no Auth network round-trip per page render.
+  // Project signs with ES256 (asymmetric), so getClaims verifies offline.
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  if (!claims?.sub) redirect("/login");
+  const user = { id: claims.sub as string, email: (claims.email as string | undefined) ?? undefined };
 
   const headersList = await headers();
   const slug = headersList.get("x-tenant-slug");
