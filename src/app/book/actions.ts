@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, tenantPortalUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
@@ -362,18 +362,21 @@ export async function submitWidgetBooking(
     }
   }
 
-  // No payment path — fire confirmation comms as before.
-  const confirmText = `Hi ${firstName},\n\nYour ${typeLabel} appointment${registration ? ` for ${registration}` : ""} at ${where} is confirmed for ${dateStr}.\n\nLocation:\n${garageLocationBlock(identity)}${garagePhone ? `\n\nTo reschedule or cancel, call us on ${garagePhone} or reply to this email.` : "\n\nTo reschedule or cancel, reply to this email."}\n\nSee you then!\n${garageName}`;
+  // No payment path — fire confirmation comms as before. Self-serve manage link
+  // (reschedule/cancel in the portal) replaces "reply to this email".
+  const manageUrl = tenantPortalUrl(slug);
+  const confirmText = `Hi ${firstName},\n\nYour ${typeLabel} appointment${registration ? ` for ${registration}` : ""} at ${where} is confirmed for ${dateStr}.\n\nLocation:\n${garageLocationBlock(identity)}\n\nNeed to reschedule or cancel? Manage your booking online below.${garagePhone ? `\nOr call us on ${garagePhone}.` : ""}\n\nSee you then!\n${garageName}`;
 
   await sendEmail({
     to: email,
     subject: `Booking confirmed — ${typeLabel} at ${where}`,
     text: confirmText,
+    cta: { url: manageUrl, label: "Manage booking" },
   });
   if (phone) {
     await sendSms({
       to: phone,
-      body: `Hi ${firstName}, your ${typeLabel} at ${whereInline} on ${dateStr} is confirmed.${garagePhone ? ` Call ${garagePhone} to reschedule.` : ""}`,
+      body: `Hi ${firstName}, your ${typeLabel} at ${whereInline} on ${dateStr} is confirmed. Reschedule or cancel: ${manageUrl}`,
     });
   }
 
