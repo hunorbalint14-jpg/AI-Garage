@@ -107,7 +107,9 @@ export async function signInStaff(
   const headersList = await headers();
   const hostname = (headersList.get("host") ?? "").split(":")[0];
   const isRootDomain = hostname === ROOT_HOST || hostname === `www.${ROOT_HOST}`;
-  if (!isRootDomain) return { url: "/staff" };
+  // Land on the branch chooser; it forwards straight to /staff for single-branch
+  // users / orgs.
+  if (!isRootDomain) return { url: "/staff/select-branch" };
 
   // Root domain — mint a handoff link to the user's tenant subdomain.
   // (The handoff itself is only a cross-domain session transfer, not a new
@@ -130,7 +132,7 @@ export async function signInStaff(
   if (linkErr || !tokenHash) {
     return { error: linkErr?.message ?? "Failed to generate handoff token." };
   }
-  return { url: handoffUrl(slug, tokenHash, "/staff") };
+  return { url: handoffUrl(slug, tokenHash, "/staff/select-branch") };
 }
 
 // Used by passkey login on root domain — same trick.
@@ -151,5 +153,5 @@ export async function getStaffTenantMagicLink(
   if (error || !tokenHash) {
     return { error: error?.message ?? "Failed to generate handoff token." };
   }
-  return { url: handoffUrl(slug, tokenHash, "/staff") };
+  return { url: handoffUrl(slug, tokenHash, "/staff/select-branch") };
 }

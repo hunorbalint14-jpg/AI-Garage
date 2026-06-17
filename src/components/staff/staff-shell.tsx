@@ -259,6 +259,8 @@ export function StaffShell({
           onBrand={onBrand}
           orgName={orgName}
           role={role}
+          locations={locations}
+          currentLocationId={currentLocationId}
           userName={userName}
           userEmail={userEmail}
           onClose={() => setSheetOpen(false)}
@@ -453,6 +455,8 @@ function ModuleSheet({
   onBrand,
   orgName,
   role,
+  locations,
+  currentLocationId,
   userName,
   userEmail,
   onClose,
@@ -464,6 +468,8 @@ function ModuleSheet({
   onBrand: string;
   orgName: string;
   role: string;
+  locations: Location[];
+  currentLocationId: string;
   userName: string;
   userEmail: string | null;
   onClose: () => void;
@@ -483,6 +489,17 @@ function ModuleSheet({
             {orgName} · {role.toUpperCase()}
           </div>
         </div>
+
+        {/* Branch switcher — the desktop context pane has one; mobile gets it
+            here so it stays reachable on small screens. */}
+        {locations.length > 1 && (
+          <div className="mb-1 mt-1">
+            <div className="mb-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[#5a6170]">
+              Branch
+            </div>
+            <LocationSwitcher locations={locations} currentId={currentLocationId} dark={true} />
+          </div>
+        )}
         {modules.map((m) => {
           const Icon = m.icon;
           return (

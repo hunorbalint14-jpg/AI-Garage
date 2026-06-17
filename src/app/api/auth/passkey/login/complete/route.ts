@@ -193,5 +193,5 @@ export async function POST(req: NextRequest) {
   }
 
   await clearChallenge();
-  return NextResponse.json({ success: true, redirect: "/staff" });
+  return NextResponse.json({ success: true, redirect: "/staff/select-branch" });
 }
