@@ -1,4 +1,11 @@
 import { Resend } from "resend";
+import {
+  renderEmail,
+  paragraphsToHtml,
+  type EmailCta,
+  type EmailDetailRow,
+  type RenderEmailOpts,
+} from "./email-layout";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -15,7 +22,15 @@ const PUBLIC_ORIGIN =
 const ROOT_HOST = PUBLIC_ORIGIN.replace(/^https?:\/\//, "");
 const LOGO_URL = `${PUBLIC_ORIGIN}/brand/icon/png/sms-avatar-brand-512.png`;
 
-export type EmailCta = { url: string; label: string };
+export type { EmailCta, EmailDetailRow };
+export { paragraphsToHtml };
+
+// Render a tenant-branded email into the shared shell with the platform's
+// public origin filled in. Bespoke templates (booking confirmation, receipts)
+// build their email body with this instead of hand-rolling a document.
+export function renderBrandedEmail(opts: Omit<RenderEmailOpts, "publicOrigin">): string {
+  return renderEmail({ ...opts, publicOrigin: PUBLIC_ORIGIN });
+}
 
 // Build a tenant-aware booking URL: https://{slug}.ai-garage.co.uk/book
 export function tenantBookingUrl(slug: string, path = "/book"): string {
@@ -28,27 +43,17 @@ export function tenantPortalUrl(orgSlug: string, path = "/dashboard"): string {
   return `https://${orgSlug}.${ROOT_HOST}${path}`;
 }
 
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function escapeText(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-function ctaButtonHtml(cta: EmailCta): string {
-  const url = escapeAttr(cta.url);
-  const label = escapeText(cta.label);
-  return `<div style="text-align:left;margin:28px 0"><a href="${url}" style="display:inline-block;background:#22c55e;color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;padding:12px 24px;border-radius:8px;border:0">${label} →</a></div>`;
-}
-
+// Generic transactional email body — renders the plain text into the shared
+// dark/branded shell (see email-layout.ts). Tenant-specific emails that need a
+// richer layout build their own renderEmail() call.
 function textToHtml(text: string, cta?: EmailCta): string {
-  const paragraphs = text
-    .split("\n\n")
-    .map((p) => `<p style="margin:0 0 16px 0">${p.replace(/\n/g, "<br>")}</p>`)
-    .join("");
-  const ctaHtml = cta ? ctaButtonHtml(cta) : "";
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#111827;max-width:600px;margin:0 auto;padding:32px 24px"><div style="text-align:left;margin-bottom:24px"><img src="${LOGO_URL}" width="56" height="56" alt="AI Garage" style="display:block;border-radius:12px;border:0;outline:0;text-decoration:none"></div>${paragraphs}${ctaHtml}<hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0"><p style="font-size:12px;color:#9ca3af;margin:0">Sent via AI Garage · <a href="${PUBLIC_ORIGIN}" style="color:#9ca3af;text-decoration:underline">ai-garage.co.uk</a></p></body></html>`;
+  return renderEmail({
+    brandName: SENDER_NAME,
+    logoUrl: LOGO_URL,
+    bodyHtml: paragraphsToHtml(text),
+    cta,
+    publicOrigin: PUBLIC_ORIGIN,
+  });
 }
 
 function appendCtaToText(text: string, cta?: EmailCta): string {

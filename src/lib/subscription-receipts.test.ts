@@ -4,6 +4,8 @@ import type Stripe from "stripe";
 vi.mock("@/lib/email", () => ({
   sendEmail: vi.fn(async () => ({ success: true, messageId: "m_1" })),
   tenantBookingUrl: vi.fn(() => "https://slug.example/staff/settings/billing"),
+  renderBrandedEmail: vi.fn(() => "<html>receipt</html>"),
+  paragraphsToHtml: vi.fn((t: string) => `<p>${t}</p>`),
 }));
 vi.mock("@/lib/stripe", () => ({ stripe: { customers: { retrieve: vi.fn() } } }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));

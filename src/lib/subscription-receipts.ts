@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
-import { sendEmail, tenantBookingUrl } from "@/lib/email";
+import { sendEmail, tenantBookingUrl, renderBrandedEmail, paragraphsToHtml, type EmailDetailRow } from "@/lib/email";
 import { garageLabel, garageLocationBlock } from "@/lib/garage-identity";
 import { TIERS, type TierKey } from "@/lib/tenant-plans";
 
@@ -12,10 +12,6 @@ const gbp = (pence: number) =>
 
 const longDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }) : null;
-
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 // Price details off the first subscription item (the plan line).
 function subPrice(sub: Stripe.Subscription): { amountPence: number | null; interval: "month" | "year" | null } {
@@ -187,7 +183,7 @@ export async function sendServicePlanReceipt(admin: Admin, sub: Stripe.Subscript
   }
 }
 
-// Garage-branded receipt body. Inline styles only (email-safe).
+// Garage-branded membership receipt, rendered into the shared email shell.
 function brandedReceiptHtml({
   garageName,
   locationLine,
@@ -208,46 +204,22 @@ function brandedReceiptHtml({
   price: string | null;
   renew: string | null;
 }): string {
-  const safeColor = /^#[0-9a-fA-F]{3,8}$/.test(brandColor) ? brandColor : "#22c55e";
-  const hello = customerName ? `Hi ${esc(customerName.split(" ")[0])},` : "Hi,";
-  const brandMark = logoUrl
-    ? `<img src="${esc(logoUrl)}" width="40" height="40" alt="${esc(garageName)}" style="display:block;border-radius:8px;border:0">`
-    : `<div style="width:40px;height:40px;border-radius:8px;background:#ffffff;color:${safeColor};font-weight:700;font-size:16px;line-height:40px;text-align:center">${esc(
-        garageName.split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2),
-      )}</div>`;
+  const hello = customerName ? `Hi ${customerName.split(" ")[0]},` : "Hi,";
+  const details: EmailDetailRow[] = [];
+  if (locationLine) details.push({ label: "Location", value: locationLine });
+  details.push({ label: "Plan", value: planName });
+  if (price) details.push({ label: "Amount", value: price });
+  if (renew) details.push({ label: "Next renewal", value: renew });
 
-  const row = (label: string, value: string) =>
-    `<tr><td style="padding:8px 0;color:#6b7280;font-size:13px">${esc(label)}</td><td style="padding:8px 0;text-align:right;font-weight:600;color:#111827;font-size:14px">${esc(
-      value,
-    )}</td></tr>`;
-
-  const rows = [
-    row("Plan", planName),
-    price ? row("Amount", price) : "",
-    renew ? row("Next renewal", renew) : "",
-  ].join("");
-
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#111827">
-<div style="max-width:600px;margin:0 auto;padding:24px">
-  <div style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb">
-    <div style="background:${safeColor};padding:20px 24px;display:flex;align-items:center;gap:12px">
-      <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-        <td style="padding-right:12px">${brandMark}</td>
-        <td style="color:#ffffff;font-weight:700;font-size:16px">${esc(garageName)}</td>
-      </tr></table>
-    </div>
-    <div style="padding:28px 24px">
-      <p style="margin:0 0 6px 0;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:${safeColor};font-weight:700">Membership active</p>
-      <h1 style="margin:0 0 16px 0;font-size:20px;color:#111827">Welcome to ${esc(planName)}</h1>
-      <p style="margin:0 0 8px 0;font-size:15px;line-height:1.6">${hello}</p>
-      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6">Thanks for joining — your membership is now active. Your plan benefits apply automatically next time you book.</p>
-      ${locationLine ? `<p style="margin:0 0 20px 0;font-size:14px;line-height:1.5;color:#374151"><strong>Location:</strong><br>${esc(locationLine).replace(/\n/g, "<br>")}</p>` : ""}
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #e5e7eb;margin-top:8px">${rows}</table>
-    </div>
-  </div>
-  <p style="text-align:center;font-size:12px;color:#9ca3af;margin:16px 0 0 0">Sent by ${esc(
-    garageName,
-  )} via AI Garage</p>
-</div>
-</body></html>`;
+  return renderBrandedEmail({
+    brandName: garageName,
+    accentColor: brandColor,
+    logoUrl,
+    badge: "Membership active",
+    heading: `Welcome to ${planName}`,
+    bodyHtml: paragraphsToHtml(
+      `${hello}\n\nThanks for joining — your membership is now active. Your plan benefits apply automatically next time you book.`,
+    ),
+    details,
+  });
 }
