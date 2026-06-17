@@ -8,6 +8,7 @@ import { sendEmailBatch, tenantBookingUrl, type BatchEmailItemResult } from "@/l
 import { logAudit } from "@/lib/audit";
 import { sendSms, type SendSmsResult } from "@/lib/sms";
 import { sendWhatsApp, type SendWhatsAppResult } from "@/lib/whatsapp";
+import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 import { mapWithConcurrency, chunk } from "@/lib/concurrency";
 import { draftBroadcastMessage } from "@/lib/ai-messages";
 import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
@@ -30,8 +31,14 @@ export async function draftBroadcastPreview(
 
   const admin = createAdminClient();
 
+  // Target only customers whose HOME branch is the one sending — so a customer
+  // is reached once, by their home branch, never twice across branches.
   const [customersRes, orgRes] = await Promise.all([
-    admin.from("customers").select("email, phone").eq("organization_id", ctx.organization.id),
+    admin
+      .from("customers")
+      .select("email, phone")
+      .eq("organization_id", ctx.organization.id)
+      .eq("preferred_location_id", ctx.location.id),
     admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
   ]);
 
@@ -101,12 +108,19 @@ export async function sendBroadcast(
 
   const admin = createAdminClient();
 
-  const { data: customersData } = await admin
-    .from("customers")
-    .select("id, email, phone, marketing_email_consent, marketing_sms_consent, anonymized_at")
-    .eq("organization_id", ctx.organization.id)
-    .is("anonymized_at", null)
-    .limit(MAX_CUSTOMERS);
+  const [{ data: customersData }, { data: orgRow }, { data: locRow }] = await Promise.all([
+    // Home-branch recipients only (preferred_location_id = sending branch), so a
+    // campaign reaches each customer once, from their home branch.
+    admin
+      .from("customers")
+      .select("id, email, phone, marketing_email_consent, marketing_sms_consent, anonymized_at")
+      .eq("organization_id", ctx.organization.id)
+      .eq("preferred_location_id", ctx.location.id)
+      .is("anonymized_at", null)
+      .limit(MAX_CUSTOMERS),
+    admin.from("organizations").select("name").eq("id", ctx.organization.id).maybeSingle(),
+    admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle(),
+  ]);
 
   const customers = customersData ?? [];
   if (!customers.length) return { error: "No customers found." };
@@ -115,9 +129,17 @@ export async function sendBroadcast(
   if (!cleanSubject) return { error: "Subject is required." };
   const subject = cleanSubject;
 
+  // Sign every message with the sending branch (+ address) so a recipient knows
+  // exactly who/where it's from — the booking link already points at this branch.
+  const orgName = (orgRow as { name: string } | null)?.name ?? ctx.organization.name;
+  const where = garageLabel({ orgName, locationName: ctx.location.name });
+  const addrLine = addressOneLine((locRow as { address: string | null } | null)?.address ?? null);
+  const signature = `${where}${addrLine ? `\n📍 ${addrLine}` : ""}`;
+
   const bookingUrl = tenantBookingUrl(ctx.location.slug);
   const bookingCta = { url: bookingUrl, label: "Visit our garage" };
-  const smsWithLink = (body: string) => `${body}\n${bookingUrl}`;
+  const smsWithLink = (body: string) => `${body}\n${signature}\n${bookingUrl}`;
+  const emailWithSignature = (body: string) => `${body}\n\n${signature}`;
 
   let emailSent = 0, emailFailed = 0, smsSent = 0, smsFailed = 0, whatsappSent = 0, whatsappFailed = 0;
   let skippedNoEmail = 0, skippedNoPhone = 0, skippedNoEmailConsent = 0, skippedNoSmsConsent = 0;
@@ -162,7 +184,7 @@ export async function sendBroadcast(
   const [emailResults, smsResults, whatsappResults] = await Promise.all([
     emailText
       ? sendEmailBatch(
-          emailRecipients.map((c) => ({ to: c.email!, subject, text: emailText, cta: bookingCta })),
+          emailRecipients.map((c) => ({ to: c.email!, subject, text: emailWithSignature(emailText), cta: bookingCta })),
         )
       : Promise.resolve([] as BatchEmailItemResult[]),
     mapWithConcurrency(smsRecipients, TWILIO_CONCURRENCY, (c) =>

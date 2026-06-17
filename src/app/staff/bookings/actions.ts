@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { releaseCoverage } from "@/lib/service-plans";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 import { isBayFreeAt } from "@/lib/bay-availability";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { resolveVehicleHighVoltage } from "@/lib/vehicle-fuel";
@@ -39,49 +40,64 @@ async function sendBookingConfirmation(args: {
   customerEmail: string | null;
   customerPhone: string | null;
   garageName: string;
+  locationName: string | null;
+  address: string | null;
   garagePhone: string | null;
   garageLogoUrl: string | null;
   type: string;
   scheduledAt: string;
   registration: string | null;
 }): Promise<{ email: boolean; sms: boolean }> {
-  const { customerName, customerEmail, customerPhone, garageName, garagePhone, garageLogoUrl, type, scheduledAt, registration } = args;
+  const { customerName, customerEmail, customerPhone, garageName, locationName, address, garagePhone, garageLogoUrl, type, scheduledAt, registration } = args;
   const firstName = customerName.split(" ")[0] || "there";
   const dateStr = formatBookingDateTime(scheduledAt);
   const typeLabel = bookingTypeLabel(type);
   const regSuffix = registration ? ` for ${registration}` : "";
+  // The branch the customer is booked into — named in every channel so they
+  // know which site to attend (org name alone is ambiguous for multi-branch).
+  const identity = { orgName: garageName, locationName, address };
+  const where = garageLabel(identity);
+  const locationBlock = garageLocationBlock(identity); // label + address, multi-line
+  const addrLine = address?.trim() ? address.trim() : null;
   const contactLine = garagePhone
     ? `If you need to reschedule, call us on ${garagePhone} or reply to this email.`
     : `If you need to reschedule, please reply to this email.`;
 
   const emailText = `Hi ${firstName},
 
-Your ${typeLabel} appointment${regSuffix} at ${garageName} is confirmed for ${dateStr}.
+Your ${typeLabel} appointment${regSuffix} at ${where} is confirmed for ${dateStr}.
+
+Location:
+${locationBlock}
 
 ${contactLine}
 
 Thank you,
 ${garageName}`;
 
+  const addrHtml = addrLine
+    ? `<p style="margin:0 0 16px 0;color:#374151"><strong>Location:</strong><br>${where}<br>${addrLine.replace(/\n/g, "<br>")}</p>`
+    : "";
   const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:#111827;max-width:600px;margin:0 auto;padding:32px 24px">
 ${garageLogoUrl ? `<div style="margin-bottom:24px"><img src="${garageLogoUrl}" alt="${garageName}" style="max-height:48px;max-width:180px;object-fit:contain;display:block"></div>` : ""}
 <p style="margin:0 0 16px 0">Hi ${firstName},</p>
-<p style="margin:0 0 16px 0">Your <strong>${typeLabel}</strong> appointment${regSuffix} at <strong>${garageName}</strong> is confirmed for <strong>${dateStr}</strong>.</p>
+<p style="margin:0 0 16px 0">Your <strong>${typeLabel}</strong> appointment${regSuffix} at <strong>${where}</strong> is confirmed for <strong>${dateStr}</strong>.</p>
+${addrHtml}
 <p style="margin:0 0 16px 0">${contactLine}</p>
 <p style="margin:0 0 16px 0">Thank you,<br>${garageName}</p>
 <hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0">
 <p style="font-size:12px;color:#9ca3af;margin:0">Sent via AI Garage</p>
 </body></html>`;
 
-  const smsText = `Hi ${firstName}, your ${typeLabel} appointment${regSuffix} at ${garageName} is confirmed for ${dateStr}.${garagePhone ? ` Call ${garagePhone} to reschedule.` : ""}`;
+  const smsText = `Hi ${firstName}, your ${typeLabel} appointment${regSuffix} at ${garageLocationInline(identity)} is confirmed for ${dateStr}.${garagePhone ? ` Call ${garagePhone} to reschedule.` : ""}`;
 
   const result = { email: false, sms: false };
 
   if (customerEmail) {
     const emailResult = await sendEmail({
       to: customerEmail,
-      subject: `Booking confirmed — ${typeLabel} at ${garageName}`,
+      subject: `Booking confirmed — ${typeLabel} at ${where}`,
       text: emailText,
       html: emailHtml,
     });
@@ -135,7 +151,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     }
   }
 
-  const [customerRes, vehicleRes, orgRes, serviceRes] = await Promise.all([
+  const [customerRes, vehicleRes, orgRes, serviceRes, locRes] = await Promise.all([
     admin.from("customers").select("id, full_name, email, phone, organization_id").eq("id", customerId).maybeSingle(),
     vehicleId
       ? admin.from("vehicles").select("id, registration, customer_id, organization_id").eq("id", vehicleId).maybeSingle()
@@ -144,7 +160,12 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     serviceId
       ? admin.from("services").select("id, location_id").eq("id", serviceId).maybeSingle()
       : Promise.resolve({ data: null }),
+    // The active branch's address — printed in the confirmation so the customer
+    // knows which site to attend (ctx.location already carries name + id).
+    admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle(),
   ]);
+
+  const locationAddress = (locRes.data as { address: string | null } | null)?.address ?? null;
 
   const customer = customerRes.data as { id: string; full_name: string | null; email: string | null; phone: string | null; organization_id: string } | null;
   if (!customer || customer.organization_id !== ctx.organization.id) {
@@ -190,6 +211,8 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       customerEmail: customer.email,
       customerPhone: customer.phone,
       garageName: orgRes.data?.name ?? ctx.organization.name,
+      locationName: ctx.location.name,
+      address: locationAddress,
       garagePhone: orgRes.data?.phone ?? null,
       garageLogoUrl: (orgRes.data as { logo_url?: string | null } | null)?.logo_url ?? null,
       type,

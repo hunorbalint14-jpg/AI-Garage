@@ -12,6 +12,7 @@ import {
   fallbackReminderEmailTemplate,
   fallbackSmsReminderTemplate,
 } from "@/lib/reminder-templates";
+import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 
 // Runs daily at 09:00 UTC via Vercel Cron (configured in vercel.json).
 // Finds all vehicles with MOT or service due within REMIND_DAYS_BEFORE days,
@@ -69,6 +70,7 @@ type LocationRow = {
   id: string;
   slug: string;
   name: string;
+  address: string | null;
   organization: {
     id: string;
     name: string;
@@ -154,7 +156,7 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, organization:organizations(id, name, phone)");
+    .select("id, slug, name, address, organization:organizations(id, name, phone)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
 
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
@@ -170,10 +172,15 @@ export async function GET(request: NextRequest) {
     }
 
     const org = location.organization;
-    const garageName = org?.name ?? location.name;
+    const orgName = org?.name ?? location.name;
+    // Name the *branch* in the reminder (not just the org/brand) so a multi-
+    // location customer knows where to come — and append the branch address.
+    const garageName = garageLabel({ orgName, locationName: location.name });
+    const addrLine = addressOneLine(location.address);
+    const locationFooter = addrLine ? `\n\n📍 ${addrLine}` : "";
     const bookingUrl = tenantBookingUrl(location.slug);
     const bookingCta = { url: bookingUrl, label: "Book your appointment" };
-    const smsWithLink = (body: string) => `${body}\nBook: ${bookingUrl}`;
+    const smsWithLink = (body: string) => `${body}${addrLine ? `\n📍 ${addrLine}` : ""}\nBook: ${bookingUrl}`;
 
     // Automated (cron) AI drafts — attributed to the location; the overview
     // view derives the org from location_id. No user (system-run).
@@ -231,10 +238,15 @@ export async function GET(request: NextRequest) {
       windowEndDyn.setDate(windowEndDyn.getDate() + maxDays);
       const windowEndDynStr = windowEndDyn.toISOString().split("T")[0];
 
+      // Route by the customer's HOME branch (preferred_location_id), not the
+      // vehicle's servicing branch (location_id). A customer with vehicles
+      // serviced at several branches would otherwise get one reminder per
+      // branch; this guarantees a single reminder, sent from (and branded as)
+      // their home branch. !inner so the home-branch filter excludes the parent.
       const { data: vehicles } = (await admin
         .from("vehicles")
-        .select("id, registration, make, model, year, mot_expiry, service_due, tax_due_date, customer:customers(id, full_name, email, phone)")
-        .eq("location_id", location.id)
+        .select("id, registration, make, model, year, mot_expiry, service_due, tax_due_date, customer:customers!inner(id, full_name, email, phone)")
+        .eq("customer.preferred_location_id", location.id)
         .or(`mot_expiry.lte.${windowEndDynStr},service_due.lte.${windowEndDynStr}`)
         .gt("mot_expiry", todayStr)
         .limit(100)) as { data: VehicleRow[] | null };
@@ -304,7 +316,8 @@ export async function GET(request: NextRequest) {
 
           // Email channel
           if (needEmail && customer.email) {
-            const messageText = renderReminderTemplate(await getTemplate("email", reminderType), templateVars);
+            const messageText =
+              renderReminderTemplate(await getTemplate("email", reminderType), templateVars) + locationFooter;
 
             const emailResult = await sendEmail({ to: customer.email, subject, text: messageText, cta: bookingCta });
 
@@ -393,10 +406,11 @@ export async function GET(request: NextRequest) {
       taxWindowEnd.setDate(taxWindowEnd.getDate() + taxDays);
       const taxWindowEndStr = taxWindowEnd.toISOString().split("T")[0];
 
+      // Same home-branch routing as the MOT/service pass above.
       const { data: vedVehicles } = (await admin
         .from("vehicles")
-        .select("id, registration, tax_due_date, customer:customers(id, full_name, email, phone)")
-        .eq("location_id", location.id)
+        .select("id, registration, tax_due_date, customer:customers!inner(id, full_name, email, phone)")
+        .eq("customer.preferred_location_id", location.id)
         .not("tax_due_date", "is", null)
         .lte("tax_due_date", taxWindowEndStr)
         .gte("tax_due_date", todayStr)
@@ -419,7 +433,7 @@ export async function GET(request: NextRequest) {
         const firstName = customer.full_name?.split(" ")[0] ?? "there";
         const formattedDate = new Date(v.tax_due_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
         const subject = `Road tax reminder — ${v.registration} due ${formattedDate}`;
-        const body = `Hi ${firstName},\n\nThis is a friendly reminder that the road tax for your vehicle ${v.registration} is due on ${formattedDate}.\n\nYou can renew online at gov.uk/renew-vehicle-tax or at your local Post Office.\n\nThank you,\n${garageName}`;
+        const body = `Hi ${firstName},\n\nThis is a friendly reminder that the road tax for your vehicle ${v.registration} is due on ${formattedDate}.\n\nYou can renew online at gov.uk/renew-vehicle-tax or at your local Post Office.\n\nThank you,\n${garageName}${locationFooter}`;
 
         if (customer.email && taxChannels.includes("email")) {
           if (!taxSentSet.has(`${v.id}:tax:email`)) {
@@ -429,7 +443,7 @@ export async function GET(request: NextRequest) {
           }
         }
         if (customer.phone && taxChannels.includes("sms")) {
-          const smsBody = `Hi ${firstName}, your road tax for ${v.registration} is due ${formattedDate}. Renew at gov.uk/renew-vehicle-tax.\nGarage: ${bookingUrl}`;
+          const smsBody = `Hi ${firstName}, your road tax for ${v.registration} is due ${formattedDate}. Renew at gov.uk/renew-vehicle-tax.${addrLine ? `\n${garageName}, ${addrLine}` : ""}\nGarage: ${bookingUrl}`;
           if (!taxSentSet.has(`${v.id}:tax:sms`)) {
             const smsResult = await sendSms({ to: customer.phone, body: smsBody });
             await insertReminder(admin, { location_id: location.id, customer_id: customer.id, vehicle_id: v.id, type: "tax", channel: "sms", recipient_email: null, recipient_phone: customer.phone, subject, message_text: smsBody, status: smsResult.success ? "sent" : "failed", error_message: smsResult.success ? null : smsResult.error });

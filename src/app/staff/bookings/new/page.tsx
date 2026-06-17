@@ -36,6 +36,16 @@ export default async function NewBookingPage({
   const services = (servicesRes.data ?? []) as { id: string; name: string; category: string; duration_minutes: number; price: number | null }[];
   const bays = (baysRes.data ?? []) as { id: string; name: string; description: string | null }[];
 
+  // All branches in the org, so the form can name a customer's *home* branch
+  // when it differs from the active branch they're being booked into.
+  const { data: orgLocations } = await admin
+    .from("locations")
+    .select("id, name")
+    .eq("organization_id", ctx.organization.id);
+  const locationNamesById: Record<string, string> = Object.fromEntries(
+    ((orgLocations ?? []) as { id: string; name: string }[]).map((l) => [l.id, l.name]),
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -49,6 +59,9 @@ export default async function NewBookingPage({
         bays={bays}
         initialCustomer={initialCustomer}
         defaultVehicleId={params.vehicle ?? null}
+        activeLocationId={ctx.location.id}
+        activeLocationName={ctx.location.name}
+        locationNamesById={locationNamesById}
       />
     </div>
   );

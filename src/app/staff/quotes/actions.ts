@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 import { logAudit } from "@/lib/audit";
 import {
   generateQuoteToken,
@@ -271,14 +272,19 @@ export async function sendStandaloneQuoteDraft(
     return { error: "Customer has no email or phone — cannot notify." };
   }
 
-  // Look up validity-days default to compute expiry.
-  const { data: org } = await admin
-    .from("organizations")
-    .select("quote_validity_days, name")
-    .eq("id", ctx.organization.id)
-    .maybeSingle();
+  // Look up validity-days default to compute expiry, plus the active branch's
+  // address so the customer's quote names where it came from.
+  const [{ data: org }, { data: locRow }] = await Promise.all([
+    admin
+      .from("organizations")
+      .select("quote_validity_days, name")
+      .eq("id", ctx.organization.id)
+      .maybeSingle(),
+    admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle(),
+  ]);
   type OrgRow = { quote_validity_days: number | null; name: string };
   const orgRow = org as OrgRow | null;
+  const locationAddress = (locRow as { address: string | null } | null)?.address ?? null;
   const validityDays = Number(orgRow?.quote_validity_days ?? 30);
 
   const token = generateQuoteToken();
@@ -305,6 +311,8 @@ export async function sendStandaloneQuoteDraft(
     title: q.title,
     total: q.total,
     garageName: orgRow?.name ?? ctx.organization.name,
+    locationName: ctx.location.name,
+    address: locationAddress,
     url,
   });
 
@@ -367,6 +375,13 @@ export async function sendFreshStandaloneQuote(
     return { error: "Customer has no email or phone — cannot notify." };
   }
 
+  const { data: locRow } = await admin
+    .from("locations")
+    .select("address")
+    .eq("id", ctx.location.id)
+    .maybeSingle();
+  const locationAddress = (locRow as { address: string | null } | null)?.address ?? null;
+
   const url = tenantQuoteUrl(ctx.location.slug, q.slug, token);
   const result = await dispatchStandaloneNotification({
     customer,
@@ -374,6 +389,8 @@ export async function sendFreshStandaloneQuote(
     title: q.title,
     total: q.total,
     garageName: ctx.organization.name,
+    locationName: ctx.location.name,
+    address: locationAddress,
     url,
   });
 
@@ -405,18 +422,23 @@ async function dispatchStandaloneNotification(args: {
   title: string | null;
   total: number;
   garageName: string;
+  locationName: string | null;
+  address: string | null;
   url: string;
 }): Promise<{ channels: string[] }> {
-  const { customer, vehicleReg, title, total, garageName, url } = args;
+  const { customer, vehicleReg, title, total, garageName, locationName, address, url } = args;
   const firstName = customer.full_name?.split(" ")[0] ?? "there";
   const totalFmt = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(total);
   const refSuffix = vehicleReg ? ` for ${vehicleReg}` : "";
+  // Name the issuing branch (+ address) so the customer knows who/where it's from.
+  const identity = { orgName: garageName, locationName, address };
+  const where = garageLabel(identity);
 
   const channels: string[] = [];
 
   if (customer.email) {
-    const subject = `Quote from ${garageName}`;
-    const text = `Hi ${firstName},\n\n${title ? title + "\n\n" : ""}Here's your quote${refSuffix}: ${totalFmt} (inc. VAT).\n\nReview the line items and approve or decline online.`;
+    const subject = `Quote from ${where}`;
+    const text = `Hi ${firstName},\n\n${title ? title + "\n\n" : ""}Here's your quote${refSuffix}: ${totalFmt} (inc. VAT).\n\nReview the line items and approve or decline online.\n\n${garageLocationBlock(identity)}`;
     const result = await sendEmail({
       to: customer.email,
       subject,
@@ -427,7 +449,7 @@ async function dispatchStandaloneNotification(args: {
   }
 
   if (customer.phone) {
-    const body = `Hi ${firstName}, ${garageName} has sent you a quote${refSuffix}: ${totalFmt}. View + decide: ${url}`;
+    const body = `Hi ${firstName}, ${garageLocationInline(identity)} has sent you a quote${refSuffix}: ${totalFmt}. View + decide: ${url}`;
     const result = await sendSms({ to: customer.phone, body });
     if (result.success) channels.push("sms");
   }

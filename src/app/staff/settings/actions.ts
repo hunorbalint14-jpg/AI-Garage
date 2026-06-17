@@ -182,14 +182,19 @@ export async function addLocation(
 
 export type LocationActionResult = { error: string } | { success: true };
 
-// Rename a branch's display name. The slug/subdomain is deliberately NOT
-// editable here — that stays platform-admin-only (the /admin console).
+// Edit a branch's display name + postal address. The address feeds every
+// client-facing communication (so customers know which site to attend); the
+// slug/subdomain is deliberately NOT editable here — that stays platform-admin-
+// only (the /admin console).
 export async function renameLocation(formData: FormData): Promise<LocationActionResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "org_settings")) return { error: "Permission denied." };
 
   const locationId = (formData.get("locationId") as string | null)?.trim();
   const name = (formData.get("name") as string | null)?.trim();
+  // Address is optional; empty clears it. Cap length so a paste can't bloat
+  // every reminder/confirmation body.
+  const address = ((formData.get("address") as string | null) ?? "").trim().slice(0, 500) || null;
   if (!locationId) return { error: "Location is required." };
   if (!name) return { error: "Location name is required." };
 
@@ -202,7 +207,7 @@ export async function renameLocation(formData: FormData): Promise<LocationAction
     .maybeSingle();
   if (!loc) return { error: "Location not found." };
 
-  const { error } = await admin.from("locations").update({ name }).eq("id", locationId);
+  const { error } = await admin.from("locations").update({ name, address }).eq("id", locationId);
   if (error) return { error: error.message };
 
   await logAudit({
@@ -212,7 +217,7 @@ export async function renameLocation(formData: FormData): Promise<LocationAction
     action: "settings.location_rename",
     entityType: "location",
     entityId: locationId,
-    metadata: { from: (loc as { name: string | null }).name, to: name },
+    metadata: { from: (loc as { name: string | null }).name, to: name, address },
   });
 
   // Name shows in tenant branding + the staff switcher — evict both caches.

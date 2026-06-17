@@ -6,6 +6,7 @@ import { tenantPayUrl } from "@/lib/stripe";
 import { logAudit } from "@/lib/audit";
 import { recordCronRun } from "@/lib/platform/cron-runs";
 import { dunningStage, daysOverdue, DEFAULT_DUNNING_CADENCE } from "@/lib/dunning";
+import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 
 // Overdue-invoice dunning. Dispatched per-location by /api/cron/tick when the
 // `invoice_dunning` scheduled_task is due. For each unpaid, past-due invoice it
@@ -19,6 +20,7 @@ type LocationRow = {
   id: string;
   slug: string;
   name: string;
+  address: string | null;
   organization: { id: string; name: string } | null;
 };
 
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, organization:organizations(id, name)");
+    .select("id, slug, name, address, organization:organizations(id, name)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
@@ -67,7 +69,11 @@ export async function GET(request: NextRequest) {
   const results = { sent: 0, skipped: 0, failed: 0, errors: [] as string[] };
 
   for (const location of locations ?? []) {
-    const garageName = location.organization?.name ?? location.name;
+    const orgName = location.organization?.name ?? location.name;
+    // Identify the issuing branch (+ address) on the reminder, not just the org.
+    const garageName = garageLabel({ orgName, locationName: location.name });
+    const addrLine = addressOneLine(location.address);
+    const locationFooter = addrLine ? `\n\n📍 ${addrLine}` : "";
 
     // Per-location cadence override (Automations settings); default [1,7,14].
     const { data: task } = await admin
@@ -118,7 +124,7 @@ export async function GET(request: NextRequest) {
         `This is a ${isFinal ? "final " : ""}reminder that invoice ${inv.invoice_number} for ${fmtGBP(inv.total)} ` +
         `was due on ${fmtDate(inv.due_at)} and is now overdue.\n\n` +
         `You can pay securely online using the button below. If you've already paid, please ignore this message.\n\n` +
-        `Thank you,\n${garageName}`;
+        `Thank you,\n${garageName}${locationFooter}`;
 
       const res = await sendEmail({
         to: email,

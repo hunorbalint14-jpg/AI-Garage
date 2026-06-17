@@ -10,6 +10,7 @@ import {
   hashBookingConfirmToken,
   tenantBookingConfirmUrl,
 } from "@/lib/booking-confirm";
+import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
     admin
       .from("locations")
-      .select("id, slug, name, organization:organizations(name)")
+      .select("id, slug, name, address, organization:organizations(name)")
       .eq("id", locationId)
       .maybeSingle(),
   ]);
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, skipped: "disabled" });
   }
   const location = locationData as
-    | { id: string; slug: string; name: string; organization: { name: string } | null }
+    | { id: string; slug: string; name: string; address: string | null; organization: { name: string } | null }
     | null;
   if (!location) return NextResponse.json({ error: "location not found" }, { status: 404 });
 
@@ -89,6 +90,10 @@ export async function GET(request: NextRequest) {
 
   const bookings = ((bookingsData ?? []) as unknown as BookingRow[]).filter((b) => b.customer);
   const garageName = location.organization?.name ?? location.name;
+  // Confirm the branch (+ address) in every channel so the customer knows which
+  // site to attend, not just the org/brand.
+  const identity = { orgName: garageName, locationName: location.name, address: location.address };
+  const where = garageLabel(identity);
 
   let sent = 0;
   let skippedNoContact = 0;
@@ -125,12 +130,15 @@ export async function GET(request: NextRequest) {
     const subject = `Please confirm your booking — ${when}`;
     const emailText = `Hi ${firstName},
 
-A quick reminder of your booking${vehicleBit} at ${garageName} on ${when}.
+A quick reminder of your booking${vehicleBit} at ${where} on ${when}.
+
+Location:
+${garageLocationBlock(identity)}
 
 Please tap the button below to confirm you're coming, or use the same link if you need to change the time. It only takes a second and helps us keep your slot ready.
 
 See you soon!`;
-    const smsText = `Hi ${firstName}, reminder: booking${vehicleBit} at ${garageName}, ${when}. Confirm or reschedule: ${confirmUrl}`;
+    const smsText = `Hi ${firstName}, reminder: booking${vehicleBit} at ${garageLocationInline(identity)}, ${when}. Confirm or reschedule: ${confirmUrl}`;
 
     if (channels.includes("email") && customer.email) {
       const result = await sendEmail({

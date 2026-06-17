@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
 import { effectiveFeePercent } from "@/lib/tenant-plans";
@@ -51,11 +52,11 @@ export async function submitWidgetBooking(
   const { data: org } = (await admin
     .from("organizations")
     .select(
-      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, name, slug)",
+      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, name, slug, address)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
-    data: (OrgFields & { locations: { id: string; name: string; slug: string }[] | null }) | null;
+    data: (OrgFields & { locations: { id: string; name: string; slug: string; address: string | null }[] | null }) | null;
   };
   if (!org || !org.locations || org.locations.length === 0) return { error: "Garage not found." };
 
@@ -64,7 +65,7 @@ export async function submitWidgetBooking(
   // Re-shaped to the old `location` object so the downstream booking/payment
   // code is unchanged; `location.id` is the chosen branch. `org` satisfies
   // OrgFields (the extra `locations` key is harmless at runtime).
-  const location = { id: branch.id, name: branch.name, organization: org as OrgFields };
+  const location = { id: branch.id, name: branch.name, address: branch.address, organization: org as OrgFields };
 
   const fullName = (formData.get("fullName") as string | null)?.trim();
   const email = (formData.get("email") as string | null)?.trim().toLowerCase();
@@ -290,6 +291,11 @@ export async function submitWidgetBooking(
 
   const garageName = location.organization.name;
   const garagePhone = location.organization.phone;
+  // Name the branch (+ address) in the customer's confirmation so they know
+  // which site to attend, not just the org/brand.
+  const identity = { orgName: garageName, locationName: location.name, address: location.address };
+  const where = garageLabel(identity);
+  const whereInline = garageLocationInline(identity);
   const typeLabel = service.name;
   const dateStr = new Date(scheduledAt).toLocaleString("en-GB", {
     weekday: "long",
@@ -315,7 +321,7 @@ export async function submitWidgetBooking(
                 currency: "gbp",
                 unit_amount: amountPence,
                 product_data: {
-                  name: `${service.name} — ${garageName}`,
+                  name: `${service.name} — ${where}`,
                   description: `Appointment on ${dateStr}${registration ? ` for ${registration}` : ""}`,
                 },
               },
@@ -357,17 +363,17 @@ export async function submitWidgetBooking(
   }
 
   // No payment path — fire confirmation comms as before.
-  const confirmText = `Hi ${firstName},\n\nYour ${typeLabel} appointment${registration ? ` for ${registration}` : ""} at ${garageName} is confirmed for ${dateStr}.${garagePhone ? `\n\nTo reschedule or cancel, call us on ${garagePhone} or reply to this email.` : "\n\nTo reschedule or cancel, reply to this email."}\n\nSee you then!\n${garageName}`;
+  const confirmText = `Hi ${firstName},\n\nYour ${typeLabel} appointment${registration ? ` for ${registration}` : ""} at ${where} is confirmed for ${dateStr}.\n\nLocation:\n${garageLocationBlock(identity)}${garagePhone ? `\n\nTo reschedule or cancel, call us on ${garagePhone} or reply to this email.` : "\n\nTo reschedule or cancel, reply to this email."}\n\nSee you then!\n${garageName}`;
 
   await sendEmail({
     to: email,
-    subject: `Booking confirmed — ${typeLabel} at ${garageName}`,
+    subject: `Booking confirmed — ${typeLabel} at ${where}`,
     text: confirmText,
   });
   if (phone) {
     await sendSms({
       to: phone,
-      body: `Hi ${firstName}, your ${typeLabel} at ${garageName} on ${dateStr} is confirmed.${garagePhone ? ` Call ${garagePhone} to reschedule.` : ""}`,
+      body: `Hi ${firstName}, your ${typeLabel} at ${whereInline} on ${dateStr} is confirmed.${garagePhone ? ` Call ${garagePhone} to reschedule.` : ""}`,
     });
   }
 

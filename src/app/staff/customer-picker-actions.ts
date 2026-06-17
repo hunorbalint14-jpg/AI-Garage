@@ -22,17 +22,22 @@ export type PickerCustomer = {
   full_name: string | null;
   email: string | null;
   phone: string | null;
+  // The customer's home branch — used to warn staff when booking them into a
+  // different branch than the one they registered at.
+  preferredLocationId: string | null;
   vehicles: PickerVehicle[];
 };
 
 const PICKER_LIMIT = 10;
-const PICKER_SELECT = "id, full_name, email, phone, vehicles(id, registration, make, model, year)";
+const PICKER_SELECT =
+  "id, full_name, email, phone, preferred_location_id, vehicles(id, registration, make, model, year)";
 
 type RawCustomer = {
   id: string;
   full_name: string | null;
   email: string | null;
   phone: string | null;
+  preferred_location_id: string | null;
   vehicles: PickerVehicle[] | null;
 };
 
@@ -42,6 +47,7 @@ function toPickerCustomers(data: unknown): PickerCustomer[] {
     full_name: c.full_name,
     email: c.email,
     phone: c.phone,
+    preferredLocationId: c.preferred_location_id,
     vehicles: c.vehicles ?? [],
   }));
 }

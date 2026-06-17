@@ -7,22 +7,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { releaseCoverage } from "@/lib/service-plans";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { garageLabel, garageLocationInline } from "@/lib/garage-identity";
 
 async function getCustomerAndBooking(bookingId: string) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { error: "Not authenticated." as string, customer: null, booking: null, org: null };
+  if (!user) return { error: "Not authenticated." as string, customer: null, booking: null, org: null, location: null };
 
   const headersList = await headers();
   const slug = headersList.get("x-tenant-slug");
-  if (!slug) return { error: "Garage not found.", customer: null, booking: null, org: null };
+  if (!slug) return { error: "Garage not found.", customer: null, booking: null, org: null, location: null };
 
   const admin = createAdminClient();
 
   const [locationRes, bookingRes] = await Promise.all([
     admin
       .from("locations")
-      .select("id, name, organization:organizations(id, name, phone)")
+      .select("id, name, address, organization:organizations(id, name, phone)")
       .eq("slug", slug)
       .maybeSingle(),
     admin
@@ -32,11 +33,11 @@ async function getCustomerAndBooking(bookingId: string) {
       .maybeSingle(),
   ]);
 
-  const location = locationRes.data as { id: string; name: string; organization: { id: string; name: string; phone: string | null } | null } | null;
+  const location = locationRes.data as { id: string; name: string; address: string | null; organization: { id: string; name: string; phone: string | null } | null } | null;
   const booking = bookingRes.data as { id: string; customer_id: string | null; scheduled_at: string; type: string; status: string; location_id: string } | null;
 
-  if (!location || !booking || !location.organization) return { error: "Not found.", customer: null, booking: null, org: null };
-  if (booking.location_id !== location.id) return { error: "Not found.", customer: null, booking: null, org: null };
+  if (!location || !booking || !location.organization) return { error: "Not found.", customer: null, booking: null, org: null, location: null };
+  if (booking.location_id !== location.id) return { error: "Not found.", customer: null, booking: null, org: null, location: null };
 
   // Verify customer owns this booking (customers are org-scoped, not per-branch)
   const { data: customer } = await admin
@@ -47,16 +48,16 @@ async function getCustomerAndBooking(bookingId: string) {
     .maybeSingle();
 
   if (!customer || booking.customer_id !== customer.id) {
-    return { error: "Not authorised.", customer: null, booking: null, org: null };
+    return { error: "Not authorised.", customer: null, booking: null, org: null, location: null };
   }
 
-  return { error: null, customer, booking, org: location.organization };
+  return { error: null, customer, booking, org: location.organization, location };
 }
 
 export type BookingActionResult = { error: string } | { success: true };
 
 export async function cancelCustomerBooking(bookingId: string): Promise<BookingActionResult> {
-  const { error, customer, booking, org } = await getCustomerAndBooking(bookingId);
+  const { error, customer, booking, org, location } = await getCustomerAndBooking(bookingId);
   if (error) return { error };
 
   if (booking!.status === "cancelled") return { error: "Already cancelled." };
@@ -68,6 +69,8 @@ export async function cancelCustomerBooking(bookingId: string): Promise<BookingA
   await releaseCoverage(admin, bookingId);
 
   const garageName = org?.name ?? "";
+  const identity = { orgName: garageName, locationName: location?.name ?? null, address: location?.address ?? null };
+  const where = garageLabel(identity);
   const firstName = customer!.full_name?.split(" ")[0] ?? "there";
   const typeLabel = booking!.type === "mot" ? "MOT" : booking!.type.charAt(0).toUpperCase() + booking!.type.slice(1);
   const dateStr = new Date(booking!.scheduled_at).toLocaleString("en-GB", {
@@ -77,12 +80,12 @@ export async function cancelCustomerBooking(bookingId: string): Promise<BookingA
   if (customer!.email) {
     await sendEmail({
       to: customer!.email,
-      subject: `Appointment cancelled — ${typeLabel} at ${garageName}`,
-      text: `Hi ${firstName},\n\nYour ${typeLabel} appointment on ${dateStr} at ${garageName} has been cancelled.\n\nIf you'd like to rebook, please contact us.${org?.phone ? `\n\nCall us on ${org.phone}.` : ""}\n\nThank you,\n${garageName}`,
+      subject: `Appointment cancelled — ${typeLabel} at ${where}`,
+      text: `Hi ${firstName},\n\nYour ${typeLabel} appointment on ${dateStr} at ${where} has been cancelled.\n\nIf you'd like to rebook, please contact us.${org?.phone ? `\n\nCall us on ${org.phone}.` : ""}\n\nThank you,\n${garageName}`,
     });
   }
   if (customer!.phone) {
-    await sendSms({ to: customer!.phone, body: `Hi ${firstName}, your ${typeLabel} at ${garageName} on ${dateStr} has been cancelled. Contact us to rebook.` });
+    await sendSms({ to: customer!.phone, body: `Hi ${firstName}, your ${typeLabel} at ${garageLocationInline(identity)} on ${dateStr} has been cancelled. Contact us to rebook.` });
   }
 
   // Notify staff
@@ -106,7 +109,7 @@ export async function rescheduleCustomerBooking(
   bookingId: string,
   newDateTime: string,
 ): Promise<BookingActionResult> {
-  const { error, customer, booking, org } = await getCustomerAndBooking(bookingId);
+  const { error, customer, booking, org, location } = await getCustomerAndBooking(bookingId);
   if (error) return { error };
 
   if (booking!.status === "cancelled") return { error: "Cannot reschedule a cancelled booking." };
@@ -122,6 +125,8 @@ export async function rescheduleCustomerBooking(
     .eq("id", bookingId);
 
   const garageName = org?.name ?? "";
+  const identity = { orgName: garageName, locationName: location?.name ?? null, address: location?.address ?? null };
+  const where = garageLabel(identity);
   const firstName = customer!.full_name?.split(" ")[0] ?? "there";
   const typeLabel = booking!.type === "mot" ? "MOT" : booking!.type.charAt(0).toUpperCase() + booking!.type.slice(1);
   const newDateStr = newDate.toLocaleString("en-GB", {
@@ -131,12 +136,12 @@ export async function rescheduleCustomerBooking(
   if (customer!.email) {
     await sendEmail({
       to: customer!.email,
-      subject: `Appointment rescheduled — ${typeLabel} at ${garageName}`,
-      text: `Hi ${firstName},\n\nYour ${typeLabel} appointment at ${garageName} has been rescheduled to ${newDateStr}.\n\nIf you need to make further changes, please contact us.${org?.phone ? `\n\nCall us on ${org.phone}.` : ""}\n\nSee you then!\n${garageName}`,
+      subject: `Appointment rescheduled — ${typeLabel} at ${where}`,
+      text: `Hi ${firstName},\n\nYour ${typeLabel} appointment at ${garageLocationInline(identity)} has been rescheduled to ${newDateStr}.\n\nIf you need to make further changes, please contact us.${org?.phone ? `\n\nCall us on ${org.phone}.` : ""}\n\nSee you then!\n${garageName}`,
     });
   }
   if (customer!.phone) {
-    await sendSms({ to: customer!.phone, body: `Hi ${firstName}, your ${typeLabel} at ${garageName} has been rescheduled to ${newDateStr}.${org?.phone ? ` Questions? Call ${org.phone}.` : ""}` });
+    await sendSms({ to: customer!.phone, body: `Hi ${firstName}, your ${typeLabel} at ${garageLocationInline(identity)} has been rescheduled to ${newDateStr}.${org?.phone ? ` Questions? Call ${org.phone}.` : ""}` });
   }
 
   // Notify staff

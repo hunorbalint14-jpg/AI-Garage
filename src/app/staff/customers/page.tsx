@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/staff/page-header";
 import { CustomerSearch } from "./customer-search";
+import { CustomerFilters } from "./customer-filters";
 import { CustomerTable, type CustomerListRow } from "./customer-table";
 
 export const dynamic = "force-dynamic";
@@ -40,13 +41,25 @@ function toListRow(c: CustomerRow): CustomerListRow {
 export default async function CustomersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; branch?: string; sort?: string }>;
 }) {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
-  const { q, page: pageParam } = await searchParams;
+  const { q, page: pageParam, branch: branchParam, sort: sortParam } = await searchParams;
   const query = q?.trim() ?? "";
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+
+  // Branch filter (by home branch = preferred_location_id). Only honour a branch
+  // the staffer can actually see; anything else falls back to "all".
+  const multiBranch = ctx.accessibleLocations.length > 1;
+  const branch =
+    branchParam && ctx.accessibleLocations.some((l) => l.id === branchParam) ? branchParam : "all";
+  const sort = sortParam === "name" || sortParam === "branch" ? sortParam : "recent";
+
+  // Order by branch (home-branch name via the to-one `preferred_location` embed,
+  // then customer name), by name, or most-recent (default). Applied inline at
+  // each query so the chained builder keeps its concrete type.
+  const branchOrder = { referencedTable: "preferred_location", ascending: true, nullsFirst: false } as const;
 
   let customers: CustomerRow[] | null = null;
   let totalCount: number | null = null;
@@ -54,14 +67,18 @@ export default async function CustomersPage({
 
   if (query) {
     // Parallel: match by name/phone + match by vehicle reg
+    let custQuery = admin
+      .from("customers")
+      .select(CUSTOMER_SELECT)
+      .eq("organization_id", ctx.organization.id)
+      .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`);
+    if (branch !== "all") custQuery = custQuery.eq("preferred_location_id", branch);
+    const custOrdered =
+      sort === "branch"
+        ? custQuery.order("name", branchOrder).order("full_name", { ascending: true })
+        : custQuery.order("full_name", { ascending: true });
     const [custRes, vehRes] = await Promise.all([
-      admin
-        .from("customers")
-        .select(CUSTOMER_SELECT)
-        .eq("organization_id", ctx.organization.id)
-        .or(`full_name.ilike.%${query}%,phone.ilike.%${query}%`)
-        .order("full_name", { ascending: true })
-        .limit(SEARCH_LIMIT),
+      custOrdered.limit(SEARCH_LIMIT),
       admin
         .from("vehicles")
         .select("customer_id")
@@ -81,12 +98,13 @@ export default async function CustomersPage({
       const missingIds = regCustomerIds.filter((id) => !existingIds.has(id));
 
       if (missingIds.length > 0) {
-        const { data: regCustomers } = await admin
+        let regQuery = admin
           .from("customers")
           .select(CUSTOMER_SELECT)
           .eq("organization_id", ctx.organization.id)
-          .in("id", missingIds)
-          .order("full_name", { ascending: true });
+          .in("id", missingIds);
+        if (branch !== "all") regQuery = regQuery.eq("preferred_location_id", branch);
+        const { data: regCustomers } = await regQuery.order("full_name", { ascending: true });
         customers = [...byNamePhone, ...((regCustomers as unknown as CustomerRow[]) ?? [])];
       } else {
         customers = byNamePhone;
@@ -95,12 +113,18 @@ export default async function CustomersPage({
   } else {
     // Paginated default list — the table previously rendered EVERY customer.
     const from = (page - 1) * PAGE_SIZE;
-    const res = await admin
+    let listQuery = admin
       .from("customers")
       .select(CUSTOMER_SELECT, { count: "exact" })
-      .eq("organization_id", ctx.organization.id)
-      .order("created_at", { ascending: false })
-      .range(from, from + PAGE_SIZE - 1);
+      .eq("organization_id", ctx.organization.id);
+    if (branch !== "all") listQuery = listQuery.eq("preferred_location_id", branch);
+    const listOrdered =
+      sort === "branch"
+        ? listQuery.order("name", branchOrder).order("full_name", { ascending: true })
+        : sort === "name"
+          ? listQuery.order("full_name", { ascending: true })
+          : listQuery.order("created_at", { ascending: false });
+    const res = await listOrdered.range(from, from + PAGE_SIZE - 1);
     customers = res.data as unknown as CustomerRow[] | null;
     totalCount = res.count;
     if (res.error) error = res.error;
@@ -108,6 +132,10 @@ export default async function CustomersPage({
 
   const rows = (customers ?? []).map(toListRow);
   const totalPages = totalCount !== null ? Math.max(1, Math.ceil(totalCount / PAGE_SIZE)) : 1;
+  // Preserve active filters across pagination links.
+  const pageParams = new URLSearchParams();
+  if (branch !== "all") pageParams.set("branch", branch);
+  if (sort !== "recent") pageParams.set("sort", sort);
 
   return (
     <div className="flex flex-col gap-6">
@@ -134,7 +162,12 @@ export default async function CustomersPage({
         }
       />
 
-      <CustomerSearch initialQ={query} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <CustomerSearch initialQ={query} />
+        {multiBranch && (
+          <CustomerFilters branches={ctx.accessibleLocations} branch={branch} sort={sort} />
+        )}
+      </div>
 
       {error && (
         <p className="text-sm text-red-600">Failed to load: {error.message}</p>
@@ -162,7 +195,7 @@ export default async function CustomersPage({
           )}
           <CustomerTable rows={rows} showBranch={ctx.accessibleLocations.length > 1} />
           {!query && totalCount !== null && totalCount > PAGE_SIZE && (
-            <Pagination page={page} totalPages={totalPages} totalCount={totalCount} />
+            <Pagination page={page} totalPages={totalPages} totalCount={totalCount} extraParams={pageParams.toString()} />
           )}
         </div>
       ) : null}
@@ -174,10 +207,12 @@ function Pagination({
   page,
   totalPages,
   totalCount,
+  extraParams,
 }: {
   page: number;
   totalPages: number;
   totalCount: number;
+  extraParams: string;
 }) {
   const from = (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, totalCount);
@@ -185,6 +220,7 @@ function Pagination({
     "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted";
   const disabledClass =
     "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-sm text-muted-foreground/50 pointer-events-none";
+  const href = (p: number) => `/staff/customers?page=${p}${extraParams ? `&${extraParams}` : ""}`;
 
   return (
     <div className="flex items-center justify-between">
@@ -193,7 +229,7 @@ function Pagination({
       </p>
       <div className="flex gap-2">
         <Link
-          href={`/staff/customers?page=${page - 1}`}
+          href={href(page - 1)}
           className={page > 1 ? linkClass : disabledClass}
           aria-disabled={page <= 1}
         >
@@ -201,7 +237,7 @@ function Pagination({
           Previous
         </Link>
         <Link
-          href={`/staff/customers?page=${page + 1}`}
+          href={href(page + 1)}
           className={page < totalPages ? linkClass : disabledClass}
           aria-disabled={page >= totalPages}
         >

@@ -2,6 +2,7 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { sendEmail, tenantBookingUrl } from "@/lib/email";
+import { garageLabel, garageLocationBlock } from "@/lib/garage-identity";
 import { TIERS, type TierKey } from "@/lib/tenant-plans";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -131,17 +132,22 @@ export async function sendServicePlanReceipt(admin: Admin, sub: Stripe.Subscript
     const { data: locRow } = locationId
       ? await admin
           .from("locations")
-          .select("name, organization:organizations(name, logo_url, primary_color)")
+          .select("name, address, organization:organizations(name, logo_url, primary_color)")
           .eq("id", locationId)
           .maybeSingle()
       : { data: null };
     const loc = locRow as unknown as {
       name: string;
+      address: string | null;
       organization: { name: string; logo_url: string | null; primary_color: string | null } | null;
     } | null;
     const garageName = loc?.organization?.name ?? loc?.name ?? "your garage";
     const brandColor = loc?.organization?.primary_color ?? "#22c55e";
     const logoUrl = loc?.organization?.logo_url ?? null;
+    // The branch the membership is held at (+ address) — named so the customer
+    // knows which site their plan benefits apply to.
+    const identity = { orgName: garageName, locationName: loc?.name ?? null, address: loc?.address ?? null };
+    const where = garageLabel(identity);
 
     const { amountPence, interval } = subPrice(sub);
     const renew = longDate(periodEndIso(sub));
@@ -149,6 +155,7 @@ export async function sendServicePlanReceipt(admin: Admin, sub: Stripe.Subscript
 
     const html = brandedReceiptHtml({
       garageName,
+      locationLine: garageLocationBlock(identity),
       brandColor,
       logoUrl,
       customerName: cust.full_name,
@@ -158,7 +165,8 @@ export async function sendServicePlanReceipt(admin: Admin, sub: Stripe.Subscript
     });
 
     const text = [
-      `You're all set — your ${planName} membership at ${garageName} is active.`,
+      `You're all set — your ${planName} membership at ${where} is active.`,
+      `Location:\n${garageLocationBlock(identity)}`,
       [price ? `${price}.` : "", renew ? `Next renewal: ${renew}.` : ""].filter(Boolean).join(" "),
       "Your plan benefits apply automatically next time you book.",
     ]
@@ -167,7 +175,7 @@ export async function sendServicePlanReceipt(admin: Admin, sub: Stripe.Subscript
 
     const sent = await sendEmail({
       to: cust.email,
-      subject: `Your ${planName} membership at ${garageName}`,
+      subject: `Your ${planName} membership at ${where}`,
       text,
       html,
     });
@@ -182,6 +190,7 @@ export async function sendServicePlanReceipt(admin: Admin, sub: Stripe.Subscript
 // Garage-branded receipt body. Inline styles only (email-safe).
 function brandedReceiptHtml({
   garageName,
+  locationLine,
   brandColor,
   logoUrl,
   customerName,
@@ -190,6 +199,8 @@ function brandedReceiptHtml({
   renew,
 }: {
   garageName: string;
+  /** Branch label + address (plain text, newline-separated) for the body. */
+  locationLine: string | null;
   brandColor: string;
   logoUrl: string | null;
   customerName: string | null;
@@ -229,9 +240,8 @@ function brandedReceiptHtml({
       <p style="margin:0 0 6px 0;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:${safeColor};font-weight:700">Membership active</p>
       <h1 style="margin:0 0 16px 0;font-size:20px;color:#111827">Welcome to ${esc(planName)}</h1>
       <p style="margin:0 0 8px 0;font-size:15px;line-height:1.6">${hello}</p>
-      <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6">Thanks for joining — your membership at ${esc(
-        garageName,
-      )} is now active. Your plan benefits apply automatically next time you book.</p>
+      <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6">Thanks for joining — your membership is now active. Your plan benefits apply automatically next time you book.</p>
+      ${locationLine ? `<p style="margin:0 0 20px 0;font-size:14px;line-height:1.5;color:#374151"><strong>Location:</strong><br>${esc(locationLine).replace(/\n/g, "<br>")}</p>` : ""}
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-top:1px solid #e5e7eb;margin-top:8px">${rows}</table>
     </div>
   </div>

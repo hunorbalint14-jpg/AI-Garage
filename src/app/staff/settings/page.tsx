@@ -19,7 +19,7 @@ import { isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import type { FinanceConfigView } from "./finance-actions";
 import { SettingsTabs, isSettingsTab } from "./settings-tabs";
 
-type LocationRow = { id: string; slug: string; name: string; created_at: string };
+type LocationRow = { id: string; slug: string; name: string; address: string | null; created_at: string };
 
 const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
 const ROOT_HOST = ROOT.split(":")[0];
@@ -43,7 +43,7 @@ export default async function SettingsPage({
       .single(),
     admin
       .from("locations")
-      .select("id, slug, name, created_at")
+      .select("id, slug, name, address, created_at")
       .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: true }),
     admin
