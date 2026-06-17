@@ -222,6 +222,102 @@ export async function inviteStaffMember(formData: FormData): Promise<InviteResul
   return { success: true, inviteLink };
 }
 
+// Grant an existing org member access to an additional branch. Used by the
+// Team page's "Add location access" panel — distinct from inviteStaffMember
+// (which provisions/emails a brand-new user). The target must already belong to
+// the org (an org_users row or another location's location_users row), so this
+// can never grant access to an arbitrary auth user.
+export async function grantLocationAccess(
+  userId: string,
+  locationId: string,
+  role: string,
+  templateId: string | null,
+  permissions: Permissions,
+  motTester: boolean,
+  motQcReviewer: boolean,
+): Promise<StaffActionResult> {
+  const ctx = await requireStaffContext();
+  if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") return { error: "Owner or admin only." };
+  if (!ALLOWED_LOCATION_ROLES.includes(role)) return { error: "Invalid role." };
+
+  const admin = createAdminClient();
+
+  // Location must belong to this org.
+  const { data: loc } = await admin
+    .from("locations")
+    .select("id")
+    .eq("id", locationId)
+    .eq("organization_id", ctx.organization.id)
+    .maybeSingle();
+  if (!loc) return { error: "Location not found." };
+
+  // Target must already be a member of THIS org (org-level, or staff at one of
+  // its branches) — never grant to an arbitrary user id from outside the org.
+  const orgLocationIds = (
+    (await admin.from("locations").select("id").eq("organization_id", ctx.organization.id)).data ?? []
+  ).map((l) => (l as { id: string }).id);
+  const [{ data: orgMember }, { data: locMember }] = await Promise.all([
+    admin
+      .from("org_users")
+      .select("user_id")
+      .eq("user_id", userId)
+      .eq("organization_id", ctx.organization.id)
+      .maybeSingle(),
+    orgLocationIds.length
+      ? admin.from("location_users").select("user_id").eq("user_id", userId).in("location_id", orgLocationIds).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  if (!orgMember && !locMember) return { error: "That person isn't a member of this organisation." };
+  if (orgMember) return { error: "This member already has organisation-wide access to all branches." };
+
+  // Validate the template (if any) is a system row or belongs to this org.
+  let safeTemplateId: string | null = null;
+  if (templateId) {
+    const { data: tpl } = await admin
+      .from("role_templates")
+      .select("id, organization_id, is_system")
+      .eq("id", templateId)
+      .maybeSingle();
+    const row = tpl as { id: string; organization_id: string | null; is_system: boolean } | null;
+    if (row && (row.is_system || row.organization_id === ctx.organization.id)) safeTemplateId = row.id;
+  }
+
+  // Refuse if they already have this branch (the UI only offers branches they
+  // lack, but guard the action too).
+  const { data: existing } = await admin
+    .from("location_users")
+    .select("user_id")
+    .eq("user_id", userId)
+    .eq("location_id", locationId)
+    .maybeSingle();
+  if (existing) return { error: "This member already has access to that branch." };
+
+  const { error } = await admin.from("location_users").insert({
+    location_id: locationId,
+    user_id: userId,
+    role,
+    permissions: permissions as unknown as Record<string, unknown>,
+    template_id: safeTemplateId,
+    mot_tester: motTester,
+    mot_qc_reviewer: motQcReviewer,
+  });
+  if (error) return { error: error.message };
+  await invalidateStaffMembershipCache(userId, locationId);
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "staff.location_access_grant",
+    entityType: "location_user",
+    entityId: userId,
+    metadata: { location_id: locationId, role, template_id: safeTemplateId },
+  });
+
+  revalidatePath("/staff/staff-members");
+  return { success: true };
+}
+
 export async function resetStaffPassword(email: string): Promise<LinkResult> {
   const ctx = await requireStaffContext();
   if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") return { error: "Owner or admin only." };

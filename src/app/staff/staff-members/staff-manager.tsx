@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import {
   inviteStaffMember,
+  grantLocationAccess,
   updateStaffPermissions,
   updateStaffRole,
   updateStaffMotFlags,
@@ -244,6 +245,27 @@ export function StaffManager({
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
 
+  // "Add location access" panel — grants an existing member another branch.
+  type AddAccessState = {
+    userId: string;
+    name: string;
+    locationId: string;
+    role: string;
+    templateId: string;
+    permissions: Permissions;
+    motTester: boolean;
+    motQcReviewer: boolean;
+  };
+  const [addAccess, setAddAccess] = useState<AddAccessState | null>(null);
+  const addAccessAvailable = addAccess
+    ? locations.filter(
+        (l) =>
+          !entries
+            .find((e) => e.userId === addAccess.userId)
+            ?.locationEntries.some((le) => le.locationId === l.id),
+      )
+    : [];
+
   const defaultTemplate =
     templateForRole(templates, "mechanic") ?? templates.find((t) => t.isSystem) ?? null;
 
@@ -465,6 +487,46 @@ export function StaffManager({
     });
   }
 
+  function openAddAccess(entry: StaffEntry) {
+    const existing = entry.locationEntries.map((l) => l.locationId);
+    const available = locations.filter((l) => !existing.includes(l.id));
+    if (available.length === 0) return;
+    setError(null);
+    setEditingKey(null);
+    setAddAccess({
+      userId: entry.userId,
+      name: entry.fullName ?? entry.email,
+      locationId: available[0].id,
+      role: defaultTemplate?.key ?? "mechanic",
+      templateId: defaultTemplate?.id ?? "",
+      permissions: defaultTemplate?.permissions ?? normalisePermissions(null),
+      motTester: false,
+      motQcReviewer: false,
+    });
+  }
+
+  function submitAddAccess(e: React.FormEvent) {
+    e.preventDefault();
+    if (!addAccess) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await grantLocationAccess(
+        addAccess.userId,
+        addAccess.locationId,
+        addAccess.role,
+        addAccess.templateId || null,
+        addAccess.permissions,
+        addAccess.motTester,
+        addAccess.motQcReviewer,
+      );
+      if ("error" in result) setError(result.error);
+      else {
+        flash("Location access added.");
+        setAddAccess(null);
+      }
+    });
+  }
+
   const inputClass =
     "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
@@ -656,6 +718,11 @@ export function StaffManager({
                             {entry.hasMfa && (
                               <DropdownMenuItem onClick={() => handleResetMfa(entry.userId, displayName)}>
                                 Reset MFA
+                              </DropdownMenuItem>
+                            )}
+                            {locations.length > entry.locationEntries.length && (
+                              <DropdownMenuItem onClick={() => openAddAccess(entry)}>
+                                Add location access
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
@@ -850,6 +917,130 @@ export function StaffManager({
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">Staff member can change this after logging in.</p>
+        </form>
+      )}
+
+      {addAccess && (
+        <form onSubmit={submitAddAccess} className="rounded-lg border p-5 flex flex-col gap-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Add location access — {addAccess.name}
+            </h3>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground underline"
+              onClick={() => setAddAccess(null)}
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>Location</Label>
+              <select
+                value={addAccess.locationId}
+                onChange={(e) => setAddAccess((p) => (p ? { ...p, locationId: e.target.value } : p))}
+                disabled={pending}
+                className={inputClass}
+              >
+                {addAccessAvailable.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Role</Label>
+              <select
+                value={addAccess.role}
+                onChange={(e) => {
+                  const r = e.target.value;
+                  const t = templateForRole(templates, r);
+                  setAddAccess((p) =>
+                    p ? { ...p, role: r, templateId: t?.id ?? "", permissions: t?.permissions ?? p.permissions } : p,
+                  );
+                }}
+                disabled={pending}
+                className={inputClass}
+              >
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>Template</Label>
+              <select
+                value={addAccess.templateId}
+                onChange={(e) => {
+                  const t = findTemplate(templates, e.target.value);
+                  setAddAccess((p) =>
+                    p ? { ...p, templateId: e.target.value, permissions: t?.permissions ?? p.permissions } : p,
+                  );
+                }}
+                disabled={pending}
+                className={inputClass}
+              >
+                <option value="">(custom — keep current ticks)</option>
+                <optgroup label="System">
+                  {templates.filter((t) => t.isSystem).map((t) => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </optgroup>
+                {templates.some((t) => !t.isSystem) && (
+                  <optgroup label="Custom">
+                    {templates.filter((t) => !t.isSystem).map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label>Permissions</Label>
+            <PermissionsGrid
+              perms={addAccess.permissions}
+              onChange={(perms) => setAddAccess((p) => (p ? { ...p, permissions: perms, templateId: "" } : p))}
+              disabled={pending}
+            />
+          </div>
+
+          <div className="rounded-md border p-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">MOT (DVSA)</p>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={addAccess.motTester}
+                  onChange={(e) => setAddAccess((p) => (p ? { ...p, motTester: e.target.checked } : p))}
+                  disabled={pending}
+                  className="mt-0.5"
+                />
+                <span className="font-medium">MOT tester certified</span>
+              </label>
+              <label className="flex items-start gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={addAccess.motQcReviewer}
+                  onChange={(e) => setAddAccess((p) => (p ? { ...p, motQcReviewer: e.target.checked } : p))}
+                  disabled={pending}
+                  className="mt-0.5"
+                />
+                <span className="font-medium">QC reviewer</span>
+              </label>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button type="submit" disabled={!addAccess.locationId} loading={pending}>
+              Add access
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setAddAccess(null)} disabled={pending}>
+              Cancel
+            </Button>
+          </div>
         </form>
       )}
 

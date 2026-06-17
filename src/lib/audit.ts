@@ -113,6 +113,7 @@ export type AuditAction =
   | "staff.remove"
   | "staff.template_assign"
   | "staff.mot_flag_change"
+  | "staff.location_access_grant"
   // Role templates
   | "role_template.create"
   | "role_template.update"
