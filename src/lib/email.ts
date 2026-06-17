@@ -22,6 +22,12 @@ export function tenantBookingUrl(slug: string, path = "/book"): string {
   return `https://${slug}.${ROOT_HOST}${path}`;
 }
 
+// The customer portal (authenticated) where they reschedule/cancel a booking.
+// Must use the ORG slug — the portal resolves the tenant from organizations.slug.
+export function tenantPortalUrl(orgSlug: string, path = "/dashboard"): string {
+  return `https://${orgSlug}.${ROOT_HOST}${path}`;
+}
+
 function escapeAttr(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
 import { recordCronRun } from "@/lib/platform/cron-runs";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, tenantPortalUrl } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import {
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
     admin
       .from("locations")
-      .select("id, slug, name, address, organization:organizations(name)")
+      .select("id, slug, name, address, organization:organizations(name, slug)")
       .eq("id", locationId)
       .maybeSingle(),
   ]);
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, skipped: "disabled" });
   }
   const location = locationData as
-    | { id: string; slug: string; name: string; address: string | null; organization: { name: string } | null }
+    | { id: string; slug: string; name: string; address: string | null; organization: { name: string; slug: string } | null }
     | null;
   if (!location) return NextResponse.json({ error: "location not found" }, { status: 404 });
 
@@ -94,6 +94,8 @@ export async function GET(request: NextRequest) {
   // site to attend, not just the org/brand.
   const identity = { orgName: garageName, locationName: location.name, address: location.address };
   const where = garageLabel(identity);
+  // Self-serve reschedule/cancel in the customer portal (org-slug subdomain).
+  const manageUrl = tenantPortalUrl(location.organization?.slug ?? location.slug);
 
   let sent = 0;
   let skippedNoContact = 0;
@@ -135,10 +137,12 @@ A quick reminder of your booking${vehicleBit} at ${where} on ${when}.
 Location:
 ${garageLocationBlock(identity)}
 
-Please tap the button below to confirm you're coming, or use the same link if you need to change the time. It only takes a second and helps us keep your slot ready.
+Please tap the button below to confirm you're coming — it only takes a second and helps us keep your slot ready.
+
+Need to reschedule or cancel? Manage your booking online: ${manageUrl}
 
 See you soon!`;
-    const smsText = `Hi ${firstName}, reminder: booking${vehicleBit} at ${garageLocationInline(identity)}, ${when}. Confirm or reschedule: ${confirmUrl}`;
+    const smsText = `Hi ${firstName}, reminder: booking${vehicleBit} at ${garageLocationInline(identity)}, ${when}. Confirm: ${confirmUrl} — or reschedule/cancel: ${manageUrl}`;
 
     if (channels.includes("email") && customer.email) {
       const result = await sendEmail({
