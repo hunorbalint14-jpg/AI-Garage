@@ -13,7 +13,7 @@ import {
   AMENITY_OPTIONS,
   DIAGNOSTIC_OPTIONS,
   BOOKING_PREFERENCE_OPTIONS,
-} from "@/lib/ai-profile";
+} from "@/lib/ai-profile-shared";
 
 const inputCls =
   "w-full rounded-lg border border-white/12 bg-white/[0.04] px-3 py-2 text-sm text-[#e6e8eb] placeholder:text-[#5a6170] focus:border-white/30 focus:outline-none disabled:opacity-50";
