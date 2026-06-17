@@ -199,7 +199,7 @@ export async function sendReminder(
       .maybeSingle(),
     admin
       .from("organizations")
-      .select("name, phone")
+      .select("name, phone, ai_brief")
       .eq("id", ctx.organization.id)
       .maybeSingle(),
   ]);
@@ -244,6 +244,7 @@ export async function sendReminder(
     vehicleDescription: vehicleDescription || vehicle.registration,
     reminderType,
     dueDate: formattedDate,
+    aiBrief: (org as { ai_brief?: string | null } | null)?.ai_brief ?? null,
   };
   const aiCtx = {
     locationId: ctx.location.id,
@@ -382,7 +383,7 @@ export async function draftMessagePreview(
 
   const [customerRes, orgRes] = await Promise.all([
     admin.from("customers").select("id, full_name, email, phone").eq("id", customerId).maybeSingle(),
-    admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
+    admin.from("organizations").select("name, phone, ai_brief").eq("id", ctx.organization.id).maybeSingle(),
   ]);
 
   const customer = customerRes.data as { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
@@ -404,7 +405,7 @@ export async function draftMessagePreview(
 
   try {
     const drafted = await draftCustomMessage(
-      { garageName, garagePhone, customerFirstName: firstName, topic },
+      { garageName, garagePhone, customerFirstName: firstName, topic, aiBrief: (org as { ai_brief?: string | null } | null)?.ai_brief ?? null },
       {
         locationId: ctx.location.id,
         organizationId: ctx.organization.id,

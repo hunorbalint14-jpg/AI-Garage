@@ -39,7 +39,7 @@ export async function draftBroadcastPreview(
       .select("email, phone")
       .eq("organization_id", ctx.organization.id)
       .eq("preferred_location_id", ctx.location.id),
-    admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
+    admin.from("organizations").select("name, phone, ai_brief").eq("id", ctx.organization.id).maybeSingle(),
   ]);
 
   const customers = customersRes.data ?? [];
@@ -53,6 +53,7 @@ export async function draftBroadcastPreview(
 
   const garageName = orgRes.data?.name ?? ctx.organization.name;
   const garagePhone = orgRes.data?.phone ?? null;
+  const aiBrief = (orgRes.data as { ai_brief?: string | null } | null)?.ai_brief ?? null;
 
   try {
     const drafted = await draftBroadcastMessage(
@@ -62,6 +63,7 @@ export async function draftBroadcastPreview(
         topic,
         needEmail: channels.includes("email"),
         needSms: channels.includes("sms"),
+        aiBrief,
       },
       {
         locationId: ctx.location.id,

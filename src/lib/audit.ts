@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export type AuditAction =
   // Org / location settings
   | "settings.update"
+  | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.logo_upload"
   | "settings.location_add"

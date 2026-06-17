@@ -10,6 +10,7 @@ import { sendWhatsApp } from "@/lib/whatsapp";
 import { logAudit } from "@/lib/audit";
 import Anthropic from "@anthropic-ai/sdk";
 import { recordAiUsage } from "@/lib/ai-usage";
+import { getOrgAiBrief, aiBriefSystemBlock } from "@/lib/ai-profile";
 
 const anthropic = new Anthropic();
 const MODEL = "claude-haiku-4-5-20251001";
@@ -96,13 +97,14 @@ export async function draftWinBackPreview(vehicleId: string): Promise<WinBackPre
     [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || vehicle.registration;
   const garageName = ctx.organization.name;
   const subject = `We'd love to see your ${vehicle.make ?? "vehicle"} again — ${garageName}`;
+  const aiBrief = await getOrgAiBrief(createAdminClient(), ctx.organization.id);
 
   try {
     const [emailRes, smsRes] = await Promise.all([
       anthropic.messages.create({
         model: MODEL,
         max_tokens: 300,
-        system: [{ type: "text", text: EMAIL_SYSTEM, cache_control: { type: "ephemeral" } }],
+        system: [{ type: "text", text: EMAIL_SYSTEM + aiBriefSystemBlock(aiBrief), cache_control: { type: "ephemeral" } }],
         messages: [
           {
             role: "user",
@@ -113,7 +115,7 @@ export async function draftWinBackPreview(vehicleId: string): Promise<WinBackPre
       anthropic.messages.create({
         model: MODEL,
         max_tokens: 80,
-        system: [{ type: "text", text: SMS_SYSTEM, cache_control: { type: "ephemeral" } }],
+        system: [{ type: "text", text: SMS_SYSTEM + aiBriefSystemBlock(aiBrief), cache_control: { type: "ephemeral" } }],
         messages: [
           {
             role: "user",

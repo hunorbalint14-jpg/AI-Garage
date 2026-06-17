@@ -138,15 +138,36 @@ export default async function SettingsPage({
 
       {/* ── Business ─────────────────────────────────────────────── */}
       {tab === "business" && (
-        <SettingsForm
-          initialName={org?.name ?? ""}
-          initialColor={org?.primary_color ?? "#1f2937"}
-          initialLogoUrl={org?.logo_url ?? ""}
-          initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
-          initialGoogleReviewUrl={(org as { google_review_url?: string | null } | null)?.google_review_url ?? ""}
-          initialPrivacyPolicyUrl={(org as { privacy_policy_url?: string | null } | null)?.privacy_policy_url ?? ""}
-          canEdit={isOwner}
-        />
+        <>
+          <SettingsForm
+            initialName={org?.name ?? ""}
+            initialColor={org?.primary_color ?? "#1f2937"}
+            initialLogoUrl={org?.logo_url ?? ""}
+            initialPhone={(org as { phone?: string | null } | null)?.phone ?? ""}
+            initialGoogleReviewUrl={(org as { google_review_url?: string | null } | null)?.google_review_url ?? ""}
+            initialPrivacyPolicyUrl={(org as { privacy_policy_url?: string | null } | null)?.privacy_policy_url ?? ""}
+            canEdit={isOwner}
+          />
+          {isOwner && (
+            <section className="flex flex-col gap-2 rounded-lg border p-4">
+              <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                AI assistant
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                The answers you gave at setup shape how the AI receptionist, reminders, campaigns and
+                diagnostics talk about your garage and what they offer. Update them anytime.
+              </p>
+              <div>
+                <Link
+                  href="/staff/onboarding"
+                  className="inline-flex items-center rounded-md border px-3 py-1.5 text-sm hover:bg-muted/40"
+                >
+                  Edit AI setup →
+                </Link>
+              </div>
+            </section>
+          )}
+        </>
       )}
 
       {/* ── Booking ──────────────────────────────────────────────── */}

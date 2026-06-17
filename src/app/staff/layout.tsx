@@ -48,9 +48,12 @@ export default async function StaffLayout({
   const reqHeaders = await nextHeaders();
   const pathname = reqHeaders.get("x-pathname") ?? "";
 
-  // Post-login branch chooser renders full-screen (no nav shell, no gates) — it
-  // sits between sign-in and the portal; the gates re-apply once they pick.
-  if (pathname.startsWith("/staff/select-branch")) return <>{children}</>;
+  // Post-login branch chooser + owner AI-setup survey render full-screen (no nav
+  // shell, no gates) — they sit between sign-in and the portal; gates re-apply
+  // once the user moves on.
+  if (pathname.startsWith("/staff/select-branch") || pathname.startsWith("/staff/onboarding")) {
+    return <>{children}</>;
+  }
 
   const onAcceptancePage =
     pathname.startsWith("/staff/dpa-acceptance") || pathname.startsWith("/staff/login");
@@ -87,6 +90,20 @@ export default async function StaffLayout({
   // DPA acceptance gate — skip on the acceptance page itself + login.
   if (!onAcceptancePage && !isDpaAccepted(ctx.branding.dpaVersion)) {
     redirect("/staff/dpa-acceptance");
+  }
+
+  // Owner AI-setup gate — a new owner completes the onboarding survey (which
+  // generates their per-org AI brief) before reaching the dashboard. Owners
+  // only; checked after DPA so legal acceptance comes first.
+  if (ctx.orgRole === "owner" && !onAcceptancePage) {
+    const { data: orgRow } = await admin
+      .from("organizations")
+      .select("ai_onboarded_at")
+      .eq("id", ctx.organization.id)
+      .maybeSingle();
+    if (!(orgRow as { ai_onboarded_at: string | null } | null)?.ai_onboarded_at) {
+      redirect("/staff/onboarding");
+    }
   }
 
   // Owner/admin MFA gate. When OWNER_MFA_ENFORCED is on, owners/admins who

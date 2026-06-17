@@ -75,6 +75,7 @@ type LocationRow = {
     id: string;
     name: string;
     phone: string | null;
+    ai_brief: string | null;
   } | null;
 };
 
@@ -156,7 +157,7 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, address, organization:organizations(id, name, phone)");
+    .select("id, slug, name, address, organization:organizations(id, name, phone, ai_brief)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
 
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
@@ -198,8 +199,8 @@ export async function GET(request: NextRequest) {
         promise = (async () => {
           try {
             const draft = kind === "email"
-              ? await draftReminderEmailTemplate({ garageName, reminderType }, aiCtx)
-              : await draftSmsReminderTemplate({ garageName, reminderType }, aiCtx);
+              ? await draftReminderEmailTemplate({ garageName, reminderType, aiBrief: org?.ai_brief ?? null }, aiCtx)
+              : await draftSmsReminderTemplate({ garageName, reminderType, aiBrief: org?.ai_brief ?? null }, aiCtx);
             if (isUsableReminderTemplate(draft)) return draft;
           } catch {
             // fall through to the static template

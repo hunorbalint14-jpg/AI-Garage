@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
+import { getOrgAiBrief, aiBriefSystemBlock } from "@/lib/ai-profile";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 const anthropic = new Anthropic();
 const MODEL = "claude-haiku-4-5-20251001";
@@ -32,10 +34,19 @@ export async function estimateLabourTime(
     ? `Vehicle: ${vehicleDescription}\nJob: ${description}`
     : `Job: ${description}`;
 
+  let system = SYSTEM;
+  if (ctx?.organizationId) {
+    try {
+      system += aiBriefSystemBlock(await getOrgAiBrief(createAdminClient(), ctx.organizationId));
+    } catch {
+      // best-effort
+    }
+  }
+
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 100,
-    system: [{ type: "text", text: SYSTEM, cache_control: { type: "ephemeral" } }],
+    system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
     messages: [{ role: "user", content: userMsg }],
   });
   if (ctx) await recordAiUsage({ ...ctx, model: MODEL, usage: response.usage });

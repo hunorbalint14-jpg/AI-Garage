@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { recordAiUsage, type AiUsageContext } from "@/lib/ai-usage";
+import { aiBriefSystemBlock } from "@/lib/ai-profile";
 
 const anthropic = new Anthropic();
 const MODEL = "claude-haiku-4-5-20251001";
@@ -46,6 +47,8 @@ Call to action rules — STRICT:
 - Do NOT include a phone number or URL — the link is appended automatically.
 - No sign-off.`;
 
+// `aiBrief` (when provided) is the org's onboarding-generated AI brief; it is
+// appended to the system prompt so drafts match the garage's voice/services.
 export type DraftReminderInput = {
   garageName: string;
   garagePhone: string | null;
@@ -54,6 +57,7 @@ export type DraftReminderInput = {
   vehicleDescription: string;
   reminderType: "mot" | "service";
   dueDate: string;
+  aiBrief?: string | null;
 };
 
 export type DraftCustomMessageInput = {
@@ -61,6 +65,7 @@ export type DraftCustomMessageInput = {
   garagePhone: string | null;
   customerFirstName: string;
   topic: string;
+  aiBrief?: string | null;
 };
 
 export async function draftReminderMessage(
@@ -73,7 +78,7 @@ export async function draftReminderMessage(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 300,
-    system: [{ type: "text", text: EMAIL_REMINDER_SYSTEM, cache_control: { type: "ephemeral" } }],
+    system: [{ type: "text", text: EMAIL_REMINDER_SYSTEM + aiBriefSystemBlock(input.aiBrief), cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",
       content: `Draft a ${label} reminder for:\n\nGarage: ${garageName}\nCustomer first name: ${customerFirstName}\nVehicle: ${vehicleDescription} (${registration})\n${label} due: ${dueDate}\n\nStart with "Hi ${customerFirstName},". End by inviting them to book using the button below — do not write a URL or phone number yourself.`,
@@ -96,7 +101,7 @@ export async function draftSmsReminderMessage(
   const response = await anthropic.messages.create({
     model: MODEL,
     max_tokens: 80,
-    system: [{ type: "text", text: SMS_REMINDER_SYSTEM, cache_control: { type: "ephemeral" } }],
+    system: [{ type: "text", text: SMS_REMINDER_SYSTEM + aiBriefSystemBlock(input.aiBrief), cache_control: { type: "ephemeral" } }],
     messages: [{
       role: "user",
       content: `SMS ${label} reminder: customer ${customerFirstName}, vehicle ${registration}, due ${dueDate}, from ${garageName}. End by pointing them to the booking link below — do not include a phone number or URL.`,
@@ -117,6 +122,7 @@ export async function draftSmsReminderMessage(
 export type ReminderTemplateDraftInput = {
   garageName: string;
   reminderType: "mot" | "service";
+  aiBrief?: string | null;
 };
 
 const TEMPLATE_PLACEHOLDER_RULES = `Write the message as a reusable template — it is sent to many customers with these exact placeholders substituted per customer:
@@ -137,7 +143,7 @@ export async function draftReminderEmailTemplate(
     max_tokens: 300,
     system: [{
       type: "text",
-      text: `${EMAIL_REMINDER_SYSTEM}\n\n${TEMPLATE_PLACEHOLDER_RULES}`,
+      text: `${EMAIL_REMINDER_SYSTEM}\n\n${TEMPLATE_PLACEHOLDER_RULES}${aiBriefSystemBlock(input.aiBrief)}`,
       cache_control: { type: "ephemeral" },
     }],
     messages: [{
@@ -163,7 +169,7 @@ export async function draftSmsReminderTemplate(
     max_tokens: 100,
     system: [{
       type: "text",
-      text: `${SMS_REMINDER_SYSTEM}\n\n${TEMPLATE_PLACEHOLDER_RULES}`,
+      text: `${SMS_REMINDER_SYSTEM}\n\n${TEMPLATE_PLACEHOLDER_RULES}${aiBriefSystemBlock(input.aiBrief)}`,
       cache_control: { type: "ephemeral" },
     }],
     messages: [{
@@ -188,7 +194,7 @@ export async function draftCustomMessage(
     anthropic.messages.create({
       model: MODEL,
       max_tokens: 300,
-      system: [{ type: "text", text: EMAIL_CUSTOM_SYSTEM, cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: EMAIL_CUSTOM_SYSTEM + aiBriefSystemBlock(input.aiBrief), cache_control: { type: "ephemeral" } }],
       messages: [{
         role: "user",
         content: `Email from ${garageName} to customer ${customerFirstName}. Topic: ${topic}. End by inviting them to click the button below to book or find out more — do not include a phone number or URL.`,
@@ -197,7 +203,7 @@ export async function draftCustomMessage(
     anthropic.messages.create({
       model: MODEL,
       max_tokens: 80,
-      system: [{ type: "text", text: SMS_CUSTOM_SYSTEM, cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: SMS_CUSTOM_SYSTEM + aiBriefSystemBlock(input.aiBrief), cache_control: { type: "ephemeral" } }],
       messages: [{
         role: "user",
         content: `SMS from ${garageName} to ${customerFirstName}. Topic: ${topic}. End by pointing to the link below — do not include a phone number or URL.`,
@@ -226,6 +232,7 @@ export type DraftBroadcastInput = {
   topic: string;
   needEmail: boolean;
   needSms: boolean;
+  aiBrief?: string | null;
 };
 
 export async function draftBroadcastMessage(
@@ -255,7 +262,7 @@ SUBJECT: <a short, compelling email subject line, max 60 chars, no quotes, no em
 ---
 <email body, starting with "Dear customer,">
 
-Do not use the user's raw prompt as the subject — write a fresh, customer-facing subject. Do not include a sign-off placeholder. Do not name a specific customer.`,
+Do not use the user's raw prompt as the subject — write a fresh, customer-facing subject. Do not include a sign-off placeholder. Do not name a specific customer.${aiBriefSystemBlock(input.aiBrief)}`,
           cache_control: { type: "ephemeral" },
         }],
         messages: [{
@@ -276,7 +283,7 @@ Do not use the user's raw prompt as the subject — write a fresh, customer-faci
 Call to action rules — STRICT:
 - Direct readers to the link below to book or find out more.
 - Do NOT ask them to call, phone, or reply.
-- Do NOT include a phone number or URL — the link is appended automatically.`,
+- Do NOT include a phone number or URL — the link is appended automatically.${aiBriefSystemBlock(input.aiBrief)}`,
           cache_control: { type: "ephemeral" },
         }],
         messages: [{

@@ -1,5 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { recordAiUsage } from "@/lib/ai-usage";
+import { getOrgAiBrief, aiBriefSystemBlock } from "@/lib/ai-profile";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { RECEPTIONIST_TOOLS, executeReceptionistTool, type ToolContext } from "./tools";
 
 const anthropic = new Anthropic();
@@ -32,7 +34,7 @@ export type AgentTurnResult = {
   handedOff: boolean;
 };
 
-function systemPrompt(ctx: AgentLocationContext): string {
+function systemPrompt(ctx: AgentLocationContext, aiBrief: string | null): string {
   return `You are the receptionist for ${ctx.garageName} (${ctx.locationName}), a UK garage. You're chatting with a customer over ${ctx.channel === "whatsapp" ? "WhatsApp" : "SMS"}.
 
 You can: tell customers about services and prices (list_services), check real appointment availability (check_availability), and book them in (create_booking). Anything else — diagnosis questions, complaints, discounts, changing existing bookings — use hand_off.
@@ -46,7 +48,7 @@ Rules:
 - Before booking you need: their name, the service, and a confirmed slot. Vehicle registration is helpful but optional.
 - Never ask for card details, addresses, or anything sensitive.
 - If the customer is angry, confused, or asks for a human: hand_off, don't argue.
-- After create_booking succeeds, confirm the day, time and service in one line.`;
+- After create_booking succeeds, confirm the day, time and service in one line.${aiBriefSystemBlock(aiBrief)}`;
 }
 
 // One conversational turn: customer's message in, agent's reply out. The
@@ -73,11 +75,16 @@ export async function runReceptionistTurn(
   let bookingId: string | null = null;
   let handedOff = false;
 
+  // Per-org AI brief (services, what we don't do, tone, escalation) — fetched
+  // once and injected into the system prompt. Best-effort.
+  const aiBrief = await getOrgAiBrief(createAdminClient(), ctx.organizationId).catch(() => null);
+  const sysText = systemPrompt(ctx, aiBrief);
+
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 500,
-      system: [{ type: "text", text: systemPrompt(ctx), cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: sysText, cache_control: { type: "ephemeral" } }],
       tools: RECEPTIONIST_TOOLS,
       messages,
     });
