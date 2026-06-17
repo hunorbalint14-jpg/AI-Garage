@@ -115,7 +115,8 @@ export async function GET(request: NextRequest) {
       metadata: { method: "magiclink", portal },
     });
     if (portal === "staff") {
-      redirectTo = `${origin}/staff`;
+      // Branch chooser forwards single-branch users straight to /staff.
+      redirectTo = `${origin}/staff/select-branch`;
     }
   }
 

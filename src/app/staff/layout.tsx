@@ -47,6 +47,11 @@ export default async function StaffLayout({
 
   const reqHeaders = await nextHeaders();
   const pathname = reqHeaders.get("x-pathname") ?? "";
+
+  // Post-login branch chooser renders full-screen (no nav shell, no gates) — it
+  // sits between sign-in and the portal; the gates re-apply once they pick.
+  if (pathname.startsWith("/staff/select-branch")) return <>{children}</>;
+
   const onAcceptancePage =
     pathname.startsWith("/staff/dpa-acceptance") || pathname.startsWith("/staff/login");
   const onMfaPage = pathname.startsWith("/staff/mfa") || pathname.startsWith("/staff/login");
