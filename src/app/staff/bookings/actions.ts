@@ -154,7 +154,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
   const [customerRes, vehicleRes, orgRes, serviceRes, locRes] = await Promise.all([
     admin.from("customers").select("id, full_name, email, phone, organization_id").eq("id", customerId).maybeSingle(),
     vehicleId
-      ? admin.from("vehicles").select("id, registration, customer_id, location_id").eq("id", vehicleId).maybeSingle()
+      ? admin.from("vehicles").select("id, registration, customer_id, organization_id").eq("id", vehicleId).maybeSingle()
       : Promise.resolve({ data: null }),
     admin.from("organizations").select("name, phone, logo_url").eq("id", ctx.organization.id).maybeSingle(),
     serviceId
@@ -172,8 +172,13 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
     return { error: "Customer not found in this organisation." };
   }
 
-  const vehicle = vehicleRes.data as { id: string; registration: string; customer_id: string; location_id: string } | null;
-  if (vehicleId && (!vehicle || vehicle.location_id !== ctx.location.id || vehicle.customer_id !== customerId)) {
+  // Vehicles are customer-global (org-scoped); location_id is just the servicing
+  // branch, not an access boundary. The picker lists the customer's vehicles
+  // org-wide, so scope the check the same way: the vehicle must belong to the
+  // selected customer (already org-verified above) and to this org — NOT to the
+  // active branch, or booking a customer's vehicle from another branch 404s.
+  const vehicle = vehicleRes.data as { id: string; registration: string; customer_id: string; organization_id: string } | null;
+  if (vehicleId && (!vehicle || vehicle.customer_id !== customerId || vehicle.organization_id !== ctx.organization.id)) {
     return { error: "Vehicle not found for this customer." };
   }
 
