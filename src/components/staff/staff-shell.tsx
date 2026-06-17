@@ -7,7 +7,7 @@ import {
   TrackedLink as Link,
 } from "@/components/nav-progress";
 import { useMemo, useState } from "react";
-import { Search, ChevronLeft, ChevronDown } from "lucide-react";
+import { Search, ChevronLeft, ChevronDown, MapPin } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { LocationSwitcher } from "@/components/staff/location-switcher";
 import { SignOutButton } from "@/app/staff/sign-out-button";
@@ -59,6 +59,8 @@ export function StaffShell({
   );
   const { module: activeModule, item: activeItem } = findActive(pathname, modules);
   const onBrand = useMemo(() => onBrandColor(brandColor), [brandColor]);
+  const multiBranch = locations.length > 1;
+  const currentBranchName = locations.find((l) => l.id === currentLocationId)?.name ?? null;
 
   // Tablet/mobile UI state. Drawer = tablet portrait pane; sheet = mobile picker.
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -173,8 +175,17 @@ export function StaffShell({
             className="flex flex-1 min-w-0 items-center gap-1.5 text-left"
           >
             <div className="min-w-0">
-              <div className="font-mono text-[9px] uppercase tracking-[0.18em] text-[#5a6170]">
-                {orgName}
+              <div className="flex items-center gap-1 truncate font-mono text-[9px] uppercase tracking-[0.18em] text-[#5a6170]">
+                <span className="truncate">{orgName}</span>
+                {multiBranch && currentBranchName && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <MapPin className="h-2.5 w-2.5 shrink-0" style={{ color: brandColor }} />
+                    <span className="truncate font-semibold" style={{ color: brandColor }}>
+                      {currentBranchName}
+                    </span>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-1 truncate text-[15px] font-bold leading-tight">
                 <span>{activeModule.label}</span>
