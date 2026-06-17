@@ -6,7 +6,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { releaseCoverage } from "@/lib/service-plans";
-import { sendEmail, tenantPortalUrl } from "@/lib/email";
+import { sendEmail, tenantPortalUrl, renderBrandedEmail, paragraphsToHtml, type EmailDetailRow } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 import { isBayFreeAt } from "@/lib/bay-availability";
@@ -75,22 +75,22 @@ ${manageLine}
 Thank you,
 ${garageName}`;
 
-  const addrHtml = addrLine
-    ? `<p style="margin:0 0 16px 0;color:#374151"><strong>Location:</strong><br>${where}<br>${addrLine.replace(/\n/g, "<br>")}</p>`
-    : "";
-  const manageButtonHtml = `<div style="margin:24px 0"><a href="${manageUrl}" style="display:inline-block;background:#22c55e;color:#ffffff;font-weight:600;font-size:15px;text-decoration:none;padding:12px 24px;border-radius:8px;border:0">Manage booking →</a></div>
-<p style="margin:0 0 16px 0;font-size:13px;color:#6b7280">Reschedule or cancel anytime${garagePhone ? `, or call us on ${garagePhone}` : ""}.</p>`;
-  const emailHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:#111827;max-width:600px;margin:0 auto;padding:32px 24px">
-${garageLogoUrl ? `<div style="margin-bottom:24px"><img src="${garageLogoUrl}" alt="${garageName}" style="max-height:48px;max-width:180px;object-fit:contain;display:block"></div>` : ""}
-<p style="margin:0 0 16px 0">Hi ${firstName},</p>
-<p style="margin:0 0 16px 0">Your <strong>${typeLabel}</strong> appointment${regSuffix} at <strong>${where}</strong> is confirmed for <strong>${dateStr}</strong>.</p>
-${addrHtml}
-${manageButtonHtml}
-<p style="margin:0 0 16px 0">Thank you,<br>${garageName}</p>
-<hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0">
-<p style="font-size:12px;color:#9ca3af;margin:0">Sent via AI Garage</p>
-</body></html>`;
+  const details: EmailDetailRow[] = [
+    { label: "When", value: dateStr },
+    { label: "Where", value: addrLine ? `${where}\n${addrLine}` : where },
+    ...(registration ? [{ label: "Vehicle", value: registration } as EmailDetailRow] : []),
+    { label: "Service", value: typeLabel },
+  ];
+  const emailHtml = renderBrandedEmail({
+    brandName: garageName,
+    logoUrl: garageLogoUrl,
+    badge: "Confirmed",
+    heading: "Booking confirmed",
+    bodyHtml: paragraphsToHtml(`Hi ${firstName},\n\nYour ${typeLabel} appointment${regSuffix} at ${where} is confirmed for ${dateStr}.`),
+    details,
+    cta: { url: manageUrl, label: "Manage booking" },
+    footerNote: `Reschedule or cancel anytime${garagePhone ? ` · or call us on ${garagePhone}` : ""}.`,
+  });
 
   const smsText = `Hi ${firstName}, your ${typeLabel} appointment${regSuffix} at ${garageLocationInline(identity)} is confirmed for ${dateStr}. Reschedule or cancel: ${manageUrl}`;
 
