@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
+import { garageLabel } from "@/lib/garage-identity";
 import { pushInvoiceToXero, pushPaymentToXero } from "@/lib/xero-sync";
 
 type GenerateArgs = {
@@ -36,7 +37,7 @@ export async function generateInvoiceForPaidBooking({
   const { data: bookingRow } = await admin
     .from("bookings")
     .select(
-      "id, location_id, customer_id, scheduled_at, notes, service:services(name, category), customer:customers(full_name, email), location:locations(name, organization:organizations(id, name, phone, logo_url, primary_color))",
+      "id, location_id, customer_id, scheduled_at, notes, service:services(name, category), customer:customers(full_name, email), location:locations(name, address, organization:organizations(id, name, phone, logo_url, primary_color))",
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -51,6 +52,7 @@ export async function generateInvoiceForPaidBooking({
     customer: { full_name: string | null; email: string | null } | null;
     location: {
       name: string;
+      address: string | null;
       organization: {
         id: string;
         name: string;
@@ -127,6 +129,9 @@ export async function generateInvoiceForPaidBooking({
 
   const org = booking.location?.organization;
   const garageName = org?.name ?? booking.location?.name ?? "the garage";
+  const locationName = booking.location?.name ?? null;
+  const locationAddress = booking.location?.address ?? null;
+  const where = garageLabel({ orgName: garageName, locationName });
   const dateStr = new Date(booking.scheduled_at).toLocaleString("en-GB", {
     weekday: "long",
     day: "numeric",
@@ -141,6 +146,8 @@ export async function generateInvoiceForPaidBooking({
     issuedAt: today.toISOString().split("T")[0],
     dueAt: today.toISOString().split("T")[0],
     garageName,
+    locationName,
+    garageAddress: locationAddress,
     garagePhone: org?.phone ?? null,
     garageEmail: null,
     logoUrl: org?.logo_url ?? null,
@@ -167,8 +174,8 @@ export async function generateInvoiceForPaidBooking({
 
   await sendEmail({
     to: customerEmail,
-    subject: `Receipt ${invoiceNumber} from ${garageName} — ${fmt(total)} paid`,
-    text: `Receipt ${invoiceNumber} from ${garageName}. Total paid: ${fmt(total)}. Service: ${serviceName} on ${dateStr}. Thanks for your booking.`,
+    subject: `Receipt ${invoiceNumber} from ${where} — ${fmt(total)} paid`,
+    text: `Receipt ${invoiceNumber} from ${where}. Total paid: ${fmt(total)}. Service: ${serviceName} on ${dateStr}. Thanks for your booking.`,
     html,
   });
 

@@ -6,6 +6,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
+import { garageLabel } from "@/lib/garage-identity";
 import { tenantPayUrl, stripe } from "@/lib/stripe";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
 import { pushInvoiceToXero, pushPaymentToXero, pushCreditNoteToXero } from "@/lib/xero-sync";
@@ -223,7 +224,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
   if (!hasPermission(ctx, "invoices")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
-  const [invoiceRes, orgRes] = await Promise.all([
+  const [invoiceRes, orgRes, locRes] = await Promise.all([
     admin
       .from("invoices")
       .select("id, location_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, membership_credit_amount, membership_credit_description, issued_at, due_at, notes, customer:customers(full_name, email), job:jobs(id)")
@@ -234,7 +235,9 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
       .select("name, phone, logo_url, primary_color, stripe_account_id, stripe_charges_enabled")
       .eq("id", ctx.organization.id)
       .maybeSingle(),
+    admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle(),
   ]);
+  const locationAddress = (locRes.data as { address: string | null } | null)?.address ?? null;
 
   type InvoiceRow = {
     id: string; location_id: string; invoice_number: string;
@@ -263,6 +266,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     stripe_charges_enabled: boolean | null;
   } | null;
   const garageName = org?.name ?? ctx.organization.name;
+  const where = garageLabel({ orgName: garageName, locationName: ctx.location.name });
   const canPayOnline = !!org?.stripe_account_id && !!org?.stripe_charges_enabled;
   const payUrl = canPayOnline ? tenantPayUrl(invoice.id) : null;
 
@@ -271,6 +275,8 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     issuedAt: invoice.issued_at,
     dueAt: invoice.due_at,
     garageName,
+    locationName: ctx.location.name,
+    garageAddress: locationAddress,
     garagePhone: org?.phone ?? null,
     garageEmail: ctx.user.email ?? null,
     logoUrl: org?.logo_url ?? null,
@@ -294,8 +300,8 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
   const payLine = payUrl ? `\nPay online: ${payUrl}\n` : "";
   const emailResult = await sendEmail({
     to: invoice.customer.email,
-    subject: `Invoice ${invoice.invoice_number} from ${garageName} — ${fmt(invoice.total)} due ${new Date(invoice.due_at).toLocaleDateString("en-GB")}`,
-    text: `Invoice ${invoice.invoice_number} from ${garageName}. Total: ${fmt(invoice.total)}. Due: ${new Date(invoice.due_at).toLocaleDateString("en-GB")}.${payLine}Please view this email in an HTML client for the full invoice.`,
+    subject: `Invoice ${invoice.invoice_number} from ${where} — ${fmt(invoice.total)} due ${new Date(invoice.due_at).toLocaleDateString("en-GB")}`,
+    text: `Invoice ${invoice.invoice_number} from ${where}. Total: ${fmt(invoice.total)}. Due: ${new Date(invoice.due_at).toLocaleDateString("en-GB")}.${payLine}Please view this email in an HTML client for the full invoice.`,
     html,
   });
 

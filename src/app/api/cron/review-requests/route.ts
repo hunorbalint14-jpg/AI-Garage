@@ -5,6 +5,7 @@ import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { generateReviewToken, hashReviewToken, tenantReviewUrl } from "@/lib/review-links";
 import { recordCronRun } from "@/lib/platform/cron-runs";
+import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 
 // Sends queued post-job review requests. Dispatched per-location by
 // /api/cron/tick when the `review_requests` scheduled_task is due (daily ~09:00
@@ -17,6 +18,7 @@ type LocationRow = {
   id: string;
   slug: string;
   name: string;
+  address: string | null;
   organization: { id: string; name: string } | null;
 };
 
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, organization:organizations(id, name)");
+    .select("id, slug, name, address, organization:organizations(id, name)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
@@ -55,7 +57,10 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
     if (task && task.enabled === false) continue;
 
-    const garageName = location.organization?.name ?? location.name;
+    const orgName = location.organization?.name ?? location.name;
+    const garageName = garageLabel({ orgName, locationName: location.name });
+    const addrLine = addressOneLine(location.address);
+    const locationFooter = addrLine ? `\n\n📍 ${addrLine}` : "";
 
     const { data: queued } = (await admin
       .from("review_requests")
@@ -79,7 +84,7 @@ export async function GET(request: NextRequest) {
         `Hi ${firstName},\n\n` +
         `Thanks for choosing ${garageName}. We'd really appreciate a moment of your time to tell us how we did — it helps us keep improving.\n\n` +
         `Just tap the button below to leave your feedback.\n\n` +
-        `Thank you,\n${garageName}`;
+        `Thank you,\n${garageName}${locationFooter}`;
 
       const res = await sendEmail({
         to: email,

@@ -47,11 +47,17 @@ export function BookingForm({
   bays,
   initialCustomer,
   defaultVehicleId,
+  activeLocationId,
+  activeLocationName,
+  locationNamesById,
 }: {
   services: Service[];
   bays: Bay[];
   initialCustomer: PickerCustomer | null;
   defaultVehicleId: string | null;
+  activeLocationId: string;
+  activeLocationName: string;
+  locationNamesById: Record<string, string>;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,7 +68,14 @@ export function BookingForm({
     [searchParams],
   );
 
-  const [customerId, setCustomerId] = useState(initialCustomer?.id ?? "");
+  const [customer, setCustomer] = useState<PickerCustomer | null>(initialCustomer);
+  const customerId = customer?.id ?? "";
+  // Warn when the selected customer's home branch isn't the branch they're being
+  // booked into — their reminders/MOT cron run from the home branch, and the
+  // confirmation they'll receive names this (different) branch.
+  const homeLocationId = customer?.preferredLocationId ?? null;
+  const bookingElsewhere = !!homeLocationId && homeLocationId !== activeLocationId;
+  const homeLocationName = homeLocationId ? locationNamesById[homeLocationId] ?? null : null;
   const firstService = services[0];
   const [type, setType] = useState(firstService?.name ?? "service");
   const [duration, setDuration] = useState(firstService?.duration_minutes ?? 90);
@@ -105,9 +118,21 @@ export function BookingForm({
           initialCustomer={initialCustomer}
           initialVehicleId={defaultVehicleId}
           disabled={pending}
-          onCustomerChange={(c) => setCustomerId(c?.id ?? "")}
+          onCustomerChange={(c) => setCustomer(c)}
         />
       </div>
+
+      {bookingElsewhere && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <span aria-hidden className="mt-0.5">⚠️</span>
+          <p>
+            {customer?.full_name ?? "This customer"}&apos;s home branch is{" "}
+            <span className="font-medium">{homeLocationName ?? "another branch"}</span>. This booking
+            will be created at <span className="font-medium">{activeLocationName}</span>, and the
+            confirmation they receive will show that branch.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="flex flex-col gap-1.5 sm:col-span-2">

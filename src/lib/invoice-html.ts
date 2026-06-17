@@ -7,6 +7,10 @@ export type InvoiceHtmlArgs = {
   issuedAt: string;
   dueAt: string;
   garageName: string;
+  /** Issuing branch name (omitted when it matches the org / single-site). */
+  locationName?: string | null;
+  /** Issuing branch postal address — printed on the invoice (legal/VAT). */
+  garageAddress?: string | null;
   garagePhone: string | null;
   garageEmail: string | null;
   logoUrl: string | null;
@@ -27,12 +31,25 @@ export type InvoiceHtmlArgs = {
 
 export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
   const {
-    invoiceNumber, issuedAt, dueAt, garageName, garagePhone, garageEmail,
+    invoiceNumber, issuedAt, dueAt, garageName, locationName, garageAddress, garagePhone, garageEmail,
     logoUrl, brandColor, customerName, items, subtotal, vatRate, vatAmount, total,
     discountAmount, discountDescription, membershipCreditAmount, membershipCreditDescription, notes, payUrl,
   } = args;
   const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
   const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // Issuing branch + address block (HTML-escaped). The branch name is only
+  // shown when it differs from the org/brand; the address always prints when set.
+  const branchName =
+    locationName && locationName.trim() && locationName.trim().toLowerCase() !== garageName.trim().toLowerCase()
+      ? locationName.trim()
+      : null;
+  const locationLine = [
+    branchName ? escapeHtml(branchName) : null,
+    garageAddress?.trim() ? escapeHtml(garageAddress.trim()).replace(/\n/g, "<br>") : null,
+  ]
+    .filter(Boolean)
+    .join("<br>");
   const adjustmentRow = (label: string, amount: number) => `<tr>
                 <td style="padding:8px 0;color:#6b7280;font-size:14px">${escapeHtml(label)}</td>
                 <td align="right" style="padding:8px 0;color:#15803d;font-size:14px">− ${fmt(amount)}</td>
@@ -111,6 +128,7 @@ export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
           <td valign="top" style="padding:0">
             <div style="margin-bottom:12px">${logoBlock}</div>
             <div class="hero-name" style="font-size:20px;font-weight:600;color:${onBrand};opacity:0.95">${garageName}</div>
+            ${locationLine ? `<div style="font-size:13px;margin-top:4px;color:${onBrand};opacity:0.85">${locationLine}</div>` : ""}
             ${contactLine ? `<div style="font-size:13px;margin-top:4px;color:${onBrand};opacity:0.8">${contactLine}</div>` : ""}
           </td>
           <td valign="top" align="right" style="padding:0;white-space:nowrap">
