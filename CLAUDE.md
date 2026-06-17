@@ -33,7 +33,7 @@ Multi-tenant SaaS for UK garages. Next.js 16 App Router + TypeScript + Tailwind 
 The **tenant is the organization**, which owns one or more **locations** (branches). Root middleware [src/proxy.ts](src/proxy.ts) parses the subdomain → `organizations.slug` and injects `x-tenant-slug`. Tenant context is resolved in [src/lib/tenant-data.ts](src/lib/tenant-data.ts) (customer-facing) and [src/lib/staff-context.ts](src/lib/staff-context.ts) (staff). Staff pick an **active branch** via an `active_location` cookie (top-bar switcher → `setActiveLocation`, which re-checks membership before trusting it); `ctx.location` is that active branch, `ctx.organization` the tenant.
 
 **Data scoping** — a customer registers once per org and is visible org-wide; operational work stays per-branch:
-- **Customer-global** (`organization_id`, read via `private.is_org_staff()`): `customers`, `vehicles`, `service_plans`, `plan_subscriptions`, `reminders`. Customers are unique per `(organization_id, lower(email))`; home branch is `customers.preferred_location_id`. **`vehicles` keep `location_id`** = the *servicing branch* the reminder / MOT-delta cron route on.
+- **Customer-global** (`organization_id`, read via `private.is_org_staff()`): `customers`, `vehicles`, `service_plans`, `plan_subscriptions`, `reminders`. Customers are unique per `(organization_id, lower(email))`; home branch is `customers.preferred_location_id`. **`vehicles` keep `location_id`** = the *servicing branch* the MOT-delta cron routes on. **Customer-level automated comms route on the *home branch*, not the servicing branch:** the reminders cron (`/api/cron/reminders`) and campaigns send to/brand as `customers.preferred_location_id`, so a customer whose vehicles were serviced at several branches is contacted **once**, from their home branch. (Event-level comms — dunning, review-requests, booking-confirmations — stay on the branch of record: the invoice / job / booking's `location_id`.)
 - **Operational** (`location_id`, read via `private.is_location_member()`): `jobs`, `bookings`, `bays`, `services`, `products`, `tyre_checks`, …
 - **Financial** (`location_id` for branch separation + `organization_id`): `invoices`, `credit_notes`, `standalone_quotes`, `finance_applications` — readable by branch members **OR** org finance.
 
@@ -63,6 +63,9 @@ Third-party OAuth tokens (currently Xero) are AES-encrypted before being written
 | Xero | Per-org OAuth accounting sync | [src/lib/xero.ts](src/lib/xero.ts), [src/lib/xero-sync.ts](src/lib/xero-sync.ts) |
 | DVLA / DVSA | UK vehicle lookup, MOT history, recalls | `src/lib/dvla*.ts`, [src/lib/dvsa-recalls.ts](src/lib/dvsa-recalls.ts) |
 | SimpleWebAuthn | Passkey auth (staff + customers) | [src/app/api/auth/passkey/](src/app/api/auth/passkey/) |
+
+### Client communications
+Email/SMS/WhatsApp helpers: [src/lib/email.ts](src/lib/email.ts), [src/lib/sms.ts](src/lib/sms.ts), [src/lib/whatsapp.ts](src/lib/whatsapp.ts). **Every client-facing message must identify the *branch*, not just the org/brand** — a customer of a multi-location org needs to know which site to attend. Use [src/lib/garage-identity.ts](src/lib/garage-identity.ts) (`garageLabel`, `garageLocationBlock`/`Inline`) with the org name + the relevant branch's `name` + `address` (`locations.address`). For invoices the branch + address render in [src/lib/invoice-html.ts](src/lib/invoice-html.ts) (`locationName` / `garageAddress`).
 
 ### Cron (Vercel)
 Defined in [vercel.json](vercel.json), gated by a `CRON_SECRET` header check inside each handler.
