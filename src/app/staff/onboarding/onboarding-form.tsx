@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { saveOnboarding } from "./actions";
@@ -29,7 +28,6 @@ export function OnboardingForm({
   initial: AiProfileAnswers;
   isEdit: boolean;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [a, setA] = useState<AiProfileAnswers>(initial);
@@ -49,8 +47,9 @@ export function OnboardingForm({
       const res = await saveOnboarding(a);
       if ("error" in res) setError(res.error);
       else {
-        router.replace("/staff");
-        router.refresh();
+        // Hard navigation so the dashboard shell loads cleanly from a fresh
+        // document (this page is shell-bypassed; RSC nav out of it can glitch).
+        window.location.assign("/staff");
       }
     });
   }

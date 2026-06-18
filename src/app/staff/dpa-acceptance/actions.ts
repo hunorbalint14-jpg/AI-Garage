@@ -1,13 +1,12 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireStaffContext, invalidateStaffLocationCacheForOrg } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CURRENT_DPA_VERSION } from "@/lib/dpa";
 import { logAudit } from "@/lib/audit";
 
-export async function acceptDpa(): Promise<{ error: string } | void> {
+export async function acceptDpa(): Promise<{ error: string } | { success: true }> {
   const ctx = await requireStaffContext();
   if (ctx.orgRole !== "owner" && ctx.orgRole !== "admin") {
     return { error: "Only owners/admins can accept the DPA on behalf of the garage." };
@@ -43,5 +42,9 @@ export async function acceptDpa(): Promise<{ error: string } | void> {
   });
 
   revalidatePath("/staff", "layout");
-  redirect("/staff");
+  // Return success rather than redirect("/staff"): the next stop is often the
+  // shell-bypassed AI-setup gate, and reaching a bypassed route via the client
+  // RSC navigation a server redirect triggers renders blank. The form does a
+  // hard navigation instead.
+  return { success: true };
 }

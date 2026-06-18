@@ -15,6 +15,7 @@ export function AcceptForm() {
     startTransition(async () => {
       const result = await acceptDpa();
       if (result && "error" in result) setError(result.error);
+      else window.location.assign("/staff");
     });
   }
 
