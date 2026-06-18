@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { MapPin, Check } from "lucide-react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { setActiveLocation } from "@/app/staff/active-location-actions";
@@ -23,7 +22,6 @@ export function BranchSelect({
   brandColor: string;
   logoUrl: string | null;
 }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -32,8 +30,11 @@ export function BranchSelect({
     setSelectedId(id);
     startTransition(async () => {
       await setActiveLocation(id);
-      router.replace("/staff");
-      router.refresh();
+      // Hard navigation (not router.replace): the next stop may be the AI-setup
+      // gate, a shell-bypassed full-screen route. Reaching a bypassed route via
+      // client RSC navigation through a server redirect renders blank; a real
+      // document load renders correctly.
+      window.location.assign("/staff");
     });
   }
 
