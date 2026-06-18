@@ -37,11 +37,6 @@ export function OnboardingForm({
 
   const set = <K extends keyof AiProfileAnswers>(k: K, v: AiProfileAnswers[K]) =>
     setA((p) => ({ ...p, [k]: v }));
-  const toggle = (k: "specialisms" | "services" | "amenities" | "diagnostics", val: string) =>
-    setA((p) => {
-      const has = p[k].includes(val);
-      return { ...p, [k]: has ? p[k].filter((x) => x !== val) : [...p[k], val] };
-    });
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -87,7 +82,7 @@ export function OnboardingForm({
 
         <form onSubmit={submit} className="mt-7 flex flex-col gap-7">
           <CheckGroup label="What does your garage specialise in?" options={SPECIALISM_OPTIONS}
-            selected={a.specialisms} onToggle={(v) => toggle("specialisms", v)} disabled={pending} />
+            selected={a.specialisms} onChange={(arr) => set("specialisms", arr)} disabled={pending} />
           {a.specialisms.includes("Marque specialist") && (
             <Field label="Which marques?">
               <input className={inputCls} value={a.marques} disabled={pending}
@@ -102,14 +97,14 @@ export function OnboardingForm({
           </Field>
 
           <CheckGroup label="Services you offer" options={SERVICE_OPTIONS}
-            selected={a.services} onToggle={(v) => toggle("services", v)} disabled={pending} />
+            selected={a.services} onChange={(arr) => set("services", arr)} disabled={pending} />
           <Field label="Signature / upsell services to promote (optional)">
             <input className={inputCls} value={a.signatureServices} disabled={pending}
               placeholder="e.g. winter health check, AC regas" onChange={(e) => set("signatureServices", e.target.value)} />
           </Field>
 
           <CheckGroup label="Amenities" options={AMENITY_OPTIONS}
-            selected={a.amenities} onToggle={(v) => toggle("amenities", v)} disabled={pending} />
+            selected={a.amenities} onChange={(arr) => set("amenities", arr)} disabled={pending} />
 
           <Field label="Typical lead time for a booking (optional)">
             <input className={inputCls} value={a.leadTime} disabled={pending}
@@ -117,7 +112,7 @@ export function OnboardingForm({
           </Field>
 
           <CheckGroup label="Diagnostic & specialist capabilities" options={DIAGNOSTIC_OPTIONS}
-            selected={a.diagnostics} onToggle={(v) => toggle("diagnostics", v)} disabled={pending} />
+            selected={a.diagnostics} onChange={(arr) => set("diagnostics", arr)} disabled={pending} />
 
           <Field label="What do you NOT do? (so the AI never promises it)">
             <textarea className={inputCls} rows={2} value={a.doesNotDo} disabled={pending}
@@ -194,40 +189,74 @@ function CheckGroup({
   label,
   options,
   selected,
-  onToggle,
+  onChange,
   disabled,
 }: {
   label: string;
   options: string[];
   selected: string[];
-  onToggle: (v: string) => void;
+  // Receives the full next array (preset selections + any custom "Other" items).
+  onChange: (next: string[]) => void;
   disabled: boolean;
 }) {
+  // Split the stored array into known presets and free-text "Other" entries.
+  const presetSel = selected.filter((v) => options.includes(v));
+  const customs = selected.filter((v) => !options.includes(v));
+  const [otherOpen, setOtherOpen] = useState(customs.length > 0);
+  const [otherText, setOtherText] = useState(customs.join(", "));
+
+  const parse = (text: string) =>
+    text
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  const emit = (presets: string[], text: string) => onChange([...presets, ...parse(text)]);
+
+  const togglePreset = (o: string) => {
+    const next = presetSel.includes(o) ? presetSel.filter((x) => x !== o) : [...presetSel, o];
+    emit(next, otherText);
+  };
+  const toggleOther = () => {
+    if (otherOpen) {
+      setOtherOpen(false);
+      setOtherText("");
+      emit(presetSel, ""); // drop custom entries when "Other" is switched off
+    } else {
+      setOtherOpen(true);
+    }
+  };
+
+  const chipCls = (on: boolean) =>
+    "rounded-full border px-3 py-1.5 text-[13px] transition-colors disabled:opacity-50 " +
+    (on
+      ? "border-white/20 bg-white/[0.12] text-white font-medium"
+      : "border-white/10 bg-white/[0.03] text-[#9aa1ad] hover:bg-white/[0.07]");
+
   return (
     <div className="flex flex-col gap-2">
       <span className="text-sm font-medium text-[#e6e8eb]">{label}</span>
       <div className="flex flex-wrap gap-2">
-        {options.map((o) => {
-          const on = selected.includes(o);
-          return (
-            <button
-              key={o}
-              type="button"
-              disabled={disabled}
-              onClick={() => onToggle(o)}
-              aria-pressed={on}
-              className={
-                "rounded-full border px-3 py-1.5 text-[13px] transition-colors disabled:opacity-50 " +
-                (on
-                  ? "border-white/20 bg-white/[0.12] text-white font-medium"
-                  : "border-white/10 bg-white/[0.03] text-[#9aa1ad] hover:bg-white/[0.07]")
-              }
-            >
-              {o}
-            </button>
-          );
-        })}
+        {options.map((o) => (
+          <button key={o} type="button" disabled={disabled} onClick={() => togglePreset(o)} aria-pressed={presetSel.includes(o)} className={chipCls(presetSel.includes(o))}>
+            {o}
+          </button>
+        ))}
+        <button type="button" disabled={disabled} onClick={toggleOther} aria-pressed={otherOpen} className={chipCls(otherOpen)}>
+          + Other
+        </button>
       </div>
+      {otherOpen && (
+        <input
+          className={inputCls}
+          value={otherText}
+          disabled={disabled}
+          placeholder="Add your own, separated by commas"
+          onChange={(e) => {
+            setOtherText(e.target.value);
+            emit(presetSel, e.target.value);
+          }}
+        />
+      )}
     </div>
   );
 }
