@@ -21,11 +21,14 @@ export function OnboardingForm({
   orgName,
   brandColor,
   initial,
+  brief,
   isEdit,
 }: {
   orgName: string;
   brandColor: string;
   initial: AiProfileAnswers;
+  /** The current Claude-generated brief (read-only preview); null until first save. */
+  brief: string | null;
   isEdit: boolean;
 }) {
   const [pending, startTransition] = useTransition();
@@ -68,6 +71,19 @@ export function OnboardingForm({
           A few questions about {orgName} so the AI receptionist, reminders, campaigns and diagnostics
           sound like you and only offer what you actually do. You can change these later in Settings.
         </p>
+
+        {brief && brief.trim() && (
+          <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <div className="mb-2 flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.18em] text-[#5a6170]">
+              <Sparkles className="h-3 w-3" style={{ color: brandColor }} />
+              Current AI brief
+            </div>
+            <p className="whitespace-pre-line text-[13px] leading-relaxed text-[#c2c7cf]">{brief.trim()}</p>
+            <p className="mt-3 text-[11px] text-[#5a6170]">
+              Auto-generated from your answers below and used by every AI feature. Save to regenerate it.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={submit} className="mt-7 flex flex-col gap-7">
           <CheckGroup label="What does your garage specialise in?" options={SPECIALISM_OPTIONS}

@@ -16,11 +16,13 @@ export default async function OnboardingPage() {
   const admin = createAdminClient();
   const { data } = await admin
     .from("organizations")
-    .select("ai_profile, ai_onboarded_at")
+    .select("ai_profile, ai_brief, ai_onboarded_at")
     .eq("id", ctx.organization.id)
     .maybeSingle();
 
-  const row = data as { ai_profile: AiProfileAnswers | null; ai_onboarded_at: string | null } | null;
+  const row = data as
+    | { ai_profile: AiProfileAnswers | null; ai_brief: string | null; ai_onboarded_at: string | null }
+    | null;
   const initial: AiProfileAnswers = { ...emptyAnswers(), ...(row?.ai_profile ?? {}) };
 
   return (
@@ -28,6 +30,7 @@ export default async function OnboardingPage() {
       orgName={ctx.organization.name}
       brandColor={ctx.branding.primaryColor ?? "#22c55e"}
       initial={initial}
+      brief={row?.ai_brief ?? null}
       isEdit={!!row?.ai_onboarded_at}
     />
   );
