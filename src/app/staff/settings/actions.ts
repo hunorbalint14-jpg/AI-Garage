@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { validateSlug } from "@/lib/slug";
 import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
 import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
@@ -116,7 +115,33 @@ export async function updateBusinessHours(
 
 export type AddLocationResult =
   | { error: string }
-  | { success: true; slug: string };
+  | { success: true; name: string };
+
+// Derive a URL-safe slug fragment from a branch name.
+function slugifyName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 30);
+}
+
+// Find a unique slug for a new branch — owners no longer type a subdomain; we
+// generate one from the org slug + branch name and de-dupe against the shared
+// slug namespace (orgs + locations + retired slugs).
+async function generateLocationSlug(
+  admin: ReturnType<typeof createAdminClient>,
+  orgSlug: string,
+  name: string,
+): Promise<string> {
+  const namePart = slugifyName(name) || "branch";
+  const base = `${orgSlug}-${namePart}`.replace(/^-+|-+$/g, "").slice(0, 50) || namePart;
+  let candidate = base;
+  for (let n = 2; await findSlugConflict(admin, candidate); n++) {
+    candidate = `${base}-${n}`;
+  }
+  return candidate;
+}
 
 export async function addLocation(
   formData: FormData,
@@ -128,13 +153,7 @@ export async function addLocation(
   }
 
   const name = (formData.get("name") as string | null)?.trim();
-  const slugInput = (formData.get("slug") as string | null)?.trim().toLowerCase();
-
   if (!name) return { error: "Location name is required." };
-  if (!slugInput) return { error: "Subdomain is required." };
-
-  const slugError = validateSlug(slugInput);
-  if (slugError) return { error: slugError };
 
   const admin = createAdminClient();
 
@@ -151,14 +170,13 @@ export async function addLocation(
     return { error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. Upgrade in Settings → Billing to add more.` };
   }
 
-  const slugConflict = await findSlugConflict(admin, slugInput);
-  if (slugConflict) return { error: slugConflict };
+  const slug = await generateLocationSlug(admin, ctx.organization.slug, name);
 
   const { data: created, error } = await admin
     .from("locations")
     .insert({
       organization_id: ctx.organization.id,
-      slug: slugInput,
+      slug,
       name,
     })
     .select("id")
@@ -173,11 +191,11 @@ export async function addLocation(
     action: "settings.location_add",
     entityType: "location",
     entityId: created?.id ?? null,
-    metadata: { slug: slugInput, name },
+    metadata: { slug, name },
   });
 
   revalidatePath("/staff/settings");
-  return { success: true, slug: slugInput };
+  return { success: true, name };
 }
 
 export type LocationActionResult = { error: string } | { success: true };
