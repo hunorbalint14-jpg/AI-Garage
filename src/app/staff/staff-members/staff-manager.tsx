@@ -539,10 +539,8 @@ export function StaffManager({
       entry.locationEntries.some((l) => l.role === roleFilter);
     return okSearch && okRole;
   });
-  const visibleCount = visibleEntries.reduce(
-    (n, e) => n + (e.orgRole ? 1 : e.locationEntries.length),
-    0,
-  );
+  // One card per member now (org-wide members + grouped location members).
+  const visibleCount = visibleEntries.length;
   const isFiltering = search.trim() !== "" || roleFilter !== "all";
 
   return (
@@ -587,6 +585,8 @@ export function StaffManager({
         {visibleEntries.map((entry) => {
           const displayName = entry.fullName ?? entry.email;
           const isOrg = !!entry.orgRole;
+          const primaryRole = entry.locationEntries[0]?.role ?? "staff";
+          const canAddMore = locations.length > entry.locationEntries.length;
 
           if (isOrg) {
             return (
@@ -645,99 +645,119 @@ export function StaffManager({
             );
           }
 
-          return entry.locationEntries.map((loc) => {
-            const key = `${entry.userId}|${loc.locationId}`;
-            const isEditing = editingKey === key;
-            const tpl = findTemplate(templates, loc.templateId);
-            const enabledCount = Object.values(loc.permissions).filter(Boolean).length;
-
-            return (
-              <div key={key} className="flex flex-col">
-                <div
-                  className={`flex flex-wrap items-center gap-4 rounded-xl border bg-card px-[18px] py-4 hover:bg-white/[0.015] sm:flex-nowrap ${isEditing ? "rounded-b-none" : ""}`}
-                >
-                  <MemberAvatar role={loc.role} name={entry.fullName} email={entry.email} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <span className="text-[15.5px] font-semibold text-foreground">{displayName}</span>
-                      {entry.isCurrentUser && <span className="text-xs text-muted-foreground">(you)</span>}
-                      <RoleBadge role={loc.role} />
-                      {tpl && !tpl.isSystem && (
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Custom template">
-                          {tpl.label}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-[3px] text-[12.5px] text-muted-foreground">{entry.email} &nbsp;·&nbsp; {loc.locationName}</p>
-                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                        {enabledCount} permissions
-                      </span>
-                      {loc.motTester && <SkillChip label="MOT tester" tone="blue" />}
-                      {loc.motQcReviewer && <SkillChip label="QC reviewer" tone="blue" />}
-                      {loc.evLevel > 0 && (
-                        <SkillChip
-                          label={`EV L${loc.evLevel}${qualExpired(loc.evExpiresAt) ? " (expired)" : ""}`}
-                          tone={isHvQualified(loc.evLevel) && !qualExpired(loc.evExpiresAt) ? "green" : "amber"}
-                        />
-                      )}
-                      <MfaBadge on={entry.hasMfa} />
-                    </div>
+          return (
+            <div key={`loc-${entry.userId}`} className="rounded-xl border bg-card">
+              {/* Person header — one card per member; their branches list below. */}
+              <div className="flex flex-wrap items-center gap-4 px-[18px] py-4 hover:bg-white/[0.015] sm:flex-nowrap">
+                <MemberAvatar role={primaryRole} name={entry.fullName} email={entry.email} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="text-[15.5px] font-semibold text-foreground">{displayName}</span>
+                    {entry.isCurrentUser && <span className="text-xs text-muted-foreground">(you)</span>}
                   </div>
-                  <div className="flex shrink-0 items-center gap-1.5 self-start sm:self-center">
-                    {entry.isCurrentUser ? (
-                      <span className="text-xs text-muted-foreground opacity-70">—</span>
-                    ) : (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={pending}
-                          onClick={() =>
-                            isEditing
-                              ? cancelEdit()
-                              : startEdit(entry.userId, loc.locationId, loc.permissions, loc.role, loc.motTester, loc.motQcReviewer, loc.evLevel, loc.evCertifiedAt, loc.evExpiresAt)
-                          }
-                        >
-                          {isEditing ? "Cancel" : "Edit"}
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger className={overflowTriggerClass} aria-label="More actions">
-                            <MoreVertical className="size-4" />
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem
-                              onClick={() => { setSetPasswordFor({ userId: entry.userId, name: displayName }); setNewPassword(""); }}
-                            >
-                              Set password
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleResetLogin(entry.email)}>
-                              Reset login
-                            </DropdownMenuItem>
-                            {entry.hasMfa && (
-                              <DropdownMenuItem onClick={() => handleResetMfa(entry.userId, displayName)}>
-                                Reset MFA
-                              </DropdownMenuItem>
-                            )}
-                            {locations.length > entry.locationEntries.length && (
-                              <DropdownMenuItem onClick={() => openAddAccess(entry)}>
-                                Add location access
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem variant="destructive" onClick={() => handleRemove(entry.userId, loc.locationId, displayName)}>
-                              Remove from location
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </>
-                    )}
-                  </div>
+                  <p className="mt-[3px] text-[12.5px] text-muted-foreground">
+                    {entry.email} &nbsp;·&nbsp; {entry.locationEntries.length} branch{entry.locationEntries.length === 1 ? "" : "es"}
+                  </p>
+                  <div className="mt-2.5"><MfaBadge on={entry.hasMfa} /></div>
                 </div>
+                <div className="flex shrink-0 items-center gap-1.5 self-start sm:self-center">
+                  {entry.isCurrentUser ? (
+                    <span className="text-xs text-muted-foreground opacity-70">—</span>
+                  ) : (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className={overflowTriggerClass} aria-label="More actions">
+                        <MoreVertical className="size-4" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem
+                          onClick={() => { setSetPasswordFor({ userId: entry.userId, name: displayName }); setNewPassword(""); }}
+                        >
+                          Set password
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleResetLogin(entry.email)}>
+                          Reset login
+                        </DropdownMenuItem>
+                        {entry.hasMfa && (
+                          <DropdownMenuItem onClick={() => handleResetMfa(entry.userId, displayName)}>
+                            Reset MFA
+                          </DropdownMenuItem>
+                        )}
+                        {canAddMore && (
+                          <DropdownMenuItem onClick={() => openAddAccess(entry)}>
+                            Add location access
+                          </DropdownMenuItem>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
+
+              {/* Per-branch sections — each branch's role/permissions edit inline. */}
+              <div className="border-t">
+                {entry.locationEntries.map((loc) => {
+                  const key = `${entry.userId}|${loc.locationId}`;
+                  const isEditing = editingKey === key;
+                  const tpl = findTemplate(templates, loc.templateId);
+                  const enabledCount = Object.values(loc.permissions).filter(Boolean).length;
+                  return (
+                    <div key={key} className="border-b last:border-b-0">
+                      <div className="flex flex-wrap items-center gap-3 px-[18px] py-3.5 sm:flex-nowrap">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2.5">
+                            <span className="text-sm font-medium text-foreground">{loc.locationName}</span>
+                            <RoleBadge role={loc.role} />
+                            {tpl && !tpl.isSystem && (
+                              <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground" title="Custom template">
+                                {tpl.label}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
+                              {enabledCount} permissions
+                            </span>
+                            {loc.motTester && <SkillChip label="MOT tester" tone="blue" />}
+                            {loc.motQcReviewer && <SkillChip label="QC reviewer" tone="blue" />}
+                            {loc.evLevel > 0 && (
+                              <SkillChip
+                                label={`EV L${loc.evLevel}${qualExpired(loc.evExpiresAt) ? " (expired)" : ""}`}
+                                tone={isHvQualified(loc.evLevel) && !qualExpired(loc.evExpiresAt) ? "green" : "amber"}
+                              />
+                            )}
+                          </div>
+                        </div>
+                        {!entry.isCurrentUser && (
+                          <div className="flex shrink-0 items-center gap-1.5 self-start sm:self-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={pending}
+                              onClick={() =>
+                                isEditing
+                                  ? cancelEdit()
+                                  : startEdit(entry.userId, loc.locationId, loc.permissions, loc.role, loc.motTester, loc.motQcReviewer, loc.evLevel, loc.evCertifiedAt, loc.evExpiresAt)
+                              }
+                            >
+                              {isEditing ? "Cancel" : "Edit"}
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger className={overflowTriggerClass} aria-label="Branch actions">
+                                <MoreVertical className="size-4" />
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent>
+                                <DropdownMenuItem variant="destructive" onClick={() => handleRemove(entry.userId, loc.locationId, displayName)}>
+                                  Remove from {loc.locationName}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+                      </div>
 
                 {isEditing && editPerms && (
-                  <div className="-mt-px rounded-b-xl border border-t-0 bg-muted/20 px-4 pb-4">
+                  <div className="border-t bg-muted/20 px-[18px] pb-4">
                     <div className="pt-4 flex flex-col gap-4">
                       <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr] gap-3 sm:items-center">
                         <Label htmlFor={`role-${key}`} className="text-sm">Role</Label>
@@ -883,9 +903,12 @@ export function StaffManager({
                     </div>
                   </div>
                 )}
+                    </div>
+                  );
+                })}
               </div>
-            );
-          });
+            </div>
+          );
         })}
       </div>
 
