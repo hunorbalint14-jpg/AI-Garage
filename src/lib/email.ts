@@ -32,6 +32,15 @@ export function renderBrandedEmail(opts: Omit<RenderEmailOpts, "publicOrigin">):
   return renderEmail({ ...opts, publicOrigin: PUBLIC_ORIGIN });
 }
 
+// Render a PLATFORM (AI Garage) branded email into the shared shell — the
+// platform's own name + logo prefilled. For emails we send *as* AI Garage
+// (owner onboarding, platform billing) rather than on a tenant's behalf.
+export function renderPlatformEmail(
+  opts: Omit<RenderEmailOpts, "publicOrigin" | "brandName" | "logoUrl">,
+): string {
+  return renderEmail({ brandName: SENDER_NAME, logoUrl: LOGO_URL, ...opts, publicOrigin: PUBLIC_ORIGIN });
+}
+
 // Build a tenant-aware booking URL: https://{slug}.ai-garage.co.uk/book
 export function tenantBookingUrl(slug: string, path = "/book"): string {
   return `https://${slug}.${ROOT_HOST}${path}`;

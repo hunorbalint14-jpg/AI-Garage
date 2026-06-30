@@ -9,7 +9,11 @@ import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 import { recordSubscriptionFromStripe } from "@/lib/service-plans";
 import { recordTenantSubscription } from "@/lib/tenant-plans";
-import { sendTenantSubscriptionReceipt, sendServicePlanReceipt } from "@/lib/subscription-receipts";
+import {
+  sendTenantSubscriptionReceipt,
+  sendTenantOnboardingEmail,
+  sendServicePlanReceipt,
+} from "@/lib/subscription-receipts";
 import { recordWebhookDelivery } from "@/lib/platform/webhooks";
 
 export const runtime = "nodejs";
@@ -146,6 +150,9 @@ async function handleStripeEvent(
         const sub = await stripe.subscriptions.retrieve(subId);
         await recordTenantSubscription(admin, sub);
         await sendTenantSubscriptionReceipt(sub);
+        // First-subscribe only fires checkout.session.completed (Billing-Portal
+        // plan switches don't), so this is the right place to welcome + onboard.
+        await sendTenantOnboardingEmail(sub);
         console.log("[stripe-webhook] tenant subscription recorded", { subId });
         break;
       }
