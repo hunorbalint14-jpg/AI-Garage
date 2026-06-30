@@ -47,7 +47,7 @@ async function loadOrg(locationId: string): Promise<OrgRow | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("locations")
-    .select("organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)")
+    .select("organization:organizations!organization_id(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)")
     .eq("id", locationId)
     .maybeSingle();
   return ((data as { organization: OrgRow | null } | null)?.organization ?? null);

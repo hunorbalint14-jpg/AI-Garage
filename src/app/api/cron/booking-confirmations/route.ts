@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
     admin
       .from("locations")
-      .select("id, slug, name, address, organization:organizations(name, slug)")
+      .select("id, slug, name, address, organization:organizations!organization_id(name, slug)")
       .eq("id", locationId)
       .maybeSingle(),
   ]);

@@ -35,7 +35,7 @@ export default async function DepositSuccessPage({
   const table = verify.quote.source === "standalone" ? "standalone_quotes" : "job_quotes";
   const { data } = await admin
     .from(table)
-    .select("deposit_paid_at, deposit_amount, location:locations(name, organization:organizations(name, phone))")
+    .select("deposit_paid_at, deposit_amount, location:locations(name, organization:organizations!organization_id(name, phone))")
     .eq("id", verify.quote.id)
     .maybeSingle();
   type Row = {

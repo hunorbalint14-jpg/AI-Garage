@@ -45,7 +45,7 @@ export default async function ConfirmBookingPage({
   const [{ data: locationData }, { data: vehicleData }] = await Promise.all([
     admin
       .from("locations")
-      .select("name, organization:organizations(name, primary_color, logo_url)")
+      .select("name, organization:organizations!organization_id(name, primary_color, logo_url)")
       .eq("id", booking.location_id)
       .maybeSingle(),
     booking.vehicle_id

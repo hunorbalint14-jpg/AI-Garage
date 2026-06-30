@@ -20,7 +20,7 @@ export default async function CardSavedPage({
   const admin = createAdminClient();
   const { data } = await admin
     .from("bookings")
-    .select("id, scheduled_at, location:locations(name, organization:organizations(name))")
+    .select("id, scheduled_at, location:locations(name, organization:organizations!organization_id(name))")
     .eq("id", id)
     .maybeSingle();
 

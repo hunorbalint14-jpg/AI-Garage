@@ -40,7 +40,7 @@ export default async function ReviewPage({ params }: { params: Promise<{ token: 
   const admin = createAdminClient();
   const { data: location } = (await admin
     .from("locations")
-    .select("name, organization:organizations(name, primary_color, logo_url)")
+    .select("name, organization:organizations!organization_id(name, primary_color, logo_url)")
     .eq("id", verify.review.location_id)
     .maybeSingle()) as { data: { name: string; organization: OrgBrand | null } | null };
 

@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
 
   let locQuery = admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name, logo_url)");
+    .select("id, name, organization:organizations!organization_id(id, name, logo_url)");
   if (filterLocationId) locQuery = locQuery.eq("id", filterLocationId);
 
   const { data: locations } = (await locQuery) as { data: LocationRow[] | null };

@@ -32,7 +32,7 @@ async function loadQuoteForFinance(
     const { data } = await admin
       .from("standalone_quotes")
       .select(
-        "id, location_id, total, customer:customers(full_name, email, phone), vehicle:vehicles(registration), location:locations(slug, organization:organizations(id))",
+        "id, location_id, total, customer:customers(full_name, email, phone), vehicle:vehicles(registration), location:locations(slug, organization:organizations!organization_id(id))",
       )
       .eq("id", id)
       .maybeSingle();
@@ -47,7 +47,7 @@ async function loadQuoteForFinance(
   const { data } = await admin
     .from("job_quotes")
     .select(
-      "id, location_id, total, job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration)), location:locations(slug, organization:organizations(id))",
+      "id, location_id, total, job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration)), location:locations(slug, organization:organizations!organization_id(id))",
     )
     .eq("id", id)
     .maybeSingle();

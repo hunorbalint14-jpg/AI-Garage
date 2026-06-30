@@ -134,7 +134,7 @@ export async function sendServicePlanReceipt(admin: Admin, sub: Stripe.Subscript
     const { data: locRow } = locationId
       ? await admin
           .from("locations")
-          .select("name, address, organization:organizations(name, logo_url, primary_color)")
+          .select("name, address, organization:organizations!organization_id(name, logo_url, primary_color)")
           .eq("id", locationId)
           .maybeSingle()
       : { data: null };

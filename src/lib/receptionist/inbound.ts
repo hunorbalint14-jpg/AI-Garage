@@ -48,7 +48,7 @@ export async function routeInboundNumber(toNumber: string): Promise<RoutedLocati
   const { data } = await admin
     .from("receptionist_configs")
     .select(
-      "location_id, enabled, twilio_number, forward_to_phone, forward_timeout_seconds, location:locations(id, name, business_hours, organization:organizations(id, name, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
+      "location_id, enabled, twilio_number, forward_to_phone, forward_timeout_seconds, location:locations(id, name, business_hours, organization:organizations!organization_id(id, name, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
     )
     .eq("twilio_number", toNumber)
     .maybeSingle();
