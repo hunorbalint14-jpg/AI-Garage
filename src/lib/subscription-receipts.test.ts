@@ -3,15 +3,18 @@ import type Stripe from "stripe";
 
 vi.mock("@/lib/email", () => ({
   sendEmail: vi.fn(async () => ({ success: true, messageId: "m_1" })),
-  tenantBookingUrl: vi.fn(() => "https://slug.example/staff/settings/billing"),
+  tenantBookingUrl: vi.fn((_slug: string, path: string) => `https://slug.example${path}`),
   renderBrandedEmail: vi.fn(() => "<html>receipt</html>"),
+  renderPlatformEmail: vi.fn(() => "<html>onboarding</html>"),
   paragraphsToHtml: vi.fn((t: string) => `<p>${t}</p>`),
 }));
 vi.mock("@/lib/stripe", () => ({ stripe: { customers: { retrieve: vi.fn() } } }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 
 const { sendEmail } = await import("@/lib/email");
-const { sendServicePlanReceipt } = await import("./subscription-receipts");
+const { stripe } = await import("@/lib/stripe");
+const { createAdminClient } = await import("@/lib/supabase/admin");
+const { sendServicePlanReceipt, sendTenantOnboardingEmail } = await import("./subscription-receipts");
 
 // Minimal admin double: returns canned rows keyed by table name. Supports the
 // chained select/eq/maybeSingle calls the receipt code makes.
@@ -73,6 +76,63 @@ describe("sendServicePlanReceipt", () => {
     await sendServicePlanReceipt(fakeAdmin({ ...rows, customers: { full_name: "No Email", email: null } }), servicePlanSub());
 
     expect(sendEmail).not.toHaveBeenCalled();
+    errSpy.mockRestore();
+  });
+});
+
+// A tenant-billing subscription on the platform account, as the webhook sees it.
+function tenantSub(): Stripe.Subscription {
+  return {
+    id: "sub_t1",
+    status: "active",
+    customer: "cus_owner",
+    metadata: { organization_id: "org_1", tier: "growth" },
+    items: { data: [{ price: { unit_amount: 9900, recurring: { interval: "month" } } }] },
+  } as unknown as Stripe.Subscription;
+}
+
+describe("sendTenantOnboardingEmail", () => {
+  beforeEach(() => {
+    vi.mocked(createAdminClient).mockReturnValue(fakeAdmin({ locations: { slug: "smith-motors" } }));
+    vi.mocked(stripe.customers.retrieve).mockResolvedValue({
+      id: "cus_owner",
+      email: "owner@smith.example",
+      name: "Sam Smith",
+    } as never);
+  });
+
+  it("emails the onboarding guide to the owner's address", async () => {
+    await sendTenantOnboardingEmail(tenantSub());
+
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const arg = vi.mocked(sendEmail).mock.calls[0][0];
+    expect(arg).toMatchObject({ to: "owner@smith.example", html: "<html>onboarding</html>" });
+    // Steps deep-link into the app via the org's primary subdomain.
+    expect(arg.text).toContain("https://slug.example/staff/onboarding");
+    expect(arg.text).toContain("https://slug.example/staff/settings?tab=payments");
+  });
+
+  it("skips sending when the owner has no email", async () => {
+    vi.mocked(stripe.customers.retrieve).mockResolvedValue({ id: "cus_owner", email: null } as never);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await sendTenantOnboardingEmail(tenantSub());
+
+    expect(sendEmail).not.toHaveBeenCalled();
+    expect(errSpy).toHaveBeenCalledWith("[onboarding] tenant: no owner email", expect.objectContaining({ sub: "sub_t1" }));
+    errSpy.mockRestore();
+  });
+
+  it("logs (does not throw) when delivery fails", async () => {
+    vi.mocked(sendEmail).mockResolvedValueOnce({ success: false, error: "Resend rejected" });
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(sendTenantOnboardingEmail(tenantSub())).resolves.toBeUndefined();
+
+    expect(errSpy).toHaveBeenCalledWith(
+      "[onboarding] tenant: sendEmail failed",
+      expect.objectContaining({ sub: "sub_t1", to: "owner@smith.example", error: "Resend rejected" }),
+    );
     errSpy.mockRestore();
   });
 });
