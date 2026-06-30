@@ -1,6 +1,8 @@
 "use server";
 
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendOrgWelcomeEmail } from "@/lib/signup-welcome";
 import { validateSlug } from "@/lib/slug";
 import { findSlugConflict } from "@/lib/slug-availability";
 import { emailSchema, nameSchema, passwordSchema, parseOrError } from "@/lib/validation";
@@ -87,6 +89,11 @@ export async function signUpGarage(formData: FormData): Promise<SignupResult> {
     await admin.auth.admin.deleteUser(userId);
     return { error: linkErr.message };
   }
+
+  // Welcome the new owner — every signup starts on free Starter, so this is the
+  // platform's first contact + the canonical getting-started email. Fire after
+  // the response so a slow Resend call never delays the redirect; best-effort.
+  after(() => sendOrgWelcomeEmail({ ownerName, email, orgName: businessName, slug: slugInput }));
 
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
   const hostname = rootDomain.split(":")[0];
