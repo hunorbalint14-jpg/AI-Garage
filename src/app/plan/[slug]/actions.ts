@@ -47,7 +47,7 @@ export async function acceptPlanInvite(
 
   const { data: locRow } = await admin
     .from("locations")
-    .select("slug, organization:organizations(id, stripe_account_id, stripe_charges_enabled)")
+    .select("slug, organization:organizations!organization_id(id, stripe_account_id, stripe_charges_enabled)")
     .eq("id", invite.location_id)
     .maybeSingle();
   const loc = locRow as unknown as {

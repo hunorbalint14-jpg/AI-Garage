@@ -4,6 +4,12 @@ import { useMemo, useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { submitWidgetBooking } from "./actions";
 import { lookupRegistration, type RegLookupResult } from "./lookup-actions";
+import {
+  resolveHoursForDate,
+  formatWeeklySummary,
+  type WeeklyHours,
+  type SpecialHours,
+} from "@/lib/business-hours";
 
 type Service = {
   id: string;
@@ -27,6 +33,10 @@ type Props = {
   // by location id, plus the landing branch.
   locations: { id: string; name: string }[];
   servicesByLocation: Record<string, Service[]>;
+  // Per-branch weekly hours + upcoming overrides — drive the closed-date hint +
+  // guard; the server re-validates before booking.
+  weeklyByLocation: Record<string, WeeklyHours>;
+  specialByLocation: Record<string, SpecialHours[]>;
   defaultLocationId: string;
   privacyPolicyUrl?: string | null;
   prefill: Prefill;
@@ -54,6 +64,8 @@ export function BookingWidgetForm({
   garageName,
   locations,
   servicesByLocation,
+  weeklyByLocation,
+  specialByLocation,
   defaultLocationId,
   privacyPolicyUrl,
   prefill,
@@ -70,6 +82,16 @@ export function BookingWidgetForm({
     [servicesByLocation, locationId],
   );
   const [serviceId, setServiceId] = useState<string>(services[0]?.id ?? "");
+
+  // Hours for the chosen branch → closed-date hint + guard.
+  const weekly = useMemo(() => weeklyByLocation[locationId] ?? {}, [weeklyByLocation, locationId]);
+  const special = useMemo(() => specialByLocation[locationId] ?? [], [specialByLocation, locationId]);
+  const hoursSummary = useMemo(() => formatWeeklySummary(weekly), [weekly]);
+  const [scheduledAt, setScheduledAt] = useState<string>(defaultDateTime);
+  const closedDayWarning = useMemo(() => {
+    if (!scheduledAt) return null;
+    return resolveHoursForDate(weekly, special, scheduledAt).open ? null : "We're closed then.";
+  }, [scheduledAt, weekly, special]);
 
   // Switching branch re-points the services list and resets the chosen service.
   function onBranchChange(next: string) {
@@ -115,6 +137,10 @@ export function BookingWidgetForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (closedDayWarning) {
+      setError(`${closedDayWarning} Our hours: ${hoursSummary} — please pick another time.`);
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await submitWidgetBooking(formData);
@@ -341,10 +367,18 @@ export function BookingWidgetForm({
             name="scheduledAt"
             type="datetime-local"
             required
-            defaultValue={defaultDateTime()}
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
             disabled={pending}
             className={INPUT}
           />
+          {closedDayWarning ? (
+            <p className="text-xs font-medium text-red-600">
+              {closedDayWarning} Open {hoursSummary}.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400">Open {hoursSummary}.</p>
+          )}
         </div>
       </div>
 
@@ -404,7 +438,7 @@ export function BookingWidgetForm({
 
       <button
         type="submit"
-        disabled={pending || services.length === 0}
+        disabled={pending || services.length === 0 || !!closedDayWarning}
         className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: orgColor }}
       >

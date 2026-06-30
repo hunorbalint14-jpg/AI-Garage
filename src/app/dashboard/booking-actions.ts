@@ -23,7 +23,7 @@ async function getCustomerAndBooking(bookingId: string) {
   const [locationRes, bookingRes] = await Promise.all([
     admin
       .from("locations")
-      .select("id, name, address, organization:organizations(id, name, phone)")
+      .select("id, name, address, organization:organizations!organization_id(id, name, phone)")
       .eq("slug", slug)
       .maybeSingle(),
     admin

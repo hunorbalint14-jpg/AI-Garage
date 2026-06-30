@@ -4,6 +4,13 @@ import { bayCapacityAt } from "@/lib/bay-availability";
 import { createStaffNotification } from "@/lib/staff-notifications";
 import { logAudit } from "@/lib/audit";
 import { candidateSlots, freeSlots, formatSlotLabel, type SlotBooking } from "./slots";
+import {
+  resolveHoursForDate,
+  formatWeeklySummary,
+  APP_TZ,
+  type WeeklyHours,
+  type SpecialHours,
+} from "@/lib/business-hours";
 
 // Tool surface for the receptionist agent. Every tool returns a plain string
 // — the model reads it like a colleague's note. Tools never throw; failures
@@ -65,8 +72,10 @@ export type ToolContext = {
   organizationId: string;
   conversationId: string;
   customerPhone: string;
-  businessHoursStart: number;
-  businessHoursEnd: number;
+  /** Per-weekday opening hours (minutes from midnight). */
+  weekly: WeeklyHours;
+  /** Upcoming one-off date overrides. */
+  specialHours: SpecialHours[];
 };
 
 export type ToolOutcome = {
@@ -120,7 +129,11 @@ async function listServices(ctx: ToolContext): Promise<string> {
 
 async function checkAvailability(date: string, ctx: ToolContext): Promise<string> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "Invalid date — use YYYY-MM-DD.";
-  const candidates = candidateSlots(date, ctx.businessHoursStart, ctx.businessHoursEnd);
+  const resolved = resolveHoursForDate(ctx.weekly, ctx.specialHours, date);
+  if (!resolved.open || !resolved.hours) {
+    return `Closed on ${date} — our hours are ${formatWeeklySummary(ctx.weekly)}. Offer an open day.`;
+  }
+  const candidates = candidateSlots(date, resolved.hours.open, resolved.hours.close);
   if (candidates.length === 0) return `No bookable times left on ${date}.`;
 
   const admin = createAdminClient();
@@ -152,6 +165,11 @@ async function createBooking(
   const registration = String(input.registration ?? "").trim().replace(/\s+/g, "").toUpperCase() || null;
   if (!fullName || !serviceId || !scheduledAt || isNaN(new Date(scheduledAt).getTime())) {
     return { result: "Missing or invalid booking details — confirm name, service, and slot first." };
+  }
+
+  const dateKey = new Intl.DateTimeFormat("en-CA", { timeZone: APP_TZ }).format(new Date(scheduledAt));
+  if (!resolveHoursForDate(ctx.weekly, ctx.specialHours, dateKey).open) {
+    return { result: `We're closed then (our hours: ${formatWeeklySummary(ctx.weekly)}). Offer a day we're open.` };
   }
 
   const admin = createAdminClient();

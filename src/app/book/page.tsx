@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { BookingWidgetForm } from "./booking-widget-form";
+import { parseWeeklyHours, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 
 export default async function BookingWidgetPage({
   searchParams,
@@ -20,7 +21,7 @@ export default async function BookingWidgetPage({
 
   const { data: location } = await admin
     .from("locations")
-    .select("id, name, organization:organizations(id, name, primary_color, logo_url, privacy_policy_url, stripe_account_id, stripe_charges_enabled)")
+    .select("id, name, organization:organizations!organization_id(id, name, primary_color, logo_url, privacy_policy_url, stripe_account_id, stripe_charges_enabled)")
     .eq("slug", slug)
     .maybeSingle() as {
     data: {
@@ -54,10 +55,39 @@ export default async function BookingWidgetPage({
   };
   const { data: branchData } = await admin
     .from("locations")
-    .select("id, name")
+    .select("id, name, business_hours")
     .eq("organization_id", org.id)
     .order("name");
-  const locations = (branchData ?? []) as { id: string; name: string }[];
+  const branches = (branchData ?? []) as { id: string; name: string; business_hours: unknown }[];
+  const locations = branches.map((b) => ({ id: b.id, name: b.name }));
+  // Per-branch weekly hours + upcoming overrides so the widget can show the
+  // resolved hours / "Closed" for the picked date; the server re-checks before
+  // creating any booking.
+  const weeklyByLocation: Record<string, WeeklyHours> = {};
+  for (const b of branches) weeklyByLocation[b.id] = parseWeeklyHours(b.business_hours);
+
+  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
+  const { data: specialData } = await admin
+    .from("location_special_hours")
+    .select("location_id, date, is_closed, open_minute, close_minute")
+    .in("location_id", locations.map((l) => l.id))
+    .gte("date", todayKey);
+  const specialByLocation: Record<string, SpecialHours[]> = {};
+  for (const l of locations) specialByLocation[l.id] = [];
+  for (const s of (specialData ?? []) as {
+    location_id: string;
+    date: string;
+    is_closed: boolean;
+    open_minute: number | null;
+    close_minute: number | null;
+  }[]) {
+    (specialByLocation[s.location_id] ??= []).push({
+      date: s.date,
+      isClosed: s.is_closed,
+      openMinute: s.open_minute,
+      closeMinute: s.close_minute,
+    });
+  }
 
   const { data: servicesData } = await admin
     .from("services")
@@ -231,6 +261,8 @@ export default async function BookingWidgetPage({
           garageName={org.name}
           locations={locations}
           servicesByLocation={servicesByLocation}
+          weeklyByLocation={weeklyByLocation}
+          specialByLocation={specialByLocation}
           defaultLocationId={defaultLocationId}
           privacyPolicyUrl={org.privacy_policy_url}
           prefill={prefill}

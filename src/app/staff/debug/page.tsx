@@ -29,7 +29,7 @@ export default async function DebugPage() {
     const admin = createAdminClient();
     const { data: loc, error: locErr } = await admin
       .from("locations")
-      .select("id, slug, name, organization_id, organization:organizations(id, slug, name)")
+      .select("id, slug, name, organization_id, organization:organizations!organization_id(id, slug, name)")
       .eq("slug", resolvedSlug)
       .maybeSingle();
     locationRow = loc ?? locErr ?? null;

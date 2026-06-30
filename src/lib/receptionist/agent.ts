@@ -3,6 +3,7 @@ import { recordAiUsage } from "@/lib/ai-usage";
 import { getOrgAiBrief, aiBriefSystemBlock } from "@/lib/ai-profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RECEPTIONIST_TOOLS, executeReceptionistTool, type ToolContext } from "./tools";
+import { formatWeeklySummary, minutesToLabel, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 
 const anthropic = new Anthropic();
 // Premium, revenue-generating agent — worth the stronger model. Usage is
@@ -21,8 +22,10 @@ export type AgentLocationContext = {
   organizationId: string;
   garageName: string;
   locationName: string;
-  businessHoursStart: number;
-  businessHoursEnd: number;
+  /** Per-weekday opening hours (minutes from midnight). */
+  weekly: WeeklyHours;
+  /** Upcoming one-off date overrides. */
+  specialHours: SpecialHours[];
   conversationId: string;
   customerPhone: string;
   channel: "sms" | "whatsapp";
@@ -34,12 +37,30 @@ export type AgentTurnResult = {
   handedOff: boolean;
 };
 
+// Short prompt line for the next few one-off date overrides, so the agent
+// won't offer a slot on a holiday closure / honours special opening hours.
+function specialHoursLine(special: SpecialHours[]): string {
+  if (special.length === 0) return "";
+  const fmt = (d: string) => {
+    const [y, m, day] = d.split("-").map(Number);
+    return new Date(y, m - 1, day).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  };
+  const parts = special
+    .slice(0, 5)
+    .map((s) =>
+      s.isClosed || s.openMinute == null || s.closeMinute == null
+        ? `${fmt(s.date)} closed`
+        : `${fmt(s.date)} ${minutesToLabel(s.openMinute)}–${minutesToLabel(s.closeMinute)}`,
+    );
+  return `\nSpecial dates (override the above): ${parts.join("; ")}.`;
+}
+
 function systemPrompt(ctx: AgentLocationContext, aiBrief: string | null): string {
   return `You are the receptionist for ${ctx.garageName} (${ctx.locationName}), a UK garage. You're chatting with a customer over ${ctx.channel === "whatsapp" ? "WhatsApp" : "SMS"}.
 
 You can: tell customers about services and prices (list_services), check real appointment availability (check_availability), and book them in (create_booking). Anything else — diagnosis questions, complaints, discounts, changing existing bookings — use hand_off.
 
-Opening hours: ${String(ctx.businessHoursStart).padStart(2, "0")}:00–${String(ctx.businessHoursEnd).padStart(2, "0")}:00.
+Opening hours: ${formatWeeklySummary(ctx.weekly)} — we're closed any other time, so never offer or book one.${specialHoursLine(ctx.specialHours)}
 Today's date: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.
 
 Rules:
@@ -63,8 +84,8 @@ export async function runReceptionistTurn(
     organizationId: ctx.organizationId,
     conversationId: ctx.conversationId,
     customerPhone: ctx.customerPhone,
-    businessHoursStart: ctx.businessHoursStart,
-    businessHoursEnd: ctx.businessHoursEnd,
+    weekly: ctx.weekly,
+    specialHours: ctx.specialHours,
   };
 
   const messages: Anthropic.MessageParam[] = transcript.map((m) => ({

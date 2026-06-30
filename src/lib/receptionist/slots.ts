@@ -7,19 +7,23 @@ export type SlotBooking = {
   bay_id: string | null;
 };
 
-// Hourly candidate start times for a date within business hours, skipping
-// anything in the past (with a small lead so the agent never offers "now").
+// Candidate start times for a date within the day's open hours (minutes from
+// midnight), stepped hourly from the opening time, skipping anything in the past
+// (with a small lead so the agent never offers "now").
 export function candidateSlots(
   date: string, // YYYY-MM-DD
-  businessHoursStart: number,
-  businessHoursEnd: number,
+  openMinute: number,
+  closeMinute: number,
   now: Date = new Date(),
   minLeadMinutes = 60,
+  stepMinutes = 60,
 ): Date[] {
   const slots: Date[] = [];
   const earliest = now.getTime() + minLeadMinutes * 60_000;
-  for (let hour = businessHoursStart; hour < businessHoursEnd; hour++) {
-    const slot = new Date(`${date}T${String(hour).padStart(2, "0")}:00:00`);
+  for (let m = openMinute; m < closeMinute; m += stepMinutes) {
+    const hh = String(Math.floor(m / 60)).padStart(2, "0");
+    const mm = String(m % 60).padStart(2, "0");
+    const slot = new Date(`${date}T${hh}:${mm}:00`);
     if (isNaN(slot.getTime())) return [];
     if (slot.getTime() >= earliest) slots.push(slot);
   }

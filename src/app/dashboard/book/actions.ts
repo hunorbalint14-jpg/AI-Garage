@@ -35,7 +35,7 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
   const { data: locationRow } = await admin
     .from("locations")
     .select(
-      "id, name, organization:organizations(id, name, phone, stripe_account_id, stripe_charges_enabled, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
+      "id, name, organization:organizations!organization_id(id, name, phone, stripe_account_id, stripe_charges_enabled, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)",
     )
     .eq("slug", slug)
     .maybeSingle();

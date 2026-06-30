@@ -8,6 +8,8 @@ export type AuditAction =
   | "settings.update"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
+  | "settings.special_hours_add"
+  | "settings.special_hours_remove"
   | "settings.logo_upload"
   | "settings.location_add"
   | "settings.location_rename"

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { STATUS_STYLE, statusLabel, typeLabel, type BookingRow } from "./booking-display";
+import { resolveHoursForDate, formatDayHours, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 
 type Bay = { id: string; name: string; description: string | null };
 type DayBooking = BookingRow & { bay_id: string | null; technicianName: string | null };
@@ -13,18 +14,24 @@ export function DayView({
   bookings,
   bays,
   baseHref,
+  weekly,
+  specialHours,
 }: {
   /** YYYY-MM-DD for the day being shown */
   date: string;
   bookings: DayBooking[];
   bays: Bay[];
   baseHref: string;
+  weekly: WeeklyHours;
+  specialHours: SpecialHours[];
 }) {
   const day = new Date(`${date}T00:00:00`);
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, 1);
   const todayStr = toDateParam(new Date());
   const isToday = date === todayStr;
+  const resolved = resolveHoursForDate(weekly, specialHours, date);
+  const isClosed = !resolved.open;
 
   const byBay = new Map<string | null, DayBooking[]>();
   for (const b of bookings) {
@@ -55,6 +62,13 @@ export function DayView({
         <h2 className="text-base font-semibold">
           {day.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
           {isToday && <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">Today</span>}
+          {isClosed ? (
+            <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Closed</span>
+          ) : (
+            resolved.hours && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">{formatDayHours(resolved.hours)}</span>
+            )
+          )}
         </h2>
         <div className="flex items-center gap-2">
           <Link
@@ -81,6 +95,12 @@ export function DayView({
           </Link>
         </div>
       </div>
+
+      {isClosed && (
+        <div className="rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          The branch is normally closed on this day. New online bookings are blocked, but staff can still add one manually.
+        </div>
+      )}
 
       {bookings.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">

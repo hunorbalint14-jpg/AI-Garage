@@ -37,7 +37,7 @@ export async function generateInvoiceForPaidBooking({
   const { data: bookingRow } = await admin
     .from("bookings")
     .select(
-      "id, location_id, customer_id, scheduled_at, notes, service:services(name, category), customer:customers(full_name, email), location:locations(name, address, organization:organizations(id, name, phone, logo_url, primary_color))",
+      "id, location_id, customer_id, scheduled_at, notes, service:services(name, category), customer:customers(full_name, email), location:locations(name, address, organization:organizations!organization_id(id, name, phone, logo_url, primary_color))",
     )
     .eq("id", bookingId)
     .maybeSingle();

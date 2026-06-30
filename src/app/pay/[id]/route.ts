@@ -20,7 +20,7 @@ export async function GET(
   const { data: invoice } = await admin
     .from("invoices")
     .select(
-      "id, invoice_number, status, total, location_id, customer:customers(full_name, email), location:locations(slug, organization:organizations(name, stripe_account_id, stripe_charges_enabled, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
+      "id, invoice_number, status, total, location_id, customer:customers(full_name, email), location:locations(slug, organization:organizations!organization_id(name, stripe_account_id, stripe_charges_enabled, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
     )
     .eq("id", id)
     .maybeSingle();

@@ -1,6 +1,7 @@
 import twilio from "twilio";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tenantBillingActive, tenantHasFeature, type OrgBilling } from "@/lib/tenant-plans";
+import { parseWeeklyHours, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 import type { TranscriptMessage } from "./agent";
 
 // Shared plumbing for the Twilio receptionist webhooks: signature
@@ -32,8 +33,8 @@ export type RoutedLocation = {
   organizationId: string;
   garageName: string;
   locationName: string;
-  businessHoursStart: number;
-  businessHoursEnd: number;
+  weekly: WeeklyHours;
+  specialHours: SpecialHours[];
   forwardToPhone: string | null;
   forwardTimeoutSeconds: number;
   twilioNumber: string;
@@ -47,7 +48,7 @@ export async function routeInboundNumber(toNumber: string): Promise<RoutedLocati
   const { data } = await admin
     .from("receptionist_configs")
     .select(
-      "location_id, enabled, twilio_number, forward_to_phone, forward_timeout_seconds, location:locations(id, name, business_hours_start, business_hours_end, organization:organizations(id, name, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
+      "location_id, enabled, twilio_number, forward_to_phone, forward_timeout_seconds, location:locations(id, name, business_hours, organization:organizations!organization_id(id, name, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
     )
     .eq("twilio_number", toNumber)
     .maybeSingle();
@@ -61,8 +62,7 @@ export async function routeInboundNumber(toNumber: string): Promise<RoutedLocati
     location: {
       id: string;
       name: string;
-      business_hours_start: number | null;
-      business_hours_end: number | null;
+      business_hours: unknown;
       organization: ({ id: string; name: string } & OrgBilling) | null;
     } | null;
   };
@@ -72,13 +72,28 @@ export async function routeInboundNumber(toNumber: string): Promise<RoutedLocati
   const org = row.location.organization;
   if (!tenantHasFeature(org, "receptionist") || !tenantBillingActive(org)) return null;
 
+  // Upcoming one-off overrides so the agent honours holiday closures.
+  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
+  const { data: specialRows } = await admin
+    .from("location_special_hours")
+    .select("date, is_closed, open_minute, close_minute")
+    .eq("location_id", row.location_id)
+    .gte("date", todayKey)
+    .order("date", { ascending: true });
+  const specialHours: SpecialHours[] = (specialRows ?? []).map((s) => ({
+    date: (s as { date: string }).date,
+    isClosed: (s as { is_closed: boolean }).is_closed,
+    openMinute: (s as { open_minute: number | null }).open_minute,
+    closeMinute: (s as { close_minute: number | null }).close_minute,
+  }));
+
   return {
     locationId: row.location_id,
     organizationId: org.id,
     garageName: org.name,
     locationName: row.location.name,
-    businessHoursStart: row.location.business_hours_start ?? 8,
-    businessHoursEnd: row.location.business_hours_end ?? 18,
+    weekly: parseWeeklyHours(row.location.business_hours),
+    specialHours,
     forwardToPhone: row.forward_to_phone,
     forwardTimeoutSeconds: row.forward_timeout_seconds ?? 20,
     twilioNumber: row.twilio_number,
