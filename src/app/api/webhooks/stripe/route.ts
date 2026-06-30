@@ -9,11 +9,7 @@ import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 import { recordSubscriptionFromStripe } from "@/lib/service-plans";
 import { recordTenantSubscription } from "@/lib/tenant-plans";
-import {
-  sendTenantSubscriptionReceipt,
-  sendTenantOnboardingEmail,
-  sendServicePlanReceipt,
-} from "@/lib/subscription-receipts";
+import { sendTenantSubscriptionReceipt, sendServicePlanReceipt } from "@/lib/subscription-receipts";
 import { recordWebhookDelivery } from "@/lib/platform/webhooks";
 
 export const runtime = "nodejs";
@@ -149,10 +145,9 @@ async function handleStripeEvent(
           typeof session.subscription === "string" ? session.subscription : session.subscription.id;
         const sub = await stripe.subscriptions.retrieve(subId);
         await recordTenantSubscription(admin, sub);
+        // Billing receipt only — getting-started onboarding is the signup
+        // welcome email (sendOrgWelcomeEmail), sent once at org creation.
         await sendTenantSubscriptionReceipt(sub);
-        // First-subscribe only fires checkout.session.completed (Billing-Portal
-        // plan switches don't), so this is the right place to welcome + onboard.
-        await sendTenantOnboardingEmail(sub);
         console.log("[stripe-webhook] tenant subscription recorded", { subId });
         break;
       }

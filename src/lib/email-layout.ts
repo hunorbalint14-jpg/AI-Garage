@@ -87,6 +87,31 @@ export function emailSteps(steps: EmailStep[], accent: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:4px 0 8px">${rows}</table>`;
 }
 
+// An inline accent text link (with a → affordance) for use inside the body.
+export function emailLink(label: string, url: string, accent: string): string {
+  return `<a href="${escAttr(url)}" style="font-family:${FONT_DISPLAY};font-size:14px;font-weight:600;color:${accent};text-decoration:underline">${esc(label)} →</a>`;
+}
+
+// A small mono uppercase section label (e.g. "Get started", "Your plan") to
+// break a longer email body into scannable sections.
+export function emailSubheading(text: string): string {
+  return `<div style="margin:26px 0 10px;font-family:${FONT_MONO};font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${MUTED}">${esc(text)}</div>`;
+}
+
+// A themed bullet list — accent dot + text — for the shell body.
+export function emailBullets(items: string[], accent: string): string {
+  if (items.length === 0) return "";
+  const rows = items
+    .map(
+      (t) => `<tr>
+      <td width="18" valign="top" style="padding:5px 0"><span style="display:inline-block;width:6px;height:6px;border-radius:999px;background:${accent}"></span></td>
+      <td valign="top" style="padding:3px 0;font-family:${FONT_DISPLAY};font-size:15px;line-height:1.55;color:${TEXT}">${esc(t)}</td>
+    </tr>`,
+    )
+    .join("");
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:4px 0 8px">${rows}</table>`;
+}
+
 // Turn a plain-text body (double-newline paragraphs) into themed <p> blocks.
 export function paragraphsToHtml(text: string): string {
   return text

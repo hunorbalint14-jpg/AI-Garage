@@ -5,12 +5,9 @@ import {
   sendEmail,
   tenantBookingUrl,
   renderBrandedEmail,
-  renderPlatformEmail,
   paragraphsToHtml,
-  type EmailCta,
   type EmailDetailRow,
 } from "@/lib/email";
-import { emailSteps, ACCENT_DEFAULT, type EmailStep } from "@/lib/email-layout";
 import { garageLabel, garageLocationBlock } from "@/lib/garage-identity";
 import { TIERS, type TierKey } from "@/lib/tenant-plans";
 
@@ -102,110 +99,6 @@ export async function sendTenantSubscriptionReceipt(sub: Stripe.Subscription): P
     }
   } catch (err) {
     console.error("[receipts] sendTenantSubscriptionReceipt threw", err);
-  }
-}
-
-// ── Owner onboarding: getting-started guide ────────────────────────────────
-// Sent once, right after a garage owner first subscribes to a paid AI Garage
-// tier (on checkout.session.completed). Distinct from the billing receipt: this
-// is the "you're in — here's how to set up your garage" welcome, branded as the
-// platform. Best-effort; never throws.
-export async function sendTenantOnboardingEmail(sub: Stripe.Subscription): Promise<void> {
-  try {
-    if (sub.status !== "active" && sub.status !== "trialing") return;
-
-    const orgId = sub.metadata?.organization_id;
-    const tierKey = sub.metadata?.tier as TierKey | undefined;
-    const tier = tierKey && TIERS[tierKey] ? TIERS[tierKey] : null;
-    const tierName = tier?.name ?? "subscription";
-
-    // Owner email = the email on the platform Stripe customer (set at checkout).
-    const customerId = typeof sub.customer === "string" ? sub.customer : (sub.customer?.id ?? null);
-    if (!customerId) return;
-    const customer = await stripe.customers.retrieve(customerId);
-    const deleted = "deleted" in customer && customer.deleted;
-    const email = deleted ? null : customer.email;
-    if (!email) {
-      console.error("[onboarding] tenant: no owner email", { sub: sub.id });
-      return;
-    }
-    const ownerName = deleted ? null : customer.name;
-    const hello = ownerName ? `Hi ${ownerName.split(" ")[0]},` : "Hi,";
-
-    // Resolve the org's primary subdomain so each step deep-links into the app.
-    const admin = createAdminClient();
-    let slug: string | null = null;
-    if (orgId) {
-      const { data: loc } = await admin
-        .from("locations")
-        .select("slug")
-        .eq("organization_id", orgId)
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      slug = (loc as { slug: string } | null)?.slug ?? null;
-    }
-    const stepCta = (path: string, label: string): EmailCta | undefined =>
-      slug ? { url: tenantBookingUrl(slug, path), label } : undefined;
-
-    const steps: EmailStep[] = [
-      {
-        title: "Finish your AI setup",
-        detail: "Answer a few quick questions so AI Garage drafts messages, quotes and diagnostics in your garage's voice.",
-        cta: stepCta("/staff/onboarding", "Open AI setup"),
-      },
-      {
-        title: "Connect Stripe to get paid",
-        detail: "Take card payments, deposits and plan subscriptions straight into your own account.",
-        cta: stepCta("/staff/settings?tab=payments", "Set up payments"),
-      },
-      {
-        title: "Add your services & products",
-        detail: "List what you offer and your prices so bookings and invoices fill themselves in.",
-        cta: stepCta("/staff/services", "Add services"),
-      },
-      {
-        title: "Invite your team",
-        detail: "Add the people who'll work jobs, take bookings and reply to customers.",
-        cta: stepCta("/staff/staff-members", "Invite team"),
-      },
-    ];
-
-    const intro = `${hello}\n\nYour AI Garage ${tierName} plan is live — welcome aboard. Here's how to get your garage up and running in a few minutes:`;
-    const bodyHtml = paragraphsToHtml(intro) + emailSteps(steps, ACCENT_DEFAULT);
-    const dashboardUrl = slug ? tenantBookingUrl(slug, "/staff") : null;
-
-    const html = renderPlatformEmail({
-      preheader: "Get your garage set up in a few minutes.",
-      badge: `${tierName} active`,
-      heading: "Welcome to AI Garage",
-      bodyHtml,
-      cta: dashboardUrl ? { url: dashboardUrl, label: "Go to your dashboard" } : undefined,
-      footerNote: "Need a hand getting started? Just reply to this email.",
-    });
-
-    const text = [
-      intro,
-      steps
-        .map((s, i) => `${i + 1}. ${s.title}${s.detail ? ` — ${s.detail}` : ""}${s.cta ? `\n   ${s.cta.url}` : ""}`)
-        .join("\n\n"),
-      dashboardUrl ? `Go to your dashboard: ${dashboardUrl}` : "",
-      "Need a hand getting started? Just reply to this email.",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-
-    const sent = await sendEmail({
-      to: email,
-      subject: "Welcome to AI Garage — let's get your garage set up",
-      text,
-      html,
-    });
-    if (!sent.success) {
-      console.error("[onboarding] tenant: sendEmail failed", { sub: sub.id, to: email, error: sent.error });
-    }
-  } catch (err) {
-    console.error("[onboarding] sendTenantOnboardingEmail threw", err);
   }
 }
 
