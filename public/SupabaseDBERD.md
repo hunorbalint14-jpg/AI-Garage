@@ -110,9 +110,21 @@ data. Slug becomes the customer-facing subdomain.
 | `organization_id` | `uuid` | → `organizations.id` |
 | `slug` | `text` | Unique. Drives `<slug>.ai-garage.co.uk`. |
 | `name` | `text` | |
-| `business_hours_start` / `_end` | `int2` | 0–23 inclusive. |
-| `business_days` | `int2[]` | Open weekdays, JS `getDay()` numbers (0=Sun..6=Sat). Default Mon–Sat `{1,2,3,4,5,6}`. Gates the booking widget + AI receptionist. |
+| `business_hours` | `jsonb` | Per-weekday opening hours: `{ "<0=Sun..6=Sat>": { "open": <min from midnight>, "close": <min> } }`. Missing weekday = closed. Default Mon–Sat 08:00–18:00. Gates the booking widget + AI receptionist; see `src/lib/business-hours.ts`. |
 | `created_at` | `timestamptz` | |
+
+### `location_special_hours`
+One-off date overrides (bank holidays, special opening). A row for a date wins over the weekly `business_hours`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | PK |
+| `organization_id` | `uuid` | → `organizations.id` (backfilled from `location_id`) |
+| `location_id` | `uuid` | → `locations.id` |
+| `date` | `date` | Unique per `(location_id, date)`. |
+| `is_closed` | `bool` | Closed all day. |
+| `open_minute` / `close_minute` | `int2` | Custom hours (minutes from midnight) when not closed. |
+| `note` | `text` | e.g. "Christmas Day". |
 
 ### `org_users`
 

@@ -9,7 +9,6 @@ import {
   rollupProductivity,
   vatSummary,
   periodRange,
-  workingDaysBetween,
   utilisationSummary,
   AGED_BUCKETS,
   PERIODS,
@@ -18,6 +17,13 @@ import {
   type LabourLineLite,
 } from "@/lib/reports";
 import { PeriodSelector } from "./period-selector";
+import {
+  parseWeeklyHours,
+  resolveHoursForDate,
+  APP_TZ,
+  type WeeklyHours,
+  type SpecialHours,
+} from "@/lib/business-hours";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +105,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     Promise.all(locationIds.map((id) => listLocationStaff(id, ctx.organization.id))),
     admin
       .from("locations")
-      .select("id, business_hours_start, business_hours_end")
+      .select("id, business_hours")
       .in("id", locationIds),
   ]);
 
@@ -147,30 +153,69 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const lite: TimeEntryLite[] = entries.map((e) => ({ userId: e.user_id, jobId: e.job_id, minutes: e.duration_minutes }));
   const productivity = rollupProductivity(lite, estimateByJob);
 
-  // Per-branch open hours + the distinct techs who clocked time at each branch
-  // this period. Capacity is summed across the in-scope branches so a roll-up
-  // adds up each branch's (techs × open hours).
-  const hoursByLoc = new Map<string, number>();
-  for (const r of (hoursRes.data ?? []) as { id: string; business_hours_start: number | null; business_hours_end: number | null }[]) {
-    hoursByLoc.set(r.id, Math.max(0, (r.business_hours_end ?? 18) - (r.business_hours_start ?? 8)));
+  // Live periods (this month/quarter/ytd) clamp to today — future days aren't
+  // missed capacity yet.
+  const capacityEnd = to > now ? now : to;
+
+  // Per-branch weekly hours + any date overrides in the period, so capacity
+  // reflects real opening hours (short Saturdays, holiday closures …).
+  const fromKey = from.toLocaleDateString("en-CA", { timeZone: APP_TZ });
+  const endKey = capacityEnd.toLocaleDateString("en-CA", { timeZone: APP_TZ });
+  const weeklyByLoc = new Map<string, WeeklyHours>();
+  for (const r of (hoursRes.data ?? []) as { id: string; business_hours: unknown }[]) {
+    weeklyByLoc.set(r.id, parseWeeklyHours(r.business_hours));
   }
+  const { data: specialRows } = await admin
+    .from("location_special_hours")
+    .select("location_id, date, is_closed, open_minute, close_minute")
+    .in("location_id", locationIds)
+    .gte("date", fromKey)
+    .lte("date", endKey);
+  const specialByLoc = new Map<string, SpecialHours[]>();
+  for (const s of (specialRows ?? []) as {
+    location_id: string;
+    date: string;
+    is_closed: boolean;
+    open_minute: number | null;
+    close_minute: number | null;
+  }[]) {
+    if (!specialByLoc.has(s.location_id)) specialByLoc.set(s.location_id, []);
+    specialByLoc.get(s.location_id)!.push({
+      date: s.date,
+      isClosed: s.is_closed,
+      openMinute: s.open_minute,
+      closeMinute: s.close_minute,
+    });
+  }
+
+  // Total open hours for a branch across [from, capacityEnd], walking each
+  // calendar day and resolving its hours (weekly + exceptions).
+  const openHoursInPeriod = (locId: string): number => {
+    const weekly = weeklyByLoc.get(locId) ?? {};
+    const special = specialByLoc.get(locId) ?? [];
+    let minutes = 0;
+    const cur = new Date(from);
+    while (cur <= capacityEnd) {
+      const key = cur.toLocaleDateString("en-CA", { timeZone: APP_TZ });
+      const r = resolveHoursForDate(weekly, special, key);
+      if (r.open && r.hours) minutes += r.hours.close - r.hours.open;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return minutes / 60;
+  };
+
   const techsByLoc = new Map<string, Set<string>>();
   for (const e of entries) {
     if (!techsByLoc.has(e.location_id)) techsByLoc.set(e.location_id, new Set());
     techsByLoc.get(e.location_id)!.add(e.user_id);
   }
-  // Live periods (this month/quarter/ytd) clamp to today — future days aren't
-  // missed capacity yet.
-  const capacityEnd = to > now ? now : to;
-  const workingDays = workingDaysBetween(from, capacityEnd);
-  // Σ (techs × open hours) over branches; utilisationSummary multiplies by
-  // workingDays. For a single branch this equals techCount × hoursPerDay.
-  let techHoursPerDay = 0;
-  for (const [locId, techs] of techsByLoc) techHoursPerDay += techs.size * (hoursByLoc.get(locId) ?? 0);
+  // Σ (techs × open hours over the period) across branches; folded into
+  // techCount so utilisationSummary's × hoursPerDay × workingDays stays at × 1.
+  let techOpenHours = 0;
+  for (const [locId, techs] of techsByLoc) techOpenHours += techs.size * openHoursInPeriod(locId);
   const techCount = new Set(entries.map((e) => e.user_id)).size;
-  const singleBranchHoursPerDay = hoursByLoc.get(branchId) ?? 0;
   const workedMinutes = entries.reduce((s, e) => s + e.duration_minutes, 0);
-  const util = utilisationSummary({ workedMinutes, labourLines, techCount: techHoursPerDay, hoursPerDay: 1, workingDays });
+  const util = utilisationSummary({ workedMinutes, labourLines, techCount: techOpenHours, hoursPerDay: 1, workingDays: 1 });
   const fmtHours = (mins: number) => `${Math.round((mins / 60) * 10) / 10}h`;
   const nameMap = new Map<string, string>();
   for (const arr of staffArrays) for (const s of arr) nameMap.set(s.id, s.name);
@@ -259,7 +304,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             sub={
               orgWide
                 ? `worked ÷ capacity · ${techCount} tech${techCount === 1 ? "" : "s"} across ${locationIds.length} branches`
-                : `worked ÷ capacity (${techCount} tech${techCount === 1 ? "" : "s"} × ${singleBranchHoursPerDay}h × ${workingDays} days)`
+                : `worked ÷ capacity (${techCount} tech${techCount === 1 ? "" : "s"} × open hours this period)`
             }
             accent={util.utilisationPct !== null && util.utilisationPct < 50 ? "text-amber-600" : ""}
           />
