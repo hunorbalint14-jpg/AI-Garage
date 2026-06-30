@@ -74,7 +74,7 @@ export default async function QuoteDetailPage({
   const admin = createAdminClient();
 
   const { data: quoteData } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .select(
       "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model)",
     )
@@ -85,7 +85,7 @@ export default async function QuoteDetailPage({
   if (!quote || quote.location_id !== ctx.location.id) notFound();
 
   const { data: itemRows } = await admin
-    .from("standalone_quote_items")
+    .from("quote_items")
     .select("id, description, type, quantity, unit_price")
     .eq("quote_id", id)
     .order("sort_order");

@@ -70,7 +70,7 @@ export default async function JobDetailPage({
       .eq("active", true)
       .order("name"),
     admin
-      .from("job_quotes")
+      .from("quotes")
       .select(
         "id, status, title, total, created_at, sent_at, viewed_at, viewed_count, responded_at, expires_at, decline_reason",
       )

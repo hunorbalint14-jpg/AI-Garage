@@ -32,7 +32,7 @@ export default async function DepositSuccessPage({
 
   // Read deposit state from the appropriate source table.
   const admin = createAdminClient();
-  const table = verify.quote.source === "standalone" ? "standalone_quotes" : "job_quotes";
+  const table = "quotes";
   const { data } = await admin
     .from(table)
     .select("deposit_paid_at, deposit_amount, location:locations(name, organization:organizations!organization_id(name, phone))")

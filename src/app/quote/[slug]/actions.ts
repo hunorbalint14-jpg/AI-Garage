@@ -7,6 +7,7 @@ import { verifyQuoteAccess, tenantQuoteUrl, type QuoteRecord } from "@/lib/quote
 import { stripe, platformFeePence, tenantOrigin, publicOrigin } from "@/lib/stripe";
 import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { createStaffNotification } from "@/lib/staff-notifications";
+import { getQuoteVatRate } from "@/lib/quote-service";
 
 // Notify staff via both email AND in-app notification. The two surfaces are
 // complementary — email reaches the mechanic when they're off the dashboard,
@@ -105,7 +106,7 @@ export async function applyApprovedItems(quoteId: string): Promise<{ appliedIds:
   const admin = createAdminClient();
 
   const { data: quote } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .select("id, job_id, approved_item_ids, applied_job_item_ids")
     .eq("id", quoteId)
     .maybeSingle();
@@ -128,7 +129,7 @@ export async function applyApprovedItems(quoteId: string): Promise<{ appliedIds:
   if (!jobRow || jobRow.status !== "open") return { appliedIds: [], jobOpen: false };
 
   let itemsQuery = admin
-    .from("job_quote_items")
+    .from("quote_items")
     .select("id, description, type, quantity, unit_price")
     .eq("quote_id", q.id)
     .order("sort_order");
@@ -158,7 +159,7 @@ export async function applyApprovedItems(quoteId: string): Promise<{ appliedIds:
   const appliedIds = (inserted ?? []).map((r) => (r as { id: string }).id);
 
   await admin
-    .from("job_quotes")
+    .from("quotes")
     .update({ applied_job_item_ids: appliedIds })
     .eq("id", q.id);
 
@@ -196,7 +197,7 @@ export async function approveQuote(
   // Load items + org-level deposit setting BEFORE the atomic claim so we can
   // compute the approved total and decide whether a Checkout step is needed.
   const { data: allItems } = await admin
-    .from("job_quote_items")
+    .from("quote_items")
     .select("id, quantity, unit_price")
     .eq("quote_id", verify.quote.id);
   type ItemRow = { id: string; quantity: number; unit_price: number };
@@ -209,7 +210,7 @@ export async function approveQuote(
   if (effectiveSelected.length === 0) return { error: "Select at least one item to approve." };
 
   const subtotal = effectiveSelected.reduce((sum, it) => sum + it.quantity * it.unit_price, 0);
-  const VAT = 20;
+  const VAT = await getQuoteVatRate(admin, verify.quote.id);
   const approvedSubtotal = Math.round(subtotal * 100) / 100;
   const approvedVat = Math.round(approvedSubtotal * VAT) / 100;
   const approvedTotal = Math.round((approvedSubtotal + approvedVat) * 100) / 100;
@@ -274,7 +275,7 @@ export async function approveQuote(
   let claimErrMsg: string | null = null;
 
   const claimFirst = await admin
-    .from("job_quotes")
+    .from("quotes")
     .update(claimUpdateFull)
     .eq("id", verify.quote.id)
     .eq("status", "pending")
@@ -283,7 +284,7 @@ export async function approveQuote(
   if (claimFirst.error) {
     // Retry without v2 cols.
     const claimSecond = await admin
-      .from("job_quotes")
+      .from("quotes")
       .update(claimUpdateMinimal)
       .eq("id", verify.quote.id)
       .eq("status", "pending")
@@ -317,7 +318,7 @@ export async function approveQuote(
 
   if (!jobRow || jobRow.status !== "open") {
     await admin
-      .from("job_quotes")
+      .from("quotes")
       .update({ status: "approved_after_close" })
       .eq("id", q.id);
 
@@ -381,7 +382,7 @@ export async function approveQuote(
       );
 
       await admin
-        .from("job_quotes")
+        .from("quotes")
         .update({ stripe_checkout_session_id: session.id })
         .eq("id", q.id);
 
@@ -403,7 +404,7 @@ export async function approveQuote(
       // Don't strand a quote in approved-without-deposit limbo — flip it back
       // to pending so the customer can retry.
       await admin
-        .from("job_quotes")
+        .from("quotes")
         .update({ status: "pending", responded_at: null, deposit_required: false, deposit_pct: null, deposit_amount: null })
         .eq("id", q.id);
       return { error: "Couldn't start the deposit payment. Please try again or contact the garage." };
@@ -462,7 +463,7 @@ export async function declineQuote(
   const cleanReason = reason?.trim().slice(0, 1000) || null;
 
   const { data: claimed, error: claimErr } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .update({
       status: "declined",
       responded_at: new Date().toISOString(),
@@ -536,7 +537,7 @@ export async function declineAndRebook(slug: string, token: string): Promise<Reb
   const admin = createAdminClient();
 
   const { data: claimed, error: claimErr } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .update({ status: "rebooked", responded_at: new Date().toISOString() })
     .eq("id", verify.quote.id)
     .eq("status", "pending")
@@ -590,7 +591,7 @@ async function approveStandaloneQuote(
   const admin = createAdminClient();
 
   const { data: allItems } = await admin
-    .from("standalone_quote_items")
+    .from("quote_items")
     .select("id, quantity, unit_price")
     .eq("quote_id", verifyQuote.id);
   type ItemRow = { id: string; quantity: number; unit_price: number };
@@ -603,7 +604,7 @@ async function approveStandaloneQuote(
   if (effectiveSelected.length === 0) return { error: "Select at least one item to approve." };
 
   const subtotal = effectiveSelected.reduce((sum, it) => sum + it.quantity * it.unit_price, 0);
-  const VAT = 20;
+  const VAT = await getQuoteVatRate(admin, verifyQuote.id);
   const approvedSubtotal = Math.round(subtotal * 100) / 100;
   const approvedVat = Math.round(approvedSubtotal * VAT) / 100;
   const approvedTotal = Math.round((approvedSubtotal + approvedVat) * 100) / 100;
@@ -637,7 +638,7 @@ async function approveStandaloneQuote(
 
   // Atomic claim: pending → approved.
   const { data: claimed, error: claimErr } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .update({
       status: "approved",
       responded_at: new Date().toISOString(),
@@ -700,13 +701,13 @@ async function approveStandaloneQuote(
       );
 
       await admin
-        .from("standalone_quotes")
+        .from("quotes")
         .update({ stripe_checkout_session_id: session.id })
         .eq("id", q.id);
 
       await logAudit({
         organizationId: org.id,
-        action: "standalone_quote.approve",
+        action: "quote.approve",
         entityType: "standalone_quote",
         entityId: q.id,
         metadata: { total: approvedTotal, deposit_pending: true, deposit_pct: depositPct, partial: validSelectedIds.length > 0 },
@@ -718,7 +719,7 @@ async function approveStandaloneQuote(
     } catch (err) {
       console.error("[standalone-quote] checkout create failed", err);
       await admin
-        .from("standalone_quotes")
+        .from("quotes")
         .update({ status: "pending", responded_at: null, deposit_required: false, deposit_pct: null, deposit_amount: null })
         .eq("id", q.id);
       return { error: "Couldn't start the deposit payment. Please try again or contact the garage." };
@@ -728,7 +729,7 @@ async function approveStandaloneQuote(
   // No deposit — done. Staff will create a booking + job manually.
   await logAudit({
     organizationId: q.organization_id,
-    action: "standalone_quote.approve",
+    action: "quote.approve",
     entityType: "standalone_quote",
     entityId: q.id,
     metadata: { total: approvedTotal, partial: validSelectedIds.length > 0 },
@@ -757,7 +758,7 @@ async function declineStandaloneQuote(
   const cleanReason = reason?.trim().slice(0, 1000) || null;
 
   const { data: claimed, error: claimErr } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .update({
       status: "declined",
       responded_at: new Date().toISOString(),
@@ -783,7 +784,7 @@ async function declineStandaloneQuote(
 
   await logAudit({
     organizationId: q.organization_id,
-    action: "standalone_quote.decline",
+    action: "quote.decline",
     entityType: "standalone_quote",
     entityId: q.id,
     metadata: { total: q.total, reason: cleanReason },
@@ -892,7 +893,7 @@ export async function applyStandaloneQuoteDeposit(args: {
   const admin = createAdminClient();
 
   const { data } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .select("id, location_id, organization_id, total, created_by, deposit_paid_at, customer:customers(full_name), vehicle:vehicles(registration)")
     .eq("id", args.quoteId)
     .maybeSingle();
@@ -911,7 +912,7 @@ export async function applyStandaloneQuoteDeposit(args: {
   if (q.deposit_paid_at) return;
 
   await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .update({
       deposit_paid_at: new Date().toISOString(),
       stripe_payment_intent_id: args.paymentIntentId,
@@ -922,7 +923,7 @@ export async function applyStandaloneQuoteDeposit(args: {
 
   await logAudit({
     organizationId: q.organization_id,
-    action: "standalone_quote.deposit_paid",
+    action: "quote.deposit_paid",
     entityType: "standalone_quote",
     entityId: q.id,
     metadata: { total: q.total, deposit_pence: args.amountPence, payment_intent_id: args.paymentIntentId },

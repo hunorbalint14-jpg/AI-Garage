@@ -56,7 +56,7 @@ export default async function QuotesPage({
   const statusFilter = status?.trim();
 
   let queryBuilder = admin
-    .from("standalone_quotes")
+    .from("quotes")
     .select(
       "id, slug, status, title, total, created_at, sent_at, expires_at, responded_at, viewed_count, customer:customers(id, full_name), vehicle:vehicles(registration)",
     )

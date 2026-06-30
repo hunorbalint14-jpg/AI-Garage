@@ -41,9 +41,9 @@ export default async function PortalQuotesPage() {
 
   const [jqRes, saRes] = await Promise.all([
     jobIds.length
-      ? admin.from("job_quotes").select("id, title, status, total, created_at").in("job_id", jobIds).order("created_at", { ascending: false })
+      ? admin.from("quotes").select("id, title, status, total, created_at").in("job_id", jobIds).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
-    admin.from("standalone_quotes").select("id, title, status, total, created_at").eq("customer_id", customer.id).order("created_at", { ascending: false }),
+    admin.from("quotes").select("id, title, status, total, created_at").eq("customer_id", customer.id).order("created_at", { ascending: false }),
   ]);
 
   const quotes: ListQuote[] = [

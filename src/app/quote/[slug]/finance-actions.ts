@@ -30,7 +30,7 @@ async function loadQuoteForFinance(
   const admin = createAdminClient();
   if (source === "standalone") {
     const { data } = await admin
-      .from("standalone_quotes")
+      .from("quotes")
       .select(
         "id, location_id, total, customer:customers(full_name, email, phone), vehicle:vehicles(registration), location:locations(slug, organization:organizations!organization_id(id))",
       )
@@ -38,14 +38,14 @@ async function loadQuoteForFinance(
       .maybeSingle();
     if (!data) return null;
     const { data: items } = await admin
-      .from("standalone_quote_items")
+      .from("quote_items")
       .select("description, quantity, unit_price")
       .eq("quote_id", id);
     return { quote: data as unknown as QuoteFinanceRow, items: items ?? [] };
   }
 
   const { data } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .select(
       "id, location_id, total, job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration)), location:locations(slug, organization:organizations!organization_id(id))",
     )
@@ -57,7 +57,7 @@ async function loadQuoteForFinance(
   };
   const r = data as unknown as JobRow;
   const { data: items } = await admin
-    .from("job_quote_items")
+    .from("quote_items")
     .select("description, quantity, unit_price")
     .eq("quote_id", id);
   return {

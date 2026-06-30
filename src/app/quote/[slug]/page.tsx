@@ -83,16 +83,16 @@ export default async function QuotePage({
 
   // Fire-and-forget view counter + audit log.
   if (verify.quote.source === "standalone") {
-    void admin.rpc("standalone_quotes_increment_view", { p_id: quote.id });
+    void admin.rpc("quotes_increment_view", { p_id: quote.id });
     void logAudit({
       organizationId: quote.org?.id ?? null,
-      action: "standalone_quote.view",
+      action: "quote.view",
       entityType: "standalone_quote",
       entityId: quote.id,
       metadata: {},
     });
   } else {
-    void admin.rpc("job_quotes_increment_view", { p_id: quote.id });
+    void admin.rpc("quotes_increment_view", { p_id: quote.id });
     void logAudit({
       organizationId: quote.org?.id ?? null,
       action: "quote.view",
@@ -261,10 +261,10 @@ async function loadJobQuote(admin: ReturnType<typeof createAdminClient>, id: str
     "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone))";
 
   let raw: unknown = null;
-  const first = await admin.from("job_quotes").select(fullSelect).eq("id", id).maybeSingle();
+  const first = await admin.from("quotes").select(fullSelect).eq("id", id).maybeSingle();
   if (first.error) {
     console.warn("[quote] job full select failed, retrying", first.error.message);
-    const second = await admin.from("job_quotes").select(v1Select).eq("id", id).maybeSingle();
+    const second = await admin.from("quotes").select(v1Select).eq("id", id).maybeSingle();
     raw = second.data;
   } else {
     raw = first.data;
@@ -288,7 +288,7 @@ async function loadJobQuote(admin: ReturnType<typeof createAdminClient>, id: str
   if (!r) return null;
 
   const { data: itemRows } = await admin
-    .from("job_quote_items")
+    .from("quote_items")
     .select("id, description, type, quantity, unit_price")
     .eq("quote_id", id)
     .order("sort_order");
@@ -316,7 +316,7 @@ async function loadJobQuote(admin: ReturnType<typeof createAdminClient>, id: str
 
 async function loadStandalone(admin: ReturnType<typeof createAdminClient>, id: string): Promise<NormalisedQuote | null> {
   const { data, error } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .select(
       "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, customer:customers(full_name), vehicle:vehicles(registration, make, model, year), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone, quote_deposit_pct))",
     )
@@ -347,7 +347,7 @@ async function loadStandalone(admin: ReturnType<typeof createAdminClient>, id: s
   if (!r) return null;
 
   const { data: itemRows } = await admin
-    .from("standalone_quote_items")
+    .from("quote_items")
     .select("id, description, type, quantity, unit_price")
     .eq("quote_id", id)
     .order("sort_order");

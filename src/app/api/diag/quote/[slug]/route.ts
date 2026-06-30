@@ -18,7 +18,7 @@ export async function GET(
 
   const admin = createAdminClient();
   const { data, error } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .select("id, slug, status, expires_at, location_id, created_at, sent_at, video_path, token_hash")
     .eq("slug", slug)
     .maybeSingle();

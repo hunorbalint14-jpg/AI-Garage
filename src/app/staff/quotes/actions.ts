@@ -22,6 +22,7 @@ import {
   standaloneVideoPath,
   removeVideoObject,
 } from "@/lib/quote-storage";
+import { computeTotals, DEFAULT_VAT_RATE } from "@/lib/quote-service";
 
 export type StandaloneQuoteItemInput = {
   description: string;
@@ -31,18 +32,6 @@ export type StandaloneQuoteItemInput = {
   product_id?: string | null;
 };
 
-const VAT_RATE = 20;
-
-function computeTotals(items: StandaloneQuoteItemInput[]) {
-  const subtotal = items.reduce(
-    (sum, it) => sum + Number(it.quantity || 0) * Number(it.unit_price || 0),
-    0,
-  );
-  const subtotalRounded = Math.round(subtotal * 100) / 100;
-  const vat = Math.round(subtotalRounded * VAT_RATE) / 100;
-  const total = Math.round((subtotalRounded + vat) * 100) / 100;
-  return { subtotal: subtotalRounded, vat, total };
-}
 
 // ---------------------------------------------------------------------------
 // Step 1 — mint a signed upload URL for the (optional) diagnosis video.
@@ -162,6 +151,7 @@ export async function createStandaloneQuote(args: {
 
   const insertPayload: Record<string, unknown> = {
     id: quoteId,
+    quote_type: "standalone",
     location_id: ctx.location.id,
     organization_id: ctx.organization.id,
     customer_id: args.customerId,
@@ -174,7 +164,7 @@ export async function createStandaloneQuote(args: {
     video_mime: args.videoMime ?? null,
     video_size_bytes: args.videoSizeBytes ?? null,
     subtotal,
-    vat_rate: VAT_RATE,
+    vat_rate: DEFAULT_VAT_RATE,
     vat_amount: vat,
     total,
     status: sendNow ? "pending" : "draft",
@@ -193,7 +183,7 @@ export async function createStandaloneQuote(args: {
     customerUrl = tenantQuoteUrl(ctx.location.slug, slug, token);
   }
 
-  const { error: insertErr } = await admin.from("standalone_quotes").insert(insertPayload);
+  const { error: insertErr } = await admin.from("quotes").insert(insertPayload);
   if (insertErr) {
     if (args.videoPath) await removeVideoObject(args.videoPath);
     return { error: `Failed to save quote: ${insertErr.message}` };
@@ -208,9 +198,9 @@ export async function createStandaloneQuote(args: {
     product_id: it.product_id ?? null,
     sort_order: idx,
   }));
-  const { error: itemsErr } = await admin.from("standalone_quote_items").insert(itemRows);
+  const { error: itemsErr } = await admin.from("quote_items").insert(itemRows);
   if (itemsErr) {
-    await admin.from("standalone_quotes").delete().eq("id", quoteId);
+    await admin.from("quotes").delete().eq("id", quoteId);
     if (args.videoPath) await removeVideoObject(args.videoPath);
     return { error: `Failed to save items: ${itemsErr.message}` };
   }
@@ -219,7 +209,7 @@ export async function createStandaloneQuote(args: {
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
-    action: "standalone_quote.create",
+    action: "quote.create",
     entityType: "standalone_quote",
     entityId: quoteId,
     metadata: { customer_id: args.customerId, vehicle_id: args.vehicleId ?? null, total, items: args.items.length, draft: !sendNow },
@@ -259,7 +249,7 @@ export async function sendStandaloneQuoteDraft(
     vehicle: { registration: string | null } | null;
   };
   const { data } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .select("id, location_id, status, total, title, customer_message, customer:customers(full_name, email, phone), vehicle:vehicles(registration)")
     .eq("id", quoteId)
     .maybeSingle();
@@ -292,7 +282,7 @@ export async function sendStandaloneQuoteDraft(
   const expiresAt = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString();
 
   const { error: updateErr } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .update({
       status: "pending",
       token_hash: hashQuoteToken(token),
@@ -319,7 +309,7 @@ export async function sendStandaloneQuoteDraft(
   if (result.channels.length === 0) {
     // Roll back so staff can fix contact details + retry.
     await admin
-      .from("standalone_quotes")
+      .from("quotes")
       .update({ status: "draft", token_hash: null, slug: null, expires_at: null, sent_at: null })
       .eq("id", quoteId);
     return { error: "Failed to send via any channel." };
@@ -329,7 +319,7 @@ export async function sendStandaloneQuoteDraft(
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
-    action: "standalone_quote.send",
+    action: "quote.send",
     entityType: "standalone_quote",
     entityId: quoteId,
     metadata: { channels: result.channels, total: q.total },
@@ -362,7 +352,7 @@ export async function sendFreshStandaloneQuote(
     vehicle: { registration: string | null } | null;
   };
   const { data } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .select("id, location_id, status, slug, total, title, customer:customers(full_name, email, phone), vehicle:vehicles(registration)")
     .eq("id", quoteId)
     .maybeSingle();
@@ -397,7 +387,7 @@ export async function sendFreshStandaloneQuote(
   if (result.channels.length === 0) return { error: "Failed to send via any channel." };
 
   await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .update({ sent_at: new Date().toISOString() })
     .eq("id", quoteId);
 
@@ -405,7 +395,7 @@ export async function sendFreshStandaloneQuote(
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
-    action: "standalone_quote.send",
+    action: "quote.send",
     entityType: "standalone_quote",
     entityId: quoteId,
     metadata: { channels: result.channels, total: q.total },
@@ -475,7 +465,7 @@ export async function updateStandaloneQuoteDraft(args: {
   const admin = createAdminClient();
 
   const { data } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .select("id, location_id, status")
     .eq("id", args.quoteId)
     .maybeSingle();
@@ -502,7 +492,7 @@ export async function updateStandaloneQuoteDraft(args: {
     updates.vat_amount = vat;
     updates.total = total;
 
-    await admin.from("standalone_quote_items").delete().eq("quote_id", args.quoteId);
+    await admin.from("quote_items").delete().eq("quote_id", args.quoteId);
     const itemRows = args.items.map((it, idx) => ({
       quote_id: args.quoteId,
       description: it.description.trim(),
@@ -512,11 +502,11 @@ export async function updateStandaloneQuoteDraft(args: {
       product_id: it.product_id ?? null,
       sort_order: idx,
     }));
-    await admin.from("standalone_quote_items").insert(itemRows);
+    await admin.from("quote_items").insert(itemRows);
   }
 
   if (Object.keys(updates).length > 0) {
-    const { error } = await admin.from("standalone_quotes").update(updates).eq("id", args.quoteId);
+    const { error } = await admin.from("quotes").update(updates).eq("id", args.quoteId);
     if (error) return { error: error.message };
   }
 
@@ -536,7 +526,7 @@ export async function cancelStandaloneQuote(quoteId: string): Promise<CancelStan
 
   type Row = { id: string; location_id: string; status: string; video_path: string | null };
   const { data } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .select("id, location_id, status, video_path")
     .eq("id", quoteId)
     .maybeSingle();
@@ -545,7 +535,7 @@ export async function cancelStandaloneQuote(quoteId: string): Promise<CancelStan
   if (q.status !== "pending" && q.status !== "draft") return { error: "Quote can no longer be cancelled." };
 
   const { error } = await admin
-    .from("standalone_quotes")
+    .from("quotes")
     .update({ status: "cancelled", responded_at: new Date().toISOString() })
     .eq("id", quoteId)
     .in("status", ["pending", "draft"]);
@@ -557,7 +547,7 @@ export async function cancelStandaloneQuote(quoteId: string): Promise<CancelStan
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
     actorEmail: ctx.user.email ?? null,
-    action: "standalone_quote.cancel",
+    action: "quote.cancel",
     entityType: "standalone_quote",
     entityId: quoteId,
     metadata: {},

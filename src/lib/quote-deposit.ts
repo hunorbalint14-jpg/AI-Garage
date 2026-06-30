@@ -16,7 +16,7 @@ export async function applyQuoteDeposit(args: {
   const admin = createAdminClient();
 
   const { data: q } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .select(
       "id, job_id, location_id, total, created_by, deposit_paid_at, applied_job_item_ids, job:jobs(customer:customers(full_name), vehicle:vehicles(registration), location:locations(organization_id))",
     )
@@ -47,7 +47,7 @@ export async function applyQuoteDeposit(args: {
   if (quote.deposit_paid_at) return;
 
   await admin
-    .from("job_quotes")
+    .from("quotes")
     .update({
       deposit_paid_at: new Date().toISOString(),
       stripe_payment_intent_id: args.paymentIntentId,

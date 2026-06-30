@@ -21,6 +21,7 @@ import {
   videoPath,
   removeVideoObject,
 } from "@/lib/quote-storage";
+import { computeTotals, DEFAULT_VAT_RATE } from "@/lib/quote-service";
 
 export type QuoteItemInput = {
   description: string;
@@ -30,18 +31,6 @@ export type QuoteItemInput = {
   product_id?: string | null;
 };
 
-const VAT_RATE = 20;
-
-function computeTotals(items: QuoteItemInput[]) {
-  const subtotal = items.reduce(
-    (sum, it) => sum + Number(it.quantity || 0) * Number(it.unit_price || 0),
-    0,
-  );
-  const subtotalRounded = Math.round(subtotal * 100) / 100;
-  const vat = Math.round(subtotalRounded * VAT_RATE) / 100;
-  const total = Math.round((subtotalRounded + vat) * 100) / 100;
-  return { subtotal: subtotalRounded, vat, total };
-}
 
 // ---------------------------------------------------------------------------
 // Step 1 — mint a signed upload URL. Client calls this first, PUTs the file
@@ -142,9 +131,11 @@ export async function createQuote(args: {
   const days = args.expiresInDays ?? 7;
   const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 
-  const { error: insertErr } = await admin.from("job_quotes").insert({
+  const { error: insertErr } = await admin.from("quotes").insert({
     id: args.quoteId,
+    quote_type: "job",
     job_id: args.jobId,
+    organization_id: ctx.organization.id,
     location_id: ctx.location.id,
     created_by: ctx.user.id,
     title: args.title?.trim() || null,
@@ -154,7 +145,7 @@ export async function createQuote(args: {
     video_size_bytes: args.videoSizeBytes,
     video_duration_seconds: args.videoDurationSeconds ?? null,
     subtotal,
-    vat_rate: VAT_RATE,
+    vat_rate: DEFAULT_VAT_RATE,
     vat_amount: vat,
     total,
     status: "pending",
@@ -176,10 +167,10 @@ export async function createQuote(args: {
     product_id: it.product_id ?? null,
     sort_order: idx,
   }));
-  const { error: itemsErr } = await admin.from("job_quote_items").insert(itemRows);
+  const { error: itemsErr } = await admin.from("quote_items").insert(itemRows);
   if (itemsErr) {
     // Try to roll back parent row + storage object so a partial quote can't sit pending.
-    await admin.from("job_quotes").delete().eq("id", args.quoteId);
+    await admin.from("quotes").delete().eq("id", args.quoteId);
     await removeVideoObject(args.videoPath);
     return { error: `Failed to save items: ${itemsErr.message}` };
   }
@@ -234,7 +225,7 @@ export async function sendQuoteWithToken(
   };
 
   const { data: q } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .select(
       "id, job_id, location_id, slug, title, description, total, status, job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))",
     )
@@ -280,7 +271,7 @@ export async function sendQuoteWithToken(
   }
 
   await admin
-    .from("job_quotes")
+    .from("quotes")
     .update({ sent_at: new Date().toISOString() })
     .eq("id", quoteId);
 
@@ -310,7 +301,7 @@ export async function cancelQuote(quoteId: string): Promise<CancelQuoteResult> {
   const admin = createAdminClient();
 
   const { data: q } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .select("id, job_id, location_id, status, video_path")
     .eq("id", quoteId)
     .maybeSingle();
@@ -320,7 +311,7 @@ export async function cancelQuote(quoteId: string): Promise<CancelQuoteResult> {
   if (quote.status !== "pending") return { error: "Quote can no longer be cancelled." };
 
   const { error } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .update({ status: "cancelled", responded_at: new Date().toISOString() })
     .eq("id", quoteId)
     .eq("status", "pending");

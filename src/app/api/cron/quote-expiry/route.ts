@@ -21,66 +21,38 @@ export async function GET(request: NextRequest) {
   const __t0 = Date.now();
   const nowIso = new Date().toISOString();
 
+  // Single sweep across the unified quotes table (both DVI job quotes and
+  // standalone quotes live here now).
+  type Row = { id: string; quote_type: "job" | "standalone"; job_id: string | null; organization_id: string; total: number };
+  const { data: stale } = await admin
+    .from("quotes")
+    .select("id, quote_type, job_id, organization_id, total")
+    .eq("status", "pending")
+    .lt("expires_at", nowIso);
+  const rows = (stale ?? []) as Row[];
+
   let jobExpired = 0;
   let standaloneExpired = 0;
 
-  // --- DVI mid-job quotes --------------------------------------------------
-  type JobRow = { id: string; job_id: string; location_id: string; total: number };
-  const { data: staleJob } = await admin
-    .from("job_quotes")
-    .select("id, job_id, location_id, total")
-    .eq("status", "pending")
-    .lt("expires_at", nowIso);
-  const jobRows = (staleJob ?? []) as JobRow[];
-
-  if (jobRows.length > 0) {
-    const ids = jobRows.map((r) => r.id);
+  if (rows.length > 0) {
     const { error } = await admin
-      .from("job_quotes")
+      .from("quotes")
       .update({ status: "expired" })
-      .in("id", ids)
+      .in("id", rows.map((r) => r.id))
       .eq("status", "pending");
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    for (const r of jobRows) {
-      await logAudit({
-        action: "quote.expire",
-        entityType: "job_quote",
-        entityId: r.id,
-        metadata: { job_id: r.job_id, total: r.total },
-      });
-    }
-    jobExpired = jobRows.length;
-  }
-
-  // --- Standalone quotes ---------------------------------------------------
-  type StandaloneRow = { id: string; organization_id: string; total: number };
-  const { data: staleStandalone } = await admin
-    .from("standalone_quotes")
-    .select("id, organization_id, total")
-    .eq("status", "pending")
-    .lt("expires_at", nowIso);
-  const standaloneRows = (staleStandalone ?? []) as StandaloneRow[];
-
-  if (standaloneRows.length > 0) {
-    const ids = standaloneRows.map((r) => r.id);
-    const { error } = await admin
-      .from("standalone_quotes")
-      .update({ status: "expired" })
-      .in("id", ids)
-      .eq("status", "pending");
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-    for (const r of standaloneRows) {
+    for (const r of rows) {
       await logAudit({
         organizationId: r.organization_id,
-        action: "standalone_quote.expire",
-        entityType: "standalone_quote",
+        action: "quote.expire",
+        entityType: r.quote_type === "job" ? "job_quote" : "standalone_quote",
         entityId: r.id,
-        metadata: { total: r.total },
+        metadata: r.quote_type === "job" ? { job_id: r.job_id, total: r.total } : { total: r.total },
       });
+      if (r.quote_type === "job") jobExpired++;
+      else standaloneExpired++;
     }
-    standaloneExpired = standaloneRows.length;
   }
 
   await recordCronRun(admin, "cron/quote-expiry", true, Date.now() - __t0, `expired ${jobExpired + standaloneExpired}`);
