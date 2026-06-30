@@ -59,6 +59,34 @@ export function emailDetails(rows: EmailDetailRow[]): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:8px 0 4px;border:1px solid ${BORDER};border-radius:12px;padding:4px 16px">${body}</table>`;
 }
 
+export type EmailStep = { title: string; detail?: string; cta?: EmailCta };
+
+// Numbered getting-started checklist for the shell body: a circled accent
+// number + title, with an optional muted detail line and inline action link.
+export function emailSteps(steps: EmailStep[], accent: string): string {
+  if (steps.length === 0) return "";
+  const rows = steps
+    .map((s, i) => {
+      const detail = s.detail
+        ? `<div style="margin:3px 0 0;font-family:${FONT_DISPLAY};font-size:14px;line-height:1.55;color:${MUTED}">${esc(s.detail)}</div>`
+        : "";
+      const link = s.cta
+        ? `<div style="margin-top:6px"><a href="${escAttr(s.cta.url)}" style="font-family:${FONT_DISPLAY};font-size:14px;font-weight:600;color:${accent};text-decoration:underline">${esc(s.cta.label)} →</a></div>`
+        : "";
+      return `<tr>
+      <td width="34" valign="top" style="padding:10px 0">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="26" height="26" align="center" style="width:26px;height:26px;border-radius:999px;background:${accent};font-family:${FONT_MONO};font-size:13px;font-weight:700;color:${onAccent(accent)};text-align:center;line-height:26px">${i + 1}</td></tr></table>
+      </td>
+      <td valign="top" style="padding:10px 0 10px 12px">
+        <div style="font-family:${FONT_DISPLAY};font-size:15px;font-weight:600;color:${TEXT}">${esc(s.title)}</div>
+        ${detail}${link}
+      </td>
+    </tr>`;
+    })
+    .join("");
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:4px 0 8px">${rows}</table>`;
+}
+
 // Turn a plain-text body (double-newline paragraphs) into themed <p> blocks.
 export function paragraphsToHtml(text: string): string {
   return text
