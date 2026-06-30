@@ -55,7 +55,7 @@ export default async function DocumentsPage() {
       .eq("customer_id", customer.id)
       .order("issued_at", { ascending: false, nullsFirst: false }),
     jobIds.length
-      ? admin.from("job_quotes").select("id, title, created_at, job_id").in("job_id", jobIds).order("created_at", { ascending: false })
+      ? admin.from("quotes").select("id, title, created_at, job_id").in("job_id", jobIds).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     admin.from("vehicles").select("id, registration, make, model, year").eq("customer_id", customer.id).order("created_at", { ascending: false }),
   ]);

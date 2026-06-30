@@ -162,12 +162,12 @@ export default async function BookingWidgetPage({
     const verify = await verifyQuoteAccess(quoteSlug, quoteToken, ["rebooked", "pending"]);
     if (verify.ok && verify.quote.location_id === location.id) {
       const { data: items } = await admin
-        .from("job_quote_items")
+        .from("quote_items")
         .select("description, type, quantity, unit_price")
         .eq("quote_id", verify.quote.id)
         .order("sort_order");
       const { data: full } = await admin
-        .from("job_quotes")
+        .from("quotes")
         .select("title, total, job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))")
         .eq("id", verify.quote.id)
         .maybeSingle();

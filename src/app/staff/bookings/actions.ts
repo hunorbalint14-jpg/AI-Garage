@@ -319,7 +319,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
   // job with the snapshot items so the mechanic doesn't retype them.
   if (fromQuoteId) {
     const { data: quoteItems } = await admin
-      .from("job_quote_items")
+      .from("quote_items")
       .select("description, type, quantity, unit_price")
       .eq("quote_id", fromQuoteId)
       .order("sort_order");

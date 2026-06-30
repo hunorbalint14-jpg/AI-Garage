@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext, requireOwnedQuote } from "@/lib/portal-auth";
 import { applyApprovedItems } from "@/app/quote/[slug]/actions";
+import { getQuoteVatRate } from "@/lib/quote-service";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createStaffNotification } from "@/lib/staff-notifications";
@@ -17,8 +18,6 @@ import { effectiveFeePercent } from "@/lib/tenant-plans";
 // Stripe deposit metadata (so the existing webhook applies items on payment).
 // We reuse the already-exported applyApprovedItems(); the rest is replicated
 // here on purpose so the token path is never touched.
-
-const VAT = 20;
 
 export type OwnerApproveResult = { error: string } | { success: true; depositUrl?: string };
 export type OwnerDeclineResult = { error: string } | { success: true };
@@ -35,10 +34,10 @@ type OrgRow = {
   tenant_trial_end: string | null;
 };
 
-function approvedTotals(items: { quantity: number; unit_price: number }[]) {
+function approvedTotals(items: { quantity: number; unit_price: number }[], vatRate: number) {
   const subtotal = items.reduce((sum, it) => sum + it.quantity * it.unit_price, 0);
   const approvedSubtotal = Math.round(subtotal * 100) / 100;
-  const approvedVat = Math.round(approvedSubtotal * VAT) / 100;
+  const approvedVat = Math.round(approvedSubtotal * vatRate) / 100;
   const approvedTotal = Math.round((approvedSubtotal + approvedVat) * 100) / 100;
   return { approvedTotal };
 }
@@ -59,7 +58,7 @@ async function loadOrg(locationId: string): Promise<OrgRow | null> {
 async function vehicleRegForQuote(source: "job" | "standalone", quoteId: string, jobId: string | null): Promise<string | null> {
   const admin = createAdminClient();
   if (source === "standalone") {
-    const { data } = await admin.from("standalone_quotes").select("vehicle:vehicles(registration)").eq("id", quoteId).maybeSingle();
+    const { data } = await admin.from("quotes").select("vehicle:vehicles(registration)").eq("id", quoteId).maybeSingle();
     return (data as { vehicle: { registration: string | null } | null } | null)?.vehicle?.registration ?? null;
   }
   if (!jobId) return null;
@@ -128,7 +127,7 @@ export async function approveQuoteAsOwner(quoteId: string): Promise<OwnerApprove
   const depositPct = Number(org?.quote_deposit_pct ?? 0);
   const depositRequired = depositPct > 0 && !!org?.stripe_account_id && !!org.stripe_charges_enabled;
 
-  const itemsTable = quote.source === "job" ? "job_quote_items" : "standalone_quote_items";
+  const itemsTable = quote.source === "job" ? "quote_items" : "quote_items";
   const { data: itemRows } = await admin
     .from(itemsTable)
     .select("id, quantity, unit_price")
@@ -136,11 +135,12 @@ export async function approveQuoteAsOwner(quoteId: string): Promise<OwnerApprove
   const items = (itemRows ?? []) as { id: string; quantity: number; unit_price: number }[];
   if (items.length === 0) return { error: "This quote has no items to approve." };
 
-  const { approvedTotal } = approvedTotals(items);
+  const vatRate = await getQuoteVatRate(admin, quote.id);
+  const { approvedTotal } = approvedTotals(items, vatRate);
   const depositAmount = depositRequired ? Math.round(approvedTotal * depositPct) / 100 : 0;
   const allItemIds = items.map((it) => it.id);
 
-  const quotesTable = quote.source === "job" ? "job_quotes" : "standalone_quotes";
+  const quotesTable = "quotes";
 
   // Atomic claim: only a row still `pending` flips, so a concurrent token-path
   // response can't double-apply.
@@ -197,7 +197,7 @@ export async function approveQuoteAsOwner(quoteId: string): Promise<OwnerApprove
       await admin.from(quotesTable).update({ stripe_checkout_session_id: session.id }).eq("id", q.id);
       await logAudit({
         organizationId: org.id,
-        action: quote.source === "job" ? "quote.approve" : "standalone_quote.approve",
+        action: quote.source === "job" ? "quote.approve" : "quote.approve",
         entityType: quote.source === "job" ? "job_quote" : "standalone_quote",
         entityId: q.id,
         metadata: { total: approvedTotal, deposit_pending: true, deposit_pct: depositPct, via: "portal" },
@@ -222,7 +222,7 @@ export async function approveQuoteAsOwner(quoteId: string): Promise<OwnerApprove
 
   await logAudit({
     organizationId: org?.id ?? null,
-    action: quote.source === "job" ? "quote.approve" : "standalone_quote.approve",
+    action: quote.source === "job" ? "quote.approve" : "quote.approve",
     entityType: quote.source === "job" ? "job_quote" : "standalone_quote",
     entityId: q.id,
     metadata: { total: approvedTotal, via: "portal" },
@@ -252,7 +252,7 @@ export async function declineQuoteAsOwner(quoteId: string, reason: string | null
 
   const admin = createAdminClient();
   const cleanReason = reason?.trim().slice(0, 1000) || null;
-  const quotesTable = quote.source === "job" ? "job_quotes" : "standalone_quotes";
+  const quotesTable = "quotes";
 
   const { data: claimed, error: claimErr } = await admin
     .from(quotesTable)
@@ -270,7 +270,7 @@ export async function declineQuoteAsOwner(quoteId: string, reason: string | null
 
   await logAudit({
     organizationId: org?.id ?? null,
-    action: quote.source === "job" ? "quote.decline" : "standalone_quote.decline",
+    action: quote.source === "job" ? "quote.decline" : "quote.decline",
     entityType: quote.source === "job" ? "job_quote" : "standalone_quote",
     entityId: q.id,
     metadata: { total: q.total, reason: cleanReason, via: "portal" },

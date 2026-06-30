@@ -69,7 +69,7 @@ export default async function ServiceHistoryDetailPage({
       : Promise.resolve({ data: null }),
     admin.from("job_items").select("id, description, type, quantity, unit_price").eq("job_id", job.id).order("created_at", { ascending: true }),
     admin
-      .from("job_quotes")
+      .from("quotes")
       .select("id, title, description, video_path, status, subtotal, vat_amount, total, created_at")
       .eq("job_id", job.id)
       .order("created_at", { ascending: true }),
@@ -93,7 +93,7 @@ export default async function ServiceHistoryDetailPage({
   const quoteIds = quotes.map((q) => q.id);
   const { data: qItemsData } = quoteIds.length
     ? await admin
-        .from("job_quote_items")
+        .from("quote_items")
         .select("id, quote_id, description, type, quantity, unit_price, sort_order")
         .in("quote_id", quoteIds)
         .order("sort_order", { ascending: true })

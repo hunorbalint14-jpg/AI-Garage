@@ -51,8 +51,8 @@ export default async function PortalQuoteDetailPage({
   const org = location.organization;
   const admin = createAdminClient();
 
-  const quotesTable = quote.source === "job" ? "job_quotes" : "standalone_quotes";
-  const itemsTable = quote.source === "job" ? "job_quote_items" : "standalone_quote_items";
+  const quotesTable = "quotes";
+  const itemsTable = quote.source === "job" ? "quote_items" : "quote_items";
 
   const [detailRes, itemsRes] = await Promise.all([
     admin

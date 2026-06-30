@@ -88,7 +88,7 @@ export async function verifyQuoteAccess(
 
   if (source === "standalone") {
     const { data, error } = await admin
-      .from("standalone_quotes")
+      .from("quotes")
       .select("id, location_id, customer_id, status, expires_at, token_hash, slug")
       .eq("slug", slug)
       .maybeSingle();
@@ -140,7 +140,7 @@ export async function verifyQuoteAccess(
 
   // source === "job"
   const { data, error } = await admin
-    .from("job_quotes")
+    .from("quotes")
     .select("id, job_id, location_id, status, expires_at, token_hash, slug")
     .eq("slug", slug)
     .maybeSingle();

@@ -220,49 +220,44 @@ export type PortalQuote = {
   status: string;
 };
 
-// Resolve a quote (job_quotes or standalone_quotes) by id and assert this
-// customer owns it. job_quotes are owned via their parent job's customer;
-// standalone_quotes carry customer_id directly. Ownership is customer-scoped,
-// not branch-scoped — a customer belongs to exactly one org. notFound() (404)
-// on any miss — never leak another customer's quote.
+// Resolve a unified quote by id and assert this customer owns it. Job quotes
+// are owned via their parent job's customer; standalone quotes carry
+// customer_id directly. Ownership is customer-scoped, not branch-scoped — a
+// customer belongs to exactly one org. notFound() (404) on any miss — never
+// leak another customer's quote.
 export async function requireOwnedQuote(
   customerId: string,
   quoteId: string,
 ): Promise<PortalQuote> {
   const admin = createAdminClient();
 
-  const { data: jq } = await admin
-    .from("job_quotes")
-    .select("id, job_id, location_id, status, job:jobs(customer_id, location_id)")
+  const { data } = await admin
+    .from("quotes")
+    .select("id, quote_type, job_id, location_id, customer_id, status, job:jobs(customer_id, location_id)")
     .eq("id", quoteId)
     .maybeSingle();
-  if (jq) {
-    // PostgREST returns the to-one `job` embed as a single object at runtime,
-    // but supabase-js types it as an array — cast through unknown.
-    const row = jq as unknown as {
-      id: string;
-      job_id: string;
-      location_id: string;
-      status: string;
-      job: { customer_id: string | null; location_id: string } | null;
-    };
-    if (row.job?.customer_id === customerId) {
-      return { id: row.id, source: "job", job_id: row.job_id, location_id: row.location_id, customer_id: customerId, status: row.status };
-    }
-    notFound();
-  }
+  if (!data) notFound();
 
-  const { data: sq } = await admin
-    .from("standalone_quotes")
-    .select("id, location_id, customer_id, status")
-    .eq("id", quoteId)
-    .maybeSingle();
-  if (sq) {
-    const row = sq as { id: string; location_id: string; customer_id: string | null; status: string };
-    if (row.customer_id === customerId) {
-      return { id: row.id, source: "standalone", job_id: null, location_id: row.location_id, customer_id: customerId, status: row.status };
-    }
-  }
+  // PostgREST types the to-one `job` embed as an array — cast through unknown.
+  const row = data as unknown as {
+    id: string;
+    quote_type: "job" | "standalone";
+    job_id: string | null;
+    location_id: string;
+    customer_id: string | null;
+    status: string;
+    job: { customer_id: string | null; location_id: string } | null;
+  };
 
-  notFound();
+  const ownerId = row.quote_type === "job" ? row.job?.customer_id : row.customer_id;
+  if (ownerId !== customerId) notFound();
+
+  return {
+    id: row.id,
+    source: row.quote_type,
+    job_id: row.job_id,
+    location_id: row.location_id,
+    customer_id: customerId,
+    status: row.status,
+  };
 }

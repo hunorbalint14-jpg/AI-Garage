@@ -308,7 +308,7 @@ export async function submitWidgetBooking(
   // for the location's staff so the mechanic sees the trail from quote → booking.
   if (fromQuoteId) {
     const { data: quoteRow } = await admin
-      .from("job_quotes")
+      .from("quotes")
       .select("created_by, job_id, total")
       .eq("id", fromQuoteId)
       .maybeSingle();
