@@ -126,7 +126,7 @@ export default async function SettingsPage({
   const evQualifiedCount = evRows.filter((r) => isHvQualified(r.level) && !r.expired).length;
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl">
+    <div className="flex flex-col gap-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">
@@ -136,6 +136,9 @@ export default async function SettingsPage({
 
       <SettingsTabs active={tab} />
 
+      {/* Tab content stays in a narrow column (forms read best); the header and
+          tab bar above use the wider page width so all tabs fit on one row. */}
+      <div className="flex flex-col gap-6 max-w-2xl">
       {/* ── Business ─────────────────────────────────────────────── */}
       {tab === "business" && (
         <>
@@ -366,6 +369,7 @@ export default async function SettingsPage({
           </section>
         </>
       )}
+      </div>
     </div>
   );
 }
