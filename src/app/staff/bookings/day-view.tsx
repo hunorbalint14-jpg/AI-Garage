@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { STATUS_STYLE, statusLabel, typeLabel, type BookingRow } from "./booking-display";
+import { resolveHoursForDate, formatDayHours, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 
 type Bay = { id: string; name: string; description: string | null };
 type DayBooking = BookingRow & { bay_id: string | null; technicianName: string | null };
@@ -13,22 +14,24 @@ export function DayView({
   bookings,
   bays,
   baseHref,
-  businessDays,
+  weekly,
+  specialHours,
 }: {
   /** YYYY-MM-DD for the day being shown */
   date: string;
   bookings: DayBooking[];
   bays: Bay[];
   baseHref: string;
-  /** Open weekdays as JS getDay() numbers (0=Sun..6=Sat). */
-  businessDays: number[];
+  weekly: WeeklyHours;
+  specialHours: SpecialHours[];
 }) {
   const day = new Date(`${date}T00:00:00`);
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, 1);
   const todayStr = toDateParam(new Date());
   const isToday = date === todayStr;
-  const isClosed = !businessDays.includes(day.getDay());
+  const resolved = resolveHoursForDate(weekly, specialHours, date);
+  const isClosed = !resolved.open;
 
   const byBay = new Map<string | null, DayBooking[]>();
   for (const b of bookings) {
@@ -59,7 +62,13 @@ export function DayView({
         <h2 className="text-base font-semibold">
           {day.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
           {isToday && <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">Today</span>}
-          {isClosed && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Closed</span>}
+          {isClosed ? (
+            <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Closed</span>
+          ) : (
+            resolved.hours && (
+              <span className="ml-2 text-xs font-normal text-muted-foreground">{formatDayHours(resolved.hours)}</span>
+            )
+          )}
         </h2>
         <div className="flex items-center gap-2">
           <Link

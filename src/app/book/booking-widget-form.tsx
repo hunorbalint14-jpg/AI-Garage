@@ -5,12 +5,11 @@ import { AigSpinner } from "@/components/ui/aig-spinner";
 import { submitWidgetBooking } from "./actions";
 import { lookupRegistration, type RegLookupResult } from "./lookup-actions";
 import {
-  normalizeBusinessDays,
-  weekdayOfLocalDate,
-  isOpenOn,
-  formatBusinessDays,
-  WEEKDAY_FULL,
-} from "@/lib/business-days";
+  resolveHoursForDate,
+  formatWeeklySummary,
+  type WeeklyHours,
+  type SpecialHours,
+} from "@/lib/business-hours";
 
 type Service = {
   id: string;
@@ -34,9 +33,10 @@ type Props = {
   // by location id, plus the landing branch.
   locations: { id: string; name: string }[];
   servicesByLocation: Record<string, Service[]>;
-  // Open weekdays per branch (JS getDay() numbers) — drives the closed-day hint
-  // + guard; the server re-validates before booking.
-  businessDaysByLocation: Record<string, number[]>;
+  // Per-branch weekly hours + upcoming overrides — drive the closed-date hint +
+  // guard; the server re-validates before booking.
+  weeklyByLocation: Record<string, WeeklyHours>;
+  specialByLocation: Record<string, SpecialHours[]>;
   defaultLocationId: string;
   privacyPolicyUrl?: string | null;
   prefill: Prefill;
@@ -64,7 +64,8 @@ export function BookingWidgetForm({
   garageName,
   locations,
   servicesByLocation,
-  businessDaysByLocation,
+  weeklyByLocation,
+  specialByLocation,
   defaultLocationId,
   privacyPolicyUrl,
   prefill,
@@ -82,17 +83,15 @@ export function BookingWidgetForm({
   );
   const [serviceId, setServiceId] = useState<string>(services[0]?.id ?? "");
 
-  // Open days for the chosen branch → closed-day hint + guard.
-  const openDays = useMemo(
-    () => normalizeBusinessDays(businessDaysByLocation[locationId]),
-    [businessDaysByLocation, locationId],
-  );
+  // Hours for the chosen branch → closed-date hint + guard.
+  const weekly = useMemo(() => weeklyByLocation[locationId] ?? {}, [weeklyByLocation, locationId]);
+  const special = useMemo(() => specialByLocation[locationId] ?? [], [specialByLocation, locationId]);
+  const hoursSummary = useMemo(() => formatWeeklySummary(weekly), [weekly]);
   const [scheduledAt, setScheduledAt] = useState<string>(defaultDateTime);
   const closedDayWarning = useMemo(() => {
     if (!scheduledAt) return null;
-    const wd = weekdayOfLocalDate(scheduledAt);
-    return isOpenOn(openDays, wd) ? null : `We're closed on ${WEEKDAY_FULL[wd]}s.`;
-  }, [scheduledAt, openDays]);
+    return resolveHoursForDate(weekly, special, scheduledAt).open ? null : "We're closed then.";
+  }, [scheduledAt, weekly, special]);
 
   // Switching branch re-points the services list and resets the chosen service.
   function onBranchChange(next: string) {
@@ -139,7 +138,7 @@ export function BookingWidgetForm({
     e.preventDefault();
     setError(null);
     if (closedDayWarning) {
-      setError(`${closedDayWarning} We're open ${formatBusinessDays(openDays)} — please pick another day.`);
+      setError(`${closedDayWarning} Our hours: ${hoursSummary} — please pick another time.`);
       return;
     }
     const formData = new FormData(e.currentTarget);
@@ -375,10 +374,10 @@ export function BookingWidgetForm({
           />
           {closedDayWarning ? (
             <p className="text-xs font-medium text-red-600">
-              {closedDayWarning} Open {formatBusinessDays(openDays)}.
+              {closedDayWarning} Open {hoursSummary}.
             </p>
           ) : (
-            <p className="text-xs text-gray-400">Open {formatBusinessDays(openDays)}.</p>
+            <p className="text-xs text-gray-400">Open {hoursSummary}.</p>
           )}
         </div>
       </div>

@@ -22,6 +22,7 @@ import {
   instantTimeLabel,
   formatMonthLabel,
 } from "./calendar-grid";
+import { resolveHoursForDate, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -39,13 +40,14 @@ export function BookingCalendar({
   bookings,
   monthParam,
   todayKey,
-  businessDays,
+  weekly,
+  specialHours,
 }: {
   bookings: BookingRow[];
   monthParam: string;
   todayKey: string;
-  /** Open weekdays as JS getDay() numbers (0=Sun..6=Sat). */
-  businessDays: number[];
+  weekly: WeeklyHours;
+  specialHours: SpecialHours[];
 }) {
   const router = useRouter();
   const { year, month } = parseMonthParam(monthParam);
@@ -77,10 +79,7 @@ export function BookingCalendar({
   }
 
   const selectedBookings = byDay.get(selected) ?? [];
-  const selectedClosed = (() => {
-    const [y, m, d] = selected.split("-").map(Number);
-    return !businessDays.includes(new Date(y, m - 1, d).getDay());
-  })();
+  const selectedClosed = !resolveHoursForDate(weekly, specialHours, selected).open;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
@@ -135,7 +134,7 @@ export function BookingCalendar({
             const dayBookings = byDay.get(key) ?? [];
             const isToday = key === todayKey;
             const isSelected = key === selected;
-            const isClosed = !businessDays.includes(date.getDay());
+            const isClosed = !resolveHoursForDate(weekly, specialHours, key).open;
             return (
               <button
                 type="button"

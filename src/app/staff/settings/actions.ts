@@ -9,7 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
 import { invalidateStaffLocationCacheForOrg } from "@/lib/staff-context";
 import { tierFor, tenantBillingActive, TIERS } from "@/lib/tenant-plans";
-import { normalizeBusinessDays } from "@/lib/business-days";
+import { APP_TZ, type WeeklyHours } from "@/lib/business-hours";
 
 export type UpdateOrgResult = { error: string } | { success: true };
 
@@ -76,6 +76,33 @@ export async function updateOrganization(
 
 export type UpdateHoursResult = { error: string } | { success: true };
 
+// Validate the submitted weekly-hours JSON into a clean {weekday:{open,close}}
+// object (minutes). Returns null on anything malformed/empty.
+function parseSubmittedWeekly(raw: string | null): WeeklyHours | null {
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const out: WeeklyHours = {};
+  for (const [k, v] of Object.entries(parsed as Record<string, unknown>)) {
+    const wd = Number(k);
+    const open = (v as { open?: unknown })?.open;
+    const close = (v as { close?: unknown })?.close;
+    if (
+      Number.isInteger(wd) && wd >= 0 && wd <= 6 &&
+      Number.isInteger(open) && Number.isInteger(close) &&
+      (open as number) >= 0 && (close as number) <= 1440 && (open as number) < (close as number)
+    ) {
+      out[wd] = { open: open as number, close: close as number };
+    }
+  }
+  return Object.keys(out).length === 0 ? null : out;
+}
+
 export async function updateBusinessHours(
   formData: FormData,
 ): Promise<UpdateHoursResult> {
@@ -84,24 +111,23 @@ export async function updateBusinessHours(
     return { error: "Permission denied." };
   }
 
-  const start = parseInt(formData.get("hoursStart") as string, 10);
-  const end = parseInt(formData.get("hoursEnd") as string, 10);
-
-  if (isNaN(start) || isNaN(end) || start < 0 || end > 23 || start >= end) {
-    return { error: "Invalid hours. Start must be before end (0–23)." };
+  const weekly = parseSubmittedWeekly(formData.get("weekly") as string | null);
+  if (!weekly) {
+    return { error: "Set valid hours for at least one open day." };
   }
 
-  // Open days: repeated `days` fields (JS getDay() numbers). Require at least
-  // one — a branch open zero days could never take a booking.
-  const days = normalizeBusinessDays(formData.getAll("days"));
-  if (formData.getAll("days").length === 0) {
-    return { error: "Pick at least one open day." };
-  }
+  // Keep the legacy scalar columns as a coarse mirror (week's min-open hour /
+  // max-close hour) — the dashboard_stats RPC still reads them for the today
+  // grid. business_hours (jsonb) is the source of truth everywhere else.
+  const opens = Object.values(weekly).map((h) => h.open);
+  const closes = Object.values(weekly).map((h) => h.close);
+  const hoursStart = Math.floor(Math.min(...opens) / 60);
+  const hoursEnd = Math.ceil(Math.max(...closes) / 60);
 
   const admin = createAdminClient();
   const { error } = await admin
     .from("locations")
-    .update({ business_hours_start: start, business_hours_end: end, business_days: days })
+    .update({ business_hours: weekly, business_hours_start: hoursStart, business_hours_end: hoursEnd })
     .eq("id", ctx.location.id);
 
   if (error) return { error: error.message };
@@ -113,11 +139,102 @@ export async function updateBusinessHours(
     action: "settings.business_hours_update",
     entityType: "location",
     entityId: ctx.location.id,
-    metadata: { hours_start: start, hours_end: end, business_days: days },
+    metadata: { business_hours: weekly },
   });
 
   revalidatePath("/staff/settings");
   revalidatePath("/staff");
+  return { success: true };
+}
+
+export type SpecialHoursResult = { error: string } | { success: true };
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export async function addSpecialHours(formData: FormData): Promise<SpecialHoursResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "org_settings")) return { error: "Permission denied." };
+
+  const date = (formData.get("date") as string | null)?.trim() ?? "";
+  if (!DATE_RE.test(date)) return { error: "Pick a valid date." };
+  // Reject past dates (compare calendar days, garage timezone).
+  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
+  if (date < todayKey) return { error: "Date must be today or later." };
+
+  const isClosed = formData.get("isClosed") === "1";
+  let openMinute: number | null = null;
+  let closeMinute: number | null = null;
+  if (!isClosed) {
+    openMinute = parseInt(formData.get("openMinute") as string, 10);
+    closeMinute = parseInt(formData.get("closeMinute") as string, 10);
+    if (
+      !Number.isInteger(openMinute) || !Number.isInteger(closeMinute) ||
+      openMinute < 0 || closeMinute > 1440 || openMinute >= closeMinute
+    ) {
+      return { error: "Opening time must be before closing time." };
+    }
+  }
+  const note = ((formData.get("note") as string | null) ?? "").trim().slice(0, 120) || null;
+
+  const admin = createAdminClient();
+  // Upsert so re-adding the same date replaces it (one override per date).
+  const { error } = await admin
+    .from("location_special_hours")
+    .upsert(
+      {
+        location_id: ctx.location.id,
+        date,
+        is_closed: isClosed,
+        open_minute: openMinute,
+        close_minute: closeMinute,
+        note,
+      },
+      { onConflict: "location_id,date" },
+    );
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "settings.special_hours_add",
+    entityType: "location",
+    entityId: ctx.location.id,
+    metadata: { date, is_closed: isClosed, open_minute: openMinute, close_minute: closeMinute },
+  });
+
+  revalidatePath("/staff/settings");
+  return { success: true };
+}
+
+export async function removeSpecialHours(formData: FormData): Promise<SpecialHoursResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "org_settings")) return { error: "Permission denied." };
+
+  const id = (formData.get("id") as string | null)?.trim();
+  if (!id) return { error: "Missing id." };
+
+  const admin = createAdminClient();
+  // Scope the delete to the active branch so a member can't remove another
+  // branch's override by id.
+  const { error } = await admin
+    .from("location_special_hours")
+    .delete()
+    .eq("id", id)
+    .eq("location_id", ctx.location.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "settings.special_hours_remove",
+    entityType: "location",
+    entityId: ctx.location.id,
+    metadata: { id },
+  });
+
+  revalidatePath("/staff/settings");
   return { success: true };
 }
 

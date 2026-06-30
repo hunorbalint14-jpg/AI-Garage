@@ -5,6 +5,7 @@ import { SettingsForm } from "./settings-form";
 import { AddLocationForm } from "./add-location-form";
 import { LocationsManager } from "./locations-manager";
 import { BusinessHoursForm } from "./business-hours-form";
+import { SpecialHoursSection, type SpecialHoursRow } from "./special-hours-section";
 import { PasskeysSection, type PasskeyRow } from "./passkeys-section";
 import { PaymentsSection } from "./payments-section";
 import { QuoteDepositSection } from "./quote-deposit-section";
@@ -15,7 +16,7 @@ import { NoShowFeeSection } from "./no-show-fee-section";
 import { SermiCard, type SermiView } from "./sermi-card";
 import { EvQualsRoster, type StaffQualView } from "./ev-quals-roster";
 import { listLocationStaff } from "@/lib/staff-directory";
-import { normalizeBusinessDays } from "@/lib/business-days";
+import { parseWeeklyHours, APP_TZ } from "@/lib/business-hours";
 import { isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import type { FinanceConfigView } from "./finance-actions";
 import { SettingsTabs, isSettingsTab } from "./settings-tabs";
@@ -49,7 +50,7 @@ export default async function SettingsPage({
       .order("created_at", { ascending: true }),
     admin
       .from("locations")
-      .select("business_hours_start, business_hours_end, business_days")
+      .select("business_hours")
       .eq("id", ctx.location.id)
       .single(),
     admin
@@ -68,12 +69,18 @@ export default async function SettingsPage({
   const org = orgRes.data;
   const locations = (locationsRes.data ?? []) as LocationRow[];
   const isOwner = ctx.orgRole === "owner" || ctx.orgRole === "admin";
-  const locHours = currentLocRes.data as {
-    business_hours_start?: number;
-    business_hours_end?: number;
-    business_days?: number[] | null;
-  } | null;
+  const weeklyHours = parseWeeklyHours((currentLocRes.data as { business_hours?: unknown } | null)?.business_hours);
   const passkeys = (passkeysRes.data ?? []) as PasskeyRow[];
+
+  // Upcoming one-off overrides (today onward) for the active branch.
+  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
+  const { data: specialRows } = await admin
+    .from("location_special_hours")
+    .select("id, date, is_closed, open_minute, close_minute, note")
+    .eq("location_id", ctx.location.id)
+    .gte("date", todayKey)
+    .order("date", { ascending: true });
+  const specialHours = (specialRows ?? []) as SpecialHoursRow[];
 
   const stripeAccountId = (org as { stripe_account_id?: string | null } | null)?.stripe_account_id;
   const stripeChargesEnabled = !!(org as { stripe_charges_enabled?: boolean } | null)?.stripe_charges_enabled;
@@ -188,12 +195,9 @@ export default async function SettingsPage({
               switcher in the top bar to configure a different branch.
             </p>
           )}
-          <BusinessHoursForm
-            initialStart={locHours?.business_hours_start ?? 8}
-            initialEnd={locHours?.business_hours_end ?? 18}
-            initialDays={normalizeBusinessDays(locHours?.business_days)}
-            canEdit={isOwner}
-          />
+          <BusinessHoursForm initialWeekly={weeklyHours} canEdit={isOwner} />
+
+          <SpecialHoursSection initial={specialHours} canEdit={isOwner} />
 
           <section className="flex flex-col gap-3 rounded-lg border p-4">
             <div>

@@ -11,12 +11,11 @@ import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
 import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { bayCapacityAt } from "@/lib/bay-availability";
 import {
-  normalizeBusinessDays,
-  weekdayOfLocalDate,
-  isOpenOn,
-  formatBusinessDays,
-  WEEKDAY_FULL,
-} from "@/lib/business-days";
+  parseWeeklyHours,
+  resolveHoursForDate,
+  formatWeeklySummary,
+  type SpecialHours,
+} from "@/lib/business-hours";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { createStaffNotification } from "@/lib/staff-notifications";
 import {
@@ -59,14 +58,14 @@ export async function submitWidgetBooking(
   const { data: org } = (await admin
     .from("organizations")
     .select(
-      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, name, slug, address, business_days)",
+      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, name, slug, address, business_hours)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
     data:
       | (OrgFields & {
           locations:
-            | { id: string; name: string; slug: string; address: string | null; business_days: number[] | null }[]
+            | { id: string; name: string; slug: string; address: string | null; business_hours: unknown }[]
             | null;
         })
       | null;
@@ -96,13 +95,30 @@ export async function submitWidgetBooking(
   if (!scheduledAt) return { error: "Preferred date and time is required." };
   if (!serviceIdInput) return { error: "Please choose an appointment type." };
 
-  // Reject closed-day requests up front. The branch's open days gate the public
-  // widget (the customer's preferred date is a naive local date).
-  const businessDays = normalizeBusinessDays(branch.business_days);
-  const requestedWeekday = weekdayOfLocalDate(scheduledAt);
-  if (!isOpenOn(businessDays, requestedWeekday)) {
+  // Reject requests on a closed date up front — the branch's per-day hours plus
+  // any special/holiday override for that exact date. (Time-of-day itself is not
+  // enforced here; the customer's preferred date is a naive local date.)
+  const weekly = parseWeeklyHours(branch.business_hours);
+  const requestedDateKey = scheduledAt.slice(0, 10);
+  const { data: specialRow } = await admin
+    .from("location_special_hours")
+    .select("date, is_closed, open_minute, close_minute")
+    .eq("location_id", branch.id)
+    .eq("date", requestedDateKey)
+    .maybeSingle();
+  const exceptions: SpecialHours[] = specialRow
+    ? [
+        {
+          date: (specialRow as { date: string }).date,
+          isClosed: (specialRow as { is_closed: boolean }).is_closed,
+          openMinute: (specialRow as { open_minute: number | null }).open_minute,
+          closeMinute: (specialRow as { close_minute: number | null }).close_minute,
+        },
+      ]
+    : [];
+  if (!resolveHoursForDate(weekly, exceptions, scheduledAt).open) {
     return {
-      error: `${branch.name} is closed on ${WEEKDAY_FULL[requestedWeekday]}s. We're open ${formatBusinessDays(businessDays)} — please pick another day.`,
+      error: `${branch.name} is closed then. Our hours: ${formatWeeklySummary(weekly)} — please pick another time.`,
     };
   }
 

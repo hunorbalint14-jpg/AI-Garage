@@ -16,7 +16,7 @@ import {
   buildMonthGrid,
   instantDayKey,
 } from "./calendar-grid";
-import { normalizeBusinessDays } from "@/lib/business-days";
+import { parseWeeklyHours, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 
 const BOOKING_SELECT =
   "id, scheduled_at, duration_minutes, type, status, notes, assigned_to, bay_id, confirmation_sent_at, confirmed_at, reschedule_requested_at, customer:customers(id, full_name), vehicle:vehicles(registration)";
@@ -35,13 +35,24 @@ export default async function BookingsPage({
   const staff = await listLocationStaff(ctx.location.id, ctx.organization.id);
   const nameMap = new Map(staff.map((s) => [s.id, s.name]));
 
-  // Open days for this branch — the calendar/day views grey out closed days.
-  const { data: locRow } = await admin
-    .from("locations")
-    .select("business_days")
-    .eq("id", ctx.location.id)
-    .maybeSingle();
-  const businessDays = normalizeBusinessDays((locRow as { business_days?: number[] | null } | null)?.business_days);
+  // Opening hours + upcoming overrides for this branch — the calendar/day views
+  // grey out closed days/dates.
+  const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
+  const [{ data: locRow }, { data: specialRows }] = await Promise.all([
+    admin.from("locations").select("business_hours").eq("id", ctx.location.id).maybeSingle(),
+    admin
+      .from("location_special_hours")
+      .select("date, is_closed, open_minute, close_minute")
+      .eq("location_id", ctx.location.id)
+      .gte("date", todayKey),
+  ]);
+  const weekly = parseWeeklyHours((locRow as { business_hours?: unknown } | null)?.business_hours);
+  const specialHours: SpecialHours[] = (specialRows ?? []).map((s) => ({
+    date: (s as { date: string }).date,
+    isClosed: (s as { is_closed: boolean }).is_closed,
+    openMinute: (s as { open_minute: number | null }).open_minute,
+    closeMinute: (s as { close_minute: number | null }).close_minute,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
@@ -89,8 +100,8 @@ export default async function BookingsPage({
       {view === "list"
         ? await renderListView({ filter, assignee, status, locationId: ctx.location.id, admin, nameMap })
         : view === "day"
-          ? await renderDayView({ date, assignee, status, locationId: ctx.location.id, admin, nameMap, businessDays })
-          : await renderCalendarView({ month, assignee, status, locationId: ctx.location.id, admin, businessDays })}
+          ? await renderDayView({ date, assignee, status, locationId: ctx.location.id, admin, nameMap, weekly, specialHours })
+          : await renderCalendarView({ month, assignee, status, locationId: ctx.location.id, admin, weekly, specialHours })}
     </div>
   );
 }
@@ -101,14 +112,16 @@ async function renderCalendarView({
   status,
   locationId,
   admin,
-  businessDays,
+  weekly,
+  specialHours,
 }: {
   month?: string;
   assignee: string;
   status: string;
   locationId: string;
   admin: ReturnType<typeof createAdminClient>;
-  businessDays: number[];
+  weekly: WeeklyHours;
+  specialHours: SpecialHours[];
 }) {
   const { year, month: m } = parseMonthParam(month);
   const grid = buildMonthGrid(year, m);
@@ -138,7 +151,8 @@ async function renderCalendarView({
       bookings={data ?? []}
       monthParam={monthParam}
       todayKey={todayKey}
-      businessDays={businessDays}
+      weekly={weekly}
+      specialHours={specialHours}
     />
   );
 }
@@ -150,7 +164,8 @@ async function renderDayView({
   locationId,
   admin,
   nameMap,
-  businessDays,
+  weekly,
+  specialHours,
 }: {
   date?: string;
   assignee: string;
@@ -158,7 +173,8 @@ async function renderDayView({
   locationId: string;
   admin: ReturnType<typeof createAdminClient>;
   nameMap: Map<string, string>;
-  businessDays: number[];
+  weekly: WeeklyHours;
+  specialHours: SpecialHours[];
 }) {
   // Validate/default the date param (local YYYY-MM-DD).
   const isValid = !!date && /^\d{4}-\d{2}-\d{2}$/.test(date) && !isNaN(new Date(`${date}T00:00:00`).getTime());
@@ -206,7 +222,8 @@ async function renderDayView({
       bookings={rows}
       bays={bays ?? []}
       baseHref={`/staff/bookings?${params.toString()}`}
-      businessDays={businessDays}
+      weekly={weekly}
+      specialHours={specialHours}
     />
   );
 }

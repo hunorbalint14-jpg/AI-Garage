@@ -2,27 +2,39 @@ import { describe, it, expect } from "vitest";
 import { candidateSlots, freeSlots, type SlotBooking } from "./slots";
 
 describe("candidateSlots", () => {
+  // Hours are minutes from midnight: 480 = 08:00, 1080 = 18:00.
   it("generates hourly slots within business hours", () => {
     const now = new Date("2026-06-15T06:00:00"); // before opening
-    const slots = candidateSlots("2026-06-15", 8, 18, now);
+    const slots = candidateSlots("2026-06-15", 480, 1080, now);
     expect(slots).toHaveLength(10); // 08..17
     expect(slots[0].getHours()).toBe(8);
     expect(slots[slots.length - 1].getHours()).toBe(17);
   });
 
+  it("steps from a half-hour opening time", () => {
+    const now = new Date("2026-06-15T06:00:00");
+    const slots = candidateSlots("2026-06-15", 510, 750, now); // 08:30–12:30
+    expect(slots.map((s) => `${s.getHours()}:${String(s.getMinutes()).padStart(2, "0")}`)).toEqual([
+      "8:30",
+      "9:30",
+      "10:30",
+      "11:30",
+    ]);
+  });
+
   it("skips past slots plus the lead time", () => {
     const now = new Date("2026-06-15T10:30:00");
-    const slots = candidateSlots("2026-06-15", 8, 18, now); // lead 60min → first 12:00
+    const slots = candidateSlots("2026-06-15", 480, 1080, now); // lead 60min → first 12:00
     expect(slots[0].getHours()).toBe(12);
   });
 
   it("returns empty for a fully past day", () => {
     const now = new Date("2026-06-16T09:00:00");
-    expect(candidateSlots("2026-06-15", 8, 18, now)).toHaveLength(0);
+    expect(candidateSlots("2026-06-15", 480, 1080, now)).toHaveLength(0);
   });
 
   it("returns empty for garbage dates", () => {
-    expect(candidateSlots("not-a-date", 8, 18)).toHaveLength(0);
+    expect(candidateSlots("not-a-date", 480, 1080)).toHaveLength(0);
   });
 });
 
