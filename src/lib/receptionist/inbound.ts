@@ -1,6 +1,7 @@
 import twilio from "twilio";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tenantBillingActive, tenantHasFeature, type OrgBilling } from "@/lib/tenant-plans";
+import { normalizeBusinessDays } from "@/lib/business-days";
 import type { TranscriptMessage } from "./agent";
 
 // Shared plumbing for the Twilio receptionist webhooks: signature
@@ -34,6 +35,7 @@ export type RoutedLocation = {
   locationName: string;
   businessHoursStart: number;
   businessHoursEnd: number;
+  businessDays: number[];
   forwardToPhone: string | null;
   forwardTimeoutSeconds: number;
   twilioNumber: string;
@@ -47,7 +49,7 @@ export async function routeInboundNumber(toNumber: string): Promise<RoutedLocati
   const { data } = await admin
     .from("receptionist_configs")
     .select(
-      "location_id, enabled, twilio_number, forward_to_phone, forward_timeout_seconds, location:locations(id, name, business_hours_start, business_hours_end, organization:organizations(id, name, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
+      "location_id, enabled, twilio_number, forward_to_phone, forward_timeout_seconds, location:locations(id, name, business_hours_start, business_hours_end, business_days, organization:organizations(id, name, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end))",
     )
     .eq("twilio_number", toNumber)
     .maybeSingle();
@@ -63,6 +65,7 @@ export async function routeInboundNumber(toNumber: string): Promise<RoutedLocati
       name: string;
       business_hours_start: number | null;
       business_hours_end: number | null;
+      business_days: number[] | null;
       organization: ({ id: string; name: string } & OrgBilling) | null;
     } | null;
   };
@@ -79,6 +82,7 @@ export async function routeInboundNumber(toNumber: string): Promise<RoutedLocati
     locationName: row.location.name,
     businessHoursStart: row.location.business_hours_start ?? 8,
     businessHoursEnd: row.location.business_hours_end ?? 18,
+    businessDays: normalizeBusinessDays(row.location.business_days),
     forwardToPhone: row.forward_to_phone,
     forwardTimeoutSeconds: row.forward_timeout_seconds ?? 20,
     twilioNumber: row.twilio_number,

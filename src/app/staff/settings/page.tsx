@@ -15,6 +15,7 @@ import { NoShowFeeSection } from "./no-show-fee-section";
 import { SermiCard, type SermiView } from "./sermi-card";
 import { EvQualsRoster, type StaffQualView } from "./ev-quals-roster";
 import { listLocationStaff } from "@/lib/staff-directory";
+import { normalizeBusinessDays } from "@/lib/business-days";
 import { isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import type { FinanceConfigView } from "./finance-actions";
 import { SettingsTabs, isSettingsTab } from "./settings-tabs";
@@ -48,7 +49,7 @@ export default async function SettingsPage({
       .order("created_at", { ascending: true }),
     admin
       .from("locations")
-      .select("business_hours_start, business_hours_end")
+      .select("business_hours_start, business_hours_end, business_days")
       .eq("id", ctx.location.id)
       .single(),
     admin
@@ -67,7 +68,11 @@ export default async function SettingsPage({
   const org = orgRes.data;
   const locations = (locationsRes.data ?? []) as LocationRow[];
   const isOwner = ctx.orgRole === "owner" || ctx.orgRole === "admin";
-  const locHours = currentLocRes.data as { business_hours_start?: number; business_hours_end?: number } | null;
+  const locHours = currentLocRes.data as {
+    business_hours_start?: number;
+    business_hours_end?: number;
+    business_days?: number[] | null;
+  } | null;
   const passkeys = (passkeysRes.data ?? []) as PasskeyRow[];
 
   const stripeAccountId = (org as { stripe_account_id?: string | null } | null)?.stripe_account_id;
@@ -186,6 +191,7 @@ export default async function SettingsPage({
           <BusinessHoursForm
             initialStart={locHours?.business_hours_start ?? 8}
             initialEnd={locHours?.business_hours_end ?? 18}
+            initialDays={normalizeBusinessDays(locHours?.business_days)}
             canEdit={isOwner}
           />
 

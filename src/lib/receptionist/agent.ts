@@ -3,6 +3,7 @@ import { recordAiUsage } from "@/lib/ai-usage";
 import { getOrgAiBrief, aiBriefSystemBlock } from "@/lib/ai-profile";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RECEPTIONIST_TOOLS, executeReceptionistTool, type ToolContext } from "./tools";
+import { formatBusinessDays } from "@/lib/business-days";
 
 const anthropic = new Anthropic();
 // Premium, revenue-generating agent — worth the stronger model. Usage is
@@ -23,6 +24,8 @@ export type AgentLocationContext = {
   locationName: string;
   businessHoursStart: number;
   businessHoursEnd: number;
+  /** Open weekdays as JS getDay() numbers (0=Sun..6=Sat). */
+  businessDays: number[];
   conversationId: string;
   customerPhone: string;
   channel: "sms" | "whatsapp";
@@ -40,6 +43,7 @@ function systemPrompt(ctx: AgentLocationContext, aiBrief: string | null): string
 You can: tell customers about services and prices (list_services), check real appointment availability (check_availability), and book them in (create_booking). Anything else — diagnosis questions, complaints, discounts, changing existing bookings — use hand_off.
 
 Opening hours: ${String(ctx.businessHoursStart).padStart(2, "0")}:00–${String(ctx.businessHoursEnd).padStart(2, "0")}:00.
+Open days: ${formatBusinessDays(ctx.businessDays)} — we're closed any other day, so never offer or book one.
 Today's date: ${new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}.
 
 Rules:
@@ -65,6 +69,7 @@ export async function runReceptionistTurn(
     customerPhone: ctx.customerPhone,
     businessHoursStart: ctx.businessHoursStart,
     businessHoursEnd: ctx.businessHoursEnd,
+    businessDays: ctx.businessDays,
   };
 
   const messages: Anthropic.MessageParam[] = transcript.map((m) => ({

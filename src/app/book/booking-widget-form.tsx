@@ -4,6 +4,13 @@ import { useMemo, useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { submitWidgetBooking } from "./actions";
 import { lookupRegistration, type RegLookupResult } from "./lookup-actions";
+import {
+  normalizeBusinessDays,
+  weekdayOfLocalDate,
+  isOpenOn,
+  formatBusinessDays,
+  WEEKDAY_FULL,
+} from "@/lib/business-days";
 
 type Service = {
   id: string;
@@ -27,6 +34,9 @@ type Props = {
   // by location id, plus the landing branch.
   locations: { id: string; name: string }[];
   servicesByLocation: Record<string, Service[]>;
+  // Open weekdays per branch (JS getDay() numbers) — drives the closed-day hint
+  // + guard; the server re-validates before booking.
+  businessDaysByLocation: Record<string, number[]>;
   defaultLocationId: string;
   privacyPolicyUrl?: string | null;
   prefill: Prefill;
@@ -54,6 +64,7 @@ export function BookingWidgetForm({
   garageName,
   locations,
   servicesByLocation,
+  businessDaysByLocation,
   defaultLocationId,
   privacyPolicyUrl,
   prefill,
@@ -70,6 +81,18 @@ export function BookingWidgetForm({
     [servicesByLocation, locationId],
   );
   const [serviceId, setServiceId] = useState<string>(services[0]?.id ?? "");
+
+  // Open days for the chosen branch → closed-day hint + guard.
+  const openDays = useMemo(
+    () => normalizeBusinessDays(businessDaysByLocation[locationId]),
+    [businessDaysByLocation, locationId],
+  );
+  const [scheduledAt, setScheduledAt] = useState<string>(defaultDateTime);
+  const closedDayWarning = useMemo(() => {
+    if (!scheduledAt) return null;
+    const wd = weekdayOfLocalDate(scheduledAt);
+    return isOpenOn(openDays, wd) ? null : `We're closed on ${WEEKDAY_FULL[wd]}s.`;
+  }, [scheduledAt, openDays]);
 
   // Switching branch re-points the services list and resets the chosen service.
   function onBranchChange(next: string) {
@@ -115,6 +138,10 @@ export function BookingWidgetForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (closedDayWarning) {
+      setError(`${closedDayWarning} We're open ${formatBusinessDays(openDays)} — please pick another day.`);
+      return;
+    }
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
       const result = await submitWidgetBooking(formData);
@@ -341,10 +368,18 @@ export function BookingWidgetForm({
             name="scheduledAt"
             type="datetime-local"
             required
-            defaultValue={defaultDateTime()}
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
             disabled={pending}
             className={INPUT}
           />
+          {closedDayWarning ? (
+            <p className="text-xs font-medium text-red-600">
+              {closedDayWarning} Open {formatBusinessDays(openDays)}.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400">Open {formatBusinessDays(openDays)}.</p>
+          )}
         </div>
       </div>
 
@@ -404,7 +439,7 @@ export function BookingWidgetForm({
 
       <button
         type="submit"
-        disabled={pending || services.length === 0}
+        disabled={pending || services.length === 0 || !!closedDayWarning}
         className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: orgColor }}
       >

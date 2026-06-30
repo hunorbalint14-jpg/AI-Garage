@@ -4,6 +4,13 @@ import { bayCapacityAt } from "@/lib/bay-availability";
 import { createStaffNotification } from "@/lib/staff-notifications";
 import { logAudit } from "@/lib/audit";
 import { candidateSlots, freeSlots, formatSlotLabel, type SlotBooking } from "./slots";
+import {
+  weekdayOfLocalDate,
+  weekdayOfInstant,
+  isOpenOn,
+  formatBusinessDays,
+  WEEKDAY_FULL,
+} from "@/lib/business-days";
 
 // Tool surface for the receptionist agent. Every tool returns a plain string
 // — the model reads it like a colleague's note. Tools never throw; failures
@@ -67,6 +74,8 @@ export type ToolContext = {
   customerPhone: string;
   businessHoursStart: number;
   businessHoursEnd: number;
+  /** Open weekdays as JS getDay() numbers (0=Sun..6=Sat). */
+  businessDays: number[];
 };
 
 export type ToolOutcome = {
@@ -120,6 +129,10 @@ async function listServices(ctx: ToolContext): Promise<string> {
 
 async function checkAvailability(date: string, ctx: ToolContext): Promise<string> {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return "Invalid date — use YYYY-MM-DD.";
+  const weekday = weekdayOfLocalDate(date);
+  if (!isOpenOn(ctx.businessDays, weekday)) {
+    return `Closed on ${WEEKDAY_FULL[weekday]}s — we're open ${formatBusinessDays(ctx.businessDays)}. Offer one of those days.`;
+  }
   const candidates = candidateSlots(date, ctx.businessHoursStart, ctx.businessHoursEnd);
   if (candidates.length === 0) return `No bookable times left on ${date}.`;
 
@@ -152,6 +165,11 @@ async function createBooking(
   const registration = String(input.registration ?? "").trim().replace(/\s+/g, "").toUpperCase() || null;
   if (!fullName || !serviceId || !scheduledAt || isNaN(new Date(scheduledAt).getTime())) {
     return { result: "Missing or invalid booking details — confirm name, service, and slot first." };
+  }
+
+  const weekday = weekdayOfInstant(scheduledAt);
+  if (!isOpenOn(ctx.businessDays, weekday)) {
+    return { result: `We're closed on ${WEEKDAY_FULL[weekday]}s (open ${formatBusinessDays(ctx.businessDays)}). Offer a day we're open.` };
   }
 
   const admin = createAdminClient();

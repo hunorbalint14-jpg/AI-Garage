@@ -10,6 +10,13 @@ import { normalizeRegistration, validateRegistration } from "@/lib/registration"
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
 import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { bayCapacityAt } from "@/lib/bay-availability";
+import {
+  normalizeBusinessDays,
+  weekdayOfLocalDate,
+  isOpenOn,
+  formatBusinessDays,
+  WEEKDAY_FULL,
+} from "@/lib/business-days";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { createStaffNotification } from "@/lib/staff-notifications";
 import {
@@ -52,11 +59,17 @@ export async function submitWidgetBooking(
   const { data: org } = (await admin
     .from("organizations")
     .select(
-      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, name, slug, address)",
+      "id, name, phone, primary_color, stripe_account_id, stripe_charges_enabled, no_show_fee_pence, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, name, slug, address, business_days)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
-    data: (OrgFields & { locations: { id: string; name: string; slug: string; address: string | null }[] | null }) | null;
+    data:
+      | (OrgFields & {
+          locations:
+            | { id: string; name: string; slug: string; address: string | null; business_days: number[] | null }[]
+            | null;
+        })
+      | null;
   };
   if (!org || !org.locations || org.locations.length === 0) return { error: "Garage not found." };
 
@@ -82,6 +95,16 @@ export async function submitWidgetBooking(
   if (!email || !EMAIL_RE.test(email)) return { error: "A valid email is required." };
   if (!scheduledAt) return { error: "Preferred date and time is required." };
   if (!serviceIdInput) return { error: "Please choose an appointment type." };
+
+  // Reject closed-day requests up front. The branch's open days gate the public
+  // widget (the customer's preferred date is a naive local date).
+  const businessDays = normalizeBusinessDays(branch.business_days);
+  const requestedWeekday = weekdayOfLocalDate(scheduledAt);
+  if (!isOpenOn(businessDays, requestedWeekday)) {
+    return {
+      error: `${branch.name} is closed on ${WEEKDAY_FULL[requestedWeekday]}s. We're open ${formatBusinessDays(businessDays)} — please pick another day.`,
+    };
+  }
 
   // Look up the service for type label + price.
   const { data: service } = await admin
