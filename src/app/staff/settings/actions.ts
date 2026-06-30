@@ -9,6 +9,7 @@ import { logAudit } from "@/lib/audit";
 import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
 import { invalidateStaffLocationCacheForOrg } from "@/lib/staff-context";
 import { tierFor, tenantBillingActive, TIERS } from "@/lib/tenant-plans";
+import { normalizeBusinessDays } from "@/lib/business-days";
 
 export type UpdateOrgResult = { error: string } | { success: true };
 
@@ -90,10 +91,17 @@ export async function updateBusinessHours(
     return { error: "Invalid hours. Start must be before end (0–23)." };
   }
 
+  // Open days: repeated `days` fields (JS getDay() numbers). Require at least
+  // one — a branch open zero days could never take a booking.
+  const days = normalizeBusinessDays(formData.getAll("days"));
+  if (formData.getAll("days").length === 0) {
+    return { error: "Pick at least one open day." };
+  }
+
   const admin = createAdminClient();
   const { error } = await admin
     .from("locations")
-    .update({ business_hours_start: start, business_hours_end: end })
+    .update({ business_hours_start: start, business_hours_end: end, business_days: days })
     .eq("id", ctx.location.id);
 
   if (error) return { error: error.message };
@@ -105,7 +113,7 @@ export async function updateBusinessHours(
     action: "settings.business_hours_update",
     entityType: "location",
     entityId: ctx.location.id,
-    metadata: { hours_start: start, hours_end: end },
+    metadata: { hours_start: start, hours_end: end, business_days: days },
   });
 
   revalidatePath("/staff/settings");

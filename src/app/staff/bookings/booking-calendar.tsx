@@ -39,10 +39,13 @@ export function BookingCalendar({
   bookings,
   monthParam,
   todayKey,
+  businessDays,
 }: {
   bookings: BookingRow[];
   monthParam: string;
   todayKey: string;
+  /** Open weekdays as JS getDay() numbers (0=Sun..6=Sat). */
+  businessDays: number[];
 }) {
   const router = useRouter();
   const { year, month } = parseMonthParam(monthParam);
@@ -74,6 +77,10 @@ export function BookingCalendar({
   }
 
   const selectedBookings = byDay.get(selected) ?? [];
+  const selectedClosed = (() => {
+    const [y, m, d] = selected.split("-").map(Number);
+    return !businessDays.includes(new Date(y, m - 1, d).getDay());
+  })();
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
@@ -128,15 +135,18 @@ export function BookingCalendar({
             const dayBookings = byDay.get(key) ?? [];
             const isToday = key === todayKey;
             const isSelected = key === selected;
+            const isClosed = !businessDays.includes(date.getDay());
             return (
               <button
                 type="button"
                 key={key}
                 onClick={() => setSelected(key)}
+                title={isClosed ? "Closed" : undefined}
                 className={cn(
                   "flex min-h-[58px] flex-col items-start gap-1 border-b border-r p-1 text-left transition-colors sm:min-h-[76px] sm:p-1.5",
                   "hover:bg-muted/60 focus:outline-none focus:ring-2 focus:ring-primary/40",
                   !inMonth && "bg-muted/20 text-muted-foreground",
+                  isClosed && inMonth && "bg-muted/40 text-muted-foreground",
                   isSelected && "bg-primary/10 ring-1 ring-inset ring-primary",
                 )}
               >
@@ -148,6 +158,9 @@ export function BookingCalendar({
                 >
                   {date.getDate()}
                 </span>
+                {isClosed && dayBookings.length === 0 && (
+                  <span className="text-[10px] leading-none text-muted-foreground">Closed</span>
+                )}
                 {dayBookings.length > 0 && (
                   <span className="flex flex-wrap items-center gap-1">
                     {dayBookings.slice(0, 3).map((b) => (
@@ -176,9 +189,15 @@ export function BookingCalendar({
       <div className="rounded-lg border lg:sticky lg:top-4 lg:self-start">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h2 className="text-sm font-semibold">{fullDayLabel(selected)}</h2>
-          <span className="text-xs text-muted-foreground">
-            {selectedBookings.length} booking{selectedBookings.length === 1 ? "" : "s"}
-          </span>
+          {selectedClosed ? (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+              Closed
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {selectedBookings.length} booking{selectedBookings.length === 1 ? "" : "s"}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col">

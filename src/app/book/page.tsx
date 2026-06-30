@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { BookingWidgetForm } from "./booking-widget-form";
+import { normalizeBusinessDays } from "@/lib/business-days";
 
 export default async function BookingWidgetPage({
   searchParams,
@@ -54,10 +55,15 @@ export default async function BookingWidgetPage({
   };
   const { data: branchData } = await admin
     .from("locations")
-    .select("id, name")
+    .select("id, name, business_days")
     .eq("organization_id", org.id)
     .order("name");
-  const locations = (branchData ?? []) as { id: string; name: string }[];
+  const branches = (branchData ?? []) as { id: string; name: string; business_days: number[] | null }[];
+  const locations = branches.map((b) => ({ id: b.id, name: b.name }));
+  // Open days per branch (JS getDay() numbers) so the widget can grey out / warn
+  // on closed days; the server re-checks before creating any booking.
+  const businessDaysByLocation: Record<string, number[]> = {};
+  for (const b of branches) businessDaysByLocation[b.id] = normalizeBusinessDays(b.business_days);
 
   const { data: servicesData } = await admin
     .from("services")
@@ -231,6 +237,7 @@ export default async function BookingWidgetPage({
           garageName={org.name}
           locations={locations}
           servicesByLocation={servicesByLocation}
+          businessDaysByLocation={businessDaysByLocation}
           defaultLocationId={defaultLocationId}
           privacyPolicyUrl={org.privacy_policy_url}
           prefill={prefill}

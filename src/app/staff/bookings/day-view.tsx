@@ -13,18 +13,22 @@ export function DayView({
   bookings,
   bays,
   baseHref,
+  businessDays,
 }: {
   /** YYYY-MM-DD for the day being shown */
   date: string;
   bookings: DayBooking[];
   bays: Bay[];
   baseHref: string;
+  /** Open weekdays as JS getDay() numbers (0=Sun..6=Sat). */
+  businessDays: number[];
 }) {
   const day = new Date(`${date}T00:00:00`);
   const prev = shiftDate(date, -1);
   const next = shiftDate(date, 1);
   const todayStr = toDateParam(new Date());
   const isToday = date === todayStr;
+  const isClosed = !businessDays.includes(day.getDay());
 
   const byBay = new Map<string | null, DayBooking[]>();
   for (const b of bookings) {
@@ -55,6 +59,7 @@ export function DayView({
         <h2 className="text-base font-semibold">
           {day.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}
           {isToday && <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">Today</span>}
+          {isClosed && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">Closed</span>}
         </h2>
         <div className="flex items-center gap-2">
           <Link
@@ -81,6 +86,12 @@ export function DayView({
           </Link>
         </div>
       </div>
+
+      {isClosed && (
+        <div className="rounded-lg border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+          The branch is normally closed on this day. New online bookings are blocked, but staff can still add one manually.
+        </div>
+      )}
 
       {bookings.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">

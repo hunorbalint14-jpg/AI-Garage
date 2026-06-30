@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
         locationName: routed.locationName,
         businessHoursStart: routed.businessHoursStart,
         businessHoursEnd: routed.businessHoursEnd,
+        businessDays: routed.businessDays,
         conversationId: conversation.id,
         customerPhone: from.number,
         channel: from.channel,

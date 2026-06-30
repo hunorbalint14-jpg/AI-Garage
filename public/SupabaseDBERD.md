@@ -111,6 +111,7 @@ data. Slug becomes the customer-facing subdomain.
 | `slug` | `text` | Unique. Drives `<slug>.ai-garage.co.uk`. |
 | `name` | `text` | |
 | `business_hours_start` / `_end` | `int2` | 0–23 inclusive. |
+| `business_days` | `int2[]` | Open weekdays, JS `getDay()` numbers (0=Sun..6=Sat). Default Mon–Sat `{1,2,3,4,5,6}`. Gates the booking widget + AI receptionist. |
 | `created_at` | `timestamptz` | |
 
 ### `org_users`
