@@ -218,8 +218,8 @@ export async function approveQuote(
   // quote_deposit_pct is a v2 column; retry without it if the migration
   // hasn't run, so existing approve flow stays alive.
   const TENANT_COLS = "tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end";
-  const fullLocSelect = `id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, ${TENANT_COLS})`;
-  const v1LocSelect = `id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, ${TENANT_COLS})`;
+  const fullLocSelect = `id, slug, organization:organizations!organization_id(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, ${TENANT_COLS})`;
+  const v1LocSelect = `id, slug, organization:organizations!organization_id(id, name, stripe_account_id, stripe_charges_enabled, ${TENANT_COLS})`;
 
   let locRowData: unknown = null;
   const locFirst = await admin.from("locations").select(fullLocSelect).eq("id", verify.quote.location_id).maybeSingle();
@@ -550,7 +550,7 @@ export async function declineAndRebook(slug: string, token: string): Promise<Reb
 
   const { data: locRow } = await admin
     .from("locations")
-    .select("slug, organization:organizations(id)")
+    .select("slug, organization:organizations!organization_id(id)")
     .eq("id", q.location_id)
     .maybeSingle();
   type LocRow = { slug: string; organization: { id: string } | null };
@@ -611,7 +611,7 @@ async function approveStandaloneQuote(
   // Org-level deposit policy + Stripe Connect.
   const { data: locRow } = await admin
     .from("locations")
-    .select("id, slug, organization:organizations(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)")
+    .select("id, slug, organization:organizations!organization_id(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)")
     .eq("id", verifyQuote.location_id)
     .maybeSingle();
   type LocRow = {

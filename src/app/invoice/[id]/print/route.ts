@@ -47,7 +47,7 @@ export async function GET(
 
   const { data: location } = (await admin
     .from("locations")
-    .select("id, organization:organizations(id, name, phone, logo_url, primary_color)")
+    .select("id, organization:organizations!organization_id(id, name, phone, logo_url, primary_color)")
     .eq("slug", slug)
     .maybeSingle()) as {
     data: {

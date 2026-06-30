@@ -56,7 +56,7 @@ export default async function PlanInvitePage({
       .maybeSingle(),
     admin
       .from("locations")
-      .select("name, organization:organizations(name, primary_color, logo_url)")
+      .select("name, organization:organizations!organization_id(name, primary_color, logo_url)")
       .eq("id", invite.location_id)
       .maybeSingle(),
   ]);

@@ -256,9 +256,9 @@ export default async function QuotePage({
 async function loadJobQuote(admin: ReturnType<typeof createAdminClient>, id: string): Promise<NormalisedQuote | null> {
   // Try the v2 select first (includes quote_deposit_pct), fall back to v1.
   const fullSelect =
-    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone, quote_deposit_pct))";
+    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone, quote_deposit_pct))";
   const v1Select =
-    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone))";
+    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone))";
 
   let raw: unknown = null;
   const first = await admin.from("job_quotes").select(fullSelect).eq("id", id).maybeSingle();
@@ -318,7 +318,7 @@ async function loadStandalone(admin: ReturnType<typeof createAdminClient>, id: s
   const { data, error } = await admin
     .from("standalone_quotes")
     .select(
-      "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, customer:customers(full_name), vehicle:vehicles(registration, make, model, year), location:locations(name, organization:organizations(id, name, logo_url, primary_color, phone, quote_deposit_pct))",
+      "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, customer:customers(full_name), vehicle:vehicles(registration, make, model, year), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone, quote_deposit_pct))",
     )
     .eq("id", id)
     .maybeSingle();

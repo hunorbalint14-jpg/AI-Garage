@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, address, organization:organizations(id, name)");
+    .select("id, slug, name, address, organization:organizations!organization_id(id, name)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 

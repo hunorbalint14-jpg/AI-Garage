@@ -26,7 +26,7 @@ export default async function BookingPaidPage({
   const admin = createAdminClient();
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, scheduled_at, paid_amount_pence, service:services(name), location:locations(name, slug, organization:organizations(name))")
+    .select("id, scheduled_at, paid_amount_pence, service:services(name), location:locations(name, slug, organization:organizations!organization_id(name))")
     .eq("id", id)
     .maybeSingle();
 
