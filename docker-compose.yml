@@ -1,0 +1,35 @@
+# Local Docker workflow — see README "Docker local testing".
+#   npm run docker:dev    → app at http://localhost:3000 (needs .env.local)
+#   npm run docker:test   → run the Vitest suite in a container (no secrets needed)
+#
+# The anonymous `/app/node_modules` volume shadows the bind-mounted host
+# node_modules so the container keeps its own linux-native deps.
+
+services:
+  # Hot-reloading dev server. Edits on the host reload instantly via the bind mount.
+  dev:
+    build:
+      context: .
+    command: npm run dev -- -H 0.0.0.0
+    ports:
+      - "3000:3000"
+    # Optional so `docker:dev` still starts before .env.local exists.
+    env_file:
+      - path: .env.local
+        required: false
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+
+  # One-off unit-test runner. vitest.setup.ts mocks all service env vars,
+  # so this needs no .env.local. Run via: docker compose run --rm test
+  test:
+    build:
+      context: .
+    command: npm run test:run
+    environment:
+      CI: "true"
+    volumes:
+      - .:/app
+      - /app/node_modules

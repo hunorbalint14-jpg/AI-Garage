@@ -52,6 +52,48 @@ Copy `.env.example` to `.env.local` and fill the required keys before running. F
 | `npm run test:coverage` | Run + v8 coverage report (`coverage/index.html`) |
 | `npm run test:ui` | Vitest browser UI |
 
+## Docker local testing (no local Node/npm required)
+
+Run the app and the test suite without installing Node or npm on your machine —
+the host only needs **`docker compose`** (plus optionally `make`). Every `npm`
+command runs *inside* the container.
+
+```bash
+make build   # build the image (first run, and after dependency changes)
+make test    # run the full Vitest suite in a container
+make dev     # start the app at http://localhost:3000 (hot reload)
+make down    # stop and remove the dev container
+```
+
+`make` with no target lists everything. Prefer not to use `make`? The raw
+equivalents (still no npm on the host):
+
+```bash
+docker compose build              # = make build
+docker compose run --rm test      # = make test
+docker compose up dev             # = make dev
+docker compose down               # = make down
+```
+
+| `make` target | Runs | Purpose |
+|---|---|---|
+| `make build` | `docker compose build` | Build the image — **re-run after any `package-lock.json` change** (deps live in the image layer, not the bind mount) |
+| `make dev` | `docker compose up dev` | Hot-reloading dev server on `:3000`. Source is bind-mounted, so host edits reload instantly. Tenant URLs like `http://acme.localtest.me:3000` work too |
+| `make test` | `docker compose run --rm test` | One-shot `vitest run` in a container |
+| `make test-coverage` | `… npm run test:coverage` | Tests + v8 coverage report |
+| `make typecheck` | `… npm run typecheck` | `tsc --noEmit` in a container |
+| `make lint` | `… npm run lint` | ESLint in a container |
+| `make shell` | `… bash` | Open a shell in the container to debug |
+| `make down` | `docker compose down` | Stop/remove the dev container |
+
+- **Tests need no secrets** — `vitest.setup.ts` injects dummy values for every
+  external service, so `make test` runs green without `.env.local`.
+- **The app needs `.env.local`** — copy `.env.example` to `.env.local` and fill it
+  in before `make dev`. The compose `env_file` is optional, so `make dev` will
+  still start (just without those vars) before the file exists.
+- The container keeps its **own** linux `node_modules` (anonymous volume), so the
+  host's macOS dependencies are never used inside the container.
+
 ## Testing
 
 Tests live next to source as `*.test.ts` / `*.test.tsx`. The suite covers:
