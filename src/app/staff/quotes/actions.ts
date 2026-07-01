@@ -10,6 +10,7 @@ import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/ga
 import { logAudit } from "@/lib/audit";
 import {
   generateQuoteToken,
+  generateQuoteSlug,
   generateStandaloneQuoteSlug,
   hashQuoteToken,
   tenantQuoteUrl,
@@ -321,6 +322,95 @@ export async function sendStandaloneQuoteDraft(
     actorEmail: ctx.user.email ?? null,
     action: "quote.send",
     entityType: "standalone_quote",
+    entityId: quoteId,
+    metadata: { channels: result.channels, total: q.total },
+  });
+
+  revalidatePath("/staff/quotes");
+  revalidatePath(`/staff/quotes/${quoteId}`);
+  return { success: true, channels: result.channels, customerUrl: url };
+}
+
+// Unified "send a draft" for BOTH quote types (called from the central quote
+// detail). Mints token/slug/expiry, dispatches email+SMS, flips draft→pending.
+// Customer/vehicle come from the quote directly (standalone) or its job (DVI).
+export async function sendQuoteDraft(quoteId: string): Promise<SendStandaloneResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  type PersonRef = { full_name: string | null; email: string | null; phone: string | null } | null;
+  const { data } = await admin
+    .from("quotes")
+    .select(
+      "id, quote_type, location_id, status, total, title, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))",
+    )
+    .eq("id", quoteId)
+    .maybeSingle();
+  const q = data as unknown as {
+    id: string;
+    quote_type: "job" | "standalone";
+    location_id: string;
+    status: string;
+    total: number;
+    title: string | null;
+    customer: PersonRef;
+    vehicle: { registration: string | null } | null;
+    job: { customer: PersonRef; vehicle: { registration: string | null } | null } | null;
+  } | null;
+  if (!q || q.location_id !== ctx.location.id) return { error: "Quote not found." };
+  if (q.status !== "draft") return { error: "Quote can only be sent from draft." };
+
+  const customer = q.quote_type === "job" ? q.job?.customer ?? null : q.customer;
+  const vehicleReg = (q.quote_type === "job" ? q.job?.vehicle : q.vehicle)?.registration ?? null;
+  if (!customer?.email && !customer?.phone) {
+    return { error: "Customer has no email or phone — cannot notify." };
+  }
+
+  const [{ data: org }, { data: locRow }] = await Promise.all([
+    admin.from("organizations").select("quote_validity_days, name").eq("id", ctx.organization.id).maybeSingle(),
+    admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle(),
+  ]);
+  const validityDays = Number((org as { quote_validity_days?: number } | null)?.quote_validity_days ?? 30);
+  const locationAddress = (locRow as { address: string | null } | null)?.address ?? null;
+
+  const token = generateQuoteToken();
+  const slug = q.quote_type === "job" ? generateQuoteSlug() : generateStandaloneQuoteSlug();
+  const expiresAt = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const { error: updateErr } = await admin
+    .from("quotes")
+    .update({ status: "pending", token_hash: hashQuoteToken(token), slug, expires_at: expiresAt, sent_at: new Date().toISOString() })
+    .eq("id", quoteId)
+    .eq("status", "draft");
+  if (updateErr) return { error: updateErr.message };
+
+  const url = tenantQuoteUrl(ctx.location.slug, slug, token);
+  const result = await dispatchStandaloneNotification({
+    customer,
+    vehicleReg,
+    title: q.title,
+    total: q.total,
+    garageName: (org as { name?: string } | null)?.name ?? ctx.organization.name,
+    locationName: ctx.location.name,
+    address: locationAddress,
+    url,
+  });
+
+  if (result.channels.length === 0) {
+    await admin
+      .from("quotes")
+      .update({ status: "draft", token_hash: null, slug: null, expires_at: null, sent_at: null })
+      .eq("id", quoteId);
+    return { error: "Failed to send via any channel." };
+  }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "quote.send",
+    entityType: q.quote_type === "job" ? "job_quote" : "standalone_quote",
     entityId: quoteId,
     metadata: { channels: result.channels, total: q.total },
   });

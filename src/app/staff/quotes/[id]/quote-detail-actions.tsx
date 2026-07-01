@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Send, X, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cancelStandaloneQuote, sendStandaloneQuoteDraft } from "../actions";
+import { cancelStandaloneQuote, sendQuoteDraft } from "../actions";
 
 export function QuoteDetailActions({ quoteId, status }: { quoteId: string; status: string }) {
   const router = useRouter();
@@ -19,7 +19,7 @@ export function QuoteDetailActions({ quoteId, status }: { quoteId: string; statu
     setError(null);
     setInfo(null);
     startTransition(async () => {
-      const result = await sendStandaloneQuoteDraft(quoteId);
+      const result = await sendQuoteDraft(quoteId);
       if ("error" in result) {
         setError(result.error);
         return;
