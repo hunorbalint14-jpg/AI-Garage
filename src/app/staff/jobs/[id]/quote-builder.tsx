@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Video, Plus, Trash2, Send, Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -408,7 +409,14 @@ export function QuoteBuilder({
           <p className="text-xs text-muted-foreground">
             Save this link — it can&rsquo;t be retrieved again. To resend, cancel this quote and create a new one.
           </p>
-          <Button variant="outline" onClick={reset} className="self-start">Done</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={reset} className="self-start">Done</Button>
+            {pendingQuoteId && (
+              <Button variant="outline" nativeButton={false} className="self-start" render={
+                <Link href={`/staff/quotes/${pendingQuoteId}`}>Manage in Quotes →</Link>
+              } />
+            )}
+          </div>
         </div>
       )}
 

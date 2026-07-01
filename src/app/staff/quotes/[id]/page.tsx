@@ -7,8 +7,13 @@ import { QuoteDetailActions } from "./quote-detail-actions";
 
 export const dynamic = "force-dynamic";
 
+type PersonRef = { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
+type VehicleRef = { id: string; registration: string | null; make: string | null; model: string | null } | null;
+
 type QuoteRow = {
   id: string;
+  quote_type: "job" | "standalone";
+  job_id: string | null;
   location_id: string;
   status: string;
   title: string | null;
@@ -31,8 +36,9 @@ type QuoteRow = {
   deposit_amount: number | null;
   deposit_paid_at: string | null;
   created_at: string;
-  customer: { id: string; full_name: string | null; email: string | null; phone: string | null } | null;
-  vehicle: { id: string; registration: string | null; make: string | null; model: string | null } | null;
+  customer: PersonRef;
+  vehicle: VehicleRef;
+  job: { id: string; customer: PersonRef; vehicle: VehicleRef } | null;
 };
 
 type QuoteItem = {
@@ -76,7 +82,7 @@ export default async function QuoteDetailPage({
   const { data: quoteData } = await admin
     .from("quotes")
     .select(
-      "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model)",
+      "id, quote_type, job_id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model), job:jobs(id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -96,15 +102,35 @@ export default async function QuoteDetailPage({
   const approvedSet = new Set(quote.approved_item_ids ?? []);
   const partial = quote.status === "approved" && (quote.approved_item_ids?.length ?? 0) > 0 && quote.approved_item_ids.length < items.length;
 
+  // A DVI (job) quote's customer + vehicle come from its parent job; standalone
+  // quotes carry them directly.
+  const isJob = quote.quote_type === "job";
+  const displayCustomer = isJob ? quote.job?.customer ?? null : quote.customer;
+  const displayVehicle = isJob ? quote.job?.vehicle ?? null : quote.vehicle;
+
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
-      <div>
-        <Link href="/staff/quotes" className="text-sm text-muted-foreground underline">← Back to quotes</Link>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <Link href="/staff/quotes" className="text-muted-foreground underline">← Back to quotes</Link>
+        {isJob && quote.job_id && (
+          <Link href={`/staff/jobs/${quote.job_id}`} className="text-muted-foreground underline">
+            ← Back to job
+          </Link>
+        )}
       </div>
 
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{quote.title || "(no title)"}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{quote.title || "(no title)"}</h1>
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                isJob ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {isJob ? "DVI" : "Pre-job"}
+            </span>
+          </div>
           <p className="text-sm text-muted-foreground mt-1">
             Created {fmtDateTime(quote.created_at)}
           </p>
@@ -119,24 +145,24 @@ export default async function QuoteDetailPage({
         <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-sm">
           <dt className="text-muted-foreground">Customer</dt>
           <dd>
-            {quote.customer ? (
-              <Link href={`/staff/customers/${quote.customer.id}`} className="underline">
-                {quote.customer.full_name ?? "(no name)"}
+            {displayCustomer ? (
+              <Link href={`/staff/customers/${displayCustomer.id}`} className="underline">
+                {displayCustomer.full_name ?? "(no name)"}
               </Link>
             ) : "—"}
-            {quote.customer && (
+            {displayCustomer && (
               <div className="text-xs text-muted-foreground">
-                {quote.customer.email ?? "no email"} · {quote.customer.phone ?? "no phone"}
+                {displayCustomer.email ?? "no email"} · {displayCustomer.phone ?? "no phone"}
               </div>
             )}
           </dd>
           <dt className="text-muted-foreground">Vehicle</dt>
           <dd>
-            {quote.vehicle ? (
+            {displayVehicle ? (
               <>
-                <span className="font-mono">{quote.vehicle.registration}</span>
-                {(quote.vehicle.make || quote.vehicle.model) && (
-                  <span className="text-muted-foreground"> — {[quote.vehicle.make, quote.vehicle.model].filter(Boolean).join(" ")}</span>
+                <span className="font-mono">{displayVehicle.registration}</span>
+                {(displayVehicle.make || displayVehicle.model) && (
+                  <span className="text-muted-foreground"> — {[displayVehicle.make, displayVehicle.model].filter(Boolean).join(" ")}</span>
                 )}
               </>
             ) : "—"}

@@ -8,8 +8,13 @@ import { QuoteFilters } from "./quote-filters";
 
 export const dynamic = "force-dynamic";
 
+type PersonRef = { id: string; full_name: string | null } | null;
+type VehicleRef = { registration: string | null } | null;
+
 type QuoteRow = {
   id: string;
+  quote_type: "job" | "standalone";
+  job_id: string | null;
   slug: string | null;
   status: string;
   title: string | null;
@@ -19,8 +24,12 @@ type QuoteRow = {
   expires_at: string | null;
   responded_at: string | null;
   viewed_count: number;
-  customer: { id: string; full_name: string | null } | null;
-  vehicle: { registration: string | null } | null;
+  reminder_count: number;
+  last_reminder_at: string | null;
+  // standalone quotes carry these directly; job quotes derive them via the job.
+  customer: PersonRef;
+  vehicle: VehicleRef;
+  job: { id: string; customer: PersonRef; vehicle: VehicleRef } | null;
 };
 
 const STATUS_STYLE: Record<string, string> = {
@@ -34,6 +43,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 
 const STATUSES = ["draft", "pending", "approved", "declined", "expired", "cancelled"] as const;
+const TYPES = ["job", "standalone"] as const;
 
 function fmt(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
@@ -44,21 +54,31 @@ function fmtDate(s: string | null): string {
   return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// A job quote's customer/vehicle live on its parent job; standalone quotes
+// carry them directly.
+function customerOf(r: QuoteRow): PersonRef {
+  return r.quote_type === "job" ? r.job?.customer ?? null : r.customer;
+}
+function vehicleOf(r: QuoteRow): VehicleRef {
+  return r.quote_type === "job" ? r.job?.vehicle ?? null : r.vehicle;
+}
+
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; type?: string }>;
 }) {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
-  const { q, status } = await searchParams;
+  const { q, status, type } = await searchParams;
   const query = q?.trim() ?? "";
   const statusFilter = status?.trim();
+  const typeFilter = type?.trim();
 
   let queryBuilder = admin
     .from("quotes")
     .select(
-      "id, slug, status, title, total, created_at, sent_at, expires_at, responded_at, viewed_count, customer:customers(id, full_name), vehicle:vehicles(registration)",
+      "id, quote_type, job_id, slug, status, title, total, created_at, sent_at, expires_at, responded_at, viewed_count, reminder_count, last_reminder_at, customer:customers(id, full_name), vehicle:vehicles(registration), job:jobs(id, customer:customers(id, full_name), vehicle:vehicles(registration))",
     )
     .eq("location_id", ctx.location.id)
     .order("created_at", { ascending: false })
@@ -67,19 +87,24 @@ export default async function QuotesPage({
   if (statusFilter && STATUSES.includes(statusFilter as typeof STATUSES[number])) {
     queryBuilder = queryBuilder.eq("status", statusFilter);
   }
+  if (typeFilter && TYPES.includes(typeFilter as typeof TYPES[number])) {
+    queryBuilder = queryBuilder.eq("quote_type", typeFilter);
+  }
 
   const { data } = await queryBuilder;
-  // Supabase types nested relations as arrays in generated types; cast through
-  // unknown because the runtime returns a single object for the FK lookups.
+  // Supabase types nested relations as arrays; cast through unknown because the
+  // runtime returns a single object for these to-one lookups.
   let rows = (data ?? []) as unknown as QuoteRow[];
 
   if (query) {
     const ql = query.toLowerCase();
     rows = rows.filter((r) => {
+      const cust = customerOf(r)?.full_name?.toLowerCase();
+      const reg = vehicleOf(r)?.registration?.toLowerCase();
       return (
         r.title?.toLowerCase().includes(ql) ||
-        r.customer?.full_name?.toLowerCase().includes(ql) ||
-        r.vehicle?.registration?.toLowerCase().includes(ql) ||
+        cust?.includes(ql) ||
+        reg?.includes(ql) ||
         r.slug?.toLowerCase().includes(ql)
       );
     });
@@ -93,10 +118,10 @@ export default async function QuotesPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Quotes" description="Prospect + customer quotes sent for review." />
+      <PageHeader title="Quotes" description="Every quote — pre-job and in-job (DVI) — in one place." />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <QuoteFilters initialQ={query} initialStatus={statusFilter ?? ""} />
+        <QuoteFilters initialQ={query} initialStatus={statusFilter ?? ""} initialType={typeFilter ?? ""} />
         <Link href="/staff/quotes/new">
           <Button>
             <Plus className="mr-1 h-4 w-4" /> New quote
@@ -104,7 +129,7 @@ export default async function QuotesPage({
         </Link>
       </div>
 
-      {!query && !statusFilter && rows.length > 0 && (
+      {!query && !statusFilter && !typeFilter && rows.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending ({pending.length})</p>
@@ -124,7 +149,7 @@ export default async function QuotesPage({
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed p-8 text-center">
           <p className="text-sm text-muted-foreground">
-            {query || statusFilter ? "No quotes match these filters." : "No quotes yet. Click 'New quote' to send one."}
+            {query || statusFilter || typeFilter ? "No quotes match these filters." : "No quotes yet. Click 'New quote' to send one."}
           </p>
         </div>
       ) : (
@@ -132,6 +157,7 @@ export default async function QuotesPage({
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
+                <th className="px-4 py-2 font-medium">Type</th>
                 <th className="px-4 py-2 font-medium">Title / Reg</th>
                 <th className="px-4 py-2 font-medium">Customer</th>
                 <th className="px-4 py-2 font-medium text-right">Total</th>
@@ -142,34 +168,53 @@ export default async function QuotesPage({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t hover:bg-muted/20">
-                  <td className="px-4 py-2">
-                    <Link href={`/staff/quotes/${r.id}`} className="underline">
-                      {r.title || `(no title)`}
-                    </Link>
-                    {r.vehicle?.registration && (
-                      <div className="text-xs font-mono text-muted-foreground">{r.vehicle.registration}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2">
-                    {r.customer?.id ? (
-                      <Link href={`/staff/customers/${r.customer.id}`} className="underline">
-                        {r.customer.full_name ?? "—"}
+              {rows.map((r) => {
+                const cust = customerOf(r);
+                const veh = vehicleOf(r);
+                const isJob = r.quote_type === "job";
+                return (
+                  <tr key={r.id} className="border-t hover:bg-muted/20">
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                          isJob ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                        }`}
+                      >
+                        {isJob ? "DVI" : "Pre-job"}
+                      </span>
+                      {isJob && r.job_id && (
+                        <Link href={`/staff/jobs/${r.job_id}`} className="mt-1 block text-[11px] text-muted-foreground underline">
+                          View job →
+                        </Link>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      <Link href={`/staff/quotes/${r.id}`} className="underline">
+                        {r.title || `(no title)`}
                       </Link>
-                    ) : "—"}
-                  </td>
-                  <td className="px-4 py-2 text-right tabular-nums">{fmt(Number(r.total ?? 0))}</td>
-                  <td className="px-4 py-2">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_STYLE[r.status] ?? ""}`}>
-                      {r.status.replace(/_/g, " ")}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">{fmtDate(r.sent_at)}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{fmtDate(r.expires_at)}</td>
-                  <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{r.viewed_count ?? 0}</td>
-                </tr>
-              ))}
+                      {veh?.registration && (
+                        <div className="text-xs font-mono text-muted-foreground">{veh.registration}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-2">
+                      {cust?.id ? (
+                        <Link href={`/staff/customers/${cust.id}`} className="underline">
+                          {cust.full_name ?? "—"}
+                        </Link>
+                      ) : "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">{fmt(Number(r.total ?? 0))}</td>
+                    <td className="px-4 py-2">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_STYLE[r.status] ?? ""}`}>
+                        {r.status.replace(/_/g, " ")}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-muted-foreground">{fmtDate(r.sent_at)}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{fmtDate(r.expires_at)}</td>
+                    <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{r.viewed_count ?? 0}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
