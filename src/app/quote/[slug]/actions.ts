@@ -529,11 +529,9 @@ export async function declineAndRebook(slug: string, token: string): Promise<Reb
     if (verify.reason === "expired") return { error: "This quote has expired." };
     return { error: "Invalid link." };
   }
-  // Standalone quotes are themselves booking precursors — no rebook flow.
-  if (verify.quote.source === "standalone") {
-    return { error: "Rebooking is not applicable for this quote." };
-  }
-
+  // Both quote types can decline-and-rebook — the booking widget prefills from
+  // the quote's customer/vehicle (standalone carries them directly, DVI via the
+  // job) and stamps from_quote_id on the new booking.
   const admin = createAdminClient();
 
   const { data: claimed, error: claimErr } = await admin
