@@ -9,7 +9,8 @@ import { logAudit } from "@/lib/audit";
 import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
 import { invalidateStaffLocationCacheForOrg } from "@/lib/staff-context";
 import { tierFor, tenantBillingActive, TIERS } from "@/lib/tenant-plans";
-import { APP_TZ, type WeeklyHours } from "@/lib/business-hours";
+import { APP_TZ, instantMinuteOfDay, minutesToLabel, type WeeklyHours } from "@/lib/business-hours";
+import { instantDayKey, instantTimeLabel } from "@/app/staff/bookings/calendar-grid";
 
 export type UpdateOrgResult = { error: string } | { success: true };
 
@@ -177,6 +178,43 @@ export async function addSpecialHours(formData: FormData): Promise<SpecialHoursR
   const note = ((formData.get("note") as string | null) ?? "").trim().slice(0, 120) || null;
 
   const admin = createAdminClient();
+
+  // Refuse an override that would orphan existing bookings: any upcoming
+  // booking on that date whose time falls outside the new hours (or any at all
+  // when closing the day) must be rescheduled first. Bookings are stored UTC;
+  // the date is a UK calendar day, so fetch a ±1-day window and bucket each
+  // booking by its Europe/London day before comparing.
+  const windowStart = new Date(`${date}T00:00:00Z`);
+  windowStart.setUTCDate(windowStart.getUTCDate() - 1);
+  const windowEnd = new Date(`${date}T00:00:00Z`);
+  windowEnd.setUTCDate(windowEnd.getUTCDate() + 2);
+  const { data: bookingRows } = await admin
+    .from("bookings")
+    .select("id, scheduled_at, status")
+    .eq("location_id", ctx.location.id)
+    .in("status", ["scheduled", "payment_pending"])
+    .gte("scheduled_at", windowStart.toISOString())
+    .lt("scheduled_at", windowEnd.toISOString());
+  const orphaned = ((bookingRows ?? []) as { id: string; scheduled_at: string }[]).filter((b) => {
+    if (instantDayKey(b.scheduled_at) !== date) return false;
+    if (isClosed) return true;
+    const minute = instantMinuteOfDay(b.scheduled_at);
+    return minute < (openMinute as number) || minute >= (closeMinute as number);
+  });
+  if (orphaned.length > 0) {
+    const times = orphaned
+      .map((b) => instantTimeLabel(b.scheduled_at))
+      .sort()
+      .slice(0, 5)
+      .join(", ");
+    const hoursLabel = isClosed
+      ? "closed all day"
+      : `${minutesToLabel(openMinute as number)}–${minutesToLabel(closeMinute as number)}`;
+    return {
+      error: `${orphaned.length} booking${orphaned.length === 1 ? "" : "s"} on ${date} (at ${times}) would fall outside the new hours (${hoursLabel}). Reschedule or cancel them first.`,
+    };
+  }
+
   // Upsert so re-adding the same date replaces it (one override per date).
   const { error } = await admin
     .from("location_special_hours")

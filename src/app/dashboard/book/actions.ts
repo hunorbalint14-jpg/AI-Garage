@@ -8,6 +8,7 @@ import { sendSms } from "@/lib/sms";
 import { stripe, platformFeePence, tenantOrigin } from "@/lib/stripe";
 import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { bayCapacityAt } from "@/lib/bay-availability";
+import { checkLocationHoursAt } from "@/lib/location-hours-check";
 import {
   getCustomerPlanState,
   evaluateCoverage,
@@ -96,10 +97,17 @@ export async function requestBooking(formData: FormData): Promise<BookingRequest
   const requestedBranchId = (formData.get("locationId") as string | null)?.trim() || null;
   const { data: branchData } = await admin
     .from("locations")
-    .select("id")
+    .select("id, name")
     .eq("organization_id", location.organization.id);
-  const branchIds = new Set((branchData ?? []).map((b) => (b as { id: string }).id));
-  const branchId = requestedBranchId && branchIds.has(requestedBranchId) ? requestedBranchId : location.id;
+  const branches = (branchData ?? []) as { id: string; name: string }[];
+  const branch = branches.find((b) => b.id === requestedBranchId) ?? null;
+  const branchId = branch?.id ?? location.id;
+  const branchName = branch?.name ?? location.name;
+
+  // Same guard as the public widget: refuse a closed date or an out-of-hours
+  // time at the chosen branch.
+  const hoursCheck = await checkLocationHoursAt(admin, branchId, branchName, scheduledAt);
+  if (hoursCheck.message) return { error: hoursCheck.message };
 
   const { data: service } = await admin
     .from("services")
