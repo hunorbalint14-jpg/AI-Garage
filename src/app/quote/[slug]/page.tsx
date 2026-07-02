@@ -246,7 +246,15 @@ export default async function QuotePage({
         />
 
         <p className="text-center text-xs text-slate-500">
-          Quote expires {new Date(quote.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.
+          Quote expires {new Date(quote.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.{" "}
+          <a
+            href={`/quote/${slug}/print?t=${encodeURIComponent(token ?? "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+          >
+            Download PDF
+          </a>
         </p>
       </div>
     </main>

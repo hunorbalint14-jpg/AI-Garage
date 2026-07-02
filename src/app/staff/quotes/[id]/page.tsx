@@ -135,9 +135,19 @@ export default async function QuoteDetailPage({
             Created {fmtDateTime(quote.created_at)}
           </p>
         </div>
-        <span className={`shrink-0 mt-1 inline-block rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wide ${STATUS_STYLE[quote.status] ?? ""}`}>
-          {quote.status.replace(/_/g, " ")}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <a
+            href={`/api/quote/${quote.id}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 inline-flex items-center rounded-md border px-3 py-1 text-xs font-medium hover:bg-muted/40"
+          >
+            Download PDF
+          </a>
+          <span className={`mt-1 inline-block rounded-full px-3 py-1 text-xs font-medium uppercase tracking-wide ${STATUS_STYLE[quote.status] ?? ""}`}>
+            {quote.status.replace(/_/g, " ")}
+          </span>
+        </div>
       </div>
 
       <section className="rounded-lg border p-4">
