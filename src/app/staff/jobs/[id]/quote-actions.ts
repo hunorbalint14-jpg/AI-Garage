@@ -81,19 +81,25 @@ export async function prepareQuoteUpload(
 // ---------------------------------------------------------------------------
 export type CreateQuoteResult =
   | { error: string }
-  | { success: true; quoteId: string; customerUrl: string; total: number };
+  // customerUrl is only returned when the quote was created pending (a token was
+  // minted); a draft has no token/link yet.
+  | { success: true; quoteId: string; customerUrl?: string; total: number };
 
 export async function createQuote(args: {
   jobId: string;
-  quoteId: string;
-  videoPath: string;
-  videoMime: string;
-  videoSizeBytes: number;
+  quoteId?: string;
+  // Video is optional on all quotes now.
+  videoPath?: string | null;
+  videoMime?: string | null;
+  videoSizeBytes?: number | null;
   videoDurationSeconds?: number | null;
   title?: string;
   description?: string;
   items: QuoteItemInput[];
   expiresInDays?: number;
+  // Save without sending: status='draft', no token/link. Sent later from the
+  // central quote detail via sendQuoteDraft.
+  asDraft?: boolean;
 }): Promise<CreateQuoteResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "quotes_draft")) return { error: "Permission denied." };
@@ -109,7 +115,7 @@ export async function createQuote(args: {
 
   const { data: job } = await admin
     .from("jobs")
-    .select("id, location_id, status, customer:customers(id, full_name, email, phone), vehicle:vehicles(registration)")
+    .select("id, location_id, status")
     .eq("id", args.jobId)
     .maybeSingle();
   if (!job || (job as { location_id: string }).location_id !== ctx.location.id) {
@@ -119,20 +125,18 @@ export async function createQuote(args: {
     return { error: "Cannot raise a quote on a closed job." };
   }
 
-  // Verify the upload actually landed before persisting the path.
-  const exists = await videoObjectExists(args.videoPath);
-  if (!exists) return { error: "Video upload not found — please retry." };
+  // Optional video — verify the upload only when one was attached.
+  if (args.videoPath) {
+    const exists = await videoObjectExists(args.videoPath);
+    if (!exists) return { error: "Video upload not found — please retry." };
+  }
 
   const { subtotal, vat, total } = computeTotals(args.items);
+  const quoteId = args.quoteId ?? crypto.randomUUID();
+  const asDraft = !!args.asDraft;
 
-  const token = generateQuoteToken();
-  const tokenHash = hashQuoteToken(token);
-  const slug = generateQuoteSlug();
-  const days = args.expiresInDays ?? 7;
-  const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-
-  const { error: insertErr } = await admin.from("quotes").insert({
-    id: args.quoteId,
+  const insert: Record<string, unknown> = {
+    id: quoteId,
     quote_type: "job",
     job_id: args.jobId,
     organization_id: ctx.organization.id,
@@ -140,26 +144,38 @@ export async function createQuote(args: {
     created_by: ctx.user.id,
     title: args.title?.trim() || null,
     description: args.description?.trim() || null,
-    video_path: args.videoPath,
-    video_mime: args.videoMime,
-    video_size_bytes: args.videoSizeBytes,
+    video_path: args.videoPath ?? null,
+    video_mime: args.videoMime ?? null,
+    video_size_bytes: args.videoSizeBytes ?? null,
     video_duration_seconds: args.videoDurationSeconds ?? null,
     subtotal,
     vat_rate: DEFAULT_VAT_RATE,
     vat_amount: vat,
     total,
-    status: "pending",
-    token_hash: tokenHash,
-    slug,
-    expires_at: expiresAt,
-  });
+    status: asDraft ? "draft" : "pending",
+  };
+
+  let customerUrl: string | undefined;
+  let expiresAt: string | null = null;
+  if (!asDraft) {
+    const token = generateQuoteToken();
+    const slug = generateQuoteSlug();
+    const days = args.expiresInDays ?? 7;
+    expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+    insert.token_hash = hashQuoteToken(token);
+    insert.slug = slug;
+    insert.expires_at = expiresAt;
+    customerUrl = tenantQuoteUrl(ctx.location.slug, slug, token);
+  }
+
+  const { error: insertErr } = await admin.from("quotes").insert(insert);
   if (insertErr) {
-    await removeVideoObject(args.videoPath);
+    if (args.videoPath) await removeVideoObject(args.videoPath);
     return { error: `Failed to save quote: ${insertErr.message}` };
   }
 
   const itemRows = args.items.map((it, idx) => ({
-    quote_id: args.quoteId,
+    quote_id: quoteId,
     description: it.description.trim(),
     type: it.type,
     quantity: it.quantity,
@@ -169,13 +185,10 @@ export async function createQuote(args: {
   }));
   const { error: itemsErr } = await admin.from("quote_items").insert(itemRows);
   if (itemsErr) {
-    // Try to roll back parent row + storage object so a partial quote can't sit pending.
-    await admin.from("quotes").delete().eq("id", args.quoteId);
-    await removeVideoObject(args.videoPath);
+    await admin.from("quotes").delete().eq("id", quoteId);
+    if (args.videoPath) await removeVideoObject(args.videoPath);
     return { error: `Failed to save items: ${itemsErr.message}` };
   }
-
-  const customerUrl = tenantQuoteUrl(ctx.location.slug, slug, token);
 
   await logAudit({
     organizationId: ctx.organization.id,
@@ -183,12 +196,12 @@ export async function createQuote(args: {
     actorEmail: ctx.user.email ?? null,
     action: "quote.create",
     entityType: "job_quote",
-    entityId: args.quoteId,
-    metadata: { job_id: args.jobId, total, items: args.items.length, expires_at: expiresAt },
+    entityId: quoteId,
+    metadata: { job_id: args.jobId, total, items: args.items.length, draft: asDraft, expires_at: expiresAt },
   });
 
   revalidatePath(`/staff/jobs/${args.jobId}`);
-  return { success: true, quoteId: args.quoteId, customerUrl, total };
+  return { success: true, quoteId, customerUrl, total };
 }
 
 // ---------------------------------------------------------------------------

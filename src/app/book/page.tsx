@@ -168,27 +168,32 @@ export default async function BookingWidgetPage({
         .order("sort_order");
       const { data: full } = await admin
         .from("quotes")
-        .select("title, total, job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))")
+        .select("title, total, quote_type, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))")
         .eq("id", verify.quote.id)
         .maybeSingle();
+      type PersonRef = { full_name: string | null; email: string | null; phone: string | null } | null;
       type FullRow = {
         title: string | null;
         total: number;
-        job: {
-          customer: { full_name: string | null; email: string | null; phone: string | null } | null;
-          vehicle: { registration: string | null } | null;
-        } | null;
+        quote_type: "job" | "standalone";
+        customer: PersonRef;
+        vehicle: { registration: string | null } | null;
+        job: { customer: PersonRef; vehicle: { registration: string | null } | null } | null;
       };
       const fullRow = full as FullRow | null;
       if (fullRow) {
+        // Standalone quotes carry customer/vehicle directly; DVI quotes derive
+        // them from the parent job.
+        const qCustomer = fullRow.quote_type === "job" ? fullRow.job?.customer ?? null : fullRow.customer;
+        const qVehicle = fullRow.quote_type === "job" ? fullRow.job?.vehicle ?? null : fullRow.vehicle;
         quoteContext = {
           slug: quoteSlug,
           token: quoteToken,
           title: fullRow.title,
           items: (items ?? []).map((it) => it as { description: string; type: string; quantity: number; unit_price: number }),
           total: Number(fullRow.total),
-          customer: fullRow.job?.customer ?? null,
-          vehicle: fullRow.job?.vehicle ?? null,
+          customer: qCustomer,
+          vehicle: qVehicle,
         };
         // Prefill from the quote's customer if no auth-session prefill exists.
         if (!prefill && quoteContext.customer?.email) {
