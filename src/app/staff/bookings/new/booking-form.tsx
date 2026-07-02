@@ -63,6 +63,9 @@ export function BookingForm({
   const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Out-of-hours warning from the server; while set, submitting again confirms
+  // through. Cleared when the time changes so the server re-checks.
+  const [oohWarning, setOohWarning] = useState<string | null>(null);
   const initialDateTime = useMemo(
     () => defaultDateTime(searchParams.get("date")),
     [searchParams],
@@ -99,10 +102,13 @@ export function BookingForm({
     e.preventDefault();
     setError(null);
     const formData = new FormData(e.currentTarget);
+    if (oohWarning) formData.set("confirmOutOfHours", "1");
     startTransition(async () => {
       const result = await createBooking(formData);
       if ("error" in result) {
         setError(result.error);
+      } else if ("outOfHours" in result) {
+        setOohWarning(result.outOfHours);
       } else {
         router.push(`/staff/bookings/${result.bookingId}`);
       }
@@ -144,6 +150,7 @@ export function BookingForm({
             defaultValue={initialDateTime}
             required
             disabled={pending}
+            onChange={() => setOohWarning(null)}
           />
         </div>
 
@@ -232,11 +239,20 @@ export function BookingForm({
         Send confirmation to customer (email + SMS)
       </label>
 
+      {oohWarning && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <span aria-hidden className="mt-0.5">⚠️</span>
+          <p>
+            {oohWarning} Submit again to create it anyway, or pick a different time.
+          </p>
+        </div>
+      )}
+
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={!customerId} loading={pending}>
-          Create booking
+          {oohWarning ? "Create anyway" : "Create booking"}
         </Button>
         <Button
           type="button"

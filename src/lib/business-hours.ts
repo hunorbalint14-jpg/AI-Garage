@@ -136,10 +136,55 @@ export function resolveHoursForDate(
   return h ? { open: true, hours: h } : { open: false, hours: null };
 }
 
-// 30-minute time options for the settings dropdowns: { value: minutes, label }.
-export const HALF_HOUR_OPTIONS: { value: number; label: string }[] = Array.from(
-  { length: MIN_PER_DAY / 30 },
-  (_, i) => ({ value: i * 30, label: minutesToLabel(i * 30) }),
+// Minute-of-day (0–1439) of a naive local datetime string
+// ("YYYY-MM-DDTHH:mm[..]"); null when there's no parseable time part.
+export function minuteOfLocalDateTime(dateTimeStr: string): number | null {
+  const m = /^\d{4}-\d{2}-\d{2}[T ](\d{2}):(\d{2})/.exec(dateTimeStr);
+  if (!m) return null;
+  const minute = Number(m[1]) * 60 + Number(m[2]);
+  return minute >= 0 && minute < MIN_PER_DAY ? minute : null;
+}
+
+// Minute-of-day of an absolute instant (ISO string), evaluated in the garage's
+// timezone — pairs with weekdayOfInstant for bookings stored in UTC.
+export function instantMinuteOfDay(iso: string, tz: string = APP_TZ): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const min = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return (h % 24) * 60 + min;
+}
+
+export type HoursCheck = {
+  status: "open" | "closed_day" | "outside_hours";
+  hours: DayHours | null;
+};
+
+// Full verdict for a naive local datetime ("YYYY-MM-DDTHH:mm"): closed date →
+// closed_day; open date but the time falls outside open ≤ t < close →
+// outside_hours; else open. A date-only string checks just the date.
+export function checkDateTimeWithinHours(
+  weekly: WeeklyHours,
+  exceptions: SpecialHours[],
+  dateTimeStr: string,
+): HoursCheck {
+  const resolved = resolveHoursForDate(weekly, exceptions, dateTimeStr);
+  if (!resolved.open || !resolved.hours) return { status: "closed_day", hours: null };
+  const minute = minuteOfLocalDateTime(dateTimeStr);
+  if (minute !== null && (minute < resolved.hours.open || minute >= resolved.hours.close)) {
+    return { status: "outside_hours", hours: resolved.hours };
+  }
+  return { status: "open", hours: resolved.hours };
+}
+
+// 15-minute time options for the settings dropdowns: { value: minutes, label }.
+export const QUARTER_HOUR_OPTIONS: { value: number; label: string }[] = Array.from(
+  { length: MIN_PER_DAY / 15 },
+  (_, i) => ({ value: i * 15, label: minutesToLabel(i * 15) }),
 );
 
 // 510 → "08:30". Clamped 0–1439.

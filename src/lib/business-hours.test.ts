@@ -8,7 +8,10 @@ import {
   minutesToLabel,
   formatDayHours,
   formatWeeklySummary,
-  HALF_HOUR_OPTIONS,
+  QUARTER_HOUR_OPTIONS,
+  minuteOfLocalDateTime,
+  instantMinuteOfDay,
+  checkDateTimeWithinHours,
   type WeeklyHours,
   type SpecialHours,
 } from "./business-hours";
@@ -91,9 +94,57 @@ describe("formatting", () => {
     };
     expect(formatWeeklySummary(weekly)).toBe("Mon–Fri 08:00–18:00, Sat 08:30–12:30, Sun closed");
   });
-  it("exposes 48 half-hour options", () => {
-    expect(HALF_HOUR_OPTIONS).toHaveLength(48);
-    expect(HALF_HOUR_OPTIONS[0]).toEqual({ value: 0, label: "00:00" });
-    expect(HALF_HOUR_OPTIONS.find((o) => o.value === 510)?.label).toBe("08:30");
+  it("exposes 96 quarter-hour options", () => {
+    expect(QUARTER_HOUR_OPTIONS).toHaveLength(96);
+    expect(QUARTER_HOUR_OPTIONS[0]).toEqual({ value: 0, label: "00:00" });
+    expect(QUARTER_HOUR_OPTIONS.find((o) => o.value === 525)?.label).toBe("08:45");
+  });
+});
+
+describe("minute helpers", () => {
+  it("reads the minute-of-day from a naive local datetime", () => {
+    expect(minuteOfLocalDateTime("2024-01-01T08:30")).toBe(510);
+    expect(minuteOfLocalDateTime("2024-01-01T00:00")).toBe(0);
+    expect(minuteOfLocalDateTime("2024-01-01 17:45:00")).toBe(1065);
+  });
+  it("returns null when there is no time part", () => {
+    expect(minuteOfLocalDateTime("2024-01-01")).toBeNull();
+    expect(minuteOfLocalDateTime("garbage")).toBeNull();
+  });
+  it("reads the minute-of-day of an instant in the garage timezone", () => {
+    // Winter: UK = UTC.
+    expect(instantMinuteOfDay("2024-01-01T09:30:00Z")).toBe(570);
+    // Summer: UK = UTC+1, so 08:30Z is 09:30 in London.
+    expect(instantMinuteOfDay("2024-07-01T08:30:00Z")).toBe(570);
+  });
+});
+
+describe("checkDateTimeWithinHours", () => {
+  const weekly: WeeklyHours = { 1: { open: 480, close: 1080 } }; // Mon 08:00–18:00
+
+  it("is open for an in-hours time on an open day", () => {
+    expect(checkDateTimeWithinHours(weekly, [], "2024-01-01T09:00")).toEqual({
+      status: "open",
+      hours: { open: 480, close: 1080 },
+    });
+  });
+  it("flags a closed day", () => {
+    expect(checkDateTimeWithinHours(weekly, [], "2024-01-02T09:00").status).toBe("closed_day");
+  });
+  it("flags an out-of-hours time on an open day", () => {
+    expect(checkDateTimeWithinHours(weekly, [], "2024-01-01T07:59").status).toBe("outside_hours");
+    expect(checkDateTimeWithinHours(weekly, [], "2024-01-01T18:00").status).toBe("outside_hours");
+  });
+  it("treats close as exclusive and open as inclusive", () => {
+    expect(checkDateTimeWithinHours(weekly, [], "2024-01-01T08:00").status).toBe("open");
+    expect(checkDateTimeWithinHours(weekly, [], "2024-01-01T17:59").status).toBe("open");
+  });
+  it("respects a custom special-hours override", () => {
+    const custom: SpecialHours = { date: "2024-01-01", isClosed: false, openMinute: 600, closeMinute: 720 };
+    expect(checkDateTimeWithinHours(weekly, [custom], "2024-01-01T09:00").status).toBe("outside_hours");
+    expect(checkDateTimeWithinHours(weekly, [custom], "2024-01-01T10:30").status).toBe("open");
+  });
+  it("checks only the date when no time part is given", () => {
+    expect(checkDateTimeWithinHours(weekly, [], "2024-01-01").status).toBe("open");
   });
 });

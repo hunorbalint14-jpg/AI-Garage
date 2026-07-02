@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
 import { addSpecialHours, removeSpecialHours } from "./actions";
 import { Button } from "@/components/ui/button";
-import { HALF_HOUR_OPTIONS, minutesToLabel } from "@/lib/business-hours";
+import { QUARTER_HOUR_OPTIONS, minutesToLabel } from "@/lib/business-hours";
 
 export type SpecialHoursRow = {
   id: string;
@@ -186,7 +186,7 @@ function TimeSelect({ value, onChange }: { value: number; onChange: (v: number) 
       onChange={(e) => onChange(Number(e.target.value))}
       className="rounded-md border bg-background px-2 py-1.5 text-sm"
     >
-      {HALF_HOUR_OPTIONS.map((o) => (
+      {QUARTER_HOUR_OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>

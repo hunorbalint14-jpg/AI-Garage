@@ -16,7 +16,13 @@ setup("authenticate staff", async ({ page }) => {
   await page.fill("#email", CREDS.staffEmail);
   await page.fill("#password", CREDS.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await page.waitForURL("**/staff", { timeout: 30_000 });
+  // Multi-branch staff land on the branch chooser first (post-#370); pick the
+  // first branch to reach the portal. Single-branch goes straight to /staff.
+  await page.waitForURL(/\/staff(\/select-branch)?$/, { timeout: 30_000 });
+  if (page.url().includes("/staff/select-branch")) {
+    await page.locator("button", { hasText: /.+/ }).first().click();
+    await page.waitForURL(/\/staff$/, { timeout: 30_000 });
+  }
   await page.context().storageState({ path: STAFF_STATE });
 });
 

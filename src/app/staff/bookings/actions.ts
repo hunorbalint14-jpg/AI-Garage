@@ -10,6 +10,8 @@ import { sendEmail, tenantPortalUrl, renderBrandedEmail, paragraphsToHtml, type 
 import { sendSms } from "@/lib/sms";
 import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 import { isBayFreeAt } from "@/lib/bay-availability";
+import { checkLocationHoursAt } from "@/lib/location-hours-check";
+import { formatDayHours, formatWeeklySummary } from "@/lib/business-hours";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { resolveVehicleHighVoltage } from "@/lib/vehicle-fuel";
 import { logAudit } from "@/lib/audit";
@@ -17,7 +19,12 @@ import { logAudit } from "@/lib/audit";
 export type BookingType = "mot" | "service" | "repair" | "diagnostic" | "other";
 export type BookingStatus = "scheduled" | "in_progress" | "complete" | "cancelled" | "no_show";
 
-export type CreateBookingResult = { error: string } | { success: true; bookingId: string };
+export type CreateBookingResult =
+  | { error: string }
+  // Out-of-hours is a warning, not a refusal: the form shows it and re-submits
+  // with confirmOutOfHours=1 when staff choose to create the booking anyway.
+  | { outOfHours: string }
+  | { success: true; bookingId: string };
 
 
 function bookingTypeLabel(type: string): string {
@@ -139,6 +146,23 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
   }
 
   const isoScheduled = new Date(scheduledAt).toISOString();
+
+  // Warn (but let staff confirm through) when the time falls on a closed day or
+  // outside the branch's opening hours — staff may legitimately book early
+  // drop-offs, but it shouldn't happen silently.
+  if (formData.get("confirmOutOfHours") !== "1") {
+    const hoursCheck = await checkLocationHoursAt(admin, ctx.location.id, ctx.location.name, scheduledAt);
+    if (hoursCheck.status === "closed_day") {
+      return {
+        outOfHours: `${ctx.location.name} is closed that day (${formatWeeklySummary(hoursCheck.weekly)}).`,
+      };
+    }
+    if (hoursCheck.status === "outside_hours") {
+      return {
+        outOfHours: `That time is outside ${ctx.location.name}'s opening hours — open ${formatDayHours(hoursCheck.hours!)} that day.`,
+      };
+    }
+  }
 
   // Reject double-booking on the same bay.
   if (bayId) {

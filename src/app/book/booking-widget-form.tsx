@@ -5,8 +5,9 @@ import { AigSpinner } from "@/components/ui/aig-spinner";
 import { submitWidgetBooking } from "./actions";
 import { lookupRegistration, type RegLookupResult } from "./lookup-actions";
 import {
-  resolveHoursForDate,
+  checkDateTimeWithinHours,
   formatWeeklySummary,
+  formatDayHours,
   type WeeklyHours,
   type SpecialHours,
 } from "@/lib/business-hours";
@@ -90,7 +91,11 @@ export function BookingWidgetForm({
   const [scheduledAt, setScheduledAt] = useState<string>(defaultDateTime);
   const closedDayWarning = useMemo(() => {
     if (!scheduledAt) return null;
-    return resolveHoursForDate(weekly, special, scheduledAt).open ? null : "We're closed then.";
+    const check = checkDateTimeWithinHours(weekly, special, scheduledAt);
+    if (check.status === "closed_day") return "We're closed then.";
+    if (check.status === "outside_hours")
+      return `We're closed at that time — open ${formatDayHours(check.hours!)} that day.`;
+    return null;
   }, [scheduledAt, weekly, special]);
 
   // Switching branch re-points the services list and resets the chosen service.

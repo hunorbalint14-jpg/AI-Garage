@@ -12,8 +12,9 @@ import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { bayCapacityAt } from "@/lib/bay-availability";
 import {
   parseWeeklyHours,
-  resolveHoursForDate,
+  checkDateTimeWithinHours,
   formatWeeklySummary,
+  formatDayHours,
   type SpecialHours,
 } from "@/lib/business-hours";
 import { verifyQuoteAccess } from "@/lib/quote-links";
@@ -95,9 +96,10 @@ export async function submitWidgetBooking(
   if (!scheduledAt) return { error: "Preferred date and time is required." };
   if (!serviceIdInput) return { error: "Please choose an appointment type." };
 
-  // Reject requests on a closed date up front — the branch's per-day hours plus
-  // any special/holiday override for that exact date. (Time-of-day itself is not
-  // enforced here; the customer's preferred date is a naive local date.)
+  // Reject requests outside opening hours up front — a closed date (per-day
+  // hours plus any special/holiday override) or an out-of-hours time on an open
+  // date. scheduledAt is the customer's naive local datetime, so the minute
+  // comparison is done on the raw string, not a Date.
   const weekly = parseWeeklyHours(branch.business_hours);
   const requestedDateKey = scheduledAt.slice(0, 10);
   const { data: specialRow } = await admin
@@ -116,9 +118,15 @@ export async function submitWidgetBooking(
         },
       ]
     : [];
-  if (!resolveHoursForDate(weekly, exceptions, scheduledAt).open) {
+  const hoursCheck = checkDateTimeWithinHours(weekly, exceptions, scheduledAt);
+  if (hoursCheck.status === "closed_day") {
     return {
       error: `${branch.name} is closed then. Our hours: ${formatWeeklySummary(weekly)} — please pick another time.`,
+    };
+  }
+  if (hoursCheck.status === "outside_hours") {
+    return {
+      error: `${branch.name} is closed at that time — open ${formatDayHours(hoursCheck.hours!)} that day. Please pick another time.`,
     };
   }
 
