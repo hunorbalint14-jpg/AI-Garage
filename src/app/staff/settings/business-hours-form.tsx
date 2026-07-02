@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   WEEKDAY_ORDER,
   WEEKDAY_FULL,
-  HALF_HOUR_OPTIONS,
+  QUARTER_HOUR_OPTIONS,
   type WeeklyHours,
 } from "@/lib/business-hours";
 
@@ -185,7 +185,7 @@ function TimeSelect({
       onChange={(e) => onChange(Number(e.target.value))}
       className="rounded-md border bg-background px-2 py-1.5 text-sm disabled:opacity-50"
     >
-      {HALF_HOUR_OPTIONS.map((o) => (
+      {QUARTER_HOUR_OPTIONS.map((o) => (
         <option key={o.value} value={o.value}>
           {o.label}
         </option>
@@ -195,5 +195,5 @@ function TimeSelect({
 }
 
 function minLabel(min: number): string {
-  return HALF_HOUR_OPTIONS.find((o) => o.value === min)?.label ?? "";
+  return QUARTER_HOUR_OPTIONS.find((o) => o.value === min)?.label ?? "";
 }

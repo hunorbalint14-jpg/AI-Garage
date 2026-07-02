@@ -8,6 +8,7 @@ import { releaseCoverage } from "@/lib/service-plans";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { garageLabel, garageLocationInline } from "@/lib/garage-identity";
+import { checkLocationHoursAt } from "@/lib/location-hours-check";
 
 async function getCustomerAndBooking(bookingId: string) {
   const supabase = await createClient();
@@ -119,6 +120,18 @@ export async function rescheduleCustomerBooking(
   if (isNaN(newDate.getTime())) return { error: "Invalid date." };
 
   const admin = createAdminClient();
+
+  // Refuse a new time on a closed date or outside the branch's opening hours —
+  // same rule as booking in the first place. newDateTime is the customer's
+  // naive local datetime from the picker.
+  const hoursCheck = await checkLocationHoursAt(
+    admin,
+    booking!.location_id,
+    location?.name ?? "The garage",
+    newDateTime,
+  );
+  if (hoursCheck.message) return { error: hoursCheck.message };
+
   await admin
     .from("bookings")
     .update({ scheduled_at: newDate.toISOString() })

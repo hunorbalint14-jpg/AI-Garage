@@ -147,8 +147,10 @@ async function main() {
   const locId = loc.id as string;
 
   // Branding + DPA acceptance (the staff portal redirects to /staff/dpa-acceptance
-  // until the org's dpa_version matches CURRENT_DPA_VERSION — "1.0").
-  await step("set org branding + accept DPA", async () => {
+  // until the org's dpa_version matches CURRENT_DPA_VERSION — "1.0") + the owner
+  // AI-setup gate (redirects everything to /staff/onboarding until
+  // ai_onboarded_at is set).
+  await step("set org branding + accept DPA + AI onboarding", async () => {
     must(
       await db
         .from("organizations")
@@ -157,6 +159,7 @@ async function main() {
           primary_color: "#dc2626",
           dpa_version: "1.0",
           dpa_accepted_at: new Date().toISOString(),
+          ai_onboarded_at: new Date().toISOString(),
         })
         .eq("id", orgId)
         .select("id"),
