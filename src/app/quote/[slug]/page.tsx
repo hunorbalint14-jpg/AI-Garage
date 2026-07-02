@@ -242,7 +242,7 @@ export default async function QuotePage({
           primaryColor={primary}
           items={quote.items}
           depositPct={Number(org?.quote_deposit_pct ?? 0)}
-          showRebookCta={!isStandalone}
+          showRebookCta={true}
         />
 
         <p className="text-center text-xs text-slate-500">
