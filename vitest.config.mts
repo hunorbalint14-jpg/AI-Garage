@@ -1,9 +1,17 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   // Vite 8 resolves tsconfig `paths` (the `@/…` alias) natively, replacing the
   // vite-tsconfig-paths plugin.
-  resolve: { tsconfigPaths: true },
+  resolve: {
+    tsconfigPaths: true,
+    // `server-only` (the poison-pill marker in admin/stripe/encryption libs)
+    // throws under plain Node — stub it so unit tests can import those modules.
+    alias: {
+      "server-only": fileURLToPath(new URL("./vitest.server-only-stub.ts", import.meta.url)),
+    },
+  },
   test: {
     globals: true,
     environment: "node",

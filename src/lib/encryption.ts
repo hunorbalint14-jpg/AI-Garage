@@ -1,3 +1,4 @@
+import "server-only";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 // AES-256-GCM application-layer encryption for sensitive at-rest values
