@@ -4,6 +4,7 @@ import { BookingCard } from "./booking-card";
 import { DiagnosticPanel } from "./diagnostic-panel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext } from "@/lib/portal-auth";
+import { garageLabel } from "@/lib/garage-identity";
 import { AnimatedBackground } from "@/components/animated-background";
 import { NavProgressProvider, NavProgressOverlay } from "@/components/nav-progress";
 import { CustomerSignOutButton } from "./sign-out-button";
@@ -161,8 +162,8 @@ export default async function CustomerDashboard() {
         <div>
           <h1 className="text-3xl font-bold">Hi {firstName} 👋</h1>
           <p className="mt-1 text-sm text-gray-400">
-            Your vehicles and appointments with {orgName}
-            {multiLocation && customer?.home_garage ? ` · ${customer.home_garage}` : ""}.
+            Your vehicles and appointments with{" "}
+            {garageLabel({ orgName, locationName: multiLocation ? customer?.home_garage : null })}.
           </p>
         </div>
 
