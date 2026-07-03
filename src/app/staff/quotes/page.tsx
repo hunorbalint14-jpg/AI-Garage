@@ -3,10 +3,14 @@ import { Plus } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
+import { Pagination } from "@/components/staff/pagination";
 import { Button } from "@/components/ui/button";
 import { QuoteFilters } from "./quote-filters";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
+const SEARCH_LIMIT = 100;
 
 type PersonRef = { id: string; full_name: string | null } | null;
 type VehicleRef = { registration: string | null } | null;
@@ -63,58 +67,158 @@ function vehicleOf(r: QuoteRow): VehicleRef {
   return r.quote_type === "job" ? r.job?.vehicle ?? null : r.vehicle;
 }
 
+const QUOTE_SELECT =
+  "id, quote_type, job_id, slug, status, title, total, created_at, sent_at, expires_at, responded_at, viewed_count, reminder_count, last_reminder_at, customer:customers(id, full_name), vehicle:vehicles(registration), job:jobs(id, customer:customers(id, full_name), vehicle:vehicles(registration))";
+
 export default async function QuotesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; status?: string; type?: string }>;
+  searchParams: Promise<{ q?: string; status?: string; type?: string; page?: string }>;
 }) {
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
-  const { q, status, type } = await searchParams;
+  const { q, status, type, page: pageParam } = await searchParams;
   const query = q?.trim() ?? "";
-  const statusFilter = status?.trim();
-  const typeFilter = type?.trim();
+  const statusFilter =
+    status && STATUSES.includes(status.trim() as (typeof STATUSES)[number]) ? status.trim() : "";
+  const typeFilter =
+    type && TYPES.includes(type.trim() as (typeof TYPES)[number]) ? type.trim() : "";
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  let queryBuilder = admin
-    .from("quotes")
-    .select(
-      "id, quote_type, job_id, slug, status, title, total, created_at, sent_at, expires_at, responded_at, viewed_count, reminder_count, last_reminder_at, customer:customers(id, full_name), vehicle:vehicles(registration), job:jobs(id, customer:customers(id, full_name), vehicle:vehicles(registration))",
-    )
-    .eq("location_id", ctx.location.id)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  // Status/type filters apply to every variant of the quotes query. PostgREST
+  // filters compose as URL params, so appending them after order/limit is fine
+  // — and dodging a generic helper keeps tsc off the deep-instantiation cliff.
+  const filterParams: [string, string][] = [];
+  if (statusFilter) filterParams.push(["status", statusFilter]);
+  if (typeFilter) filterParams.push(["quote_type", typeFilter]);
 
-  if (statusFilter && STATUSES.includes(statusFilter as typeof STATUSES[number])) {
-    queryBuilder = queryBuilder.eq("status", statusFilter);
-  }
-  if (typeFilter && TYPES.includes(typeFilter as typeof TYPES[number])) {
-    queryBuilder = queryBuilder.eq("quote_type", typeFilter);
-  }
-
-  const { data } = await queryBuilder;
-  // Supabase types nested relations as arrays; cast through unknown because the
-  // runtime returns a single object for these to-one lookups.
-  let rows = (data ?? []) as unknown as QuoteRow[];
+  let rows: QuoteRow[];
+  let totalCount: number | null = null;
 
   if (query) {
-    const ql = query.toLowerCase();
-    rows = rows.filter((r) => {
-      const cust = customerOf(r)?.full_name?.toLowerCase();
-      const reg = vehicleOf(r)?.registration?.toLowerCase();
-      return (
-        r.title?.toLowerCase().includes(ql) ||
-        cust?.includes(ql) ||
-        reg?.includes(ql) ||
-        r.slug?.toLowerCase().includes(ql)
-      );
-    });
+    // Server-side search — the old version filtered client-side after
+    // .limit(200), so anything older than the newest 200 was unfindable.
+    // Direct fields (title/slug) match in one query; customer-name and reg
+    // matches resolve ids first, then pull quotes that reference them —
+    // including DVI quotes, whose customer/vehicle live on the parent job.
+    const like = `%${query}%`;
+    let directQ = admin
+      .from("quotes")
+      .select(QUOTE_SELECT)
+      .eq("location_id", ctx.location.id)
+      .or(`title.ilike.${like},slug.ilike.${like}`);
+    for (const [c, v] of filterParams) directQ = directQ.eq(c, v);
+
+    const [directRes, custRes, vehRes] = await Promise.all([
+      directQ.order("created_at", { ascending: false }).limit(SEARCH_LIMIT),
+      admin
+        .from("customers")
+        .select("id")
+        .eq("organization_id", ctx.organization.id)
+        .ilike("full_name", like)
+        .limit(50),
+      admin
+        .from("vehicles")
+        .select("id")
+        .eq("organization_id", ctx.organization.id)
+        .ilike("registration", like)
+        .limit(50),
+    ]);
+
+    const custIds = (custRes.data ?? []).map((c) => c.id);
+    const vehIds = (vehRes.data ?? []).map((v) => v.id);
+    const refClauses = [
+      custIds.length ? `customer_id.in.(${custIds.join(",")})` : null,
+      vehIds.length ? `vehicle_id.in.(${vehIds.join(",")})` : null,
+    ].filter(Boolean) as string[];
+
+    let related: QuoteRow[] = [];
+    if (refClauses.length > 0) {
+      // Standalone quotes reference the customer/vehicle directly.
+      let standaloneQ = admin
+        .from("quotes")
+        .select(QUOTE_SELECT)
+        .eq("location_id", ctx.location.id)
+        .or(refClauses.join(","));
+      for (const [c, v] of filterParams) standaloneQ = standaloneQ.eq(c, v);
+
+      const [standaloneRes, jobsRes] = await Promise.all([
+        standaloneQ.order("created_at", { ascending: false }).limit(SEARCH_LIMIT),
+        // DVI quotes reference them via their parent job.
+        admin
+          .from("jobs")
+          .select("id")
+          .eq("location_id", ctx.location.id)
+          .or(refClauses.join(","))
+          .limit(SEARCH_LIMIT),
+      ]);
+      related = (standaloneRes.data ?? []) as unknown as QuoteRow[];
+
+      const jobIds = (jobsRes.data ?? []).map((j) => j.id);
+      if (jobIds.length > 0) {
+        let jobQuotesQ = admin
+          .from("quotes")
+          .select(QUOTE_SELECT)
+          .eq("location_id", ctx.location.id)
+          .in("job_id", jobIds);
+        for (const [c, v] of filterParams) jobQuotesQ = jobQuotesQ.eq(c, v);
+        const { data: jobQuotes } = await jobQuotesQ
+          .order("created_at", { ascending: false })
+          .limit(SEARCH_LIMIT);
+        related = related.concat((jobQuotes ?? []) as unknown as QuoteRow[]);
+      }
+    }
+
+    const seen = new Set<string>();
+    rows = [...((directRes.data ?? []) as unknown as QuoteRow[]), ...related]
+      .filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, SEARCH_LIMIT);
+  } else {
+    // Paginated default list.
+    const from = (page - 1) * PAGE_SIZE;
+    let listQ = admin
+      .from("quotes")
+      .select(QUOTE_SELECT, { count: "exact" })
+      .eq("location_id", ctx.location.id);
+    for (const [c, v] of filterParams) listQ = listQ.eq(c, v);
+    const res = await listQ
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    rows = (res.data ?? []) as unknown as QuoteRow[];
+    totalCount = res.count;
   }
 
-  const pending = rows.filter((r) => r.status === "pending");
-  const approved = rows.filter((r) => r.status === "approved");
-  const expired = rows.filter((r) => r.status === "expired");
-  const pendingValue = pending.reduce((s, r) => s + Number(r.total ?? 0), 0);
-  const approvedValue = approved.reduce((s, r) => s + Number(r.total ?? 0), 0);
+  // Pipeline stat cards — computed from a dedicated narrow query, so they
+  // reflect the whole branch rather than whichever rows this page happens to
+  // hold. Only shown on the unfiltered list (as before).
+  let stats: { pending: number; approved: number; expired: number; pendingValue: number; approvedValue: number } | null = null;
+  if (!query && !statusFilter && !typeFilter && rows.length > 0) {
+    const { data: statRows } = await admin
+      .from("quotes")
+      .select("status, total")
+      .eq("location_id", ctx.location.id)
+      .in("status", ["pending", "approved", "expired"])
+      .limit(2000);
+    const s = { pending: 0, approved: 0, expired: 0, pendingValue: 0, approvedValue: 0 };
+    for (const r of (statRows ?? []) as { status: string; total: number | null }[]) {
+      if (r.status === "pending") {
+        s.pending += 1;
+        s.pendingValue += Number(r.total ?? 0);
+      } else if (r.status === "approved") {
+        s.approved += 1;
+        s.approvedValue += Number(r.total ?? 0);
+      } else {
+        s.expired += 1;
+      }
+    }
+    stats = s;
+  }
+
+  // Preserve active filters across pagination links.
+  const pageParams = new URLSearchParams();
+  if (statusFilter) pageParams.set("status", statusFilter);
+  if (typeFilter) pageParams.set("type", typeFilter);
 
   return (
     <div className="flex flex-col gap-6">
@@ -129,21 +233,28 @@ export default async function QuotesPage({
         </Link>
       </div>
 
-      {!query && !statusFilter && !typeFilter && rows.length > 0 && (
+      {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending ({pending.length})</p>
-            <p className="text-2xl font-bold text-amber-600">{fmt(pendingValue)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending ({stats.pending})</p>
+            <p className="text-2xl font-bold text-amber-600">{fmt(stats.pendingValue)}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Approved ({approved.length})</p>
-            <p className="text-2xl font-bold text-green-700">{fmt(approvedValue)}</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">Approved ({stats.approved})</p>
+            <p className="text-2xl font-bold text-green-700">{fmt(stats.approvedValue)}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Expired</p>
-            <p className="text-2xl font-bold">{expired.length}</p>
+            <p className="text-2xl font-bold">{stats.expired}</p>
           </div>
         </div>
+      )}
+
+      {query && rows.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {rows.length} result{rows.length !== 1 ? "s" : ""} for &ldquo;{query}&rdquo;
+          {rows.length >= SEARCH_LIMIT ? " (showing first matches — refine to narrow down)" : ""}
+        </p>
       )}
 
       {rows.length === 0 ? (
@@ -225,6 +336,16 @@ export default async function QuotesPage({
             </tbody>
           </table>
         </div>
+      )}
+
+      {!query && totalCount !== null && totalCount > PAGE_SIZE && (
+        <Pagination
+          page={page}
+          pageSize={PAGE_SIZE}
+          totalCount={totalCount}
+          basePath="/staff/quotes"
+          extraParams={pageParams.toString()}
+        />
       )}
     </div>
   );

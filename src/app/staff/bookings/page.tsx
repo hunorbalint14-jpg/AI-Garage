@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/staff/page-header";
+import { ShowingLatest } from "@/components/staff/showing-latest";
 import { BookingCalendar } from "./booking-calendar";
 import { AssigneeFilter } from "./assignee-filter";
 import { StatusFilter } from "./status-filter";
@@ -309,7 +310,10 @@ async function renderListView({
           <p className="text-sm text-muted-foreground">No bookings to show.</p>
         </div>
       ) : (
-        <BookingTable rows={rows} />
+        <>
+          <BookingTable rows={rows} />
+          {rows.length >= 200 && <ShowingLatest limit={200} entity="bookings for this filter" />}
+        </>
       )}
     </>
   );

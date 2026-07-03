@@ -149,6 +149,12 @@ export default async function CampaignsPage() {
 
       <BroadcastForm hasCustomers={hasCustomers} />
 
+      {rows.length >= 500 && (
+        <p className="text-xs text-muted-foreground">
+          Stats are computed from the latest 500 sends — older campaigns may show partial numbers.
+        </p>
+      )}
+
       {campaigns.length > 0 && (
         <section className="flex flex-col gap-4">
           <h2 className="text-lg font-semibold">Performance overview</h2>

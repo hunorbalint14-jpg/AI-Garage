@@ -3,6 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
+import { ShowingLatest } from "@/components/staff/showing-latest";
 import { WinBackList, type WinBackVehicle } from "./win-back-list";
 
 // Vehicles flagged by the nightly MOT delta sync: a fresh MOT test appeared
@@ -72,6 +73,7 @@ export default async function WinBackPage() {
         description="Customers whose vehicle was MOT'd recently without a visit here. Send a friendly re-engagement message before they drift to another garage."
       />
       <WinBackList vehicles={vehicles} />
+      {vehicles.length >= 200 && <ShowingLatest limit={200} entity="flagged vehicles" />}
     </div>
   );
 }

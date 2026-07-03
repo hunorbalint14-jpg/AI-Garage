@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { UserPlus, ChevronLeft, ChevronRight } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/staff/page-header";
+import { Pagination } from "@/components/staff/pagination";
 import { CustomerSearch } from "./customer-search";
 import { CustomerFilters } from "./customer-filters";
 import { CustomerTable, type CustomerListRow } from "./customer-table";
@@ -131,7 +132,6 @@ export default async function CustomersPage({
   }
 
   const rows = (customers ?? []).map(toListRow);
-  const totalPages = totalCount !== null ? Math.max(1, Math.ceil(totalCount / PAGE_SIZE)) : 1;
   // Preserve active filters across pagination links.
   const pageParams = new URLSearchParams();
   if (branch !== "all") pageParams.set("branch", branch);
@@ -195,7 +195,13 @@ export default async function CustomersPage({
           )}
           <CustomerTable rows={rows} showBranch={ctx.accessibleLocations.length > 1} />
           {!query && totalCount !== null && totalCount > PAGE_SIZE && (
-            <Pagination page={page} totalPages={totalPages} totalCount={totalCount} extraParams={pageParams.toString()} />
+            <Pagination
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={totalCount}
+              basePath="/staff/customers"
+              extraParams={pageParams.toString()}
+            />
           )}
         </div>
       ) : null}
@@ -203,48 +209,3 @@ export default async function CustomersPage({
   );
 }
 
-function Pagination({
-  page,
-  totalPages,
-  totalCount,
-  extraParams,
-}: {
-  page: number;
-  totalPages: number;
-  totalCount: number;
-  extraParams: string;
-}) {
-  const from = (page - 1) * PAGE_SIZE + 1;
-  const to = Math.min(page * PAGE_SIZE, totalCount);
-  const linkClass =
-    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-sm hover:bg-muted";
-  const disabledClass =
-    "inline-flex items-center gap-1 rounded-md border px-2.5 py-1.5 text-sm text-muted-foreground/50 pointer-events-none";
-  const href = (p: number) => `/staff/customers?page=${p}${extraParams ? `&${extraParams}` : ""}`;
-
-  return (
-    <div className="flex items-center justify-between">
-      <p className="text-xs text-muted-foreground">
-        {from}–{to} of {totalCount}
-      </p>
-      <div className="flex gap-2">
-        <Link
-          href={href(page - 1)}
-          className={page > 1 ? linkClass : disabledClass}
-          aria-disabled={page <= 1}
-        >
-          <ChevronLeft className="h-3.5 w-3.5" />
-          Previous
-        </Link>
-        <Link
-          href={href(page + 1)}
-          className={page < totalPages ? linkClass : disabledClass}
-          aria-disabled={page >= totalPages}
-        >
-          Next
-          <ChevronRight className="h-3.5 w-3.5" />
-        </Link>
-      </div>
-    </div>
-  );
-}

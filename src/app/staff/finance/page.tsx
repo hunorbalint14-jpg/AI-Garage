@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
+import { ShowingLatest } from "@/components/staff/showing-latest";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 
 export const dynamic = "force-dynamic";
@@ -182,6 +183,7 @@ export default async function FinancePage({
           </table>
         </div>
       )}
+      {apps.length >= 200 && <ShowingLatest limit={200} entity="applications" />}
     </div>
   );
 }
