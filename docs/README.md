@@ -9,9 +9,9 @@ https://ai-garage.co.uk/docs/<slug>?t=<token>
 ```
 
 - Tokens are 32 random bytes (≈43 chars, base64url).
-- Stored in the DB as **SHA-256 hashes only** — the raw token is shown to the staff member *once* on creation, then never again.
+- Stored in the DB as **SHA-256 hashes only** — the raw token is shown to the platform admin *once* on creation, then never again.
 - Verified in constant time. Expired, revoked, or view-exhausted links return a styled 401/410 page.
-- Owners mint and revoke links from `/staff/docs` on their tenant subdomain.
+- **Platform admins only** mint and revoke links from `/admin/doc-shares` on the reserved admin host (`admin.<root>`). Garage staff have no access to this feature.
 
 ## File layout (matches your repo)
 
@@ -26,11 +26,11 @@ src/
     docs/
       [slug]/
         route.ts                  ← public, token-gated route
-    staff/
-      docs/
-        page.tsx                  ← owner-only management UI
-        actions.ts                ← server actions
-        share-table.tsx           ← client component with copy / revoke buttons
+    admin/
+      doc-shares/
+        page.tsx                  ← platform-admin management UI
+        actions.ts                ← server actions (platform-admin gated)
+        share-manager.tsx         ← client component with copy / revoke buttons
 
 docs/
   internal/
@@ -64,7 +64,7 @@ docs/
    ```
    The `doc_key` column on `doc_shares` references one of these keys.
 
-5. **Visit `/staff/docs`** as an org owner on any tenant subdomain. Mint a share. Copy the link from the modal that appears once (the token is **not stored**, you cannot retrieve it again — revoke and re-mint if lost).
+5. **Visit `/admin/doc-shares`** as a platform admin on the admin host. Mint a share. Copy the link from the panel that appears once (the token is **not stored**, you cannot retrieve it again — revoke and re-mint if lost).
 
 ## Security notes
 
@@ -77,13 +77,9 @@ docs/
 
 ## Access scope
 
-The migration's RLS lets org owners manage shares for their own org (or platform-scoped shares with `organization_id = null`). The staff UI shows all shares visible under the current owner's RLS.
+Management is **platform-admin only**. The `/admin` layout gates every `/admin/*` route (reserved admin host + `PLATFORM_ADMIN_EMAILS` allowlist), and the server actions re-check the allowlist themselves. All reads/writes go through the service-role client.
 
-If you want a stricter platform-admin gate (e.g. only specific user IDs can manage platform-level docs), tighten the check at the top of `src/app/staff/docs/page.tsx` and the server actions.
-
-## Add the nav entry
-
-The staff sidebar lives in `src/components/staff/staff-shell.tsx`. Add an item there pointing at `/staff/docs` so owners can find the page — gate it on `role === "owner"` to keep it hidden from non-owners. Suggested label: **"Doc shares"**, suggested icon: `Share2` or `FileText` from `lucide-react`.
+`doc_shares` RLS is deny-all for anon/authenticated (see `20260703150000_doc_shares_platform_only.sql`) — garage staff cannot reach the table even via direct PostgREST calls. Legacy rows minted by org owners (before management moved to the admin portal) keep their `organization_id` and show as "org (legacy)" in the admin table; new shares are always platform-level (`organization_id = null`).
 
 ## Adding more docs later
 
@@ -95,7 +91,7 @@ The staff sidebar lives in `src/components/staff/staff-shell.tsx`. Add an item t
      runbook:   "docs/internal/runbook.html",   // ← new
    };
    ```
-3. Add it to the dropdown in `src/app/staff/docs/share-table.tsx`:
+3. Add it to the dropdown in `src/app/admin/doc-shares/share-manager.tsx`:
    ```ts
    const DOC_OPTIONS = [
      { value: "technical", label: "Technical reference" },
@@ -113,8 +109,8 @@ supabase db push
 # 2. start the dev server
 npm run dev
 
-# 3. sign in as an org owner on a tenant subdomain
-open http://smith-motors.localtest.me:3000/staff/docs
+# 3. sign in as a platform admin on the admin host
+open http://admin.localtest.me:3000/admin/doc-shares
 
 # 4. mint a link, copy it, paste it into an incognito window
 ```
