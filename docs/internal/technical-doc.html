@@ -2105,7 +2105,7 @@ it("denies without my_perm", async () =&gt; {
             <li><strong>CRON_SECRET bearer</strong> on every cron handler.</li>
             <li><strong>Stripe + Resend signature verification</strong> on every webhook; signature failures return 400 with no DB side effect.</li>
             <li><strong>Stripe-hosted Checkout</strong> — card data never touches our infrastructure. PCI scope is SAQ A.</li>
-            <li><strong>Doc share links</strong> — internal HTML docs gated by signed tokens at <code>/docs/[slug]?t=&lt;token&gt;</code>. Tokens are 32 random bytes; database stores only the SHA-256 hash. Constant-time compare via <code>crypto.timingSafeEqual</code>. Files live outside <code>public/</code> so the gated route is the only way in. Owner-managed at <code>/staff/docs</code>; revoke / expire / view-cap built in.</li>
+            <li><strong>Doc share links</strong> — internal HTML docs gated by signed tokens at <code>/docs/[slug]?t=&lt;token&gt;</code>. Tokens are 32 random bytes; database stores only the SHA-256 hash. Constant-time compare via <code>crypto.timingSafeEqual</code>. Files live outside <code>public/</code> so the gated route is the only way in. Platform-admin managed in the operator portal at <code>/admin/doc-shares</code>; revoke / expire / view-cap built in.</li>
           </ul>
         </div>
         <div>

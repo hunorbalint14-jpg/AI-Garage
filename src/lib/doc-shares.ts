@@ -2,8 +2,12 @@ import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // Shareable signed-link doc gates. Tokens are random 32-byte values shown to
-// the staff user once on creation; the database only stores a sha256 hash.
+// the platform admin once on creation; the database only stores a sha256 hash.
 // Lookups are by hash (indexed), and the hash compare itself is constant-time.
+//
+// Management is platform-admin only (/admin/doc-shares on the reserved admin
+// host). Every read/write here uses the service-role client — the table's RLS
+// is deny-all for anon/authenticated (20260703150000_doc_shares_platform_only).
 
 export type DocShare = {
   id: string;
@@ -108,27 +112,17 @@ export async function recordView(shareId: string): Promise<void> {
   }
 }
 
-export async function listShares(args: {
-  organizationId: string | null;
-  includePlatform?: boolean;
-}): Promise<DocShare[]> {
+// Platform admins see every share, including legacy org-minted rows
+// (organization_id non-null) from when garages could mint their own links.
+export async function listShares(): Promise<DocShare[]> {
   const admin = createAdminClient();
-  let q = admin
+  const { data, error } = await admin
     .from("doc_shares")
     .select(
       "id, slug, doc_key, label, expires_at, max_views, view_count, organization_id, created_by, created_at, revoked_at, revoked_by, last_viewed_at",
     )
     .order("created_at", { ascending: false });
 
-  if (args.includePlatform && args.organizationId) {
-    q = q.or(`organization_id.eq.${args.organizationId},organization_id.is.null`);
-  } else if (args.organizationId) {
-    q = q.eq("organization_id", args.organizationId);
-  } else {
-    q = q.is("organization_id", null);
-  }
-
-  const { data, error } = await q;
   if (error) {
     console.error("[doc-shares] listShares failed", error);
     return [];
@@ -143,7 +137,6 @@ export type CreateShareInput = {
   label: string | null;
   expiresAt: Date | null;
   maxViews: number | null;
-  organizationId: string | null;
   createdBy: string | null;
 };
 
@@ -167,7 +160,7 @@ export async function createShare(input: CreateShareInput): Promise<CreateShareR
       label: input.label,
       expires_at: input.expiresAt?.toISOString() ?? null,
       max_views: input.maxViews,
-      organization_id: input.organizationId,
+      // New shares are always platform-level; organization_id stays null.
       created_by: input.createdBy,
     })
     .select(
@@ -181,20 +174,16 @@ export async function createShare(input: CreateShareInput): Promise<CreateShareR
   return { share: data as DocShare, token };
 }
 
+// Platform admins can revoke any share, including legacy org-minted ones.
 export async function revokeShare(args: {
   id: string;
   revokedBy: string | null;
-  organizationId: string | null;
 }): Promise<void> {
   const admin = createAdminClient();
-  let q = admin
+  const { error } = await admin
     .from("doc_shares")
     .update({ revoked_at: new Date().toISOString(), revoked_by: args.revokedBy })
     .eq("id", args.id);
-  // Scope the update so an org owner can't revoke another org's shares.
-  if (args.organizationId) q = q.eq("organization_id", args.organizationId);
-  else q = q.is("organization_id", null);
-  const { error } = await q;
   if (error) throw new Error(error.message);
 }
 

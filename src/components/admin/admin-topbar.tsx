@@ -14,6 +14,7 @@ function pageTitleFor(pathname: string): string {
   if (pathname.startsWith("/admin/health")) return "Platform reliability";
   if (pathname.startsWith("/admin/incidents")) return "Incidents";
   if (pathname.startsWith("/admin/admins")) return "Platform admins";
+  if (pathname.startsWith("/admin/doc-shares")) return "Doc shares";
   return "Platform";
 }
 
@@ -28,8 +29,9 @@ export function AdminTopbar({
 }) {
   const pathname = usePathname() ?? "";
   const title = pageTitleFor(pathname);
-  // Live data pages get the auto-refresh indicator; the admins page (forms) does not.
-  const liveRefresh = !pathname.startsWith("/admin/admins");
+  // Live data pages get the auto-refresh indicator; form pages do not.
+  const liveRefresh =
+    !pathname.startsWith("/admin/admins") && !pathname.startsWith("/admin/doc-shares");
 
   return (
     <header className="flex items-center justify-between gap-4 border-b border-[#23272f] bg-[#15181d] px-[18px] py-3">

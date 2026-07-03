@@ -522,18 +522,6 @@ const staff: Section[] = [
       "Each row records who did what, when, and from where.",
     ],
   },
-  {
-    id: "docs",
-    title: "Doc shares (this manual)",
-    persona: "staff",
-    route: "/staff/docs",
-    purpose: "Mint a private, signed link to this manual to hand to staff or customers.",
-    steps: [
-      "Pick 'User manual', an expiry and an optional view cap, then 'Mint share link'.",
-      "Copy the link once — the token is shown a single time and stored only as a hash.",
-      "Revoke a link any time; revoked links return a 'Link revoked' page.",
-    ],
-  },
 ];
 
 export const MANUAL: Manual = {

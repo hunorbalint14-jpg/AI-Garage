@@ -80,7 +80,8 @@ Capture hits the tenant at `http://smith-motors.localtest.me:3000`, so keep
 
 ## Share it
 
-`/staff/docs` → mint **"User manual"** → copy the one-time link. Revoke any time.
+Platform admins only: `/admin/doc-shares` on the admin host (`admin.<root>`) →
+mint **"User manual"** → copy the one-time link. Revoke any time.
 
 ## Add a section
 
