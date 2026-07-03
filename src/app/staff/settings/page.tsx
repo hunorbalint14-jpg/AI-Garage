@@ -10,6 +10,7 @@ import { PasskeysSection, type PasskeyRow } from "./passkeys-section";
 import { PaymentsSection } from "./payments-section";
 import { QuoteDepositSection } from "./quote-deposit-section";
 import { QuoteValiditySection } from "./quote-validity-section";
+import { QuoteRemindersSection } from "./quote-reminders-section";
 import { XeroSection } from "./xero-section";
 import { FinanceSection } from "./finance-section";
 import { NoShowFeeSection } from "./no-show-fee-section";
@@ -40,7 +41,7 @@ export default async function SettingsPage({
   const [orgRes, locationsRes, currentLocRes, passkeysRes, financeRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, custom_domain, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, no_show_fee_pence")
+      .select("name, primary_color, logo_url, slug, custom_domain, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence")
       .eq("id", ctx.organization.id)
       .single(),
     admin
@@ -248,6 +249,13 @@ export default async function SettingsPage({
 
           <QuoteValiditySection
             initialDays={Number((org as { quote_validity_days?: number | null } | null)?.quote_validity_days ?? 30)}
+            canManage={isOwner}
+          />
+
+          <QuoteRemindersSection
+            initialEnabled={(org as { quote_reminders_enabled?: boolean | null } | null)?.quote_reminders_enabled ?? true}
+            initialDays={((org as { quote_reminder_days?: number[] | null } | null)?.quote_reminder_days ?? [3, 7]).map(Number)}
+            initialMax={Number((org as { quote_reminder_max?: number | null } | null)?.quote_reminder_max ?? 2)}
             canManage={isOwner}
           />
 

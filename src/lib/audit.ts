@@ -161,6 +161,7 @@ export type AuditAction =
   | "quote.expire"
   | "quote.deposit_paid"
   | "quote.revise"
+  | "quote.reminder_sent"
   // Standalone (pre-job) quotes
   | "standalone_quote.create"
   | "standalone_quote.send"

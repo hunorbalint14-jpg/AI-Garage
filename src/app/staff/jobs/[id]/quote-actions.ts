@@ -22,6 +22,7 @@ import {
   removeVideoObject,
 } from "@/lib/quote-storage";
 import { computeTotals, DEFAULT_VAT_RATE } from "@/lib/quote-service";
+import { encryptLinkToken } from "@/lib/quote-reminders";
 
 export type QuoteItemInput = {
   description: string;
@@ -163,6 +164,7 @@ export async function createQuote(args: {
     const days = args.expiresInDays ?? 7;
     expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
     insert.token_hash = hashQuoteToken(token);
+    insert.link_token_encrypted = encryptLinkToken(token);
     insert.slug = slug;
     insert.expires_at = expiresAt;
     customerUrl = tenantQuoteUrl(ctx.location.slug, slug, token);
@@ -285,7 +287,7 @@ export async function sendQuoteWithToken(
 
   await admin
     .from("quotes")
-    .update({ sent_at: new Date().toISOString() })
+    .update({ sent_at: new Date().toISOString(), sent_channels: channels })
     .eq("id", quoteId);
 
   await logAudit({

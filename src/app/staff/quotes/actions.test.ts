@@ -23,6 +23,8 @@ vi.mock("@/lib/quote-storage", () => ({
   removeVideoObject: vi.fn(),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/encryption", () => ({ encrypt: vi.fn((v: string) => `enc:${v}`), decrypt: vi.fn((v: string) => v) }));
+vi.mock("@/lib/quote-reminders", () => ({ dispatchQuoteReminder: vi.fn(async () => ({ channels: [] })) }));
 
 const { requireStaffContext } = await import("@/lib/staff-context");
 const {
@@ -33,6 +35,7 @@ const {
   updateStandaloneQuoteDraft,
   cancelStandaloneQuote,
   reviseQuote,
+  sendManualReminder,
 } = await import("./actions");
 
 beforeEach(() => vi.clearAllMocks());
@@ -107,5 +110,17 @@ describe("reviseQuote", () => {
     vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: true }));
     const res = await reviseQuote({ ...validArgs, items: [] });
     expect(res).toEqual({ error: "Add at least one line item." });
+  });
+});
+
+describe("sendManualReminder", () => {
+  it("denies without quotes_send", async () => {
+    vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: false }));
+    expect(await sendManualReminder({ quoteId: "q", channels: ["email"] })).toEqual({ error: "Permission denied." });
+  });
+
+  it("requires at least one channel", async () => {
+    vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: true }));
+    expect(await sendManualReminder({ quoteId: "q", channels: [] })).toEqual({ error: "Select at least one channel." });
   });
 });
