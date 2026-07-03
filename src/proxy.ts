@@ -9,6 +9,36 @@ import { cacheGet, cacheSet } from "@/lib/redis";
 // every tenant navigation. updateOrgSlug invalidates the keys on a change.
 const SLUG_HISTORY_TTL_SEC = 60;
 
+// In-memory layer in front of Redis: a warm middleware isolate answers the
+// slug-history check without even the Redis round-trip. Same 60s staleness
+// ceiling as the Redis TTL — updateOrgSlug busts Redis immediately, and other
+// isolates' memo entries age out within the window a plain TTL expiry already
+// allowed. Tiny LRU (Map preserves insertion order; re-set on read).
+const MEMO_TTL_MS = SLUG_HISTORY_TTL_SEC * 1000;
+const MEMO_MAX = 500;
+const slugMemo = new Map<string, { value: string; expires: number }>();
+
+function memoGet(slug: string): string | null {
+  const entry = slugMemo.get(slug);
+  if (!entry) return null;
+  if (Date.now() > entry.expires) {
+    slugMemo.delete(slug);
+    return null;
+  }
+  // Refresh recency so hot tenants stay resident.
+  slugMemo.delete(slug);
+  slugMemo.set(slug, entry);
+  return entry.value;
+}
+
+function memoSet(slug: string, value: string) {
+  if (slugMemo.size >= MEMO_MAX) {
+    const oldest = slugMemo.keys().next().value;
+    if (oldest !== undefined) slugMemo.delete(oldest);
+  }
+  slugMemo.set(slug, { value, expires: Date.now() + MEMO_TTL_MS });
+}
+
 const ROOT = process.env.ROOT_DOMAIN ?? process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
 const ROOT_HOST = ROOT.split(":")[0];
 const ROOT_PORT = ROOT.includes(":") ? ROOT.split(":")[1] : "";
@@ -22,17 +52,21 @@ async function retiredSlugRedirect(request: NextRequest, slug: string): Promise<
     // (negative cache). null = cache miss → hit the DB. Empty-string reads back
     // as "" (distinct from a miss), so a "not retired" answer is cached too.
     const cacheKey = `slughist:${slug}`;
-    let current = await cacheGet<string>(cacheKey);
+    let current = memoGet(slug);
     if (current === null) {
-      const admin = createAdminClient();
-      const { data } = (await admin
-        .from("org_slug_history")
-        .select("organization:organizations(slug)")
-        .eq("old_slug", slug)
-        .maybeSingle()) as { data: { organization: { slug: string } | null } | null };
-      const resolved = data?.organization?.slug ?? null;
-      current = resolved && resolved !== slug ? resolved : "";
-      await cacheSet(cacheKey, current, SLUG_HISTORY_TTL_SEC);
+      current = await cacheGet<string>(cacheKey);
+      if (current === null) {
+        const admin = createAdminClient();
+        const { data } = (await admin
+          .from("org_slug_history")
+          .select("organization:organizations(slug)")
+          .eq("old_slug", slug)
+          .maybeSingle()) as { data: { organization: { slug: string } | null } | null };
+        const resolved = data?.organization?.slug ?? null;
+        current = resolved && resolved !== slug ? resolved : "";
+        await cacheSet(cacheKey, current, SLUG_HISTORY_TTL_SEC);
+      }
+      memoSet(slug, current);
     }
     if (!current) return null; // not retired
     const url = request.nextUrl.clone();
