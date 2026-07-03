@@ -3,9 +3,15 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Send, X, Copy, PenLine, BellRing } from "lucide-react";
+import { Send, X, Copy, PenLine, BellRing, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cancelStandaloneQuote, sendQuoteDraft, sendManualReminder, type QuoteNotifyChannel } from "../actions";
+import {
+  cancelStandaloneQuote,
+  sendQuoteDraft,
+  sendManualReminder,
+  convertQuoteToBooking,
+  type QuoteNotifyChannel,
+} from "../actions";
 
 export type ReminderProps = {
   hasEmail: boolean;
@@ -22,14 +28,23 @@ const CHANNEL_LABELS: { key: QuoteNotifyChannel; label: string; needs: "email" |
   { key: "whatsapp", label: "WhatsApp", needs: "phone" },
 ];
 
+export type ConvertProps = {
+  quoteType: "job" | "standalone";
+  convertedBookingId: string | null;
+  customerName: string | null;
+  vehicleReg: string | null;
+};
+
 export function QuoteDetailActions({
   quoteId,
   status,
   reminder,
+  convert,
 }: {
   quoteId: string;
   status: string;
   reminder?: ReminderProps;
+  convert?: ConvertProps;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -38,6 +53,11 @@ export function QuoteDetailActions({
   const [customerUrl, setCustomerUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
+  const [convertOpen, setConvertOpen] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [duration, setDuration] = useState("60");
+  const [sendConfirmation, setSendConfirmation] = useState(true);
+  const [outOfHours, setOutOfHours] = useState<string | null>(null);
   const [reminderChannels, setReminderChannels] = useState<Record<QuoteNotifyChannel, boolean>>(() => ({
     email: !!reminder?.hasEmail && (reminder.sentChannels.length === 0 || reminder.sentChannels.includes("email")),
     sms: !!reminder?.hasPhone && (reminder?.sentChannels.length === 0 || !!reminder?.sentChannels.includes("sms")),
@@ -100,10 +120,40 @@ export function QuoteDetailActions({
     });
   }
 
+  function handleConvert(confirmOutOfHours: boolean) {
+    setError(null);
+    setInfo(null);
+    if (!scheduledAt) {
+      setError("Pick a date and time for the booking.");
+      return;
+    }
+    startTransition(async () => {
+      const result = await convertQuoteToBooking({
+        quoteId,
+        scheduledAt,
+        durationMinutes: parseInt(duration, 10) || 60,
+        sendConfirmation,
+        confirmOutOfHours,
+      });
+      if ("error" in result) {
+        setOutOfHours(null);
+        setError(result.error);
+        return;
+      }
+      if ("outOfHours" in result) {
+        setOutOfHours(result.outOfHours);
+        return;
+      }
+      router.push(`/staff/bookings/${result.bookingId}`);
+    });
+  }
+
   const canSend = status === "draft";
   const canCancel = status === "pending" || status === "draft";
   const canRevise = status === "pending" || status === "expired";
   const canRemind = status === "pending" && !!reminder;
+  const canConvert =
+    status === "approved" && convert?.quoteType === "standalone" && !convert.convertedBookingId;
 
   if (!canSend && !canCancel && !canRevise && status !== "approved") {
     return null;
@@ -175,9 +225,93 @@ export function QuoteDetailActions({
           </div>
         </div>
       )}
-      {status === "approved" && (
+      {canConvert && (
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setConvertOpen((v) => !v)} disabled={pending}>
+            <CalendarPlus className="mr-2 h-4 w-4" /> Convert to booking
+          </Button>
+        </div>
+      )}
+      {canConvert && convertOpen && (
+        <div className="rounded-md border bg-muted/20 p-3 flex flex-col gap-3">
+          <p className="text-xs text-muted-foreground">
+            Creates a booking for {convert.customerName ?? "the customer"}
+            {convert.vehicleReg ? ` — ${convert.vehicleReg}` : ""}. The approved line items carry
+            onto the job when work starts.
+          </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              Date &amp; time
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => {
+                  setScheduledAt(e.target.value);
+                  setOutOfHours(null);
+                }}
+                disabled={pending}
+                className="rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm text-foreground"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              Duration
+              <select
+                value={duration}
+                onChange={(e) => setDuration(e.target.value)}
+                disabled={pending}
+                className="rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm text-foreground"
+              >
+                <option value="30">30 min</option>
+                <option value="45">45 min</option>
+                <option value="60">1 hour</option>
+                <option value="90">1.5 hours</option>
+                <option value="120">2 hours</option>
+                <option value="180">3 hours</option>
+                <option value="240">4 hours</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2 pb-2 text-sm">
+              <input
+                type="checkbox"
+                checked={sendConfirmation}
+                disabled={pending}
+                onChange={(e) => setSendConfirmation(e.target.checked)}
+              />
+              Send confirmation
+            </label>
+          </div>
+          {outOfHours ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-800 flex flex-col gap-2">
+              <p>{outOfHours}</p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => handleConvert(true)} loading={pending}>
+                  Book anyway
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setOutOfHours(null)} disabled={pending}>
+                  Change time
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <Button size="sm" onClick={() => handleConvert(false)} loading={pending}>
+                <CalendarPlus className="mr-2 h-3.5 w-3.5" /> Create booking
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {status === "approved" && convert?.quoteType === "standalone" && convert.convertedBookingId && (
         <p className="text-sm text-muted-foreground">
-          Quote approved. Contact the customer to schedule the work — the line items are stored on this quote until you create a booking + job.
+          Quote approved and booked in.{" "}
+          <Link href={`/staff/bookings/${convert.convertedBookingId}`} className="underline text-foreground">
+            View booking →
+          </Link>
+        </p>
+      )}
+      {status === "approved" && convert?.quoteType !== "standalone" && (
+        <p className="text-sm text-muted-foreground">
+          Quote approved. The approved work continues on the linked job.
         </p>
       )}
       {customerUrl && (

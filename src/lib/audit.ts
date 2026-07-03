@@ -162,6 +162,7 @@ export type AuditAction =
   | "quote.deposit_paid"
   | "quote.revise"
   | "quote.reminder_sent"
+  | "quote.converted_to_booking"
   // Standalone (pre-job) quotes
   | "standalone_quote.create"
   | "standalone_quote.send"

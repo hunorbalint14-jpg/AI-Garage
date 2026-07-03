@@ -43,6 +43,7 @@ type QuoteRow = {
   last_reminder_at: string | null;
   sent_channels: string[] | null;
   link_token_encrypted: string | null;
+  converted_booking_id: string | null;
   customer: PersonRef;
   vehicle: VehicleRef;
   job: { id: string; customer: PersonRef; vehicle: VehicleRef } | null;
@@ -97,7 +98,7 @@ export default async function QuoteDetailPage({
   const { data: quoteData } = await admin
     .from("quotes")
     .select(
-      "id, quote_type, job_id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, revision_number, revision_note, reminder_count, last_reminder_at, sent_channels, link_token_encrypted, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model), job:jobs(id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model))",
+      "id, quote_type, job_id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, revision_number, revision_note, reminder_count, last_reminder_at, sent_channels, link_token_encrypted, converted_booking_id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model), job:jobs(id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -358,6 +359,12 @@ export default async function QuoteDetailPage({
           hasPhone: !!displayCustomer?.phone,
           sentChannels: quote.sent_channels ?? [],
           linkAvailable: !!quote.link_token_encrypted,
+        }}
+        convert={{
+          quoteType: quote.quote_type,
+          convertedBookingId: quote.converted_booking_id,
+          customerName: displayCustomer?.full_name ?? null,
+          vehicleReg: displayVehicle?.registration ?? null,
         }}
       />
     </div>

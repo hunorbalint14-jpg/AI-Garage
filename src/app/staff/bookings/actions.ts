@@ -135,6 +135,9 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
   const serviceId = (formData.get("serviceId") as string | null)?.trim() || null;
   const notes = (formData.get("notes") as string | null)?.trim() || null;
   const sendConfirmation = formData.get("sendConfirmation") === "on";
+  // Set by convertQuoteToBooking: links the booking back to the source quote so
+  // startBooking seeds the job with the quote's (approved) items.
+  const fromQuoteId = (formData.get("fromQuoteId") as string | null)?.trim() || null;
 
   if (!customerId) return { error: "Customer is required." };
   if (!scheduledAt) return { error: "Date and time are required." };
@@ -225,6 +228,7 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
       type,
       service_id: validServiceId,
       notes,
+      ...(fromQuoteId ? { from_quote_id: fromQuoteId } : {}),
     })
     .select("id")
     .single();
@@ -339,24 +343,32 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
     }
   }
 
-  // If the booking was rebooked from a declined quote, also seed the new
-  // job with the snapshot items so the mechanic doesn't retype them.
+  // If the booking came from a quote (declined-and-rebook, or an approved
+  // quote converted to a booking), seed the new job with the quote's items so
+  // the mechanic doesn't retype them. Partial approvals only carry the items
+  // the customer actually ticked.
   if (fromQuoteId) {
-    const { data: quoteItems } = await admin
-      .from("quote_items")
-      .select("description, type, quantity, unit_price")
-      .eq("quote_id", fromQuoteId)
-      .order("sort_order");
+    const [{ data: quoteRow }, { data: quoteItems }] = await Promise.all([
+      admin.from("quotes").select("approved_item_ids").eq("id", fromQuoteId).maybeSingle(),
+      admin
+        .from("quote_items")
+        .select("id, description, type, quantity, unit_price")
+        .eq("quote_id", fromQuoteId)
+        .order("sort_order"),
+    ]);
+    const approved = new Set(((quoteRow as { approved_item_ids: string[] | null } | null)?.approved_item_ids ?? []) as string[]);
     if (quoteItems && quoteItems.length > 0) {
-      type QuoteItemRow = { description: string; type: string; quantity: number; unit_price: number };
-      const rows = (quoteItems as QuoteItemRow[]).map((it) => ({
-        job_id: job.id,
-        description: it.description,
-        type: it.type,
-        quantity: it.quantity,
-        unit_price: it.unit_price,
-      }));
-      await admin.from("job_items").insert(rows);
+      type QuoteItemRow = { id: string; description: string; type: string; quantity: number; unit_price: number };
+      const rows = (quoteItems as QuoteItemRow[])
+        .filter((it) => approved.size === 0 || approved.has(it.id))
+        .map((it) => ({
+          job_id: job.id,
+          description: it.description,
+          type: it.type,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+        }));
+      if (rows.length > 0) await admin.from("job_items").insert(rows);
     }
   }
 
