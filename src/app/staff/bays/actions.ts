@@ -1,9 +1,10 @@
-"use server";
+﻿"use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { locationCacheTag } from "@/lib/location-cache";
 
 export type BayResult = { error: string } | { success: true };
 
@@ -33,6 +34,7 @@ export async function createBay(formData: FormData): Promise<BayResult> {
 
   revalidatePath("/staff/bays");
   revalidatePath("/staff");
+  updateTag(locationCacheTag("bays", ctx.location.id));
   return { success: true };
 }
 
@@ -52,6 +54,7 @@ export async function deleteBay(bayId: string): Promise<BayResult> {
 
   revalidatePath("/staff/bays");
   revalidatePath("/staff");
+  updateTag(locationCacheTag("bays", ctx.location.id));
   return { success: true };
 }
 
@@ -75,5 +78,6 @@ export async function updateBay(bayId: string, formData: FormData): Promise<BayR
 
   revalidatePath("/staff/bays");
   revalidatePath("/staff");
+  updateTag(locationCacheTag("bays", ctx.location.id));
   return { success: true };
 }

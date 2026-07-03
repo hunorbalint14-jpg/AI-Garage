@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cachedActiveProducts } from "@/lib/location-cache";
 import { QuoteBuilder } from "./quote-builder";
 
 export const dynamic = "force-dynamic";
@@ -11,13 +12,8 @@ export default async function NewQuotePage() {
 
   // Products + org default validity in parallel. Customers/vehicles come from
   // the typeahead picker on demand.
-  const [productsRes, orgRes] = await Promise.all([
-    admin
-      .from("products")
-      .select("id, name, unit_price, category")
-      .eq("location_id", ctx.location.id)
-      .eq("active", true)
-      .order("name"),
+  const [cachedProducts, orgRes] = await Promise.all([
+    cachedActiveProducts(ctx.location.id),
     admin
       .from("organizations")
       .select("quote_validity_days")
@@ -25,9 +21,12 @@ export default async function NewQuotePage() {
       .maybeSingle(),
   ]);
 
-  type Product = { id: string; name: string; unit_price: number; category: string };
-
-  const products = (productsRes.data ?? []) as Product[];
+  const products = cachedProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    unit_price: p.unit_price,
+    category: p.category ?? "",
+  }));
   const validityDays = Number((orgRes.data as { quote_validity_days?: number } | null)?.quote_validity_days ?? 30);
 
   return (

@@ -1,9 +1,10 @@
-"use server";
+﻿"use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireStaffContext, type StaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { locationCacheTag } from "@/lib/location-cache";
 import { logAudit } from "@/lib/audit";
 
 export type ServiceResult = { error: string } | { success: true };
@@ -53,6 +54,7 @@ export async function upsertService(
       metadata: { mode: "update", name, category, price, duration_minutes: duration },
     });
     revalidatePath("/staff/services");
+    updateTag(locationCacheTag("services", ctx.location.id));
     return { success: true, id: serviceId };
   }
 
@@ -70,6 +72,7 @@ export async function upsertService(
   });
 
   revalidatePath("/staff/services");
+  updateTag(locationCacheTag("services", ctx.location.id));
   return { success: true, id: data.id };
 }
 
@@ -92,6 +95,7 @@ export async function toggleServiceActive(serviceId: string, active: boolean): P
   });
 
   revalidatePath("/staff/services");
+  updateTag(locationCacheTag("services", ctx.location.id));
   return { success: true };
 }
 
@@ -113,5 +117,6 @@ export async function deleteService(serviceId: string): Promise<ServiceResult> {
   });
 
   revalidatePath("/staff/services");
+  updateTag(locationCacheTag("services", ctx.location.id));
   return { success: true };
 }

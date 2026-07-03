@@ -6,6 +6,7 @@ import { listLocationStaff } from "@/lib/staff-directory";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/staff/page-header";
 import { ShowingLatest } from "@/components/staff/showing-latest";
+import { cachedBays, cachedLocationHours } from "@/lib/location-cache";
 import { BookingCalendar } from "./booking-calendar";
 import { AssigneeFilter } from "./assignee-filter";
 import { StatusFilter } from "./status-filter";
@@ -39,20 +40,13 @@ export default async function BookingsPage({
   // Opening hours + upcoming overrides for this branch — the calendar/day views
   // grey out closed days/dates.
   const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
-  const [{ data: locRow }, { data: specialRows }] = await Promise.all([
-    admin.from("locations").select("business_hours").eq("id", ctx.location.id).maybeSingle(),
-    admin
-      .from("location_special_hours")
-      .select("date, is_closed, open_minute, close_minute")
-      .eq("location_id", ctx.location.id)
-      .gte("date", todayKey),
-  ]);
-  const weekly = parseWeeklyHours((locRow as { business_hours?: unknown } | null)?.business_hours);
-  const specialHours: SpecialHours[] = (specialRows ?? []).map((s) => ({
-    date: (s as { date: string }).date,
-    isClosed: (s as { is_closed: boolean }).is_closed,
-    openMinute: (s as { open_minute: number | null }).open_minute,
-    closeMinute: (s as { close_minute: number | null }).close_minute,
+  const hours = await cachedLocationHours(ctx.location.id, todayKey);
+  const weekly = parseWeeklyHours(hours.weekly);
+  const specialHours: SpecialHours[] = hours.special.map((s) => ({
+    date: s.date,
+    isClosed: s.is_closed,
+    openMinute: s.open_minute,
+    closeMinute: s.close_minute,
   }));
 
   return (
@@ -194,17 +188,11 @@ async function renderDayView({
   if (assignee) query = query.eq("assigned_to", assignee);
   if (status) query = query.eq("status", status);
 
-  const [{ data: bookings }, { data: bays }] = await Promise.all([
+  const [{ data: bookings }, bays] = await Promise.all([
     query.order("scheduled_at", { ascending: true }).limit(200) as unknown as Promise<{
       data: BookingRowWithBay[] | null;
     }>,
-    admin
-      .from("bays")
-      .select("id, name, description")
-      .eq("location_id", locationId)
-      .order("created_at", { ascending: true }) as unknown as Promise<{
-      data: { id: string; name: string; description: string | null }[] | null;
-    }>,
+    cachedBays(locationId),
   ]);
 
   const rows = (bookings ?? []).map((b) => ({
@@ -221,7 +209,7 @@ async function renderDayView({
     <DayView
       date={theDate}
       bookings={rows}
-      bays={bays ?? []}
+      bays={bays}
       baseHref={`/staff/bookings?${params.toString()}`}
       weekly={weekly}
       specialHours={specialHours}

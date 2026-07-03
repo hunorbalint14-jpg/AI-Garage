@@ -1,4 +1,6 @@
+import { updateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { locationCacheTag } from "@/lib/location-cache";
 import { logAudit } from "@/lib/audit";
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -40,6 +42,11 @@ export async function applyStockDelta(
       .eq("id", args.productId)
       .eq("location_id", args.locationId);
     if (error) return { ok: false };
+
+    // Every stock path funnels through here (manual adjust, job consumption,
+    // PO receipt — all server actions, so updateTag is allowed), making this
+    // the one bust point for the cached product list.
+    updateTag(locationCacheTag("products", args.locationId));
 
     await logAudit({
       organizationId: args.organizationId,

@@ -1,6 +1,7 @@
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cachedActiveProducts } from "@/lib/location-cache";
 import { PageHeader } from "@/components/staff/page-header";
 import { PurchaseOrderManager, type PORow, type POProduct, type POSupplier } from "./po-manager";
 
@@ -14,7 +15,7 @@ export default async function PurchaseOrdersPage() {
   const canEdit = hasPermission(ctx, "products");
 
   const admin = createAdminClient();
-  const [poRes, suppliersRes, productsRes] = await Promise.all([
+  const [poRes, suppliersRes, cachedProducts] = await Promise.all([
     admin
       .from("purchase_orders")
       .select(
@@ -23,7 +24,7 @@ export default async function PurchaseOrdersPage() {
       .eq("location_id", ctx.location.id)
       .order("created_at", { ascending: false }),
     admin.from("suppliers").select("id, name").eq("location_id", ctx.location.id).order("name", { ascending: true }),
-    admin.from("products").select("id, name, cost_price, unit_price").eq("location_id", ctx.location.id).eq("active", true).order("name", { ascending: true }),
+    cachedActiveProducts(ctx.location.id),
   ]);
 
   type RawPO = {
@@ -49,7 +50,12 @@ export default async function PurchaseOrdersPage() {
   }));
 
   const suppliers = (suppliersRes.data ?? []) as POSupplier[];
-  const products = (productsRes.data ?? []) as POProduct[];
+  const products: POProduct[] = cachedProducts.map((p) => ({
+    id: p.id,
+    name: p.name,
+    cost_price: p.cost_price,
+    unit_price: p.unit_price,
+  }));
 
   return (
     <div className="flex flex-col gap-6">

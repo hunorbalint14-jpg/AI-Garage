@@ -1,9 +1,10 @@
-"use server";
+﻿"use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { locationCacheTag } from "@/lib/location-cache";
 import { DEFAULT_PRODUCTS, PRODUCT_CATEGORIES } from "./constants";
 import { logAudit } from "@/lib/audit";
 import { applyStockDelta } from "@/lib/stock";
@@ -80,6 +81,7 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
   });
 
   revalidatePath("/staff/products");
+  updateTag(locationCacheTag("products", ctx.location.id));
   return { success: true };
 }
 
@@ -111,6 +113,7 @@ export async function updateProduct(
   });
 
   revalidatePath("/staff/products");
+  updateTag(locationCacheTag("products", ctx.location.id));
   return { success: true };
 }
 
@@ -137,6 +140,7 @@ export async function deleteProduct(productId: string): Promise<ActionResult> {
   });
 
   revalidatePath("/staff/products");
+  updateTag(locationCacheTag("products", ctx.location.id));
   return { success: true };
 }
 
@@ -157,5 +161,6 @@ export async function adjustStock(productId: string, delta: number): Promise<Act
   if (!res.ok) return { error: "Product not found or update failed." };
 
   revalidatePath("/staff/products");
+  updateTag(locationCacheTag("products", ctx.location.id));
   return { success: true };
 }
