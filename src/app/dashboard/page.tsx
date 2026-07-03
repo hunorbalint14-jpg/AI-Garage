@@ -243,7 +243,12 @@ export default async function CustomerDashboard() {
             </h2>
             <div className="flex flex-col gap-3">
               {bookings.map((b) => (
-                <BookingCard key={b.id} booking={b} orgColor={orgColor} />
+                <BookingCard
+                  key={b.id}
+                  booking={b}
+                  orgColor={orgColor}
+                  garagePhone={location.organization.phone}
+                />
               ))}
             </div>
           </section>
