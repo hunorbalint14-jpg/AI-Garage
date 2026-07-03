@@ -5,6 +5,7 @@ import { AigSpinner } from "@/components/ui/aig-spinner";
 import { Check, X, Calendar } from "lucide-react";
 import { approveQuote, declineQuote, declineAndRebook } from "./actions";
 import { useConfirm } from "@/components/confirm-provider";
+import { DEFAULT_VAT_RATE } from "@/lib/quote-service-shared";
 
 type QuoteItem = {
   id: string;
@@ -20,14 +21,13 @@ function formatGBP(n: number): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
-const VAT_RATE = 0.2;
-
 export function QuoteResponse({
   slug,
   token,
   primaryColor,
   items,
   depositPct,
+  vatRate = DEFAULT_VAT_RATE,
   showRebookCta = true,
 }: {
   slug: string;
@@ -35,6 +35,8 @@ export function QuoteResponse({
   primaryColor: string;
   items: QuoteItem[];
   depositPct: number;
+  /** The quote row's vat_rate (percent) — keeps the partial-approval preview on the same rate the server will charge. */
+  vatRate?: number;
   showRebookCta?: boolean;
 }) {
   const [stage, setStage] = useState<Stage>("idle");
@@ -52,7 +54,7 @@ export function QuoteResponse({
       .filter((it) => set.has(it.id))
       .reduce((sum, it) => sum + it.quantity * it.unit_price, 0);
   }, [items, selectedIds]);
-  const selectedVat = Math.round(selectedSubtotal * VAT_RATE * 100) / 100;
+  const selectedVat = Math.round(selectedSubtotal * vatRate) / 100;
   const selectedTotal = Math.round((selectedSubtotal + selectedVat) * 100) / 100;
   const depositAmount = depositPct > 0 ? Math.round(selectedTotal * (depositPct / 100) * 100) / 100 : 0;
 

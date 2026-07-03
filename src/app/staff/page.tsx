@@ -481,7 +481,7 @@ function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-5">
       <div className="mb-1 h-7 w-80 max-w-[70%] animate-pulse rounded bg-white/[0.06]" />
-      <CardGridSkeleton count={8} className="grid-cols-2 gap-px md:grid-cols-4" />
+      <CardGridSkeleton count={8} className="grid-cols-1 gap-px min-[400px]:grid-cols-2 md:grid-cols-4" />
       <BlockSkeleton className="h-64" />
       <TableSkeleton rows={6} cols={6} />
     </div>
@@ -704,8 +704,9 @@ async function DashboardContent() {
         </p>
       </div>
 
-      {/* 8-tile KPI grid */}
-      <div className="mb-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border md:grid-cols-4">
+      {/* 8-tile KPI grid — single column under 400px, where the 2-col layout
+          wraps the mono captions ("REVENUE · WEEK") mid-word. */}
+      <div className="mb-5 grid grid-cols-1 gap-px overflow-hidden rounded-md border border-border bg-border min-[400px]:grid-cols-2 md:grid-cols-4">
         <KpiTile
           label="Revenue · week"
           value={fmtGBP(weekRevenue)}

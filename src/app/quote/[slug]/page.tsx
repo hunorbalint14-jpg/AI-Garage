@@ -255,6 +255,7 @@ export default async function QuotePage({
           primaryColor={primary}
           items={quote.items}
           depositPct={Number(org?.quote_deposit_pct ?? 0)}
+          vatRate={Number(quote.vat_rate)}
           showRebookCta={true}
         />
 

@@ -5,35 +5,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // `actions.ts` files but all read/write the single `quotes` + `quote_items`
 // tables and route their money maths through here, so VAT is read per-row
 // instead of hard-coded.
+//
+// The pure money maths live in quote-service-shared.ts so client components
+// (quote builders' live previews) can import them without dragging the
+// service-role client into the bundle; re-exported here so server callers
+// keep their existing import path.
 
-export type QuoteItemInput = {
-  description: string;
-  type: "part" | "labour" | "other";
-  quantity: number;
-  unit_price: number;
-  product_id?: string | null;
-};
+import { DEFAULT_VAT_RATE } from "@/lib/quote-service-shared";
 
-// Default VAT rate (%) applied to a newly drafted quote. The per-row
-// `quotes.vat_rate` is the source of truth once the row exists — never assume
-// 20 on read/approve.
-export const DEFAULT_VAT_RATE = 20;
-
-// Subtotal / VAT / total from line items at a given VAT percentage. The rate is
-// always passed in (from the quote row, or DEFAULT_VAT_RATE at creation).
-export function computeTotals(
-  items: Pick<QuoteItemInput, "quantity" | "unit_price">[],
-  vatRate: number = DEFAULT_VAT_RATE,
-): { subtotal: number; vat: number; total: number } {
-  const subtotal = items.reduce(
-    (sum, it) => sum + Number(it.quantity || 0) * Number(it.unit_price || 0),
-    0,
-  );
-  const subtotalRounded = Math.round(subtotal * 100) / 100;
-  const vat = Math.round(subtotalRounded * vatRate) / 100;
-  const total = Math.round((subtotalRounded + vat) * 100) / 100;
-  return { subtotal: subtotalRounded, vat, total };
-}
+export {
+  DEFAULT_VAT_RATE,
+  computeTotals,
+  type QuoteItemInput,
+} from "@/lib/quote-service-shared";
 
 type Admin = ReturnType<typeof createAdminClient>;
 

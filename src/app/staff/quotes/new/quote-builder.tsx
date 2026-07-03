@@ -16,6 +16,7 @@ import {
 } from "../actions";
 import { suggestLabourTime } from "../../jobs/actions";
 import { seedQuoteFromDiagnostic, type SeedFromDiagnosticResult } from "../ai-actions";
+import { computeTotals, DEFAULT_VAT_RATE } from "@/lib/quote-service-shared";
 
 type Product = { id: string; name: string; unit_price: number; category: string };
 
@@ -145,12 +146,14 @@ export function QuoteBuilder({
     });
   }
 
-  const subtotal = items.reduce(
-    (sum, it) => sum + (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0),
-    0,
+  // Same maths + rate the server uses at creation, so the preview can't drift.
+  const { subtotal, vat, total } = computeTotals(
+    items.map((it) => ({
+      quantity: parseFloat(it.quantity) || 0,
+      unit_price: parseFloat(it.unit_price) || 0,
+    })),
+    DEFAULT_VAT_RATE,
   );
-  const vat = subtotal * 0.2;
-  const total = subtotal + vat;
 
   function updateItem(idx: number, patch: Partial<DraftItem>) {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
