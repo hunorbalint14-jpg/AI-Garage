@@ -4,6 +4,7 @@ import "./globals.css";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieBanner } from "@/components/cookie-banner";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
+import { ConfirmProvider } from "@/components/confirm-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -75,7 +76,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        <ConfirmProvider>{children}</ConfirmProvider>
         <ImpersonationBanner />
         <CookieBanner />
         {/* Real-user TTFB/LCP/CLS per route → Vercel dashboard. Script + beacon

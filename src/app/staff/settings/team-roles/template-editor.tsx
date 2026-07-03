@@ -12,6 +12,7 @@ import {
   type PermissionKey,
 } from "@/app/staff/staff-members/constants";
 import { createRoleTemplate, updateRoleTemplate, deleteRoleTemplate, cloneRoleTemplate } from "./actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 export type RoleTemplateView = {
   id: string;
@@ -37,6 +38,7 @@ export function TemplateEditor({
   system: RoleTemplateView[];
   custom: RoleTemplateView[];
 }) {
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -88,8 +90,14 @@ export function TemplateEditor({
     });
   }
 
-  function remove(t: RoleTemplateView) {
-    if (!window.confirm(`Delete template "${t.label}"? Existing members keep their stored permissions.`)) return;
+  async function remove(t: RoleTemplateView) {
+    const ok = await confirm({
+      title: `Delete template "${t.label}"?`,
+      description: "Existing members keep their stored permissions — only the template goes.",
+      confirmLabel: "Delete template",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const res = await deleteRoleTemplate(t.id);

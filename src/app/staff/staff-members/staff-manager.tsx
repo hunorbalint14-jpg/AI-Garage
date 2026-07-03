@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { Search, Plus, MoreVertical } from "lucide-react";
+import { useConfirm } from "@/components/confirm-provider";
 
 const ROLE_OPTIONS = [
   { value: "manager", label: "Manager" },
@@ -226,6 +227,7 @@ export function StaffManager({
   isOwner: boolean;
   isAdmin: boolean;
 }) {
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -382,8 +384,14 @@ export function StaffManager({
     });
   }
 
-  function handleResetMfa(userId: string, name: string) {
-    if (!confirm(`Reset MFA for ${name}? They will need to re-enrol next login.`)) return;
+  async function handleResetMfa(userId: string, name: string) {
+    const ok = await confirm({
+      title: `Reset MFA for ${name}?`,
+      description: "Their passkeys are removed and they'll re-enrol at next login.",
+      confirmLabel: "Reset MFA",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await resetStaffMfa(userId);
@@ -477,8 +485,16 @@ export function StaffManager({
     });
   }
 
-  function handleRemove(userId: string, locationId: string | null, name: string) {
-    if (!confirm(`Remove ${name} from ${locationId ? "this location" : "the organisation"}?`)) return;
+  async function handleRemove(userId: string, locationId: string | null, name: string) {
+    const ok = await confirm({
+      title: `Remove ${name} from ${locationId ? "this location" : "the organisation"}?`,
+      description: locationId
+        ? "They lose access to this branch but keep any other branch access."
+        : "They lose all access to the organisation across every branch.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await removeStaffMember(userId, locationId);

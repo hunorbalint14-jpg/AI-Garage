@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createPurchaseOrder, markPurchaseOrderOrdered, receivePurchaseOrder, deletePurchaseOrder, type NewPOItem } from "./actions";
+import { useConfirm, type ConfirmOptions } from "@/components/confirm-provider";
 
 export type POProduct = { id: string; name: string; cost_price: number | null; unit_price: number };
 export type POSupplier = { id: string; name: string };
@@ -79,12 +80,13 @@ export function PurchaseOrderManager({
 
 function POCard({ po, canEdit }: { po: PORow; canEdit: boolean }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function run(fn: () => Promise<{ error: string } | { success: true }>, confirmMsg?: string) {
-    if (confirmMsg && !confirm(confirmMsg)) return;
+  async function run(fn: () => Promise<{ error: string } | { success: true }>, confirmOpts?: ConfirmOptions) {
+    if (confirmOpts && !(await confirm(confirmOpts))) return;
     setError(null);
     startTransition(async () => {
       const r = await fn();
@@ -133,12 +135,12 @@ function POCard({ po, canEdit }: { po: PORow; canEdit: boolean }) {
                 </Button>
               )}
               {(po.status === "draft" || po.status === "ordered") && (
-                <Button size="sm" disabled={pending} onClick={() => run(() => receivePurchaseOrder(po.id), "Receive this order? Stock for its parts will be added.")}>
+                <Button size="sm" disabled={pending} onClick={() => run(() => receivePurchaseOrder(po.id), { title: `Receive ${po.reference || "this order"}?`, description: "Stock levels for its parts are increased.", confirmLabel: "Receive order" })}>
                   <PackageCheck className="mr-1.5 h-4 w-4" /> Receive into stock
                 </Button>
               )}
               {po.status !== "received" && (
-                <Button size="sm" variant="destructive" disabled={pending} onClick={() => run(() => deletePurchaseOrder(po.id), "Delete this purchase order?")}>
+                <Button size="sm" variant="destructive" disabled={pending} onClick={() => run(() => deletePurchaseOrder(po.id), { title: `Delete ${po.reference || "this purchase order"}?`, description: "The order and its lines are removed. Stock is not adjusted.", confirmLabel: "Delete order", destructive: true })}>
                   Delete
                 </Button>
               )}

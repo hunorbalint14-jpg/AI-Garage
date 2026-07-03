@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { saveTyreCheck, deleteTyreCheck } from "./actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type TyreCheck = {
   id: string;
@@ -43,6 +44,7 @@ function depthBadge(d: number | null, replaced: boolean) {
 const INPUT = "w-20 rounded border border-black/20 bg-transparent px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring";
 
 export function TyreSection({ vehicleId, customerId, checks }: Props) {
+  const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -58,8 +60,14 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
     });
   }
 
-  function handleDelete(checkId: string) {
-    if (!confirm("Delete this tyre check?")) return;
+  async function handleDelete(checkId: string) {
+    const ok = await confirm({
+      title: "Delete this tyre check?",
+      description: "The recorded tread depths and notes are removed.",
+      confirmLabel: "Delete check",
+      destructive: true,
+    });
+    if (!ok) return;
     startTransition(async () => {
       await deleteTyreCheck(checkId, vehicleId, customerId);
     });

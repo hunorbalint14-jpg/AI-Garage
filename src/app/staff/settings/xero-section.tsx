@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { disconnectXero } from "./xero-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Props = {
   connected: boolean;
@@ -12,14 +13,21 @@ type Props = {
 };
 
 export function XeroSection({ connected, tenantName, connectedAt, canManage }: Props) {
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
 
   function handleConnect() {
     window.location.href = "/api/xero/connect/begin";
   }
 
-  function handleDisconnect() {
-    if (!confirm("Disconnect Xero? New invoices will stop syncing.")) return;
+  async function handleDisconnect() {
+    const ok = await confirm({
+      title: tenantName ? `Disconnect Xero (${tenantName})?` : "Disconnect Xero?",
+      description: "New invoices and payments stop syncing until you reconnect. Already-synced records stay in Xero.",
+      confirmLabel: "Disconnect",
+      destructive: true,
+    });
+    if (!ok) return;
     startTransition(async () => {
       await disconnectXero();
       window.location.reload();

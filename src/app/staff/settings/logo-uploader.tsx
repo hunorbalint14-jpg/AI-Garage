@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { uploadOrgLogo, removeOrgLogo } from "./logo-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 export function LogoUploader({
   initialUrl,
@@ -13,6 +14,7 @@ export function LogoUploader({
   initialUrl: string | null;
   canEdit: boolean;
 }) {
+  const confirm = useConfirm();
   const [url, setUrl] = useState<string | null>(initialUrl);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -40,8 +42,14 @@ export function LogoUploader({
     inputRef.current?.click();
   }
 
-  function handleRemove() {
-    if (!confirm("Remove the current logo?")) return;
+  async function handleRemove() {
+    const ok = await confirm({
+      title: "Remove the current logo?",
+      description: "Customer-facing pages and emails fall back to the organisation name.",
+      confirmLabel: "Remove logo",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     start(async () => {
       const result = await removeOrgLogo();

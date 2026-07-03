@@ -5,10 +5,12 @@ import { createBay, deleteBay } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Bay = { id: string; name: string; description: string | null; sort_order: number };
 
 export function BayManager({ bays }: { bays: Bay[] }) {
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -24,8 +26,14 @@ export function BayManager({ bays }: { bays: Bay[] }) {
     });
   }
 
-  function handleDelete(bayId: string, name: string) {
-    if (!confirm(`Delete "${name}"? Bookings assigned to it become unassigned.`)) return;
+  async function handleDelete(bayId: string, name: string) {
+    const ok = await confirm({
+      title: `Delete bay "${name}"?`,
+      description: "Bookings assigned to it become unassigned.",
+      confirmLabel: "Delete bay",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await deleteBay(bayId);

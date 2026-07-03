@@ -6,6 +6,7 @@ import { Key, Plus, Trash2, Check } from "lucide-react";
 import { startRegistration } from "@simplewebauthn/browser";
 import { Button } from "@/components/ui/button";
 import { deletePasskey } from "./passkeys-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 export type PasskeyRow = {
   credential_id: string;
@@ -15,6 +16,7 @@ export type PasskeyRow = {
 };
 
 export function PasskeysSection({ initialPasskeys }: { initialPasskeys: PasskeyRow[] }) {
+  const confirm = useConfirm();
   const router = useRouter();
   const [passkeys, setPasskeys] = useState<PasskeyRow[]>(initialPasskeys);
   const [pending, startTrans] = useTransition();
@@ -63,8 +65,14 @@ export function PasskeysSection({ initialPasskeys }: { initialPasskeys: PasskeyR
     }
   }
 
-  function handleDelete(credentialId: string) {
-    if (!confirm("Remove this passkey? You won't be able to use it to sign in anymore.")) return;
+  async function handleDelete(credentialId: string) {
+    const ok = await confirm({
+      title: "Remove this passkey?",
+      description: "You won't be able to use it to sign in anymore.",
+      confirmLabel: "Remove passkey",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     setSuccess(null);
     startTrans(async () => {

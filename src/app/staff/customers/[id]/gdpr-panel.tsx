@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Shield, Download, AlertTriangle, Trash2 } from "lucide-react";
 import { updateConsent, anonymizeCustomer, exportCustomerData, deleteCustomerHard } from "./gdpr-actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Props = {
   customerId: string;
@@ -26,6 +27,7 @@ export function GdprPanel({
   canErase,
   isOwner,
 }: Props) {
+  const confirm = useConfirm();
   const [email, setEmail] = useState(emailConsent);
   const [sms, setSms] = useState(smsConsent);
   const [pending, startTransition] = useTransition();
@@ -67,8 +69,15 @@ export function GdprPanel({
     });
   }
 
-  function handleHardDelete() {
-    if (!confirm(`HARD DELETE ${customerName}? This removes all customer records permanently (only allowed if no invoices exist).`)) return;
+  async function handleHardDelete() {
+    const ok = await confirm({
+      title: `Hard-delete ${customerName}?`,
+      description:
+        "Removes every record for this customer permanently — vehicles, bookings, reminders, the lot. Only allowed when no invoices exist. This cannot be undone.",
+      confirmLabel: "Hard delete",
+      destructive: true,
+    });
+    if (!ok) return;
     const reason = prompt("Reason (required for audit log):");
     if (!reason?.trim()) return;
     setError(null);

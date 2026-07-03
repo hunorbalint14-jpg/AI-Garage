@@ -13,6 +13,7 @@ import { QuoteList, type QuoteSummary } from "./quote-list";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Job = {
   id: string;
@@ -73,6 +74,7 @@ export function JobDetail({
   quotes: QuoteSummary[];
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [suggestPending, startSuggest] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -174,8 +176,13 @@ export function JobDetail({
     });
   }
 
-  function handleComplete() {
-    if (!confirm("Mark this job complete? You won't be able to add items after.")) return;
+  async function handleComplete() {
+    const ok = await confirm({
+      title: job.vehicle ? `Mark the job for ${job.vehicle.registration} complete?` : "Mark this job complete?",
+      description: "No further items can be added once the job is complete.",
+      confirmLabel: "Mark complete",
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await completeJob(job.id);
@@ -191,8 +198,17 @@ export function JobDetail({
     });
   }
 
-  function handleDelete() {
-    if (!confirm("Delete this job permanently?")) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title:
+        job.customer?.full_name || job.vehicle
+          ? `Delete the job for ${[job.customer?.full_name, job.vehicle?.registration].filter(Boolean).join(" — ")}?`
+          : "Delete this job permanently?",
+      description: "The job card and its items are removed permanently. This cannot be undone.",
+      confirmLabel: "Delete job",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await deleteJob(job.id);
