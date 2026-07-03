@@ -289,7 +289,13 @@ export function JobDetail({
 
       {isOpen && <VoiceNotes jobId={job.id} />}
 
-      {isOpen && <QuoteBuilder jobId={job.id} products={products} />}
+      {isOpen && (
+        <QuoteBuilder
+          jobId={job.id}
+          products={products}
+          vehicleDescription={[job.vehicle?.year, job.vehicle?.make, job.vehicle?.model].filter(Boolean).join(" ") || undefined}
+        />
+      )}
 
       <QuoteList quotes={quotes} />
 
