@@ -16,6 +16,7 @@ type Booking = {
 type Props = {
   booking: Booking;
   orgColor: string;
+  garagePhone: string | null;
 };
 
 function typeLabel(t: string) {
@@ -27,12 +28,17 @@ function toLocalInput(isoDate: string): string {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
-export function BookingCard({ booking, orgColor }: Props) {
+export function BookingCard({ booking, orgColor, garagePhone }: Props) {
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState<"idle" | "reschedule">("idle");
   const [newDateTime, setNewDateTime] = useState(toLocalInput(booking.scheduled_at));
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState(false);
+
+  // Self-serve changes only make sense before work starts — once the booking is
+  // in progress (or beyond), cancelling would orphan the job on the workshop
+  // side, so the actions give way to a "call us" hint.
+  const actionable = booking.status === "scheduled";
 
   function handleCancel() {
     if (!confirm("Cancel this appointment?")) return;
@@ -71,7 +77,11 @@ export function BookingCard({ booking, orgColor }: Props) {
           <p className="font-semibold">{typeLabel(booking.type)}</p>
           <p className="text-sm text-gray-400 mt-0.5">
             {new Date(booking.scheduled_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-            {booking.vehicle ? ` · ${booking.vehicle.registration}` : ""}
+            {booking.vehicle ? (
+              ` · ${booking.vehicle.registration}`
+            ) : (
+              <span className="text-gray-500"> · No vehicle on file</span>
+            )}
           </p>
         </div>
         <span
@@ -114,7 +124,14 @@ export function BookingCard({ booking, orgColor }: Props) {
         </div>
       )}
 
-      {mode === "idle" && booking.status !== "complete" && (
+      {!actionable && (
+        <p className="mt-3 text-xs text-gray-500">
+          Work on this booking has started — {garagePhone ? `call us on ${garagePhone}` : "contact the garage"} if
+          you need to make changes.
+        </p>
+      )}
+
+      {mode === "idle" && actionable && (
         <div className="mt-3 flex gap-2">
           <button
             type="button"

@@ -63,6 +63,12 @@ export async function cancelCustomerBooking(bookingId: string): Promise<BookingA
 
   if (booking!.status === "cancelled") return { error: "Already cancelled." };
   if (booking!.status === "complete") return { error: "Cannot cancel a completed appointment." };
+  // Allowlist, not blocklist: once work starts (in_progress, no_show, or any
+  // future status) self-serve cancellation would orphan the job on the
+  // workshop side — the UI hides the buttons, but enforce it here too.
+  if (booking!.status !== "scheduled") {
+    return { error: "Work on this booking has already started — please call the garage to make changes." };
+  }
 
   const admin = createAdminClient();
   await admin.from("bookings").update({ status: "cancelled" }).eq("id", bookingId);
@@ -115,6 +121,10 @@ export async function rescheduleCustomerBooking(
 
   if (booking!.status === "cancelled") return { error: "Cannot reschedule a cancelled booking." };
   if (booking!.status === "complete") return { error: "Cannot reschedule a completed appointment." };
+  // Same allowlist as cancellation — no self-serve changes once work starts.
+  if (booking!.status !== "scheduled") {
+    return { error: "Work on this booking has already started — please call the garage to make changes." };
+  }
 
   const newDate = new Date(newDateTime);
   if (isNaN(newDate.getTime())) return { error: "Invalid date." };
