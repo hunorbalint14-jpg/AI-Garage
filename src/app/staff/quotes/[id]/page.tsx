@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSignedReadUrl } from "@/lib/quote-storage";
+import { listLocationStaff } from "@/lib/staff-directory";
 import { QuoteDetailActions } from "./quote-detail-actions";
 
 export const dynamic = "force-dynamic";
@@ -36,9 +37,19 @@ type QuoteRow = {
   deposit_amount: number | null;
   deposit_paid_at: string | null;
   created_at: string;
+  revision_number: number;
+  revision_note: string | null;
   customer: PersonRef;
   vehicle: VehicleRef;
   job: { id: string; customer: PersonRef; vehicle: VehicleRef } | null;
+};
+
+type RevisionRow = {
+  id: string;
+  revision_number: number;
+  note: string;
+  created_by: string | null;
+  created_at: string;
 };
 
 type QuoteItem = {
@@ -82,7 +93,7 @@ export default async function QuoteDetailPage({
   const { data: quoteData } = await admin
     .from("quotes")
     .select(
-      "id, quote_type, job_id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model), job:jobs(id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model))",
+      "id, quote_type, job_id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, revision_number, revision_note, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model), job:jobs(id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -98,6 +109,20 @@ export default async function QuoteDetailPage({
   const items = (itemRows ?? []) as QuoteItem[];
 
   const videoUrl = quote.video_path ? await createSignedReadUrl(quote.video_path, 1800) : null;
+
+  // Revision history (Phase 5) — one row per re-send, newest last. Staff names
+  // resolved through the cached location roster.
+  const { data: revisionRows } = await admin
+    .from("quote_revisions")
+    .select("id, revision_number, note, created_by, created_at")
+    .eq("quote_id", id)
+    .order("revision_number");
+  const revisions = (revisionRows ?? []) as RevisionRow[];
+  const staffNameById = new Map<string, string>();
+  if (revisions.length > 0) {
+    const roster = await listLocationStaff(ctx.location.id, ctx.organization.id);
+    for (const s of roster) staffNameById.set(s.id, s.name);
+  }
 
   const approvedSet = new Set(quote.approved_item_ids ?? []);
   const partial = quote.status === "approved" && (quote.approved_item_ids?.length ?? 0) > 0 && quote.approved_item_ids.length < items.length;
@@ -133,6 +158,11 @@ export default async function QuoteDetailPage({
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             Created {fmtDateTime(quote.created_at)}
+            {quote.revision_number > 1 && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-800">
+                Revision {quote.revision_number}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -272,6 +302,40 @@ export default async function QuoteDetailPage({
           )}
         </dl>
       </section>
+
+      {revisions.length > 0 && (
+        <section className="rounded-lg border overflow-hidden">
+          <div className="px-4 py-2 bg-muted/40 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Revision history
+          </div>
+          <table className="w-full text-sm">
+            <thead className="text-left text-xs text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2 font-medium">Version</th>
+                <th className="px-4 py-2 font-medium">What changed</th>
+                <th className="px-4 py-2 font-medium">Revised by</th>
+                <th className="px-4 py-2 font-medium">Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t">
+                <td className="px-4 py-2 tabular-nums">v1</td>
+                <td className="px-4 py-2 text-muted-foreground italic">Original</td>
+                <td className="px-4 py-2">—</td>
+                <td className="px-4 py-2">{fmtDateTime(quote.created_at)}</td>
+              </tr>
+              {revisions.map((r) => (
+                <tr key={r.id} className="border-t">
+                  <td className="px-4 py-2 tabular-nums">v{r.revision_number}</td>
+                  <td className="px-4 py-2 whitespace-pre-wrap">{r.note}</td>
+                  <td className="px-4 py-2">{r.created_by ? staffNameById.get(r.created_by) ?? "Staff" : "—"}</td>
+                  <td className="px-4 py-2">{fmtDateTime(r.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       <QuoteDetailActions quoteId={quote.id} status={quote.status} />
     </div>

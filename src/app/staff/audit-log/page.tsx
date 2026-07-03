@@ -18,7 +18,7 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   },
   {
     label: "Quotes",
-    actions: ["quote.create", "quote.send", "quote.cancel", "quote.approve", "quote.decline", "quote.rebook", "quote.expire", "quote.deposit_paid", "standalone_quote.create", "standalone_quote.send", "standalone_quote.cancel", "standalone_quote.approve", "standalone_quote.decline", "standalone_quote.expire", "standalone_quote.deposit_paid"],
+    actions: ["quote.create", "quote.send", "quote.cancel", "quote.approve", "quote.decline", "quote.rebook", "quote.expire", "quote.deposit_paid", "quote.revise", "standalone_quote.create", "standalone_quote.send", "standalone_quote.cancel", "standalone_quote.approve", "standalone_quote.decline", "standalone_quote.expire", "standalone_quote.deposit_paid"],
   },
   {
     label: "Integrations",

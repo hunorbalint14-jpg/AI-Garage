@@ -160,6 +160,7 @@ export type AuditAction =
   | "quote.rebook"
   | "quote.expire"
   | "quote.deposit_paid"
+  | "quote.revise"
   // Standalone (pre-job) quotes
   | "standalone_quote.create"
   | "standalone_quote.send"

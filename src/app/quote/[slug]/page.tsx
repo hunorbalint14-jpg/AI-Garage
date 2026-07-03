@@ -28,6 +28,8 @@ type NormalisedQuote = {
   vat_amount: number;
   total: number;
   expires_at: string;
+  revision_number: number;
+  revision_note: string | null;
   customer: Customer | null;
   vehicle: Vehicle | null;
   org: Org | null;
@@ -161,6 +163,17 @@ export default async function QuotePage({
           <p className="text-sm text-slate-600 mt-1">{lede}</p>
         </section>
 
+        {quote.revision_number > 1 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+            <p className="text-sm font-medium text-amber-800">
+              Revised quote (version {quote.revision_number})
+            </p>
+            {quote.revision_note && (
+              <p className="text-sm text-amber-700 mt-1 whitespace-pre-wrap">{quote.revision_note}</p>
+            )}
+          </div>
+        )}
+
         {videoUrl ? (
           <video
             controls
@@ -264,9 +277,9 @@ export default async function QuotePage({
 async function loadJobQuote(admin: ReturnType<typeof createAdminClient>, id: string): Promise<NormalisedQuote | null> {
   // Try the v2 select first (includes quote_deposit_pct), fall back to v1.
   const fullSelect =
-    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone, quote_deposit_pct))";
+    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, revision_number, revision_note, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone, quote_deposit_pct))";
   const v1Select =
-    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone))";
+    "id, location_id, status, title, description, video_path, subtotal, vat_rate, vat_amount, total, expires_at, revision_number, revision_note, job:jobs(customer:customers(full_name), vehicle:vehicles(registration, make, model, year)), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone))";
 
   let raw: unknown = null;
   const first = await admin.from("quotes").select(fullSelect).eq("id", id).maybeSingle();
@@ -289,6 +302,8 @@ async function loadJobQuote(admin: ReturnType<typeof createAdminClient>, id: str
     vat_amount: number;
     total: number;
     expires_at: string;
+    revision_number: number;
+    revision_note: string | null;
     job: { customer: Customer | null; vehicle: Vehicle | null } | null;
     location: { name: string; organization: Org | null } | null;
   };
@@ -314,6 +329,8 @@ async function loadJobQuote(admin: ReturnType<typeof createAdminClient>, id: str
     vat_amount: r.vat_amount,
     total: r.total,
     expires_at: r.expires_at,
+    revision_number: r.revision_number ?? 1,
+    revision_note: r.revision_note,
     customer: r.job?.customer ?? null,
     vehicle: r.job?.vehicle ?? null,
     org: r.location?.organization ?? null,
@@ -326,7 +343,7 @@ async function loadStandalone(admin: ReturnType<typeof createAdminClient>, id: s
   const { data, error } = await admin
     .from("quotes")
     .select(
-      "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, customer:customers(full_name), vehicle:vehicles(registration, make, model, year), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone, quote_deposit_pct))",
+      "id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, revision_number, revision_note, customer:customers(full_name), vehicle:vehicles(registration, make, model, year), location:locations(name, organization:organizations!organization_id(id, name, logo_url, primary_color, phone, quote_deposit_pct))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -347,6 +364,8 @@ async function loadStandalone(admin: ReturnType<typeof createAdminClient>, id: s
     vat_amount: number;
     total: number;
     expires_at: string;
+    revision_number: number;
+    revision_note: string | null;
     customer: Customer | null;
     vehicle: Vehicle | null;
     location: { name: string; organization: Org | null } | null;
@@ -373,6 +392,8 @@ async function loadStandalone(admin: ReturnType<typeof createAdminClient>, id: s
     vat_amount: r.vat_amount,
     total: r.total,
     expires_at: r.expires_at,
+    revision_number: r.revision_number ?? 1,
+    revision_note: r.revision_note,
     customer: r.customer,
     vehicle: r.vehicle,
     org: r.location?.organization ?? null,
