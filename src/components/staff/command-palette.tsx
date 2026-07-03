@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, User, Car, Receipt, CornerDownLeft } from "lucide-react";
+import { Search, User, Car, Receipt, Wrench, CalendarDays, FileText, CornerDownLeft } from "lucide-react";
 import { globalSearch, type SearchHit, type SearchResults } from "@/app/staff/search-actions";
 
 const OPEN_EVENT = "staff:open-command-palette";
@@ -12,10 +12,18 @@ export function openCommandPalette() {
   window.dispatchEvent(new Event(OPEN_EVENT));
 }
 
-const EMPTY: SearchResults = { customers: [], vehicles: [], invoices: [] };
+const EMPTY: SearchResults = {
+  customers: [],
+  vehicles: [],
+  jobs: [],
+  bookings: [],
+  quotes: [],
+  invoices: [],
+};
 
-// Cmd/Ctrl+K global search across customers, registrations and invoices.
-// Front-desk flow: phone rings → type the reg or a name → Enter → record.
+// Cmd/Ctrl+K global search across customers, registrations, jobs, bookings,
+// quotes and invoices. Front-desk flow: phone rings → type the reg or a name
+// → Enter → record.
 export function CommandPalette() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -88,6 +96,9 @@ export function CommandPalette() {
   const groups: { label: string; icon: typeof User; hits: SearchHit[] }[] = [
     { label: "Customers", icon: User, hits: results.customers },
     { label: "Vehicles", icon: Car, hits: results.vehicles },
+    { label: "Jobs", icon: Wrench, hits: results.jobs },
+    { label: "Bookings", icon: CalendarDays, hits: results.bookings },
+    { label: "Quotes", icon: FileText, hits: results.quotes },
     { label: "Invoices", icon: Receipt, hits: results.invoices },
   ].filter((g) => g.hits.length > 0);
   const flat = groups.flatMap((g) => g.hits);
@@ -135,7 +146,7 @@ export function CommandPalette() {
                 navigate(flat[selected]);
               }
             }}
-            placeholder="Search name, reg, phone or invoice №…"
+            placeholder="Search name, reg, phone, job, booking, quote, invoice №…"
             className="flex-1 bg-transparent text-[15px] outline-none placeholder:text-[#5a6170]"
           />
           <kbd className="hidden sm:block rounded border border-[#2a2f37] px-1.5 py-0.5 font-mono text-[10px] text-[#5a6170]">
@@ -147,7 +158,7 @@ export function CommandPalette() {
         <div className="max-h-[55vh] overflow-y-auto p-2">
           {query.trim().length < 2 ? (
             <p className="px-3 py-6 text-center text-sm text-[#5a6170]">
-              Type at least 2 characters — customers, registrations, invoices.
+              Type at least 2 characters — customers, regs, jobs, bookings, quotes, invoices.
             </p>
           ) : searching && flat.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-[#5a6170]">Searching…</p>
