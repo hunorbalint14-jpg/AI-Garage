@@ -22,9 +22,16 @@ const LIVE = "https://vercel.live";
 const LIVE_PUSHER = "wss://ws-us3.pusher.com https://sockjs-us3.pusher.com";
 const live = (extra: string) => (IS_PREVIEW ? ` ${extra}` : "");
 
+// Dev-only relaxations, so the console isn't two red CSP errors on every page
+// (drowning real ones): speed-insights loads its *debug* script from
+// va.vercel-scripts.com in dev (prod serves it same-origin), and React's dev
+// tooling needs eval. Neither string ships outside `next dev`.
+const IS_DEV = process.env.NODE_ENV === "development";
+const dev = (extra: string) => (IS_DEV ? ` ${extra}` : "");
+
 const CSP = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline' https://js.stripe.com${live(LIVE)}`,
+  `script-src 'self' 'unsafe-inline' https://js.stripe.com${live(LIVE)}${dev("'unsafe-eval' https://va.vercel-scripts.com")}`,
   `style-src 'self' 'unsafe-inline'${live(LIVE)}`,
   "img-src 'self' data: blob: https:",
   // Quote/DVI videos stream from Supabase Storage signed URLs via <video>.
