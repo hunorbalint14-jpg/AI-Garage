@@ -39,15 +39,14 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
   const [motExpiry, setMotExpiry] = useState(vehicle.mot_expiry ?? "");
   const [serviceDue, setServiceDue] = useState(vehicle.service_due ?? "");
   const [taxDueDate, setTaxDueDate] = useState((vehicle as typeof vehicle & { tax_due_date?: string | null }).tax_due_date ?? "");
-  const [vedPending, startVed] = useTransition();
+  // VED lookup is best-effort enrichment: a hint on success, silence on failure
+  // (the tax date field stays editable either way).
   const [vedHint, setVedHint] = useState<string | null>(null);
-  const [vedError, setVedError] = useState<string | null>(null);
 
   function handleLookup() {
     if (!registration.trim()) return;
     setLookupError(null);
     setLookupHint(null);
-    setVedError(null);
     setVedHint(null);
     startLookup(async () => {
       const [motResult, vedResult] = await Promise.all([

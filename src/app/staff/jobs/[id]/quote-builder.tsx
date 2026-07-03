@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { prepareQuoteUpload, createQuote, sendQuoteWithToken, type QuoteItemInput } from "./quote-actions";
 import { suggestLabourTime } from "../actions";
+import { computeTotals, DEFAULT_VAT_RATE } from "@/lib/quote-service-shared";
 
 type Product = { id: string; name: string; unit_price: number; category: string };
 
@@ -65,9 +66,14 @@ export function QuoteBuilder({
   const [resultQuoteId, setResultQuoteId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const subtotal = items.reduce((sum, it) => sum + (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0), 0);
-  const vat = subtotal * 0.2;
-  const total = subtotal + vat;
+  // Same maths + rate the server uses at creation, so the preview can't drift.
+  const { subtotal, vat, total } = computeTotals(
+    items.map((it) => ({
+      quantity: parseFloat(it.quantity) || 0,
+      unit_price: parseFloat(it.unit_price) || 0,
+    })),
+    DEFAULT_VAT_RATE,
+  );
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
