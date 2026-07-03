@@ -39,6 +39,10 @@ type QuoteRow = {
   created_at: string;
   revision_number: number;
   revision_note: string | null;
+  reminder_count: number;
+  last_reminder_at: string | null;
+  sent_channels: string[] | null;
+  link_token_encrypted: string | null;
   customer: PersonRef;
   vehicle: VehicleRef;
   job: { id: string; customer: PersonRef; vehicle: VehicleRef } | null;
@@ -93,7 +97,7 @@ export default async function QuoteDetailPage({
   const { data: quoteData } = await admin
     .from("quotes")
     .select(
-      "id, quote_type, job_id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, revision_number, revision_note, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model), job:jobs(id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model))",
+      "id, quote_type, job_id, location_id, status, title, description, customer_message, video_path, subtotal, vat_rate, vat_amount, total, expires_at, sent_at, viewed_at, viewed_count, responded_at, decline_reason, approved_item_ids, deposit_required, deposit_pct, deposit_amount, deposit_paid_at, created_at, revision_number, revision_note, reminder_count, last_reminder_at, sent_channels, link_token_encrypted, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model), job:jobs(id, customer:customers(id, full_name, email, phone), vehicle:vehicles(id, registration, make, model))",
     )
     .eq("id", id)
     .maybeSingle();
@@ -288,6 +292,15 @@ export default async function QuoteDetailPage({
           <dd>{fmtDateTime(quote.responded_at)}</dd>
           <dt className="text-muted-foreground">Expires</dt>
           <dd>{fmtDateTime(quote.expires_at)}</dd>
+          {quote.reminder_count > 0 && (
+            <>
+              <dt className="text-muted-foreground">Reminders</dt>
+              <dd>
+                {quote.reminder_count} sent
+                {quote.last_reminder_at && <span className="text-muted-foreground"> · last {fmtDateTime(quote.last_reminder_at)}</span>}
+              </dd>
+            </>
+          )}
           {quote.deposit_required && (
             <>
               <dt className="text-muted-foreground">Deposit ({quote.deposit_pct}%)</dt>
@@ -337,7 +350,16 @@ export default async function QuoteDetailPage({
         </section>
       )}
 
-      <QuoteDetailActions quoteId={quote.id} status={quote.status} />
+      <QuoteDetailActions
+        quoteId={quote.id}
+        status={quote.status}
+        reminder={{
+          hasEmail: !!displayCustomer?.email,
+          hasPhone: !!displayCustomer?.phone,
+          sentChannels: quote.sent_channels ?? [],
+          linkAvailable: !!quote.link_token_encrypted,
+        }}
+      />
     </div>
   );
 }

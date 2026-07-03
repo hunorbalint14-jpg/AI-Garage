@@ -25,6 +25,8 @@ import {
   removeVideoObject,
 } from "@/lib/quote-storage";
 import { computeTotals, DEFAULT_VAT_RATE } from "@/lib/quote-service";
+import { decrypt } from "@/lib/encryption";
+import { dispatchQuoteReminder, encryptLinkToken } from "@/lib/quote-reminders";
 
 export type StandaloneQuoteItemInput = {
   description: string;
@@ -180,6 +182,7 @@ export async function createStandaloneQuote(args: {
     const slug = generateStandaloneQuoteSlug();
     const expiresAt = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString();
     insertPayload.token_hash = hashQuoteToken(token);
+    insertPayload.link_token_encrypted = encryptLinkToken(token);
     insertPayload.slug = slug;
     insertPayload.expires_at = expiresAt;
     customerUrl = tenantQuoteUrl(ctx.location.slug, slug, token);
@@ -288,6 +291,7 @@ export async function sendStandaloneQuoteDraft(
     .update({
       status: "pending",
       token_hash: hashQuoteToken(token),
+      link_token_encrypted: encryptLinkToken(token),
       slug,
       expires_at: expiresAt,
       sent_at: new Date().toISOString(),
@@ -312,10 +316,12 @@ export async function sendStandaloneQuoteDraft(
     // Roll back so staff can fix contact details + retry.
     await admin
       .from("quotes")
-      .update({ status: "draft", token_hash: null, slug: null, expires_at: null, sent_at: null })
+      .update({ status: "draft", token_hash: null, link_token_encrypted: null, slug: null, expires_at: null, sent_at: null })
       .eq("id", quoteId);
     return { error: "Failed to send via any channel." };
   }
+
+  await admin.from("quotes").update({ sent_channels: result.channels }).eq("id", quoteId);
 
   await logAudit({
     organizationId: ctx.organization.id,
@@ -381,7 +387,7 @@ export async function sendQuoteDraft(quoteId: string): Promise<SendStandaloneRes
 
   const { error: updateErr } = await admin
     .from("quotes")
-    .update({ status: "pending", token_hash: hashQuoteToken(token), slug, expires_at: expiresAt, sent_at: new Date().toISOString() })
+    .update({ status: "pending", token_hash: hashQuoteToken(token), link_token_encrypted: encryptLinkToken(token), slug, expires_at: expiresAt, sent_at: new Date().toISOString() })
     .eq("id", quoteId)
     .eq("status", "draft");
   if (updateErr) return { error: updateErr.message };
@@ -401,10 +407,12 @@ export async function sendQuoteDraft(quoteId: string): Promise<SendStandaloneRes
   if (result.channels.length === 0) {
     await admin
       .from("quotes")
-      .update({ status: "draft", token_hash: null, slug: null, expires_at: null, sent_at: null })
+      .update({ status: "draft", token_hash: null, link_token_encrypted: null, slug: null, expires_at: null, sent_at: null })
       .eq("id", quoteId);
     return { error: "Failed to send via any channel." };
   }
+
+  await admin.from("quotes").update({ sent_channels: result.channels }).eq("id", quoteId);
 
   await logAudit({
     organizationId: ctx.organization.id,
@@ -479,7 +487,7 @@ export async function sendFreshStandaloneQuote(
 
   await admin
     .from("quotes")
-    .update({ sent_at: new Date().toISOString() })
+    .update({ sent_at: new Date().toISOString(), sent_channels: result.channels })
     .eq("id", quoteId);
 
   await logAudit({
@@ -670,6 +678,7 @@ export async function reviseQuote(args: {
       total,
       status: "pending",
       token_hash: hashQuoteToken(token),
+      link_token_encrypted: encryptLinkToken(token),
       slug,
       expires_at: expiresAt,
       revision_number: newRevision,
@@ -680,6 +689,9 @@ export async function reviseQuote(args: {
       viewed_count: 0,
       responded_at: null,
       decline_reason: null,
+      // A revision is a fresh version — the reminder clock starts over.
+      reminder_count: 0,
+      last_reminder_at: null,
     })
     .eq("id", args.quoteId)
     .in("status", ["pending", "expired"]);
@@ -712,6 +724,8 @@ export async function reviseQuote(args: {
     revision: { number: newRevision, note },
   });
 
+  await admin.from("quotes").update({ sent_channels: result.channels }).eq("id", args.quoteId);
+
   await logAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
@@ -725,6 +739,106 @@ export async function reviseQuote(args: {
   revalidatePath("/staff/quotes");
   revalidatePath(`/staff/quotes/${args.quoteId}`);
   return { success: true, channels: result.channels, customerUrl: url };
+}
+
+// ---------------------------------------------------------------------------
+// sendManualReminder — staff-triggered nudge on a pending quote (Phase 6,
+// #246). Rebuilds the ORIGINAL customer link from the encrypted token (no
+// re-mint — the link in the first email keeps working) and re-notifies on the
+// channels staff picked. Bumps reminder_count / last_reminder_at, which the
+// automated schedule also respects.
+// ---------------------------------------------------------------------------
+export type SendReminderResult = { error: string } | { success: true; channels: string[] };
+
+export async function sendManualReminder(args: {
+  quoteId: string;
+  channels: QuoteNotifyChannel[];
+}): Promise<SendReminderResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
+  if (!args.channels?.length) return { error: "Select at least one channel." };
+  const admin = createAdminClient();
+
+  type PersonRef = { full_name: string | null; email: string | null; phone: string | null } | null;
+  const { data } = await admin
+    .from("quotes")
+    .select(
+      "id, quote_type, location_id, status, total, title, slug, expires_at, reminder_count, link_token_encrypted, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))",
+    )
+    .eq("id", args.quoteId)
+    .maybeSingle();
+  const q = data as unknown as {
+    id: string;
+    quote_type: "job" | "standalone";
+    location_id: string;
+    status: string;
+    total: number;
+    title: string | null;
+    slug: string | null;
+    expires_at: string | null;
+    reminder_count: number;
+    link_token_encrypted: string | null;
+    customer: PersonRef;
+    vehicle: { registration: string | null } | null;
+    job: { customer: PersonRef; vehicle: { registration: string | null } | null } | null;
+  } | null;
+  if (!q || q.location_id !== ctx.location.id) return { error: "Quote not found." };
+  if (q.status !== "pending") return { error: "Only pending quotes can be reminded." };
+  if (!q.slug || !q.link_token_encrypted) {
+    return { error: "This quote predates reminders — use Revise & re-send to issue a fresh link first." };
+  }
+
+  const customer = q.quote_type === "job" ? q.job?.customer ?? null : q.customer;
+  const vehicleReg = (q.quote_type === "job" ? q.job?.vehicle : q.vehicle)?.registration ?? null;
+  if (!customer?.email && !customer?.phone) {
+    return { error: "Customer has no email or phone — cannot notify." };
+  }
+
+  const [{ data: org }, { data: locRow }] = await Promise.all([
+    admin.from("organizations").select("name").eq("id", ctx.organization.id).maybeSingle(),
+    admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle(),
+  ]);
+
+  let rawToken: string;
+  try {
+    rawToken = decrypt(q.link_token_encrypted);
+  } catch {
+    return { error: "Stored link can't be read (encryption key changed?) — use Revise & re-send instead." };
+  }
+
+  const url = tenantQuoteUrl(ctx.location.slug, q.slug, rawToken);
+  const result = await dispatchQuoteReminder({
+    customer,
+    vehicleReg,
+    title: q.title,
+    total: q.total,
+    garageName: (org as { name?: string } | null)?.name ?? ctx.organization.name,
+    locationName: ctx.location.name,
+    address: (locRow as { address: string | null } | null)?.address ?? null,
+    expiresAt: q.expires_at,
+    url,
+    channels: args.channels,
+  });
+  if (result.channels.length === 0) return { error: "Failed to send via any channel." };
+
+  await admin
+    .from("quotes")
+    .update({ last_reminder_at: new Date().toISOString(), reminder_count: (q.reminder_count ?? 0) + 1 })
+    .eq("id", args.quoteId);
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "quote.reminder_sent",
+    entityType: q.quote_type === "job" ? "job_quote" : "standalone_quote",
+    entityId: args.quoteId,
+    metadata: { type: "manual", channels: result.channels, total: q.total },
+  });
+
+  revalidatePath("/staff/quotes");
+  revalidatePath(`/staff/quotes/${args.quoteId}`);
+  return { success: true, channels: result.channels };
 }
 
 // ---------------------------------------------------------------------------

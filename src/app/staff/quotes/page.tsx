@@ -209,7 +209,14 @@ export default async function QuotesPage({
                         {r.status.replace(/_/g, " ")}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">{fmtDate(r.sent_at)}</td>
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {fmtDate(r.sent_at)}
+                      {r.reminder_count > 0 && (
+                        <div className="text-[11px]" title={r.last_reminder_at ? `Last reminded ${fmtDate(r.last_reminder_at)}` : undefined}>
+                          ↺ {r.reminder_count} reminder{r.reminder_count === 1 ? "" : "s"}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-muted-foreground">{fmtDate(r.expires_at)}</td>
                     <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{r.viewed_count ?? 0}</td>
                   </tr>
