@@ -9,6 +9,7 @@ import {
   releaseReceptionistNumber,
 } from "./receptionist-actions";
 import type { AvailableNumber, NumberType } from "@/lib/receptionist/provisioning";
+import { useConfirm } from "@/components/confirm-provider";
 
 export type ReceptionistLoc = {
   id: string;
@@ -19,6 +20,7 @@ export type ReceptionistLoc = {
 
 function ReceptionistRow({ loc }: { loc: ReceptionistLoc }) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -43,9 +45,13 @@ function ReceptionistRow({ loc }: { loc: ReceptionistLoc }) {
   }
 
   async function onBuy(phoneNumber: string) {
-    if (!confirm(`Buy ${phoneNumber} and assign it to ${loc.name}?\n\nThis charges the platform Twilio account and the number starts billing immediately.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Buy ${phoneNumber} for ${loc.name}?`,
+      description:
+        "This charges the platform Twilio account and the number starts billing immediately.",
+      confirmLabel: "Buy number",
+    });
+    if (!ok) return;
     setBusy(true);
     setMsg(null);
     const res = await provisionReceptionistNumber({ locationId: loc.id, phoneNumber });
@@ -61,9 +67,14 @@ function ReceptionistRow({ loc }: { loc: ReceptionistLoc }) {
   }
 
   async function onRelease() {
-    if (!confirm(`Release ${loc.twilioNumber} from ${loc.name}?\n\nThe number is returned to Twilio (stops billing) and the receptionist is disabled for this location.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Release ${loc.twilioNumber} from ${loc.name}?`,
+      description:
+        "The number is returned to Twilio (stops billing) and the receptionist is disabled for this location.",
+      confirmLabel: "Release number",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     setMsg(null);
     const res = await releaseReceptionistNumber({ locationId: loc.id });

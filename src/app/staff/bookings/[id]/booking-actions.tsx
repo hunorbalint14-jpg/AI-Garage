@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { startBooking, cancelBooking, markNoShow, deleteBooking, chargeNoShowFee } from "../actions";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Props = {
   bookingId: string;
@@ -32,6 +33,7 @@ export function BookingActions({
   noShowChargeError = null,
 }: Props) {
   const router = useRouter();
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [chargeInfo, setChargeInfo] = useState<string | null>(null);
@@ -40,9 +42,13 @@ export function BookingActions({
   const canChargeNoShow =
     status === "no_show" && cardOnFile && noShowFeePence > 0 && !noShowChargedAt;
 
-  function handleChargeNoShow() {
-    if (!confirm(`Charge the ${fmtGBP(noShowFeePence)} no-show fee to the customer's saved card?`))
-      return;
+  async function handleChargeNoShow() {
+    const ok = await confirm({
+      title: `Charge the ${fmtGBP(noShowFeePence)} no-show fee?`,
+      description: "The customer's saved card is charged immediately via Stripe.",
+      confirmLabel: "Charge card",
+    });
+    if (!ok) return;
     setError(null);
     setChargeInfo(null);
     startTransition(async () => {
@@ -64,8 +70,15 @@ export function BookingActions({
     });
   }
 
-  function handleCancel() {
-    if (!confirm("Cancel this booking?")) return;
+  async function handleCancel() {
+    const ok = await confirm({
+      title: "Cancel this booking?",
+      description: "The slot is freed and the customer will need to rebook.",
+      confirmLabel: "Cancel booking",
+      cancelLabel: "Keep booking",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await cancelBooking(bookingId);
@@ -73,8 +86,14 @@ export function BookingActions({
     });
   }
 
-  function handleNoShow() {
-    if (!confirm("Mark this booking as no-show?")) return;
+  async function handleNoShow() {
+    const ok = await confirm({
+      title: "Mark this booking as no-show?",
+      description:
+        "Records that the customer didn't attend. If a card is on file, the no-show fee can be charged afterwards.",
+      confirmLabel: "Mark no-show",
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await markNoShow(bookingId);
@@ -82,8 +101,14 @@ export function BookingActions({
     });
   }
 
-  function handleDelete() {
-    if (!confirm("Delete this booking permanently?")) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title: "Delete this booking permanently?",
+      description: "The booking is removed entirely, including its history. This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await deleteBooking(bookingId);

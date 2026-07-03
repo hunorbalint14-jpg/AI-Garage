@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { upsertServicePlan, togglePlanActive, deleteServicePlan } from "./actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 export type ServiceOption = { id: string; name: string };
 
@@ -42,6 +43,7 @@ function discountLabel(plan: Pick<PlanRow, "discount_type" | "discount_value">):
 type ActionResult = { error: string } | { success: true };
 
 export function PlansManager({ plans, services }: { plans: PlanRow[]; services: ServiceOption[] }) {
+  const confirm = useConfirm();
   const serviceName = new Map(services.map((s) => [s.id, s.name]));
   const [editing, setEditing] = useState<string | null>(null); // plan id, "new", or null
   const [error, setError] = useState<string | null>(null);
@@ -108,8 +110,14 @@ export function PlansManager({ plans, services }: { plans: PlanRow[]; services: 
                   setEditing(p.id);
                 }}
                 onToggle={() => run(() => togglePlanActive(p.id, !p.active))}
-                onDelete={() => {
-                  if (confirm("Delete this plan?")) run(() => deleteServicePlan(p.id));
+                onDelete={async () => {
+                  const ok = await confirm({
+                    title: `Delete plan "${p.name}"?`,
+                    description: "The plan is removed from sale. Existing subscriptions are unaffected.",
+                    confirmLabel: "Delete plan",
+                    destructive: true,
+                  });
+                  if (ok) run(() => deleteServicePlan(p.id));
                 }}
               />
             ),

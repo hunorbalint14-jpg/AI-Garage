@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createProduct, updateProduct, deleteProduct, adjustStock } from "./actions";
+import { useConfirm } from "@/components/confirm-provider";
 import { PRODUCT_CATEGORIES, SUPPLIERS } from "./constants";
 import { isLowStock } from "@/lib/inventory";
 
@@ -136,6 +137,7 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 }
 
 function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }) {
+  const confirm = useConfirm();
   const [price, setPrice] = useState(product.unit_price);
   const [cost, setCost] = useState(product.cost_price ?? 0);
   const [sku, setSku] = useState(product.sku ?? "");
@@ -197,8 +199,14 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
     startTransition(async () => { await updateProduct(product.id, { reorder_at: next }); });
   }
 
-  function handleDelete() {
-    if (!confirm(`Delete "${product.name}"?`)) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title: `Delete product "${product.name}"?`,
+      description: "The product and its stock record are removed from this branch.",
+      confirmLabel: "Delete product",
+      destructive: true,
+    });
+    if (!ok) return;
     startTransition(async () => { await deleteProduct(product.id); });
   }
 

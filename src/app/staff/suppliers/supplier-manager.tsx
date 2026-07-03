@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createSupplier, updateSupplier, deleteSupplier } from "./actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 export type Supplier = {
   id: string;
@@ -60,6 +61,7 @@ export function SupplierManager({ suppliers, canEdit }: { suppliers: Supplier[];
 }
 
 function SupplierRow({ supplier, canEdit }: { supplier: Supplier; canEdit: boolean }) {
+  const confirm = useConfirm();
   const [name, setName] = useState(supplier.name);
   const [email, setEmail] = useState(supplier.contact_email ?? "");
   const [phone, setPhone] = useState(supplier.contact_phone ?? "");
@@ -69,8 +71,14 @@ function SupplierRow({ supplier, canEdit }: { supplier: Supplier; canEdit: boole
   function save(fields: Parameters<typeof updateSupplier>[1]) {
     startTransition(async () => { await updateSupplier(supplier.id, fields); });
   }
-  function handleDelete() {
-    if (!confirm(`Delete "${supplier.name}"?`)) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title: `Delete supplier "${supplier.name}"?`,
+      description: "The supplier is removed from the list. Purchase orders that reference it are kept.",
+      confirmLabel: "Delete supplier",
+      destructive: true,
+    });
+    if (!ok) return;
     startTransition(async () => { await deleteSupplier(supplier.id); });
   }
 

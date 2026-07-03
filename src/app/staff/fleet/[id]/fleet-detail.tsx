@@ -6,6 +6,7 @@ import { updateFleetCompany, deleteFleetCompany, assignCustomerToFleet } from ".
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Company = { id: string; name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null; notes: string | null };
 type Customer = { id: string; full_name: string | null; email: string | null; phone: string | null };
@@ -30,6 +31,7 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
   vehicles: Vehicle[];
   unassignedCustomers: { id: string; full_name: string | null; email: string | null }[];
 }) {
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,8 +49,14 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
     });
   }
 
-  function handleDelete() {
-    if (!confirm(`Delete ${company.name}? Customers will be unlinked.`)) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title: `Delete fleet ${company.name}?`,
+      description: "Customers are unlinked from the fleet but keep their accounts and history.",
+      confirmLabel: "Delete fleet",
+      destructive: true,
+    });
+    if (!ok) return;
     startTransition(async () => { await deleteFleetCompany(company.id); });
   }
 
@@ -61,8 +69,13 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
     });
   }
 
-  function handleRemoveCustomer(customerId: string) {
-    if (!confirm("Remove this customer from the fleet?")) return;
+  async function handleRemoveCustomer(customerId: string) {
+    const ok = await confirm({
+      title: "Remove this customer from the fleet?",
+      description: "They keep their account and history — only the fleet link is removed.",
+      confirmLabel: "Remove from fleet",
+    });
+    if (!ok) return;
     startTransition(async () => { await assignCustomerToFleet(customerId, null); });
   }
 

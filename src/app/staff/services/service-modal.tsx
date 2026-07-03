@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { upsertService, toggleServiceActive, deleteService } from "./actions";
+import { useConfirm } from "@/components/confirm-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,6 +90,7 @@ function ServiceForm({ service, onDone }: { service?: ServiceRow; onDone: () => 
 }
 
 export function ServiceCard({ service }: { service: ServiceRow }) {
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -96,8 +98,14 @@ export function ServiceCard({ service }: { service: ServiceRow }) {
     startTransition(async () => { await toggleServiceActive(service.id, !service.active); });
   }
 
-  function handleDelete() {
-    if (!confirm(`Delete "${service.name}"?`)) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title: `Delete service "${service.name}"?`,
+      description: "It disappears from the booking widget and staff pickers. Past bookings are unaffected.",
+      confirmLabel: "Delete service",
+      destructive: true,
+    });
+    if (!ok) return;
     startTransition(async () => { await deleteService(service.id); });
   }
 

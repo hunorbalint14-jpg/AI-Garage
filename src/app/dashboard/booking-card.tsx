@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { cancelCustomerBooking, rescheduleCustomerBooking } from "./booking-actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Booking = {
   id: string;
@@ -29,6 +30,7 @@ function toLocalInput(isoDate: string): string {
 }
 
 export function BookingCard({ booking, orgColor, garagePhone }: Props) {
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState<"idle" | "reschedule">("idle");
   const [newDateTime, setNewDateTime] = useState(toLocalInput(booking.scheduled_at));
@@ -40,8 +42,15 @@ export function BookingCard({ booking, orgColor, garagePhone }: Props) {
   // side, so the actions give way to a "call us" hint.
   const actionable = booking.status === "scheduled";
 
-  function handleCancel() {
-    if (!confirm("Cancel this appointment?")) return;
+  async function handleCancel() {
+    const ok = await confirm({
+      title: "Cancel this appointment?",
+      description: "The garage is notified and the slot is released. You can book again any time.",
+      confirmLabel: "Cancel appointment",
+      cancelLabel: "Keep appointment",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await cancelCustomerBooking(booking.id);

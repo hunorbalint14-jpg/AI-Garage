@@ -12,6 +12,7 @@ import {
   convertQuoteToBooking,
   type QuoteNotifyChannel,
 } from "../actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 export type ReminderProps = {
   hasEmail: boolean;
@@ -47,6 +48,9 @@ export function QuoteDetailActions({
   convert?: ConvertProps;
 }) {
   const router = useRouter();
+  const confirm = useConfirm();
+  // "Charlie Customer — AB19 CDE", for confirmations that name the entity.
+  const quoteRef = [convert?.customerName, convert?.vehicleReg].filter(Boolean).join(" — ");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -64,8 +68,14 @@ export function QuoteDetailActions({
     whatsapp: !!reminder?.hasPhone && !!reminder?.sentChannels.includes("whatsapp"),
   }));
 
-  function handleSend() {
-    if (!confirm("Send this quote to the customer now? The token can only be retrieved once.")) return;
+  async function handleSend() {
+    const ok = await confirm({
+      title: quoteRef ? `Send the quote for ${quoteRef}?` : "Send this quote to the customer now?",
+      description:
+        "The customer gets the link by their preferred channels straight away. The link token can only be retrieved once.",
+      confirmLabel: "Send quote",
+    });
+    if (!ok) return;
     setError(null);
     setInfo(null);
     startTransition(async () => {
@@ -80,8 +90,15 @@ export function QuoteDetailActions({
     });
   }
 
-  function handleCancel() {
-    if (!confirm("Cancel this quote? The customer link will stop working.")) return;
+  async function handleCancel() {
+    const ok = await confirm({
+      title: quoteRef ? `Cancel the quote for ${quoteRef}?` : "Cancel this quote?",
+      description: "The customer link stops working immediately.",
+      confirmLabel: "Cancel quote",
+      cancelLabel: "Keep quote",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       const result = await cancelStandaloneQuote(quoteId);

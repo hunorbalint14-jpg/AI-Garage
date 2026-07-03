@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { subscribeToPlan, cancelSubscriptionWithRefund } from "./actions";
+import { useConfirm } from "@/components/confirm-provider";
 import type { PlanInterval } from "@/lib/service-plans";
 
 export function SubscribeButtons({
@@ -59,17 +60,21 @@ export function SubscribeButtons({
 }
 
 export function CancelButton({ subscriptionId }: { subscriptionId: string }) {
+  const confirm = useConfirm();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ refundedPence: number } | null>(null);
 
-  function go() {
-    if (
-      !confirm(
-        "Cancel this plan now? We'll refund any unspent balance — what you've paid, minus any services already taken (charged at the normal price).",
-      )
-    )
-      return;
+  async function go() {
+    const ok = await confirm({
+      title: "Cancel this plan now?",
+      description:
+        "We'll refund any unspent balance — what you've paid, minus any services already taken (charged at the normal price).",
+      confirmLabel: "Cancel plan",
+      cancelLabel: "Keep plan",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     start(async () => {
       const res = await cancelSubscriptionWithRefund(subscriptionId);

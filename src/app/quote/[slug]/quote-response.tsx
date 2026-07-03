@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
 import { Check, X, Calendar } from "lucide-react";
 import { approveQuote, declineQuote, declineAndRebook } from "./actions";
+import { useConfirm } from "@/components/confirm-provider";
 
 type QuoteItem = {
   id: string;
@@ -37,6 +38,7 @@ export function QuoteResponse({
   showRebookCta?: boolean;
 }) {
   const [stage, setStage] = useState<Stage>("idle");
+  const confirm = useConfirm();
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -61,16 +63,21 @@ export function QuoteResponse({
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
-  function handleApprove() {
+  async function handleApprove() {
     if (noneSelected) {
       setError("Tick at least one item to approve.");
       return;
     }
     const partial = !allSelected;
-    const message = depositPct > 0
-      ? `Approve ${partial ? "the ticked items" : "this quote"} and pay a ${depositPct}% deposit (${formatGBP(depositAmount)}) now?`
-      : `Approve ${partial ? "the ticked items" : "this quote"}? The work will be added to your job and invoiced when complete.`;
-    if (!confirm(message)) return;
+    const ok = await confirm({
+      title: partial ? "Approve the ticked items?" : "Approve this quote?",
+      description:
+        depositPct > 0
+          ? `A ${depositPct}% deposit (${formatGBP(depositAmount)}) is payable now — you'll be taken to the payment page.`
+          : "The work will be added to your job and invoiced when complete.",
+      confirmLabel: partial ? "Approve items" : "Approve quote",
+    });
+    if (!ok) return;
 
     setError(null);
     setStage("submitting");
@@ -106,8 +113,14 @@ export function QuoteResponse({
     });
   }
 
-  function handleRebook() {
-    if (!confirm("Skip this work for now and book it as a separate appointment?")) return;
+  async function handleRebook() {
+    const ok = await confirm({
+      title: "Book this work separately?",
+      description:
+        "Skips it for now — you'll be taken to the booking page to pick a time that suits you.",
+      confirmLabel: "Book separately",
+    });
+    if (!ok) return;
     setError(null);
     setStage("submitting");
     startTransition(async () => {

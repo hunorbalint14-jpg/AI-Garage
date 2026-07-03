@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createShareAction, revokeShareAction } from "./actions";
 import type { DocShare } from "@/lib/doc-shares";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/confirm-provider";
 
 const DOC_OPTIONS = [
   { value: "technical", label: "Technical reference" },
@@ -20,6 +21,7 @@ const EXPIRY_OPTIONS = [
 ];
 
 export function ShareManager({ shares }: { shares: DocShare[] }) {
+  const confirm = useConfirm();
   const [issued, setIssued] = useState<{ url: string; slug: string; createdAt: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -39,8 +41,14 @@ export function ShareManager({ shares }: { shares: DocShare[] }) {
     });
   };
 
-  const onRevoke = (id: string) => {
-    if (!confirm("Revoke this share link? Anyone holding it will get a 410 Gone page from now on.")) return;
+  const onRevoke = async (id: string) => {
+    const ok = await confirm({
+      title: "Revoke this share link?",
+      description: "Anyone holding it gets a 410 Gone page from now on.",
+      confirmLabel: "Revoke link",
+      destructive: true,
+    });
+    if (!ok) return;
     startTransition(async () => {
       const res = await revokeShareAction(id);
       if (!res.ok) setError(res.error);

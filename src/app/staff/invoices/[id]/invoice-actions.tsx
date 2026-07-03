@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { sendInvoice, markInvoicePaid, deleteInvoice, refundInvoice } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useConfirm } from "@/components/confirm-provider";
 
 type Props = {
   invoiceId: string;
@@ -15,6 +16,7 @@ type Props = {
 const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 
 export function InvoiceActions({ invoiceId, status, hasCustomerEmail, refundablePence }: Props) {
+  const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -23,13 +25,20 @@ export function InvoiceActions({ invoiceId, status, hasCustomerEmail, refundable
   const [refundAmount, setRefundAmount] = useState(refundablePounds.toFixed(2));
   const [refundReason, setRefundReason] = useState("");
 
-  function handleRefund() {
+  async function handleRefund() {
     const amount = parseFloat(refundAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
       setError("Enter a valid refund amount.");
       return;
     }
-    if (!confirm(`Refund ${fmt(amount)}? This issues a Stripe refund (if paid online) and records a credit note.`)) return;
+    const ok = await confirm({
+      title: `Refund ${fmt(amount)}?`,
+      description:
+        "Issues a Stripe refund if the invoice was paid online, and records a credit note either way.",
+      confirmLabel: "Refund",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     setSuccess(null);
     startTransition(async () => {
@@ -52,8 +61,14 @@ export function InvoiceActions({ invoiceId, status, hasCustomerEmail, refundable
     });
   }
 
-  function handleDelete() {
-    if (!confirm("Delete this invoice? The job will revert to complete status.")) return;
+  async function handleDelete() {
+    const ok = await confirm({
+      title: "Delete this invoice?",
+      description: "The invoice is removed and the job reverts to complete status.",
+      confirmLabel: "Delete invoice",
+      destructive: true,
+    });
+    if (!ok) return;
     setError(null);
     startTransition(async () => {
       await deleteInvoice(invoiceId);
