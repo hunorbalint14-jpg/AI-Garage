@@ -24,7 +24,11 @@ vi.mock("@/lib/quote-storage", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/encryption", () => ({ encrypt: vi.fn((v: string) => `enc:${v}`), decrypt: vi.fn((v: string) => v) }));
-vi.mock("@/lib/quote-reminders", () => ({ dispatchQuoteReminder: vi.fn(async () => ({ channels: [] })) }));
+vi.mock("@/lib/quote-reminders", () => ({
+  dispatchQuoteReminder: vi.fn(async () => ({ channels: [] })),
+  encryptLinkToken: vi.fn((v: string) => `enc:${v}`),
+}));
+vi.mock("../bookings/actions", () => ({ createBooking: vi.fn() }));
 
 const { requireStaffContext } = await import("@/lib/staff-context");
 const {
@@ -36,6 +40,7 @@ const {
   cancelStandaloneQuote,
   reviseQuote,
   sendManualReminder,
+  convertQuoteToBooking,
 } = await import("./actions");
 
 beforeEach(() => vi.clearAllMocks());
@@ -122,5 +127,21 @@ describe("sendManualReminder", () => {
   it("requires at least one channel", async () => {
     vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: true }));
     expect(await sendManualReminder({ quoteId: "q", channels: [] })).toEqual({ error: "Select at least one channel." });
+  });
+});
+
+describe("convertQuoteToBooking", () => {
+  it("denies without bookings permission", async () => {
+    vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ bookings: false }));
+    expect(await convertQuoteToBooking({ quoteId: "q", scheduledAt: "2026-07-10T10:00" })).toEqual({
+      error: "Permission denied.",
+    });
+  });
+
+  it("requires a scheduled time", async () => {
+    vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ bookings: true }));
+    expect(await convertQuoteToBooking({ quoteId: "q", scheduledAt: "  " })).toEqual({
+      error: "Pick a date and time for the booking.",
+    });
   });
 });

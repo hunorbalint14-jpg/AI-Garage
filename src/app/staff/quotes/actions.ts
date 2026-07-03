@@ -27,6 +27,7 @@ import {
 import { computeTotals, DEFAULT_VAT_RATE } from "@/lib/quote-service";
 import { decrypt } from "@/lib/encryption";
 import { dispatchQuoteReminder, encryptLinkToken } from "@/lib/quote-reminders";
+import { createBooking } from "../bookings/actions";
 
 export type StandaloneQuoteItemInput = {
   description: string;
@@ -839,6 +840,91 @@ export async function sendManualReminder(args: {
   revalidatePath("/staff/quotes");
   revalidatePath(`/staff/quotes/${args.quoteId}`);
   return { success: true, channels: result.channels };
+}
+
+// ---------------------------------------------------------------------------
+// convertQuoteToBooking — one-click convert an APPROVED standalone quote into
+// a scheduled booking (Phase 7, #255). Delegates the insert to the staff
+// createBooking action (hours warning, bay checks, optional confirmation
+// email all come for free) with from_quote_id set, then stamps
+// converted_booking_id on the quote. The job is created later by the normal
+// startBooking flow, which seeds job items from the quote — approved items
+// only when the customer partially approved.
+// ---------------------------------------------------------------------------
+export type ConvertQuoteResult =
+  | { error: string }
+  | { outOfHours: string }
+  | { success: true; bookingId: string };
+
+export async function convertQuoteToBooking(args: {
+  quoteId: string;
+  scheduledAt: string;
+  durationMinutes?: number;
+  sendConfirmation?: boolean;
+  confirmOutOfHours?: boolean;
+}): Promise<ConvertQuoteResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+  if (!args.scheduledAt?.trim()) return { error: "Pick a date and time for the booking." };
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from("quotes")
+    .select("id, quote_type, location_id, status, title, total, customer_id, vehicle_id, converted_booking_id")
+    .eq("id", args.quoteId)
+    .maybeSingle();
+  const q = data as {
+    id: string;
+    quote_type: "job" | "standalone";
+    location_id: string;
+    status: string;
+    title: string | null;
+    total: number;
+    customer_id: string | null;
+    vehicle_id: string | null;
+    converted_booking_id: string | null;
+  } | null;
+  if (!q || q.location_id !== ctx.location.id) return { error: "Quote not found." };
+  if (q.quote_type !== "standalone") return { error: "Only standalone quotes can be converted — DVI quotes already belong to a job." };
+  if (q.status !== "approved") return { error: "Only approved quotes can be converted." };
+  if (q.converted_booking_id) return { error: "This quote has already been converted to a booking." };
+  if (!q.customer_id) return { error: "Quote has no customer to book for." };
+
+  const fd = new FormData();
+  fd.set("customerId", q.customer_id);
+  if (q.vehicle_id) fd.set("vehicleId", q.vehicle_id);
+  fd.set("scheduledAt", args.scheduledAt);
+  fd.set("durationMinutes", String(args.durationMinutes ?? 60));
+  fd.set("type", "repair");
+  fd.set("notes", `Converted from quote: ${q.title ?? q.id}`);
+  fd.set("fromQuoteId", q.id);
+  if (args.sendConfirmation) fd.set("sendConfirmation", "on");
+  if (args.confirmOutOfHours) fd.set("confirmOutOfHours", "1");
+
+  const result = await createBooking(fd);
+  if (!("success" in result)) return result;
+
+  const { error: stampErr } = await admin
+    .from("quotes")
+    .update({ converted_booking_id: result.bookingId })
+    .eq("id", q.id)
+    .is("converted_booking_id", null);
+  if (stampErr) console.error("[convertQuoteToBooking] stamp failed", stampErr.message);
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "quote.converted_to_booking",
+    entityType: "standalone_quote",
+    entityId: q.id,
+    metadata: { booking_id: result.bookingId, scheduled_at: args.scheduledAt, total: q.total },
+  });
+
+  revalidatePath("/staff/quotes");
+  revalidatePath(`/staff/quotes/${q.id}`);
+  revalidatePath("/staff/bookings");
+  return { success: true, bookingId: result.bookingId };
 }
 
 // ---------------------------------------------------------------------------
