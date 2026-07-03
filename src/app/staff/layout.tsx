@@ -12,7 +12,7 @@ import { listRecentNotifications, unreadNotificationCount } from "@/lib/staff-no
 import { headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
 import { isDpaAccepted } from "@/lib/dpa";
-import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa } from "@/lib/mfa";
+import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa, isMfaNudgeDismissed } from "@/lib/mfa";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { MfaNudge } from "@/components/staff/mfa-nudge";
 import { TenantBillingNudge } from "@/components/staff/tenant-billing-nudge";
@@ -109,15 +109,18 @@ export default async function StaffLayout({
   // Owner/admin MFA gate. When OWNER_MFA_ENFORCED is on, owners/admins who
   // haven't cleared a passkey step-up this session go to /staff/mfa; otherwise a
   // nudge banner — but only for those without a credential yet (else it returns
-  // on every reload even with nothing left to set up).
+  // on every reload even with nothing left to set up), and not while a recent
+  // dismissal cookie is parked (checked first — it skips the credential query).
   let showMfaNudge = false;
   if (mfaApplies && !mfaVerified) {
     if (isOwnerMfaEnforced()) redirect("/staff/mfa");
-    const { count } = await admin
-      .from("webauthn_credentials")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", ctx.user.id);
-    showMfaNudge = (count ?? 0) === 0;
+    if (!(await isMfaNudgeDismissed(ctx.user.id))) {
+      const { count } = await admin
+        .from("webauthn_credentials")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", ctx.user.id);
+      showMfaNudge = (count ?? 0) === 0;
+    }
   }
 
   // Owner billing nudge: payment past-due, or a Pro trial ending within 7 days.
@@ -161,7 +164,7 @@ export default async function StaffLayout({
         currentLocationId={ctx.activeLocation.id}
         role={role}
       >
-        {showMfaNudge && <MfaNudge />}
+        {showMfaNudge && <MfaNudge userId={ctx.user.id} />}
         {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} />}
         {children}
       </StaffShell>
