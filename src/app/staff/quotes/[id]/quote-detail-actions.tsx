@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Send, X, Copy } from "lucide-react";
+import { Send, X, Copy, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cancelStandaloneQuote, sendQuoteDraft } from "../actions";
 
@@ -52,8 +53,9 @@ export function QuoteDetailActions({ quoteId, status }: { quoteId: string; statu
 
   const canSend = status === "draft";
   const canCancel = status === "pending" || status === "draft";
+  const canRevise = status === "pending" || status === "expired";
 
-  if (!canSend && !canCancel && status !== "approved") {
+  if (!canSend && !canCancel && !canRevise && status !== "approved") {
     return null;
   }
 
@@ -65,6 +67,18 @@ export function QuoteDetailActions({ quoteId, status }: { quoteId: string; statu
           <Button onClick={handleSend} disabled={pending}>
             <Send className="mr-2 h-4 w-4" /> Send to customer
           </Button>
+        )}
+        {canRevise && (
+          <Button
+            variant="outline"
+            disabled={pending}
+            nativeButton={false}
+            render={
+              <Link href={`/staff/quotes/${quoteId}/revise`}>
+                <PenLine className="mr-2 h-4 w-4" /> Revise &amp; re-send
+              </Link>
+            }
+          />
         )}
         {canCancel && (
           <Button variant="outline" onClick={handleCancel} disabled={pending}>

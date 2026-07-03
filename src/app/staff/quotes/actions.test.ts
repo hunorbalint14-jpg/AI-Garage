@@ -5,9 +5,11 @@ vi.mock("@/lib/staff-context", () => ({ requireStaffContext: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/email", () => ({ sendEmail: vi.fn() }));
 vi.mock("@/lib/sms", () => ({ sendSms: vi.fn() }));
+vi.mock("@/lib/whatsapp", () => ({ sendWhatsApp: vi.fn() }));
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("@/lib/quote-links", () => ({
   generateQuoteToken: vi.fn(() => "tok"),
+  generateQuoteSlug: vi.fn(() => "q-abc"),
   generateStandaloneQuoteSlug: vi.fn(() => "sq-abc"),
   hashQuoteToken: vi.fn(() => "h"),
   tenantQuoteUrl: vi.fn(() => "https://test/q"),
@@ -30,6 +32,7 @@ const {
   sendFreshStandaloneQuote,
   updateStandaloneQuoteDraft,
   cancelStandaloneQuote,
+  reviseQuote,
 } = await import("./actions");
 
 beforeEach(() => vi.clearAllMocks());
@@ -72,5 +75,37 @@ describe("send-perm actions", () => {
   it("cancelStandaloneQuote denies without quotes_send", async () => {
     vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: false }));
     expect(await cancelStandaloneQuote("q")).toEqual({ error: "Permission denied." });
+  });
+});
+
+describe("reviseQuote", () => {
+  const validArgs = {
+    quoteId: "q",
+    items: [{ description: "Pads", type: "part" as const, quantity: 1, unit_price: 10 }],
+    revisionNote: "Added pads",
+    channels: ["email" as const],
+  };
+
+  it("denies without quotes_send", async () => {
+    vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: false }));
+    expect(await reviseQuote(validArgs)).toEqual({ error: "Permission denied." });
+  });
+
+  it("requires a non-empty customer-facing note", async () => {
+    vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: true }));
+    const res = await reviseQuote({ ...validArgs, revisionNote: "   " });
+    expect(res).toEqual({ error: "A customer-facing note describing what changed is required." });
+  });
+
+  it("requires at least one channel", async () => {
+    vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: true }));
+    const res = await reviseQuote({ ...validArgs, channels: [] });
+    expect(res).toEqual({ error: "Select at least one channel to notify the customer." });
+  });
+
+  it("requires at least one line item", async () => {
+    vi.mocked(requireStaffContext).mockResolvedValue(mockStaffContextMember({ quotes_send: true }));
+    const res = await reviseQuote({ ...validArgs, items: [] });
+    expect(res).toEqual({ error: "Add at least one line item." });
   });
 });

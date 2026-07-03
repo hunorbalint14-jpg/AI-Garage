@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
+import { sendWhatsApp } from "@/lib/whatsapp";
 import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 import { logAudit } from "@/lib/audit";
 import {
@@ -496,6 +497,8 @@ export async function sendFreshStandaloneQuote(
   return { success: true, channels: result.channels, customerUrl: url };
 }
 
+export type QuoteNotifyChannel = "email" | "sms" | "whatsapp";
+
 async function dispatchStandaloneNotification(args: {
   customer: { full_name: string | null; email: string | null; phone: string | null };
   vehicleReg: string | null;
@@ -505,8 +508,14 @@ async function dispatchStandaloneNotification(args: {
   locationName: string | null;
   address: string | null;
   url: string;
+  // Which channels to attempt — defaults to the original email+SMS behaviour.
+  channels?: QuoteNotifyChannel[];
+  // Set for a re-send after edit: copy switches to "updated quote" + the
+  // customer-facing note, and warns that the previous link no longer works.
+  revision?: { number: number; note: string };
 }): Promise<{ channels: string[] }> {
-  const { customer, vehicleReg, title, total, garageName, locationName, address, url } = args;
+  const { customer, vehicleReg, title, total, garageName, locationName, address, url, revision } = args;
+  const wanted = new Set<QuoteNotifyChannel>(args.channels ?? ["email", "sms"]);
   const firstName = customer.full_name?.split(" ")[0] ?? "there";
   const totalFmt = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(total);
   const refSuffix = vehicleReg ? ` for ${vehicleReg}` : "";
@@ -516,25 +525,206 @@ async function dispatchStandaloneNotification(args: {
 
   const channels: string[] = [];
 
-  if (customer.email) {
-    const subject = `Quote from ${where}`;
-    const text = `Hi ${firstName},\n\n${title ? title + "\n\n" : ""}Here's your quote${refSuffix}: ${totalFmt} (inc. VAT).\n\nReview the line items and approve or decline online.\n\n${garageLocationBlock(identity)}`;
+  if (wanted.has("email") && customer.email) {
+    const subject = revision
+      ? `Updated quote from ${where} — revision ${revision.number}`
+      : `Quote from ${where}`;
+    const text = revision
+      ? `Hi ${firstName},\n\n${title ? title + "\n\n" : ""}We've updated your quote${refSuffix}: ${totalFmt} (inc. VAT).\n\nHere's what changed:\n${revision.note}\n\nThe previous link no longer works — please use the button below to review and respond to the current version.\n\n${garageLocationBlock(identity)}`
+      : `Hi ${firstName},\n\n${title ? title + "\n\n" : ""}Here's your quote${refSuffix}: ${totalFmt} (inc. VAT).\n\nReview the line items and approve or decline online.\n\n${garageLocationBlock(identity)}`;
     const result = await sendEmail({
       to: customer.email,
       subject,
       text,
-      cta: { url, label: "View quote" },
+      cta: { url, label: revision ? "View updated quote" : "View quote" },
     });
     if (result.success) channels.push("email");
   }
 
-  if (customer.phone) {
-    const body = `Hi ${firstName}, ${garageLocationInline(identity)} has sent you a quote${refSuffix}: ${totalFmt}. View + decide: ${url}`;
-    const result = await sendSms({ to: customer.phone, body });
+  const smsBody = revision
+    ? `Hi ${firstName}, ${garageLocationInline(identity)} has updated your quote${refSuffix}: ${totalFmt}. What changed: ${revision.note} View + respond (previous link is void): ${url}`
+    : `Hi ${firstName}, ${garageLocationInline(identity)} has sent you a quote${refSuffix}: ${totalFmt}. View + decide: ${url}`;
+
+  if (wanted.has("sms") && customer.phone) {
+    const result = await sendSms({ to: customer.phone, body: smsBody });
     if (result.success) channels.push("sms");
   }
 
+  if (wanted.has("whatsapp") && customer.phone) {
+    const result = await sendWhatsApp({ to: customer.phone, body: smsBody });
+    if (result.success) channels.push("whatsapp");
+  }
+
   return { channels };
+}
+
+// ---------------------------------------------------------------------------
+// reviseQuote — edit-after-send (Phase 5, #244). Works for BOTH quote types.
+// Snapshots the pre-revision items into quote_revisions, replaces the items,
+// mints a NEW token + slug (the old customer link dies), bumps
+// revision_number, and re-sends on the selected channels with the mandatory
+// customer-facing note.
+// ---------------------------------------------------------------------------
+export type ReviseQuoteResult =
+  | { error: string }
+  // channels may be empty if every selected channel failed — the revision has
+  // still happened (old link is void), so the UI must surface customerUrl.
+  | { success: true; channels: string[]; customerUrl: string };
+
+export async function reviseQuote(args: {
+  quoteId: string;
+  title?: string;
+  description?: string;
+  customerMessage?: string;
+  items: StandaloneQuoteItemInput[];
+  revisionNote: string;
+  channels: QuoteNotifyChannel[];
+}): Promise<ReviseQuoteResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const note = args.revisionNote?.trim();
+  if (!note) return { error: "A customer-facing note describing what changed is required." };
+  if (!args.channels?.length) return { error: "Select at least one channel to notify the customer." };
+  if (!args.items.length) return { error: "Add at least one line item." };
+  for (const it of args.items) {
+    if (!it.description?.trim()) return { error: "Every item needs a description." };
+    if (!["part", "labour", "other"].includes(it.type)) return { error: "Invalid item type." };
+    if (!Number.isFinite(it.quantity) || it.quantity <= 0) return { error: "Quantity must be greater than 0." };
+    if (!Number.isFinite(it.unit_price) || it.unit_price < 0) return { error: "Unit price must be 0 or greater." };
+  }
+
+  type PersonRef = { full_name: string | null; email: string | null; phone: string | null } | null;
+  const { data } = await admin
+    .from("quotes")
+    .select(
+      "id, quote_type, location_id, status, vat_rate, revision_number, title, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration))",
+    )
+    .eq("id", args.quoteId)
+    .maybeSingle();
+  const q = data as unknown as {
+    id: string;
+    quote_type: "job" | "standalone";
+    location_id: string;
+    status: string;
+    vat_rate: number;
+    revision_number: number;
+    title: string | null;
+    customer: PersonRef;
+    vehicle: { registration: string | null } | null;
+    job: { customer: PersonRef; vehicle: { registration: string | null } | null } | null;
+  } | null;
+  if (!q || q.location_id !== ctx.location.id) return { error: "Quote not found." };
+  if (q.status !== "pending" && q.status !== "expired") {
+    return { error: "Only pending or expired quotes can be revised." };
+  }
+
+  const customer = q.quote_type === "job" ? q.job?.customer ?? null : q.customer;
+  const vehicleReg = (q.quote_type === "job" ? q.job?.vehicle : q.vehicle)?.registration ?? null;
+  if (!customer?.email && !customer?.phone) {
+    return { error: "Customer has no email or phone — cannot notify." };
+  }
+
+  // Snapshot the items as they are BEFORE this revision; the row carries the
+  // NEW version number + the note explaining what changed going into it.
+  const { data: oldItems } = await admin
+    .from("quote_items")
+    .select("id, description, type, quantity, unit_price, product_id, sort_order")
+    .eq("quote_id", args.quoteId)
+    .order("sort_order");
+  const newRevision = (q.revision_number ?? 1) + 1;
+  const { error: snapErr } = await admin.from("quote_revisions").insert({
+    quote_id: args.quoteId,
+    revision_number: newRevision,
+    note,
+    created_by: ctx.user.id,
+    items_snapshot: oldItems ?? [],
+  });
+  if (snapErr) return { error: `Failed to record revision: ${snapErr.message}` };
+
+  const [{ data: org }, { data: locRow }] = await Promise.all([
+    admin.from("organizations").select("quote_validity_days, name").eq("id", ctx.organization.id).maybeSingle(),
+    admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle(),
+  ]);
+  let validityDays = Number((org as { quote_validity_days?: number } | null)?.quote_validity_days ?? 30);
+  if (!Number.isFinite(validityDays) || validityDays < 1 || validityDays > 365) validityDays = 30;
+  const locationAddress = (locRow as { address: string | null } | null)?.address ?? null;
+
+  const vatRate = Number.isFinite(Number(q.vat_rate)) && Number(q.vat_rate) > 0 ? Number(q.vat_rate) : DEFAULT_VAT_RATE;
+  const { subtotal, vat, total } = computeTotals(args.items, vatRate);
+
+  // New token + slug: the old customer link stops resolving immediately.
+  const token = generateQuoteToken();
+  const slug = q.quote_type === "job" ? generateQuoteSlug() : generateStandaloneQuoteSlug();
+  const expiresAt = new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString();
+
+  const { error: updateErr } = await admin
+    .from("quotes")
+    .update({
+      title: args.title !== undefined ? args.title.trim() || null : q.title,
+      description: args.description !== undefined ? args.description.trim() || null : undefined,
+      customer_message: args.customerMessage !== undefined ? args.customerMessage.trim() || null : undefined,
+      subtotal,
+      vat_amount: vat,
+      total,
+      status: "pending",
+      token_hash: hashQuoteToken(token),
+      slug,
+      expires_at: expiresAt,
+      revision_number: newRevision,
+      revision_note: note,
+      // Reset engagement for the new version.
+      sent_at: new Date().toISOString(),
+      viewed_at: null,
+      viewed_count: 0,
+      responded_at: null,
+      decline_reason: null,
+    })
+    .eq("id", args.quoteId)
+    .in("status", ["pending", "expired"]);
+  if (updateErr) return { error: updateErr.message };
+
+  await admin.from("quote_items").delete().eq("quote_id", args.quoteId);
+  const itemRows = args.items.map((it, idx) => ({
+    quote_id: args.quoteId,
+    description: it.description.trim(),
+    type: it.type,
+    quantity: it.quantity,
+    unit_price: it.unit_price,
+    product_id: it.product_id ?? null,
+    sort_order: idx,
+  }));
+  const { error: itemsErr } = await admin.from("quote_items").insert(itemRows);
+  if (itemsErr) return { error: `Failed to save revised items: ${itemsErr.message}` };
+
+  const url = tenantQuoteUrl(ctx.location.slug, slug, token);
+  const result = await dispatchStandaloneNotification({
+    customer,
+    vehicleReg,
+    title: args.title !== undefined ? args.title.trim() || null : q.title,
+    total,
+    garageName: (org as { name?: string } | null)?.name ?? ctx.organization.name,
+    locationName: ctx.location.name,
+    address: locationAddress,
+    url,
+    channels: args.channels,
+    revision: { number: newRevision, note },
+  });
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "quote.revise",
+    entityType: q.quote_type === "job" ? "job_quote" : "standalone_quote",
+    entityId: args.quoteId,
+    metadata: { revision_number: newRevision, channels: result.channels, total },
+  });
+
+  revalidatePath("/staff/quotes");
+  revalidatePath(`/staff/quotes/${args.quoteId}`);
+  return { success: true, channels: result.channels, customerUrl: url };
 }
 
 // ---------------------------------------------------------------------------
