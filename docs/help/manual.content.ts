@@ -112,6 +112,7 @@ const concepts: Section[] = [
       "Included services are free at the point of booking only once the customer has paid in enough to cover them — the 'funding gate'. Until then, or once the period's allowance is used, the plan's everyday discount applies instead. This keeps the garage from ever being out of pocket and keeps the plan a simple prepayment in law.",
       "Onboarding. Covered services start 12 months after joining, unless the garage enrols the customer right after a full service + MOT — then they begin as soon as the plan is funded.",
       "Cancelling. A customer can cancel any time. They're refunded what they've paid in, minus any services already taken (charged at the normal walk-in price). They keep those services; nobody loses out. New plans also have a 14-day cooling-off period.",
+      "Minimum terms. A minimum contract term only applies to business and fleet customers. Consumer plans never lock anyone in: cancelling is always available online from the customer portal in a couple of taps — no phone call or notice period required.",
     ],
     notes: [
       "Example: a member on 'Complete Care' books their included MOT. If their payments cover it, they pay £0 and the allowance shows 'MOT 0 of 1 left'. A second MOT in the same year falls back to the 10% member price.",
@@ -297,7 +298,7 @@ const customer: Section[] = [
     ],
     notes: [
       "How included services work is explained fully under 'Membership plans & the funding gate' in How it works — in short: a covered service is free once your payments cover it; otherwise the member discount applies.",
-      "Cancelling refunds what you've paid in, minus any services already taken at the normal walk-in price. New plans have a 14-day cooling-off period.",
+      "Cancelling refunds what you've paid in, minus any services already taken at the normal walk-in price. New plans have a 14-day cooling-off period. Consumer plans have no minimum term — you can cancel online any time, right from this page.",
     ],
   },
   {
