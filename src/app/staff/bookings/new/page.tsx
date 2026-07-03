@@ -3,6 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { getPickerCustomer } from "@/app/staff/customer-picker-actions";
+import { cachedActiveServices, cachedBays } from "@/lib/location-cache";
 import { BookingForm } from "./booking-form";
 
 export default async function NewBookingPage({
@@ -16,25 +17,13 @@ export default async function NewBookingPage({
 
   // Customers/vehicles come from the typeahead picker on demand — only a
   // ?customer= deep link needs resolving up front.
-  const [servicesRes, baysRes, initialCustomer] = await Promise.all([
-    admin
-      .from("services")
-      .select("id, name, category, duration_minutes, price")
-      .eq("location_id", ctx.location.id)
-      .eq("active", true)
-      .order("category", { ascending: true })
-      .order("name", { ascending: true }),
-    admin
-      .from("bays")
-      .select("id, name, description")
-      .eq("location_id", ctx.location.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
+  const [cachedServices, bays, initialCustomer] = await Promise.all([
+    cachedActiveServices(ctx.location.id),
+    cachedBays(ctx.location.id),
     params.customer ? getPickerCustomer(params.customer) : Promise.resolve(null),
   ]);
 
-  const services = (servicesRes.data ?? []) as { id: string; name: string; category: string; duration_minutes: number; price: number | null }[];
-  const bays = (baysRes.data ?? []) as { id: string; name: string; description: string | null }[];
+  const services = cachedServices.map((s) => ({ ...s, category: s.category ?? "" }));
 
   // All branches in the org, so the form can name a customer's *home* branch
   // when it differs from the active branch they're being booked into.

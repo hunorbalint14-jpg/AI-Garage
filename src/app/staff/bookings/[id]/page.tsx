@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
+import { cachedBays } from "@/lib/location-cache";
 import { TechnicianSelector } from "@/components/staff/technician-selector";
 import { assignBookingTechnician } from "../actions";
 import { BookingActions } from "./booking-actions";
@@ -57,7 +58,7 @@ export default async function BookingDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [bookingRes, jobRes, baysRes, staff] = await Promise.all([
+  const [bookingRes, jobRes, bays, staff] = await Promise.all([
     admin
       .from("bookings")
       .select(
@@ -70,12 +71,7 @@ export default async function BookingDetailPage({
       .select("id, status, completed_at")
       .eq("booking_id", id)
       .maybeSingle(),
-    admin
-      .from("bays")
-      .select("id, name")
-      .eq("location_id", ctx.location.id)
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: true }),
+    cachedBays(ctx.location.id),
     listLocationStaff(ctx.location.id, ctx.organization.id),
   ]);
 
@@ -90,7 +86,6 @@ export default async function BookingDetailPage({
   if (!booking || booking.location_id !== ctx.location.id) notFound();
 
   const job = jobRes.data as LinkedJob | null;
-  const bays = (baysRes.data ?? []) as { id: string; name: string }[];
 
   return (
     <div className="flex flex-col gap-6">

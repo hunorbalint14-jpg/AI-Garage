@@ -1,9 +1,10 @@
-"use server";
+﻿"use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { locationCacheTag } from "@/lib/location-cache";
 import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
 import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
@@ -64,7 +65,7 @@ export async function updateOrganization(
     },
   });
 
-  // Name/colour are cached per tenant slug — drop the org's cached branding
+  // Name/colour are cached per tenant slug â€” drop the org's cached branding
   // (public tenant cache + the staff context's location/org cache).
   await invalidateTenantCacheForOrg(ctx.organization.id);
   await invalidateStaffLocationCacheForOrg(ctx.organization.id);
@@ -118,7 +119,7 @@ export async function updateBusinessHours(
   }
 
   // Keep the legacy scalar columns as a coarse mirror (week's min-open hour /
-  // max-close hour) — the dashboard_stats RPC still reads them for the today
+  // max-close hour) â€” the dashboard_stats RPC still reads them for the today
   // grid. business_hours (jsonb) is the source of truth everywhere else.
   const opens = Object.values(weekly).map((h) => h.open);
   const closes = Object.values(weekly).map((h) => h.close);
@@ -145,6 +146,7 @@ export async function updateBusinessHours(
 
   revalidatePath("/staff/settings");
   revalidatePath("/staff");
+  updateTag(locationCacheTag("hours", ctx.location.id));
   return { success: true };
 }
 
@@ -182,7 +184,7 @@ export async function addSpecialHours(formData: FormData): Promise<SpecialHoursR
   // Refuse an override that would orphan existing bookings: any upcoming
   // booking on that date whose time falls outside the new hours (or any at all
   // when closing the day) must be rescheduled first. Bookings are stored UTC;
-  // the date is a UK calendar day, so fetch a ±1-day window and bucket each
+  // the date is a UK calendar day, so fetch a Â±1-day window and bucket each
   // booking by its Europe/London day before comparing.
   const windowStart = new Date(`${date}T00:00:00Z`);
   windowStart.setUTCDate(windowStart.getUTCDate() - 1);
@@ -209,7 +211,7 @@ export async function addSpecialHours(formData: FormData): Promise<SpecialHoursR
       .join(", ");
     const hoursLabel = isClosed
       ? "closed all day"
-      : `${minutesToLabel(openMinute as number)}–${minutesToLabel(closeMinute as number)}`;
+      : `${minutesToLabel(openMinute as number)}â€“${minutesToLabel(closeMinute as number)}`;
     return {
       error: `${orphaned.length} booking${orphaned.length === 1 ? "" : "s"} on ${date} (at ${times}) would fall outside the new hours (${hoursLabel}). Reschedule or cancel them first.`,
     };
@@ -242,6 +244,7 @@ export async function addSpecialHours(formData: FormData): Promise<SpecialHoursR
   });
 
   revalidatePath("/staff/settings");
+  updateTag(locationCacheTag("hours", ctx.location.id));
   return { success: true };
 }
 
@@ -273,6 +276,7 @@ export async function removeSpecialHours(formData: FormData): Promise<SpecialHou
   });
 
   revalidatePath("/staff/settings");
+  updateTag(locationCacheTag("hours", ctx.location.id));
   return { success: true };
 }
 
@@ -289,7 +293,7 @@ function slugifyName(name: string): string {
     .slice(0, 30);
 }
 
-// Find a unique slug for a new branch — owners no longer type a subdomain; we
+// Find a unique slug for a new branch â€” owners no longer type a subdomain; we
 // generate one from the org slug + branch name and de-dupe against the shared
 // slug namespace (orgs + locations + retired slugs).
 async function generateLocationSlug(
@@ -330,7 +334,7 @@ export async function addLocation(
     .eq("organization_id", ctx.organization.id);
   if ((locationCount ?? 0) >= maxLocations) {
     const allowed = maxLocations === Number.POSITIVE_INFINITY ? "unlimited" : maxLocations;
-    return { error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. Upgrade in Settings → Billing to add more.` };
+    return { error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. Upgrade in Settings â†’ Billing to add more.` };
   }
 
   const slug = await generateLocationSlug(admin, ctx.organization.slug, name);
@@ -365,7 +369,7 @@ export type LocationActionResult = { error: string } | { success: true };
 
 // Edit a branch's display name + postal address. The address feeds every
 // client-facing communication (so customers know which site to attend); the
-// slug/subdomain is deliberately NOT editable here — that stays platform-admin-
+// slug/subdomain is deliberately NOT editable here â€” that stays platform-admin-
 // only (the /admin console).
 export async function renameLocation(formData: FormData): Promise<LocationActionResult> {
   const ctx = await requireStaffContext();
@@ -401,14 +405,14 @@ export async function renameLocation(formData: FormData): Promise<LocationAction
     metadata: { from: (loc as { name: string | null }).name, to: name, address },
   });
 
-  // Name shows in tenant branding + the staff switcher — evict both caches.
+  // Name shows in tenant branding + the staff switcher â€” evict both caches.
   await invalidateTenantCacheForOrg(ctx.organization.id);
   await invalidateStaffLocationCacheForOrg(ctx.organization.id);
   revalidatePath("/staff/settings");
   return { success: true };
 }
 
-// Set the org's primary/default branch (organizations.primary_location_id) —
+// Set the org's primary/default branch (organizations.primary_location_id) â€”
 // the fallback used for public branding, the portal, and the active-branch
 // default.
 export async function setPrimaryLocation(formData: FormData): Promise<LocationActionResult> {

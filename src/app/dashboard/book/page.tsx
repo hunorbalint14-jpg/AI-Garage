@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cachedActiveServices } from "@/lib/location-cache";
 import { AnimatedBackground } from "@/components/animated-background";
 import { CustomerSignOutButton } from "../sign-out-button";
 import { BookingRequestForm, type ServiceCoverage } from "./booking-request-form";
@@ -72,24 +73,19 @@ export default async function BookPage() {
     .order("name");
   const locations = (branchData ?? []) as { id: string; name: string }[];
 
-  const [vehiclesRes, servicesRes] = await Promise.all([
+  const [vehiclesRes, perBranchServices] = await Promise.all([
     customer
       ? admin.from("vehicles").select("id, registration, make, model").eq("customer_id", customer.id).order("created_at", { ascending: false })
       : Promise.resolve({ data: [] }),
-    admin
-      .from("services")
-      .select("id, name, category, duration_minutes, price, location_id")
-      .in("location_id", locations.map((l) => l.id))
-      .eq("active", true)
-      .order("category")
-      .order("name"),
+    Promise.all(
+      locations.map(async (l) => ({ id: l.id, services: await cachedActiveServices(l.id) })),
+    ),
   ]);
 
   const vehicles = vehiclesRes.data ?? [];
   const servicesByLocation: Record<string, Service[]> = {};
-  for (const l of locations) servicesByLocation[l.id] = [];
-  for (const s of (servicesRes.data ?? []) as (Service & { location_id: string })[]) {
-    (servicesByLocation[s.location_id] ??= []).push(s);
+  for (const b of perBranchServices) {
+    servicesByLocation[b.id] = b.services.map((s) => ({ ...s, category: s.category ?? "" }));
   }
   const defaultLocationId = location.id;
 

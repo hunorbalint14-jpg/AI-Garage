@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { BookingWidgetForm } from "./booking-widget-form";
 import { parseWeeklyHours, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
+import { cachedActiveServices, cachedLocationHours } from "@/lib/location-cache";
 
 export default async function BookingWidgetPage({
   searchParams,
@@ -55,51 +56,36 @@ export default async function BookingWidgetPage({
   };
   const { data: branchData } = await admin
     .from("locations")
-    .select("id, name, business_hours")
+    .select("id, name")
     .eq("organization_id", org.id)
     .order("name");
-  const branches = (branchData ?? []) as { id: string; name: string; business_hours: unknown }[];
-  const locations = branches.map((b) => ({ id: b.id, name: b.name }));
-  // Per-branch weekly hours + upcoming overrides so the widget can show the
-  // resolved hours / "Closed" for the picked date; the server re-checks before
-  // creating any booking.
-  const weeklyByLocation: Record<string, WeeklyHours> = {};
-  for (const b of branches) weeklyByLocation[b.id] = parseWeeklyHours(b.business_hours);
+  const locations = (branchData ?? []) as { id: string; name: string }[];
 
+  // Per-branch weekly hours + upcoming overrides (so the widget can show the
+  // resolved hours / "Closed" for the picked date; the server re-checks before
+  // creating any booking) and the bookable services — all from the per-location
+  // cache, so anonymous widget traffic doesn't hit Postgres per page view.
   const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
-  const { data: specialData } = await admin
-    .from("location_special_hours")
-    .select("location_id, date, is_closed, open_minute, close_minute")
-    .in("location_id", locations.map((l) => l.id))
-    .gte("date", todayKey);
+  const perBranch = await Promise.all(
+    locations.map(async (l) => ({
+      id: l.id,
+      hours: await cachedLocationHours(l.id, todayKey),
+      services: await cachedActiveServices(l.id),
+    })),
+  );
+
+  const weeklyByLocation: Record<string, WeeklyHours> = {};
   const specialByLocation: Record<string, SpecialHours[]> = {};
-  for (const l of locations) specialByLocation[l.id] = [];
-  for (const s of (specialData ?? []) as {
-    location_id: string;
-    date: string;
-    is_closed: boolean;
-    open_minute: number | null;
-    close_minute: number | null;
-  }[]) {
-    (specialByLocation[s.location_id] ??= []).push({
+  const servicesByLocation: Record<string, Service[]> = {};
+  for (const b of perBranch) {
+    weeklyByLocation[b.id] = parseWeeklyHours(b.hours.weekly);
+    specialByLocation[b.id] = b.hours.special.map((s) => ({
       date: s.date,
       isClosed: s.is_closed,
       openMinute: s.open_minute,
       closeMinute: s.close_minute,
-    });
-  }
-
-  const { data: servicesData } = await admin
-    .from("services")
-    .select("id, name, category, duration_minutes, price, location_id")
-    .in("location_id", locations.map((l) => l.id))
-    .eq("active", true)
-    .order("category")
-    .order("name");
-  const servicesByLocation: Record<string, Service[]> = {};
-  for (const l of locations) servicesByLocation[l.id] = [];
-  for (const s of (servicesData ?? []) as (Service & { location_id: string })[]) {
-    (servicesByLocation[s.location_id] ??= []).push(s);
+    }));
+    servicesByLocation[b.id] = b.services.map((s) => ({ ...s, category: s.category ?? "" }));
   }
   const defaultLocationId = location.id;
 

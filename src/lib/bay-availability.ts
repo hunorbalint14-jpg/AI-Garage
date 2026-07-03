@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { cachedBays } from "@/lib/location-cache";
 
 // Bookings that occupy a bay (don't block the bay if cancelled, complete, no-show).
 const ACTIVE_STATUSES = ["scheduled", "in_progress", "payment_pending"] as const;
@@ -89,13 +90,8 @@ export async function bayCapacityAt(args: {
   occupiedBays: number;
   freeBays: number;
 }> {
-  const admin = createAdminClient();
-  const { count: totalBays } = await admin
-    .from("bays")
-    .select("id", { count: "exact", head: true })
-    .eq("location_id", args.locationId);
-
-  const bayCount = totalBays ?? 0;
+  // Cached — the widget's slot checks were a bay-count query per interaction.
+  const bayCount = (await cachedBays(args.locationId)).length;
   if (bayCount === 0) {
     return { available: true, totalBays: 0, occupiedBays: 0, freeBays: 0 };
   }

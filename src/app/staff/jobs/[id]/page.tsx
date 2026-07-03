@@ -7,6 +7,7 @@ import { labourEstimateMinutes, liveActiveMinutes } from "@/lib/time-tracking";
 import { TechnicianSelector } from "@/components/staff/technician-selector";
 import { hvWarningFor, isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import { assignJobTechnician } from "../actions";
+import { cachedActiveProducts, cachedActiveServices } from "@/lib/location-cache";
 import { JobDetail } from "./job-detail";
 import { JobTimeTracking, type TimeEntryView } from "./job-time-tracking";
 import { HighVoltageSection } from "./high-voltage-section";
@@ -44,7 +45,7 @@ export default async function JobDetailPage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [jobRes, itemsRes, productsRes, servicesRes, quotesRes, staff, timeRes] = await Promise.all([
+  const [jobRes, itemsRes, products, cachedServices, quotesRes, staff, timeRes] = await Promise.all([
     admin
       .from("jobs")
       .select(
@@ -57,18 +58,8 @@ export default async function JobDetailPage({
       .select("id, description, quantity, unit_price, type, created_at")
       .eq("job_id", id)
       .order("created_at", { ascending: true }),
-    admin
-      .from("products")
-      .select("id, name, unit_price, category")
-      .eq("location_id", ctx.location.id)
-      .eq("active", true)
-      .order("name"),
-    admin
-      .from("services")
-      .select("id, name, price, category")
-      .eq("location_id", ctx.location.id)
-      .eq("active", true)
-      .order("name"),
+    cachedActiveProducts(ctx.location.id),
+    cachedActiveServices(ctx.location.id),
     admin
       .from("quotes")
       .select(
@@ -102,18 +93,18 @@ export default async function JobDetailPage({
     : null;
 
   const items = (itemsRes.data ?? []) as JobItem[];
-  const products = (productsRes.data ?? []) as {
-    id: string;
-    name: string;
-    unit_price: number;
-    category: string;
-  }[];
-  const services = (servicesRes.data ?? []) as {
-    id: string;
-    name: string;
-    price: number | null;
-    category: string;
-  }[];
+  const productOptions = products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    unit_price: p.unit_price,
+    category: p.category ?? "",
+  }));
+  const services = cachedServices.map((s) => ({
+    id: s.id,
+    name: s.name,
+    price: s.price,
+    category: s.category ?? "",
+  }));
   const quotes = (quotesRes.data ?? []) as {
     id: string;
     status: string;
@@ -196,7 +187,7 @@ export default async function JobDetailPage({
         currentUserId={ctx.user.id}
       />
 
-      <JobDetail job={job} items={items} products={products} services={services} quotes={quotes} />
+      <JobDetail job={job} items={items} products={productOptions} services={services} quotes={quotes} />
     </div>
   );
 }
