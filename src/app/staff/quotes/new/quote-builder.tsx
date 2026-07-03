@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Send, Save, Copy, Check, Video } from "lucide-react";
+import { Plus, Trash2, Send, Save, Copy, Check, Video, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,8 @@ import {
   sendFreshStandaloneQuote,
   type StandaloneQuoteItemInput,
 } from "../actions";
+import { suggestLabourTime } from "../../jobs/actions";
+import { seedQuoteFromDiagnostic, type SeedFromDiagnosticResult } from "../ai-actions";
 
 type Product = { id: string; name: string; unit_price: number; category: string };
 
@@ -23,6 +25,8 @@ type DraftItem = {
   quantity: string;
   unit_price: string;
   product_id: string;
+  // Set after an AI labour estimate — shown under the row, cleared on edit.
+  ai_note?: string;
 };
 
 const newDraftItem = (): DraftItem => ({
@@ -73,6 +77,73 @@ export function QuoteBuilder({
 
   const [customerUrl, setCustomerUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // AI assist (Phase 9): per-row labour estimates + seed-from-diagnostic.
+  const [estimatingIdx, setEstimatingIdx] = useState<number | null>(null);
+  const [symptom, setSymptom] = useState("");
+  const [seeding, setSeeding] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [diagnosis, setDiagnosis] = useState<Extract<SeedFromDiagnosticResult, { success: true }>["diagnosis"] | null>(null);
+
+  const selectedVehicle = selectedCustomer?.vehicles.find((v) => v.id === vehicleId) ?? null;
+  const vehicleDescription = selectedVehicle
+    ? [selectedVehicle.year, selectedVehicle.make, selectedVehicle.model].filter(Boolean).join(" ") || undefined
+    : undefined;
+
+  function handleEstimate(idx: number) {
+    const desc = items[idx]?.description.trim();
+    if (!desc) {
+      setAiError("Type a description for the labour line first.");
+      return;
+    }
+    setAiError(null);
+    setEstimatingIdx(idx);
+    startTransition(async () => {
+      const result = await suggestLabourTime(desc, vehicleDescription);
+      setEstimatingIdx(null);
+      if ("error" in result) {
+        setAiError(result.error);
+        return;
+      }
+      updateItem(idx, { quantity: String(result.hours), ai_note: `AI estimate: ${result.hours} hrs — ${result.note}` });
+    });
+  }
+
+  function handleSeedFromDiagnostic() {
+    if (!symptom.trim()) {
+      setAiError("Describe the symptom first.");
+      return;
+    }
+    setAiError(null);
+    setSeeding(true);
+    startTransition(async () => {
+      const result = await seedQuoteFromDiagnostic({
+        symptom,
+        vehicleDescription,
+        vehicleReg: selectedVehicle?.registration ?? undefined,
+      });
+      setSeeding(false);
+      if ("error" in result) {
+        setAiError(result.error);
+        return;
+      }
+      setDiagnosis(result.diagnosis);
+      if (!title.trim()) setTitle(result.title);
+      if (!customerMessage.trim()) setCustomerMessage(result.customerMessage);
+      const seeded: DraftItem[] = result.items.map((it) => ({
+        description: it.description,
+        type: it.type,
+        quantity: String(it.quantity),
+        unit_price: String(it.unit_price),
+        product_id: "",
+        ai_note: `AI estimate: ${it.quantity} hrs — ${it.note}`,
+      }));
+      setItems((prev) => {
+        const nonEmpty = prev.filter((it) => it.description.trim());
+        return nonEmpty.length ? [...nonEmpty, ...seeded] : seeded;
+      });
+    });
+  }
 
   const subtotal = items.reduce(
     (sum, it) => sum + (parseFloat(it.quantity) || 0) * (parseFloat(it.unit_price) || 0),
@@ -267,6 +338,53 @@ export function QuoteBuilder({
         />
       </div>
 
+      {/* AI assist — seed the quote from a described symptom */}
+      <div className="rounded-lg border p-4 flex flex-col gap-3">
+        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+          <Sparkles className="h-4 w-4" /> AI assist
+        </h2>
+        <p className="text-xs text-muted-foreground">
+          Describe the customer&rsquo;s symptom and AI drafts a starting point — title, message, and a
+          labour line with estimated hours. Everything stays editable; nothing is sent automatically.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Input
+            placeholder="e.g. Grinding noise from front when braking"
+            value={symptom}
+            onChange={(e) => setSymptom(e.target.value)}
+            disabled={pending || seeding}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleSeedFromDiagnostic}
+            loading={seeding}
+            disabled={pending}
+            className="shrink-0"
+          >
+            <Sparkles className="mr-2 h-4 w-4" /> Seed from diagnostic
+          </Button>
+        </div>
+        {diagnosis && (
+          <div className="rounded-md border bg-muted/20 p-3 text-sm flex flex-col gap-1.5">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Likely causes ({diagnosis.urgency === "urgent" ? "urgent" : diagnosis.urgency === "soon" ? "see within 2 weeks" : "monitor"})
+            </p>
+            <ul className="list-disc pl-5">
+              {diagnosis.likelyCauses.map((c, i) => (
+                <li key={i}>
+                  {c.cause} <span className="text-xs text-muted-foreground">({c.probability})</span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              Typical cost guide: {diagnosis.estimatedCost}. AI suggestion — verify before sending.
+            </p>
+          </div>
+        )}
+        {aiError && <p className="text-sm text-red-600">{aiError}</p>}
+      </div>
+
       {/* Title + message */}
       <div className="rounded-lg border p-4 flex flex-col gap-3">
         <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Quote details</h2>
@@ -370,7 +488,7 @@ export function QuoteBuilder({
               <Input
                 placeholder="Description"
                 value={it.description}
-                onChange={(e) => updateItem(idx, { description: e.target.value, product_id: it.product_id ? "" : it.product_id })}
+                onChange={(e) => updateItem(idx, { description: e.target.value, product_id: it.product_id ? "" : it.product_id, ai_note: undefined })}
                 required
                 disabled={pending}
               />
@@ -419,6 +537,21 @@ export function QuoteBuilder({
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
+            {it.type === "labour" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleEstimate(idx)}
+                  loading={estimatingIdx === idx}
+                  disabled={pending || estimatingIdx !== null}
+                >
+                  <Zap className="mr-1 h-3.5 w-3.5" /> Estimate hours
+                </Button>
+                {it.ai_note && <p className="text-xs text-muted-foreground">{it.ai_note}</p>}
+              </div>
+            )}
           </div>
         ))}
         <Button type="button" variant="outline" size="sm" onClick={addItem} disabled={pending} className="self-start">

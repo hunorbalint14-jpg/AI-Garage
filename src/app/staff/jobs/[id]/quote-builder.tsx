@@ -3,11 +3,12 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Video, Plus, Trash2, Send, Check, Copy, X } from "lucide-react";
+import { Video, Plus, Trash2, Send, Check, Copy, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { prepareQuoteUpload, createQuote, sendQuoteWithToken, type QuoteItemInput } from "./quote-actions";
+import { suggestLabourTime } from "../actions";
 
 type Product = { id: string; name: string; unit_price: number; category: string };
 
@@ -19,6 +20,8 @@ type DraftItem = {
   quantity: string;
   unit_price: string;
   product_id: string;
+  // Set after an AI labour estimate — shown under the row, cleared on edit.
+  ai_note?: string;
 };
 
 const newDraftItem = (): DraftItem => ({ description: "", type: "part", quantity: "1", unit_price: "0", product_id: "" });
@@ -29,7 +32,15 @@ function formatGBP(n: number): string {
 
 const inputClass = "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
-export function QuoteBuilder({ jobId, products }: { jobId: string; products: Product[] }) {
+export function QuoteBuilder({
+  jobId,
+  products,
+  vehicleDescription,
+}: {
+  jobId: string;
+  products: Product[];
+  vehicleDescription?: string;
+}) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [phase, setPhase] = useState<Phase>("drafting");
@@ -110,6 +121,29 @@ export function QuoteBuilder({ jobId, products }: { jobId: string; products: Pro
 
   function updateItem(idx: number, patch: Partial<DraftItem>) {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  }
+
+  // AI labour estimate (Phase 9) — prefills quantity, staff can override.
+  const [estimatingIdx, setEstimatingIdx] = useState<number | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  function handleEstimate(idx: number) {
+    const desc = items[idx]?.description.trim();
+    if (!desc) {
+      setAiError("Type a description for the labour line first.");
+      return;
+    }
+    setAiError(null);
+    setEstimatingIdx(idx);
+    startTransition(async () => {
+      const result = await suggestLabourTime(desc, vehicleDescription);
+      setEstimatingIdx(null);
+      if ("error" in result) {
+        setAiError(result.error);
+        return;
+      }
+      updateItem(idx, { quantity: String(result.hours), ai_note: `AI estimate: ${result.hours} hrs — ${result.note}` });
+    });
   }
 
   function pickProduct(idx: number, productId: string) {
@@ -282,7 +316,7 @@ export function QuoteBuilder({ jobId, products }: { jobId: string; products: Pro
                   </select>
                 )}
                 <div className="grid grid-cols-1 sm:grid-cols-[1fr_120px_90px_110px_auto] gap-2 items-end">
-                  <Input placeholder="Description" value={it.description} onChange={(e) => updateItem(idx, { description: e.target.value, product_id: it.product_id ? "" : it.product_id })} required disabled={pending} />
+                  <Input placeholder="Description" value={it.description} onChange={(e) => updateItem(idx, { description: e.target.value, product_id: it.product_id ? "" : it.product_id, ai_note: undefined })} required disabled={pending} />
                   <select value={it.type} onChange={(e) => updateItem(idx, { type: e.target.value as "part" | "labour" | "other" })} disabled={pending} className={inputClass}>
                     <option value="part">Part</option>
                     <option value="labour">Labour</option>
@@ -300,11 +334,27 @@ export function QuoteBuilder({ jobId, products }: { jobId: string; products: Pro
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
+                {it.type === "labour" && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEstimate(idx)}
+                      loading={estimatingIdx === idx}
+                      disabled={pending || estimatingIdx !== null}
+                    >
+                      <Zap className="mr-1 h-3.5 w-3.5" /> Estimate hours
+                    </Button>
+                    {it.ai_note && <p className="text-xs text-muted-foreground">{it.ai_note}</p>}
+                  </div>
+                )}
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" onClick={addItem} disabled={pending} className="self-start">
               <Plus className="mr-1 h-4 w-4" /> Add item
             </Button>
+            {aiError && <p className="text-sm text-red-600">{aiError}</p>}
           </div>
 
           <div className="rounded-md border bg-muted/20 p-3 text-sm">
