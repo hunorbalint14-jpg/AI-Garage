@@ -1,4 +1,5 @@
 import { getAccessToken } from "./dvla-auth";
+import { parseDvsaDate } from "./dvsa-bulk";
 
 // DVSA MOT History API — OAuth2 client credentials + API key auth
 
@@ -9,7 +10,7 @@ export type DvsaVehicle = {
   year: number | null;
   motExpiry: string | null; // YYYY-MM-DD
   colour: string | null;
-  noMotHistory: boolean; // true = new vehicle, motExpiry is calculated first-due date
+  noMotHistory: boolean; // true = no tests yet; motExpiry is DVSA's first-MOT due date (or the reg+3y fallback)
 };
 
 export type DvsaResult =
@@ -21,12 +22,18 @@ function parseMotExpiry(tests: { testResult: string; expiryDate?: string }[]): s
   return passed?.expiryDate ?? null;
 }
 
-function firstMotDueDate(firstUsedDate: string | undefined): string | null {
-  if (!firstUsedDate) return null;
-  const d = new Date(firstUsedDate);
-  if (isNaN(d.getTime())) return null;
-  d.setFullYear(d.getFullYear() + 3);
-  return d.toISOString().split("T")[0];
+// Fallback for new-reg payloads that omit motTestDueDate: third anniversary
+// of first registration (the GOV.UK rule for class 3/4 vehicles). DVSA's own
+// motTestDueDate is preferred wherever present — it also covers imports
+// (manufacture-based) and 1-year-MOT vehicle classes, which this cannot.
+export function firstMotDueDate(firstUsedDate: string | undefined): string | null {
+  const base = parseDvsaDate(firstUsedDate);
+  if (!base) return null;
+  const [y, m, d] = base.split("-").map(Number);
+  const year = y + 3;
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const day = m === 2 && d === 29 && !isLeap ? 28 : d;
+  return `${year}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function parseYear(v: Record<string, unknown>): number | null {
@@ -215,6 +222,7 @@ export async function lookupVehicle(registration: string): Promise<DvsaResult> {
     model: vehicle.model,
     firstUsedDate: vehicle.firstUsedDate,
     registrationDate: vehicle.registrationDate,
+    motTestDueDate: vehicle.motTestDueDate,
     primaryColour: vehicle.primaryColour,
     motTestCount: Array.isArray(vehicle.motTests) ? (vehicle.motTests as unknown[]).length : "n/a",
     latestTestResult: Array.isArray(vehicle.motTests) && (vehicle.motTests as Record<string, unknown>[]).length > 0
@@ -231,6 +239,11 @@ export async function lookupVehicle(registration: string): Promise<DvsaResult> {
   const motExpiry = parseMotExpiry(motTests);
   const noMotHistory = motTests.length === 0;
   const firstUsed = (vehicle.firstUsedDate ?? vehicle.registrationDate) as string | undefined;
+  // Never-tested vehicles arrive as a NewRegVehicleResponse carrying DVSA's
+  // authoritative motTestDueDate; only compute reg+3y when it's absent.
+  const firstMotDue = noMotHistory
+    ? parseDvsaDate(vehicle.motTestDueDate) ?? firstMotDueDate(firstUsed)
+    : null;
 
   return {
     success: true,
@@ -239,7 +252,7 @@ export async function lookupVehicle(registration: string): Promise<DvsaResult> {
       make: make ? make.charAt(0).toUpperCase() + make.slice(1).toLowerCase() : null,
       model: (vehicle.model as string) ?? null,
       year: parseYear(vehicle),
-      motExpiry: motExpiry ?? (noMotHistory ? firstMotDueDate(firstUsed) : null),
+      motExpiry: motExpiry ?? firstMotDue,
       colour: (vehicle.primaryColour as string) ?? null,
       noMotHistory,
     },

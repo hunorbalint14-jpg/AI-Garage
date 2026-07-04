@@ -168,7 +168,11 @@ export type DeltaVehicleUpdate = {
   registration: string;
   normalizedReg: string;
   modification: "CREATED" | "UPDATED" | "DELETED" | null;
-  /** Latest PASSED test expiry across the record's test history, YYYY-MM-DD. */
+  /**
+   * Latest PASSED test expiry across the record's test history, YYYY-MM-DD.
+   * Never-tested vehicles have no tests; DVSA's motTestDueDate (first MOT
+   * due) is used instead so new cars stay in sync too.
+   */
   motExpiry: string | null;
   /** Most recent completed test date, YYYY-MM-DD. */
   lastTestDate: string | null;
@@ -207,6 +211,8 @@ export function extractDeltaUpdate(record: Record<string, unknown>): DeltaVehicl
     const expiry = parseDvsaDate(t.expiryDate);
     if (expiry && (!motExpiry || expiry > motExpiry)) motExpiry = expiry;
   }
+  // New-reg records carry no tests but do carry the first-MOT due date.
+  if (!motExpiry) motExpiry = parseDvsaDate(record.motTestDueDate);
 
   return {
     registration,

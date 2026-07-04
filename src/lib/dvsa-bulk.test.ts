@@ -92,6 +92,17 @@ describe("extractDeltaUpdate", () => {
     } satisfies DeltaVehicleUpdate);
   });
 
+  it("uses motTestDueDate for never-tested vehicles", () => {
+    const update = extractDeltaUpdate({
+      registration: "LC74 XYZ",
+      modification: "created",
+      motTests: [],
+      motTestDueDate: "2027-11-15",
+    });
+    expect(update?.motExpiry).toBe("2027-11-15");
+    expect(update?.lastTestDate).toBeNull();
+  });
+
   it("falls back to lastMotTestDate when newer than test list", () => {
     const update = extractDeltaUpdate({
       registration: "XY99ZZZ",
