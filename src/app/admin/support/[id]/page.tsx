@@ -8,6 +8,7 @@ import {
   TYPE_LABELS,
   PRIORITY_LABELS,
 } from "@/lib/support-tickets";
+import { createShotSignedReadUrl } from "@/lib/support-shots";
 import { TicketControls } from "./ticket-controls";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,9 @@ export default async function AdminTicketPage({ params }: { params: Promise<{ id
   if (!ticket) notFound();
 
   const messages = await listAllMessages(ticket.id);
+  const screenshotUrl = ticket.context.screenshot_path
+    ? await createShotSignedReadUrl(ticket.context.screenshot_path)
+    : null;
 
   const contextRows: { label: string; value: string | null }[] = [
     { label: "Organisation", value: ticket.org?.name ?? null },
@@ -42,6 +46,7 @@ export default async function AdminTicketPage({ params }: { params: Promise<{ id
     { label: "Page", value: ticket.context.path ?? null },
     { label: "User agent", value: ticket.context.user_agent ?? null },
     { label: "App version", value: ticket.context.app_version ?? null },
+    { label: "Sentry event", value: ticket.context.sentry_event_id ?? null },
     { label: "Raised", value: fmtWhen(ticket.created_at) },
     { label: "First response", value: ticket.first_response_at ? fmtWhen(ticket.first_response_at) : "— awaiting" },
     { label: "Resolved", value: ticket.resolved_at ? fmtWhen(ticket.resolved_at) : null },
@@ -125,6 +130,23 @@ export default async function AdminTicketPage({ params }: { params: Promise<{ id
                 </div>
               ))}
           </dl>
+
+          {screenshotUrl && (
+            <div className="mt-4 border-t border-[#23272f] pt-3">
+              <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wide text-[#5a6170]">
+                Screenshot at raise time
+              </div>
+              <a href={screenshotUrl} target="_blank" rel="noopener noreferrer">
+                {/* Signed URL expires in 30 min — plain img, no next/image loader. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={screenshotUrl}
+                  alt="Screenshot attached to the ticket"
+                  className="w-full rounded-lg border border-[#2a2f37] transition-opacity hover:opacity-90"
+                />
+              </a>
+            </div>
+          )}
         </aside>
       </div>
     </div>

@@ -96,6 +96,17 @@ export async function listOrgTickets(
   return { rows: (data ?? []) as SupportTicket[], totalCount: count ?? 0 };
 }
 
+// Widget header "TICKETS · N": live (non-settled) tickets for the org.
+export async function countLiveOrgTickets(organizationId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("support_tickets")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", organizationId)
+    .in("status", ["open", "needs_info", "in_progress", "planned"]);
+  return count ?? 0;
+}
+
 export async function getOrgTicket(
   organizationId: string,
   ticketId: string,

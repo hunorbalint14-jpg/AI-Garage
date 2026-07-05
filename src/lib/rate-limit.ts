@@ -57,6 +57,8 @@ const LIMITERS = {
   // leaving room for a genuinely bad day at the garage.
   ticket: makeLimiter("ticket", 10, "3600 s"),
   ticketReply: makeLimiter("ticketReply", 60, "3600 s"),
+  // Support-widget manual-answering Claude endpoint (per user).
+  assist: makeLimiter("assist", 20, "3600 s"),
 } as const;
 
 export type RateLimitBucket = keyof typeof LIMITERS;
