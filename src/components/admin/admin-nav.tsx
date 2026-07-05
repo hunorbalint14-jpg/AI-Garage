@@ -15,15 +15,27 @@ const NAV: { href: string; label: string; match: (p: string) => boolean }[] = [
   { href: "/admin/admins", label: "Admins", match: (p) => p.startsWith("/admin/admins") },
   { href: "/admin/feature-flags", label: "Feature flags", match: (p) => p.startsWith("/admin/feature-flags") },
   { href: "/admin/doc-shares", label: "Doc shares", match: (p) => p.startsWith("/admin/doc-shares") },
+  { href: "/admin/support", label: "Support", match: (p) => p.startsWith("/admin/support") },
 ];
 
-export function AdminNav({ activeIncidents }: { activeIncidents: number }) {
+export function AdminNav({
+  activeIncidents,
+  openTickets = 0,
+}: {
+  activeIncidents: number;
+  openTickets?: number;
+}) {
   const pathname = usePathname() ?? "";
   return (
     <nav className="mt-1 flex flex-col gap-0.5">
       {NAV.map((item) => {
         const active = item.match(pathname);
-        const badge = item.href === "/admin/incidents" && activeIncidents > 0 ? activeIncidents : 0;
+        const badge =
+          item.href === "/admin/incidents" && activeIncidents > 0
+            ? activeIncidents
+            : item.href === "/admin/support" && openTickets > 0
+              ? openTickets
+              : 0;
         return (
           <Link
             key={item.href}

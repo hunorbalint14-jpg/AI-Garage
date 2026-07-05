@@ -1,10 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isPlatformAdminUser } from "@/lib/platform-admin";
+import { requirePlatformAdmin } from "@/lib/platform-admin";
 import {
   searchAvailableNumbers,
   purchaseNumber,
@@ -19,15 +17,6 @@ import { logAudit } from "@/lib/audit";
 // is gated to platform admins and the purchase + DB write are kept consistent
 // (a failed write releases the number it just bought, rather than orphaning a
 // paid line).
-
-async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!(await isPlatformAdminUser(user))) redirect("/admin/login");
-  return user!;
-}
 
 export type SearchResult = { error: string } | { numbers: AvailableNumber[] };
 export type ProvisionResult = { error: string } | { success: true; phoneNumber: string };

@@ -1,20 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isPlatformAdminUser } from "@/lib/platform-admin";
+import { requirePlatformAdmin } from "@/lib/platform-admin";
 import { logAudit } from "@/lib/audit";
-
-async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!(await isPlatformAdminUser(user))) redirect("/admin/login");
-  return user!;
-}
 
 export async function setAlertRuleEnabled(
   ruleId: string,

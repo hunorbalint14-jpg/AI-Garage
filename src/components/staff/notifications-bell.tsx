@@ -12,6 +12,8 @@ const KIND_DOT: Record<string, string> = {
   "quote.declined": "bg-red-500",
   "quote.rebooked": "bg-blue-500",
   "quote.deposit_paid": "bg-emerald-500",
+  "ticket.reply": "bg-amber-500",
+  "ticket.status": "bg-sky-500",
 };
 
 function formatRelative(s: string): string {
