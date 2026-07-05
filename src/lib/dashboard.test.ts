@@ -1,12 +1,32 @@
 import { describe, it, expect } from "vitest";
 import {
+  anyWidgetVisible,
   buildPriorityItems,
+  canFinance,
   classifyAttention,
   cumulativeWeeklySeries,
+  dashboardWidgets,
   dueDays,
   fmtGBP,
   type AttentionVehicle,
+  type OrgRole,
 } from "./dashboard";
+import {
+  DEFAULT_PERMISSIONS,
+  type PermissionKey,
+  type Permissions,
+} from "@/app/staff/staff-members/constants";
+
+function permsFn(perms: Permissions | null): (key: PermissionKey) => boolean {
+  return (key) => perms?.[key] === true;
+}
+
+// Owner/admin bypass in hasPermission; templates never reach them. Model that
+// here so the matrix reads like the real page (page passes hasPermission(ctx)).
+function roleCan(orgRole: OrgRole, template: string | null): (key: PermissionKey) => boolean {
+  if (orgRole === "owner" || orgRole === "admin") return () => true;
+  return permsFn(template ? DEFAULT_PERMISSIONS[template] : null);
+}
 
 const NOW = new Date("2026-07-05T12:00:00Z").getTime();
 
@@ -68,6 +88,54 @@ describe("classifyAttention", () => {
   });
 });
 
+describe("canFinance", () => {
+  it("allows accountants only the finance allow-list", () => {
+    const noPerms = permsFn(null);
+    expect(canFinance("accountant", noPerms, "revenue")).toBe(true);
+    expect(canFinance("accountant", noPerms, "invoices")).toBe(true);
+    expect(canFinance("accountant", noPerms, "reports")).toBe(true);
+    expect(canFinance("accountant", noPerms, "bookings")).toBe(false);
+  });
+
+  it("defers to hasPermission for everyone else", () => {
+    expect(canFinance(null, permsFn(DEFAULT_PERMISSIONS.bookkeeper), "revenue")).toBe(true);
+    expect(canFinance(null, permsFn(DEFAULT_PERMISSIONS.mechanic), "revenue")).toBe(false);
+  });
+});
+
+describe("dashboardWidgets", () => {
+  // Expected visibility per role template (null orgRole unless stated).
+  // Keys: [bookingsOps, quotesPending, lowStock, reminders, revenue, invoices, growth, ownerRow, utilisation]
+  const matrix: Record<string, [OrgRole, string | null, Partial<ReturnType<typeof dashboardWidgets>>]> = {
+    owner: ["owner", null, { bookingsOps: true, quotesPending: true, lowStock: true, reminders: true, revenue: true, invoices: true, growth: true, ownerRow: true, utilisation: true }],
+    accountant: ["accountant", null, { bookingsOps: false, quotesPending: false, lowStock: false, reminders: false, revenue: true, invoices: true, growth: false, ownerRow: true, utilisation: false }],
+    manager: [null, "manager", { bookingsOps: true, quotesPending: true, lowStock: true, reminders: true, revenue: true, invoices: true, growth: false, ownerRow: false, utilisation: false }],
+    service_advisor: [null, "service_advisor", { bookingsOps: true, quotesPending: true, lowStock: true, reminders: true, revenue: false, invoices: true, growth: false, ownerRow: false, utilisation: false }],
+    mechanic: [null, "mechanic", { bookingsOps: true, quotesPending: true, lowStock: true, reminders: false, revenue: false, invoices: false, growth: false, ownerRow: false, utilisation: false }],
+    apprentice: [null, "apprentice", { bookingsOps: true, quotesPending: false, lowStock: true, reminders: false, revenue: false, invoices: false, growth: false, ownerRow: false, utilisation: false }],
+    receptionist: [null, "receptionist", { bookingsOps: true, quotesPending: true, lowStock: false, reminders: true, revenue: false, invoices: true, growth: false, ownerRow: false, utilisation: false }],
+    parts: [null, "parts", { bookingsOps: false, quotesPending: false, lowStock: true, reminders: false, revenue: true, invoices: false, growth: false, ownerRow: false, utilisation: false }],
+    bookkeeper: [null, "bookkeeper", { bookingsOps: false, quotesPending: true, lowStock: false, reminders: false, revenue: true, invoices: true, growth: false, ownerRow: false, utilisation: false }],
+    staff: [null, "staff", { bookingsOps: true, quotesPending: false, lowStock: true, reminders: true, revenue: false, invoices: false, growth: false, ownerRow: false, utilisation: false }],
+  };
+
+  for (const [name, [orgRole, template, expected]] of Object.entries(matrix)) {
+    it(`matches the ${name} template`, () => {
+      expect(dashboardWidgets(orgRole, roleCan(orgRole, template))).toMatchObject(expected);
+    });
+  }
+
+  it("shows something for every system template", () => {
+    for (const template of Object.keys(DEFAULT_PERMISSIONS)) {
+      expect(anyWidgetVisible(dashboardWidgets(null, roleCan(null, template)))).toBe(true);
+    }
+  });
+
+  it("hides everything for a stripped-down custom template", () => {
+    expect(anyWidgetVisible(dashboardWidgets(null, permsFn(null)))).toBe(false);
+  });
+});
+
 describe("buildPriorityItems", () => {
   const emptyInput = {
     uninvoicedJobs: 0,
@@ -125,5 +193,36 @@ describe("buildPriorityItems", () => {
     expect(items.map((i) => i.n)).toEqual(["01", "02"]);
     expect(items[0].title).toBe("Chase 2 unpaid invoices");
     expect(items[1].title).toBe("Book 3 vehicles due within 14 days");
+  });
+
+  const busyInput = {
+    uninvoicedJobs: 2,
+    expiringQuotes: { count: 1, total: 450 },
+    invoicesOpen: { draft_count: 3, draft_total: 900, sent_count: 1, sent_total: 250 },
+    overdueCount: 4,
+    urgentCount: 5,
+  };
+
+  it("drops invoice and quote actions the role cannot act on", () => {
+    const items = buildPriorityItems(busyInput, {
+      invoices: false,
+      quotesSend: false,
+      reminders: true,
+      revenue: false,
+    });
+    expect(items.map((i) => i.href)).toEqual(["/staff/reminders", "/staff/reminders"]);
+    expect(items.map((i) => i.n)).toEqual(["01", "02"]);
+  });
+
+  it("falls back to bookings when the role has no revenue access", () => {
+    const items = buildPriorityItems(emptyInput, {
+      invoices: false,
+      quotesSend: false,
+      reminders: false,
+      revenue: false,
+    });
+    expect(items).toHaveLength(1);
+    expect(items[0].href).toBe("/staff/bookings");
+    expect(items[0].body).toBe("No urgent actions today.");
   });
 });
