@@ -52,6 +52,10 @@ export type TicketContext = {
   path?: string | null;
   user_agent?: string | null;
   app_version?: string | null;
+  /** Object path in the private support-shots bucket (widget screenshot). */
+  screenshot_path?: string | null;
+  /** Sentry.lastEventId() at raise time, when the client SDK has one. */
+  sentry_event_id?: string | null;
 };
 
 export type SupportTicket = {
@@ -145,6 +149,8 @@ export function buildTicketContext(input: {
   locationRole?: string | null;
   path?: string | null;
   userAgent?: string | null;
+  screenshotPath?: string | null;
+  sentryEventId?: string | null;
 }): TicketContext {
   return {
     org_slug: input.orgSlug ?? null,
@@ -155,5 +161,7 @@ export function buildTicketContext(input: {
     path: input.path ?? null,
     user_agent: input.userAgent ? input.userAgent.slice(0, MAX_UA_LENGTH) : null,
     app_version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+    screenshot_path: input.screenshotPath ?? null,
+    sentry_event_id: input.sentryEventId ? input.sentryEventId.slice(0, 64) : null,
   };
 }
