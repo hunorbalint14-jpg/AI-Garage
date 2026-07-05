@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&amp;family=Geist+Mono:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#0e1014}
+body{--brand:#6366f1;--on-brand:#e6e8eb;font-family:'Geist',system-ui,sans-serif}
+*{box-sizing:border-box}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-thumb{background:#2a2f37;border-radius:5px}
+::-webkit-scrollbar-track{background:transparent}
+input,textarea,button{font-family:inherit}
+input::placeholder,textarea::placeholder{color:#5a6170}
+@keyframes aigSpin{to{transform:rotate(360deg)}}
+@keyframes popIn{from{opacity:0;transform:translateY(-6px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes drawerIn{from{transform:translateX(102%)}to{transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes paletteIn{from{opacity:0;transform:translate(-50%,-12px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+@keyframes peekIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+@keyframes shrinkX{from{width:100%}to{width:0%}}
+@keyframes blinkDot{0%,80%,100%{opacity:.2}40%{opacity:1}}
+@keyframes shimmerBar{from{background-position:200% 0}to{background-position:-200% 0}}
+@keyframes pulseRing{0%,100%{box-shadow:0 0 0 0 rgba(255,176,32,.4)}50%{box-shadow:0 0 0 7px rgba(255,176,32,0)}}
+@keyframes stepIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes caret{0%,100%{opacity:1}50%{opacity:0}}
+</style>
+</helmet>
+<div data-screen-label="Staff dashboard with support widget" style="display:flex;height:100vh;overflow:hidden;background:#0e1014;color:#e6e8eb">
+
+  <!-- ═══════════ RAIL (recreated from staff-shell.tsx) ═══════════ -->
+  <aside style="display:flex;width:64px;flex:none;flex-direction:column;align-items:center;border-right:1px solid #2a2f37;background:#0a0c0f;padding:12px 0;z-index:20">
+    <div style="width:30px;height:30px;background:var(--brand);color:var(--on-brand);clip-path:polygon(0 0,100% 0,100% 78%,78% 100%,0 100%);font-family:'Geist Mono',monospace;font-size:13px;font-weight:800;display:grid;place-items:center;flex:none">SM</div>
+    <div style="margin:12px 0;height:1px;width:24px;background:#2a2f37"></div>
+    <button title="Search (Ctrl+K)" style="display:grid;height:44px;width:44px;place-items:center;border-radius:8px;color:#9aa1ad;background:none;border:0;cursor:pointer;margin-bottom:4px" style-hover="background:#1c2026;color:#e6e8eb">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+    </button>
+    <nav style="display:flex;flex:1;flex-direction:column;align-items:center;gap:4px;width:100%">
+      <span title="Ops" style="display:grid;height:44px;width:44px;place-items:center;border-radius:8px;background:var(--brand);color:var(--on-brand)">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path><path d="M8 18h.01"></path><path d="M12 18h.01"></path><path d="M16 18h.01"></path></svg>
+      </span>
+      <span title="Shop" style="display:grid;height:44px;width:44px;place-items:center;border-radius:8px;color:#9aa1ad" style-hover="background:#1c2026;color:#e6e8eb">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+      </span>
+      <span title="Money" style="display:grid;height:44px;width:44px;place-items:center;border-radius:8px;color:#9aa1ad" style-hover="background:#1c2026;color:#e6e8eb">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
+      </span>
+      <span title="Grow" style="display:grid;height:44px;width:44px;place-items:center;border-radius:8px;color:#9aa1ad" style-hover="background:#1c2026;color:#e6e8eb">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"></path><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path></svg>
+      </span>
+      <span title="Admin" style="display:grid;height:44px;width:44px;place-items:center;border-radius:8px;color:#9aa1ad" style-hover="background:#1c2026;color:#e6e8eb">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      </span>
+    </nav>
+    <div style="width:28px;height:28px;border-radius:999px;background:color-mix(in srgb,var(--brand) 13%,transparent);color:var(--brand);display:grid;place-items:center;font-family:'Geist Mono',monospace;font-size:11px;font-weight:700;cursor:pointer" title="Account">DS</div>
+  </aside>
+
+  <!-- ═══════════ CONTEXT PANE ═══════════ -->
+  <aside style="display:flex;width:220px;flex:none;flex-direction:column;border-right:1px solid #2a2f37;background:#15181d">
+    <div style="border-bottom:1px solid #2a2f37;padding:16px 16px 12px">
+      <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.2em;color:#5a6170">// MODULE</div>
+      <div style="margin-top:4px;font-size:15px;font-weight:700;color:#e6e8eb">Ops</div>
+      <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:#5a6170;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Smith Motors · OWNER</div>
+    </div>
+    <div style="border-bottom:1px solid #2a2f37;padding:12px 12px"><p style="margin:0;padding:0 4px;font-size:14px;color:#9ca3af">Main workshop</p></div>
+    <nav style="flex:1;overflow-y:auto;padding:8px">
+      <a href="#" style="display:flex;align-items:center;gap:10px;border-radius:4px;padding:8px 10px;font-size:13px;background:#1c2026;color:#e6e8eb;font-weight:600;border-left:2px solid var(--brand);text-decoration:none">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><rect width="7" height="9" x="3" y="3" rx="1"></rect><rect width="7" height="5" x="14" y="3" rx="1"></rect><rect width="7" height="9" x="14" y="12" rx="1"></rect><rect width="7" height="5" x="3" y="16" rx="1"></rect></svg>
+        Dashboard</a>
+      <a href="#" style="display:flex;align-items:center;gap:10px;border-radius:4px;padding:8px 10px;font-size:13px;color:#9aa1ad;font-weight:500;border-left:2px solid transparent;text-decoration:none" style-hover="background:rgba(255,255,255,.04);color:#e6e8eb">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg>
+        Bookings</a>
+      <a href="#" style="display:flex;align-items:center;gap:10px;border-radius:4px;padding:8px 10px;font-size:13px;color:#9aa1ad;font-weight:500;border-left:2px solid transparent;text-decoration:none" style-hover="background:rgba(255,255,255,.04);color:#e6e8eb">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"></path><path d="m18 15 4-4"></path><path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"></path></svg>
+        Jobs</a>
+      <a href="#" style="display:flex;align-items:center;gap:10px;border-radius:4px;padding:8px 10px;font-size:13px;color:#9aa1ad;font-weight:500;border-left:2px solid transparent;text-decoration:none" style-hover="background:rgba(255,255,255,.04);color:#e6e8eb">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        Customers</a>
+      <a href="#" style="display:flex;align-items:center;gap:10px;border-radius:4px;padding:8px 10px;font-size:13px;color:#9aa1ad;font-weight:500;border-left:2px solid transparent;text-decoration:none" style-hover="background:rgba(255,255,255,.04);color:#e6e8eb">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"></path><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"></path><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"></path><path d="M10 6h4"></path><path d="M10 10h4"></path><path d="M10 14h4"></path><path d="M10 18h4"></path></svg>
+        Fleet</a>
+      <a href="#" style="display:flex;align-items:center;gap:10px;border-radius:4px;padding:8px 10px;font-size:13px;color:#9aa1ad;font-weight:500;border-left:2px solid transparent;text-decoration:none" style-hover="background:rgba(255,255,255,.04);color:#e6e8eb">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
+        Reminders</a>
+      <a href="#" style="display:flex;align-items:center;gap:10px;border-radius:4px;padding:8px 10px;font-size:13px;color:#9aa1ad;font-weight:500;border-left:2px solid transparent;text-decoration:none" style-hover="background:rgba(255,255,255,.04);color:#e6e8eb">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8"></path><path d="M7 14h.01"></path><path d="M17 14h.01"></path><rect x="3" y="10" width="18" height="8" rx="2"></rect><path d="M5 18v2"></path><path d="M19 18v2"></path></svg>
+        Courtesy cars</a>
+    </nav>
+    <div style="border-top:1px solid #2a2f37;padding:12px">
+      <p style="margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;font-weight:600;color:#e6e8eb">Dan Smith</p>
+      <p style="margin:0 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">owner@smith-motors.demo</p>
+      <button style="width:100%;border-radius:6px;border:1px solid #2a2f37;background:none;color:#9aa1ad;font-size:12px;padding:7px 0;cursor:pointer" style-hover="background:#1c2026;color:#e6e8eb">Sign out</button>
+    </div>
+  </aside>
+
+  <!-- ═══════════ MAIN — dashboard recreation ═══════════ -->
+  <main style="flex:1;min-width:0;overflow:auto;padding:32px 32px 110px">
+    <div style="margin-bottom:24px">
+      <h1 style="margin:0;font-size:26px;font-weight:600;line-height:1.2;letter-spacing:-.02em;color:#e6e8eb">Good afternoon, Dan. <span style="font-weight:400;color:#a1a1a1">7 overdue — act now.</span></h1>
+      <p style="margin:6px 0 0;font-family:'Geist Mono',monospace;font-size:12px;letter-spacing:.04em;color:#a1a1a1">13 booked today · 6 active jobs · 7 MOT/service overdue</p>
+    </div>
+    <div style="margin-bottom:20px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;overflow:hidden;border-radius:6px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.18)">
+      <div style="background:#171717;padding:18px 20px;min-width:0;overflow:hidden"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div style="min-width:0"><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1">Revenue · week</div><div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:26px;font-weight:600;letter-spacing:-.01em;color:#e6e8eb">£4,820</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#5fdd9d">paid invoices</div></div><span style="flex:0 1 84px;min-width:0;overflow:hidden;display:flex;justify-content:flex-end"><svg width="80" height="28" style="flex:none;overflow:visible"><polyline fill="none" stroke="#5fdd9d" stroke-width="1.5" points="0,7.9 16,0 32,18.9 48,12.2 64,3 80,28"></polyline><circle cx="80" cy="28" r="2.5" fill="#5fdd9d"></circle></svg></span></div></div>
+      <div style="background:#171717;padding:18px 20px;min-width:0;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1">WIP · open jobs</div><div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:26px;font-weight:600;letter-spacing:-.01em;color:#e6e8eb">£2,340</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#a1a1a1">6 jobs in progress</div></div>
+      <div style="background:#171717;padding:18px 20px;min-width:0;overflow:hidden"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div style="min-width:0"><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1">Customers</div><div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:26px;font-weight:600;letter-spacing:-.01em;color:#e6e8eb">412</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#a1a1a1">last 8 weeks</div></div><span style="flex:0 1 84px;min-width:0;overflow:hidden;display:flex;justify-content:flex-end"><svg width="80" height="28" style="flex:none;overflow:visible"><polyline fill="none" stroke="#a1a1a1" stroke-width="1.5" points="0,26 11.4,24 22.9,23 34.3,20 45.7,17 57.1,13 68.6,8 80,3"></polyline><circle cx="80" cy="3" r="2.5" fill="#a1a1a1"></circle></svg></span></div></div>
+      <div style="background:#171717;padding:18px 20px;min-width:0;overflow:hidden"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px"><div style="min-width:0"><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1">Vehicles</div><div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:26px;font-weight:600;letter-spacing:-.01em;color:#e6e8eb">587</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#a1a1a1">last 8 weeks</div></div><span style="flex:0 1 84px;min-width:0;overflow:hidden;display:flex;justify-content:flex-end"><svg width="80" height="28" style="flex:none;overflow:visible"><polyline fill="none" stroke="#a1a1a1" stroke-width="1.5" points="0,25 11.4,25 22.9,22 34.3,21 45.7,16 57.1,14 68.6,9 80,5"></polyline><circle cx="80" cy="5" r="2.5" fill="#a1a1a1"></circle></svg></span></div></div>
+      <div style="background:#171717;padding:18px 20px;min-width:0;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1">Overdue</div><div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:26px;font-weight:600;letter-spacing:-.01em;color:#e6e8eb">7</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#ff5b5b">needs attention</div></div>
+      <div style="background:#171717;padding:18px 20px;min-width:0;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1">Active jobs</div><div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:26px;font-weight:600;letter-spacing:-.01em;color:#e6e8eb">6</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#a1a1a1">open status</div></div>
+      <div style="background:#171717;padding:18px 20px;min-width:0;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1">Bookings · today</div><div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:26px;font-weight:600;letter-spacing:-.01em;color:#e6e8eb">13</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#a1a1a1">3 bays</div></div>
+      <div style="background:#171717;padding:18px 20px;min-width:0;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1">Courtesy cars out</div><div style="margin-top:6px;font-family:'Geist Mono',monospace;font-size:26px;font-weight:600;letter-spacing:-.01em;color:#e6e8eb">2</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#ff5b5b">1 overdue return</div></div>
+    </div>
+    <div style="border-radius:6px;border:1px solid rgba(255,255,255,.18);background:#171717">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(255,255,255,.18);padding:16px 22px">
+        <div>
+          <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Day schedule · Sat 4 Jul · 07:00–19:00</div>
+          <div style="margin-top:4px;font-size:16px;font-weight:600;color:#e6e8eb">13 bookings · 3 bays</div>
+        </div>
+        <span style="border-radius:2px;border:1px solid #3a2c14;background:#1c1810;padding:6px 12px;font-family:'Geist Mono',monospace;font-size:11px;color:#ffb020;cursor:pointer">+ New booking →</span>
+      </div>
+      <div style="overflow-x:auto">
+        <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.18);min-width:1210px">
+          <div style="width:130px;flex:none;border-right:1px solid rgba(255,255,255,.18);background:#171717;padding:8px 12px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#a1a1a1">BAY</div>
+          <div style="position:relative;height:26px;flex:none;width:1080px">
+            <span style="position:absolute;top:8px;left:0;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">07</span><span style="position:absolute;top:8px;left:90px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">08</span><span style="position:absolute;top:8px;left:180px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">09</span><span style="position:absolute;top:8px;left:270px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">10</span><span style="position:absolute;top:8px;left:360px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">11</span><span style="position:absolute;top:8px;left:450px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">12</span><span style="position:absolute;top:8px;left:540px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">13</span><span style="position:absolute;top:8px;left:630px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">14</span><span style="position:absolute;top:8px;left:720px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">15</span><span style="position:absolute;top:8px;left:810px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">16</span><span style="position:absolute;top:8px;left:900px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">17</span><span style="position:absolute;top:8px;left:990px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">18</span><span style="position:absolute;top:8px;left:1080px;transform:translateX(-50%);font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">19</span>
+          </div>
+        </div>
+        <div style="display:flex;min-height:54px;border-bottom:1px solid rgba(255,255,255,.18);min-width:1210px">
+          <div style="width:130px;flex:none;display:flex;flex-direction:column;justify-content:center;border-right:1px solid rgba(255,255,255,.18);background:#171717;padding:8px 12px"><div style="font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.04em;color:#ffb020;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bay 1</div><div style="margin-top:2px;font-size:10px;color:#a1a1a1">Two-post lift</div></div>
+          <div style="position:relative;flex:none;width:1080px;padding:6px 0">
+            <div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:90px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:180px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:270px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:360px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:450px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:540px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:630px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:720px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:810px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:900px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:990px"></div>
+            <div style="position:absolute;top:0;bottom:0;z-index:10;border-left:1px dashed #ffb020;left:687px"></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:45px;width:135px;border-radius:2px;background:#262626;border:1px solid rgba(255,255,255,.18);border-left:3px solid #a1a1a1;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">KX68 WRD</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Sarah Milton</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:225px;width:180px;border-radius:2px;background:#3a2c14;border:1px solid #ffb020;border-left:3px solid #ffb020;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#ffb020;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">LR19 XKF</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Tom Okafor</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:540px;width:90px;border-radius:2px;background:#262626;border:1px solid rgba(255,255,255,.18);border-left:3px solid #a1a1a1;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">WV21 HTE</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Jess Hardy</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:765px;width:180px;border-radius:2px;background:#262626;border:1px solid rgba(255,255,255,.18);border-left:3px solid #a1a1a1;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">HN22 EJF</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Mo Farouk</div></div>
+          </div>
+        </div>
+        <div style="display:flex;min-height:54px;border-bottom:1px solid rgba(255,255,255,.18);min-width:1210px">
+          <div style="width:130px;flex:none;display:flex;flex-direction:column;justify-content:center;border-right:1px solid rgba(255,255,255,.18);background:#171717;padding:8px 12px"><div style="font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.04em;color:#ffb020;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bay 2</div><div style="margin-top:2px;font-size:10px;color:#a1a1a1">MOT lane</div></div>
+          <div style="position:relative;flex:none;width:1080px;padding:6px 0">
+            <div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:90px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:180px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:270px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:360px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:450px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:540px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:630px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:720px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:810px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:900px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:990px"></div>
+            <div style="position:absolute;top:0;bottom:0;z-index:10;border-left:1px dashed #ffb020;left:687px"></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:90px;width:68px;border-radius:2px;background:#13301f;border:1px solid #5fdd9d;border-left:3px solid #5fdd9d;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#5fdd9d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">BD70 KLM</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Alan Reid</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:180px;width:68px;border-radius:2px;background:#13301f;border:1px solid #5fdd9d;border-left:3px solid #5fdd9d;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#5fdd9d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">YS17 CVB</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Nina Petrov</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:360px;width:68px;border-radius:2px;background:#3a2c14;border:1px solid #ffb020;border-left:3px solid #ffb020;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#ffb020;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">PO65 TRE</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chris Wong</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:630px;width:68px;border-radius:2px;background:#262626;border:1px solid rgba(255,255,255,.18);border-left:3px solid #a1a1a1;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">KX18 MNB</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Dev Patel</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:810px;width:68px;border-radius:2px;background:#262626;border:1px solid rgba(255,255,255,.18);border-left:3px solid #a1a1a1;padding:4px 6px;overflow:hidden"><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Walk-in MOT</div></div>
+          </div>
+        </div>
+        <div style="display:flex;min-height:54px;min-width:1210px">
+          <div style="width:130px;flex:none;display:flex;flex-direction:column;justify-content:center;border-right:1px solid rgba(255,255,255,.18);background:#171717;padding:8px 12px"><div style="font-family:'Geist Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.04em;color:#ffb020;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bay 3</div><div style="margin-top:2px;font-size:10px;color:#a1a1a1">Tyres &amp; tracking</div></div>
+          <div style="position:relative;flex:none;width:1080px;padding:6px 0">
+            <div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:90px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:180px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:270px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:360px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:450px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:540px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:630px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:720px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:810px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:900px"></div><div style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.14);left:990px"></div>
+            <div style="position:absolute;top:0;bottom:0;z-index:10;border-left:1px dashed #ffb020;left:687px"></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:135px;width:90px;border-radius:2px;background:#13301f;border:1px solid #5fdd9d;border-left:3px solid #5fdd9d;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#5fdd9d;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">GJ71 AZC</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Leah Simmons</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:315px;width:135px;border-radius:2px;background:#3a1a1a;border:1px solid #ff5b5b;border-left:3px solid #ff5b5b;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#ff5b5b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">MK14 RTY</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Owen Bright</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:585px;width:90px;border-radius:2px;background:#262626;border:1px solid rgba(255,255,255,.18);border-left:3px solid #a1a1a1;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">FA23 SDE</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Priya Nair</div></div>
+            <div style="position:absolute;top:6px;bottom:6px;left:855px;width:90px;border-radius:2px;background:#262626;border:1px solid rgba(255,255,255,.18);border-left:3px solid #a1a1a1;padding:4px 6px;overflow:hidden"><div style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.04em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">VN12 KLP</div><div style="margin-top:1px;font-size:10px;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Harry Cole</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;border-top:1px solid rgba(255,255,255,.18);padding:12px 22px">
+        <div style="display:flex;align-items:center;gap:5px"><div style="height:10px;width:10px;border-radius:1px;background:#a1a1a1"></div><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">Scheduled</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="height:10px;width:10px;border-radius:1px;background:#ffb020"></div><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">In progress</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="height:10px;width:10px;border-radius:1px;background:#5fdd9d"></div><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">Complete</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="height:10px;width:10px;border-radius:1px;background:#ff5b5b"></div><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">Cancelled</span></div>
+        <div style="display:flex;align-items:center;gap:5px"><div style="width:14px;border-top:1px dashed #ffb020"></div><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#a1a1a1">Now</span></div>
+      </div>
+    </div>
+    <div style="margin:20px 0;display:grid;grid-template-columns:1.5fr 1fr;gap:16px">
+      <div style="border-radius:6px;border:1px solid rgba(255,255,255,.18);background:#171717;padding:22px">
+        <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Revenue · this week</div>
+        <div style="margin:4px 0 20px;font-size:18px;font-weight:600;color:#e6e8eb">£4,820 <span style="margin-left:8px;font-size:13px;font-weight:400;color:#a1a1a1">paid Mon–Sun</span></div>
+        <svg viewBox="0 0 270 148" style="width:100%;overflow:visible">
+          <text x="15" y="21" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:8px">£980</text><rect x="0" y="25" width="30" height="95" fill="rgba(255,255,255,.18)" rx="2"></rect><text x="15" y="136" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:10px">Mon</text>
+          <text x="55" y="-4" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:8px">£1,240</text><rect x="40" y="0" width="30" height="120" fill="rgba(255,255,255,.18)" rx="2"></rect><text x="55" y="136" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:10px">Tue</text>
+          <text x="95" y="56" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:8px">£620</text><rect x="80" y="60" width="30" height="60" fill="rgba(255,255,255,.18)" rx="2"></rect><text x="95" y="136" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:10px">Wed</text>
+          <text x="135" y="35" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:8px">£840</text><rect x="120" y="39" width="30" height="81" fill="rgba(255,255,255,.18)" rx="2"></rect><text x="135" y="136" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:10px">Thu</text>
+          <text x="175" y="6" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:8px">£1,140</text><rect x="160" y="10" width="30" height="110" fill="rgba(255,255,255,.18)" rx="2"></rect><text x="175" y="136" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:10px">Fri</text>
+          <text x="215" y="85" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:8px">£320</text><rect x="200" y="89" width="30" height="31" fill="#f4d35e" rx="2"></rect><text x="215" y="136" text-anchor="middle" fill="#e6e8eb" style="font-family:'Geist Mono',monospace;font-size:10px;font-weight:600">Sat</text>
+          <rect x="240" y="118" width="30" height="2" fill="#262626" rx="2"></rect><text x="255" y="136" text-anchor="middle" fill="#a1a1a1" style="font-family:'Geist Mono',monospace;font-size:10px">Sun</text>
+        </svg>
+      </div>
+      <div style="border-radius:6px;border:1px solid rgba(255,255,255,.18);background:#171717;padding:22px">
+        <div style="margin-bottom:4px;font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Priority actions</div>
+        <div style="margin-bottom:16px;font-size:16px;font-weight:600;color:#e6e8eb">Where to focus now</div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:12px;padding:12px 0 12px"><span style="padding-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#a1a1a1">1</span><div><div style="font-size:13px;font-weight:600;color:#e6e8eb">Invoice 2 finished jobs</div><div style="margin-top:3px;font-size:12px;line-height:1.5;color:#a1a1a1">LR19 XKF and GJ71 AZC are complete but uninvoiced.</div></div><div style="min-width:80px;text-align:right"><div style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#5fdd9d">£1,180</div><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#a1a1a1">Today</div></div></div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:12px;padding:12px 0;border-top:1px solid rgba(255,255,255,.18)"><span style="padding-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#a1a1a1">2</span><div><div style="font-size:13px;font-weight:600;color:#e6e8eb">3 quotes expire within 3 days</div><div style="margin-top:3px;font-size:12px;line-height:1.5;color:#a1a1a1">Chase before they lapse — deposits unlock booking.</div></div><div style="min-width:80px;text-align:right"><div style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#5fdd9d">£2,460</div><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#a1a1a1">3 days</div></div></div>
+        <div style="display:grid;grid-template-columns:auto 1fr auto;align-items:start;gap:12px;padding:12px 0 0;border-top:1px solid rgba(255,255,255,.18)"><span style="padding-top:2px;font-family:'Geist Mono',monospace;font-size:11px;color:#a1a1a1">3</span><div><div style="font-size:13px;font-weight:600;color:#e6e8eb">7 vehicles overdue MOT</div><div style="margin-top:3px;font-size:12px;line-height:1.5;color:#a1a1a1">Send reminders from the attention queue below.</div></div><div style="min-width:80px;text-align:right"><div style="font-family:'Geist Mono',monospace;font-size:12px;font-weight:600;color:#5fdd9d">7 cars</div><div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#a1a1a1">Now</div></div></div>
+      </div>
+    </div>
+    <div style="border-radius:6px;border:1px solid rgba(255,255,255,.18);background:#171717">
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(255,255,255,.18);padding:16px 22px">
+        <div>
+          <div style="font-family:'Geist Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#a1a1a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Attention queue</div>
+          <div style="margin-top:4px;font-size:16px;font-weight:600;color:#e6e8eb">7 overdue · 4 within 14d · 12 upcoming</div>
+        </div>
+        <span style="border-radius:2px;border:1px solid #3a2c14;background:#1c1810;padding:6px 12px;font-family:'Geist Mono',monospace;font-size:11px;color:#ffb020;cursor:pointer">Send reminders →</span>
+      </div>
+      <div style="overflow-x:auto">
+        <div style="display:grid;min-width:720px;grid-template-columns:130px 1fr 1fr 100px 100px 90px;border-bottom:1px solid rgba(255,255,255,.18);padding:10px 22px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#a1a1a1"><span>REG</span><span>CUSTOMER</span><span>VEHICLE</span><span>MOT</span><span>SERVICE</span><span>STATUS</span></div>
+        <div style="display:grid;min-width:720px;grid-template-columns:130px 1fr 1fr 100px 100px 90px;align-items:center;padding:11px 22px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.18)"><div><span style="display:inline-block;white-space:nowrap;border-radius:3px;border:1px solid #c9a435;background:#f4d35e;padding:2px 7px;font-family:'Geist Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;color:#0e1014">WV21 HTE</span></div><div style="color:#e6e8eb">Jess Hardy</div><div style="color:#a1a1a1">Ford Focus</div><div style="font-family:'Geist Mono',monospace;font-size:12px;color:#ff5b5b">12d ago</div><div style="font-family:'Geist Mono',monospace;font-size:12px;color:#a1a1a1">+48d</div><div><span style="border-radius:2px;border:1px solid #5a2424;background:#3a1a1a;padding:3px 6px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#ff5b5b">OVERDUE</span></div></div>
+        <div style="display:grid;min-width:720px;grid-template-columns:130px 1fr 1fr 100px 100px 90px;align-items:center;padding:11px 22px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.18)"><div><span style="display:inline-block;white-space:nowrap;border-radius:3px;border:1px solid #c9a435;background:#f4d35e;padding:2px 7px;font-family:'Geist Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;color:#0e1014">KX68 WRD</span></div><div style="color:#e6e8eb">Sarah Milton</div><div style="color:#a1a1a1">VW Golf</div><div style="font-family:'Geist Mono',monospace;font-size:12px;color:#ffb020">+6d</div><div style="font-family:'Geist Mono',monospace;font-size:12px;color:#a1a1a1">—</div><div><span style="border-radius:2px;border:1px solid #5a4218;background:#3a2c14;padding:3px 6px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#ffb020">URGENT</span></div></div>
+        <div style="display:grid;min-width:720px;grid-template-columns:130px 1fr 1fr 100px 100px 90px;align-items:center;padding:11px 22px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.18)"><div><span style="display:inline-block;white-space:nowrap;border-radius:3px;border:1px solid #c9a435;background:#f4d35e;padding:2px 7px;font-family:'Geist Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;color:#0e1014">BD70 KLM</span></div><div style="color:#e6e8eb">Alan Reid</div><div style="color:#a1a1a1">Toyota Yaris</div><div style="font-family:'Geist Mono',monospace;font-size:12px;color:#ffb020">+11d</div><div style="font-family:'Geist Mono',monospace;font-size:12px;color:#a1a1a1">+30d</div><div><span style="border-radius:2px;border:1px solid #5a4218;background:#3a2c14;padding:3px 6px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#ffb020">URGENT</span></div></div>
+        <div style="display:grid;min-width:720px;grid-template-columns:130px 1fr 1fr 100px 100px 90px;align-items:center;padding:11px 22px;font-size:13px"><div><span style="display:inline-block;white-space:nowrap;border-radius:3px;border:1px solid #c9a435;background:#f4d35e;padding:2px 7px;font-family:'Geist Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.06em;color:#0e1014">GJ71 AZC</span></div><div style="color:#e6e8eb">Leah Simmons</div><div style="color:#a1a1a1">BMW 118i</div><div style="font-family:'Geist Mono',monospace;font-size:12px;color:#a1a1a1">+38d</div><div style="font-family:'Geist Mono',monospace;font-size:12px;color:#a1a1a1">+52d</div><div><span style="border-radius:2px;border:1px solid #2c4458;background:#1f2a35;padding:3px 6px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.12em;color:#7ec8ff">SOON</span></div></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ═══════════ FLOATING TOP-RIGHT CLUSTER ═══════════ -->
+  <div style="position:fixed;top:12px;right:16px;z-index:40;display:flex;flex-direction:column;align-items:flex-end">
+    <div style="display:flex;align-items:center;gap:8px">
+      <sc-if value="{{ isA }}" hint-placeholder-val="{{ true }}">
+        <button onClick="{{ toggleOpen }}" aria-label="Support" title="Support" style="position:relative;display:grid;height:40px;width:40px;place-items:center;border-radius:999px;background:#15181d;border:1px solid #2a2f37;color:#e6e8eb;cursor:pointer" style-hover="background:#1c2026">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m4.93 4.93 4.24 4.24"></path><path d="m14.83 14.83 4.24 4.24"></path><path d="m14.83 9.17 4.24-4.24"></path><path d="m4.93 19.07 4.24-4.24"></path><circle cx="12" cy="12" r="4"></circle></svg>
+          <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;right:-4px;display:grid;height:17px;min-width:17px;place-items:center;border-radius:999px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:0 4px;border:2px solid #0e1014">1</span></sc-if>
+        </button>
+      </sc-if>
+      <sc-if value="{{ isB }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ toggleOpen }}" aria-label="Support" style="display:flex;align-items:center;gap:7px;height:40px;padding:0 15px;border-radius:999px;background:var(--brand);border:0;color:var(--on-brand);font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 8px 24px color-mix(in srgb,var(--brand) 35%,transparent)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m4.93 4.93 4.24 4.24"></path><path d="m14.83 14.83 4.24 4.24"></path><path d="m14.83 9.17 4.24-4.24"></path><path d="m4.93 19.07 4.24-4.24"></path><circle cx="12" cy="12" r="4"></circle></svg>
+          Support
+          <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="height:7px;width:7px;border-radius:999px;background:#ffb020;box-shadow:0 0 0 3px rgba(255,176,32,.3)"></span></sc-if>
+        </button>
+      </sc-if>
+      <sc-if value="{{ isC }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ toggleOpen }}" aria-label="Help — press ?" title="Help — press ?" style="position:relative;display:grid;height:40px;width:40px;place-items:center;border-radius:10px;background:rgba(21,24,29,.65);border:1px dashed #3a4049;color:#9aa1ad;font-family:'Geist Mono',monospace;font-size:15px;font-weight:700;cursor:pointer;backdrop-filter:blur(4px)" style-hover="color:#e6e8eb;border-color:#5a6170">?
+          <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-3px;right:-3px;height:9px;width:9px;border-radius:999px;background:#ef4444;border:2px solid #0e1014"></span></sc-if>
+        </button>
+      </sc-if>
+      <sc-if value="{{ isD }}" hint-placeholder-val="{{ false }}">
+        <button onClick="{{ toggleOpen }}" aria-label="Support console" title="Support console" style="position:relative;height:40px;width:40px;border-radius:999px;border:0;background:none;cursor:pointer;padding:0">
+          <span style="position:absolute;inset:0;border-radius:999px;background:conic-gradient(from 0deg,var(--brand),transparent 42%,transparent 58%,var(--brand));animation:aigSpin 4.5s linear infinite;opacity:.9"></span>
+          <span style="position:absolute;inset:3px;border-radius:999px;background:#0a0c0f;display:grid;place-items:center;color:var(--brand)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg>
+          </span>
+          <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;right:-4px;display:grid;height:17px;min-width:17px;place-items:center;border-radius:999px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:0 4px;border:2px solid #0e1014;z-index:2">1</span></sc-if>
+        </button>
+      </sc-if>
+      <button onClick="{{ toggleBell }}" aria-label="Notifications" style="position:relative;display:grid;height:40px;width:40px;place-items:center;border-radius:999px;background:#15181d;border:1px solid #2a2f37;color:#e6e8eb;cursor:pointer" style-hover="background:#1c2026">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg>
+      </button>
+    </div>
+
+    <sc-if value="{{ bellOpen }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ closeAll }}" aria-label="Close" style="position:fixed;inset:0;background:none;border:0;cursor:default;z-index:40"></button>
+      <div data-screen-label="Notifications popover" style="position:absolute;right:0;top:48px;width:320px;border-radius:10px;border:1px solid #2a2f37;background:#15181d;box-shadow:0 24px 64px rgba(0,0,0,.6);overflow:hidden;animation:popIn .16s ease-out;z-index:41">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #2a2f37">
+          <h3 style="margin:0;font-size:13.5px;font-weight:600;color:#e6e8eb">Notifications</h3>
+          <span style="font-size:11px;color:#9aa1ad;cursor:pointer">Mark all read</span>
+        </div>
+        <button onClick="{{ viewReply }}" style="display:flex;gap:8px;width:100%;text-align:left;padding:10px 12px;background:none;border:0;border-bottom:1px solid #22262e;cursor:pointer" style-hover="background:#1c2026">
+          <span style="margin-top:5px;height:8px;width:8px;flex:none;border-radius:999px;background:#f59e0b"></span>
+          <span style="min-width:0;flex:1"><span style="display:block;font-size:13px;font-weight:500;color:#e6e8eb">Support replied · #8F42C1A0</span><span style="display:block;margin-top:2px;font-size:11.5px;color:#9aa1ad;line-height:1.4">We traced it — the reminder engine cached the old address…</span><span style="display:block;margin-top:4px;font-size:10px;color:#9aa1ad">2h ago</span></span>
+        </button>
+        <button style="display:flex;gap:8px;width:100%;text-align:left;padding:10px 12px;background:none;border:0;cursor:pointer;opacity:.6" style-hover="background:#1c2026">
+          <span style="margin-top:5px;height:8px;width:8px;flex:none;border-radius:999px;background:#22c55e"></span>
+          <span style="min-width:0;flex:1"><span style="display:block;font-size:13px;font-weight:500;color:#e6e8eb">Quote approved — £486</span><span style="display:block;margin-top:2px;font-size:11.5px;color:#9aa1ad;line-height:1.4">Jess Hardy accepted the brake quote.</span><span style="display:block;margin-top:4px;font-size:10px;color:#9aa1ad">4h ago</span></span>
+        </button>
+        <div style="border-top:1px solid #2a2f37;padding:8px 12px;text-align:center;font-size:11px;color:#9aa1ad;cursor:pointer">View all →</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ aOpen }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ closeAll }}" aria-label="Close" style="position:fixed;inset:0;background:none;border:0;cursor:default;z-index:40"></button>
+      <section data-screen-label="Support widget — A popover" style="position:absolute;right:0;top:48px;width:382px;max-height:calc(100vh - 74px);display:flex;flex-direction:column;background:#111418;border:1px solid #2a2f37;border-radius:14px;box-shadow:0 24px 64px rgba(0,0,0,.65);overflow:hidden;animation:popIn .18s ease-out;z-index:41">
+        <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #22262e;background:linear-gradient(180deg,color-mix(in srgb,var(--brand) 9%,transparent),transparent)">
+          <span style="display:grid;height:26px;width:26px;flex:none;place-items:center;border-radius:8px;background:#0a0c0f;border:1px solid #2a2f37"><img src="AIGarage-brand/mark/aigarage-mark-on-dark.svg" alt="" style="width:14px;height:14px"></span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13.5px;font-weight:600;color:#e6e8eb;line-height:1.2">Support</div>
+            <div style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.1em;color:#5a6170;margin-top:2px">ANSWERS FIRST · HUMANS ON STANDBY</div>
+          </div>
+          <button onClick="{{ openTickets }}" style="position:relative;border-radius:6px;border:1px solid #2a2f37;background:none;padding:5px 8px;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.06em;color:#9aa1ad;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026">TICKETS · 3
+            <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="position:absolute;top:-4px;right:-4px;height:8px;width:8px;border-radius:999px;background:#ef4444;border:2px solid #111418"></span></sc-if>
+          </button>
+          <button onClick="{{ closeAll }}" aria-label="Close" style="display:grid;height:26px;width:26px;place-items:center;border-radius:6px;background:none;border:0;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+        </div>
+
+        <sc-if value="{{ aChat }}" hint-placeholder-val="{{ false }}">
+          <div ref="{{ chatRef }}" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;min-height:230px;max-height:390px">
+            <sc-for list="{{ chatMsgs }}" as="m" hint-placeholder-count="1">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <sc-if value="{{ m.ai }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex;gap:8px;align-items:flex-start">
+                    <span style="display:grid;height:22px;width:22px;flex:none;place-items:center;border-radius:7px;background:#0a0c0f;border:1px solid #22262e;margin-top:2px"><img src="AIGarage-brand/mark/aigarage-mark-on-dark.svg" alt="" style="width:11px;height:11px"></span>
+                    <div style="max-width:84%;border-radius:10px;border:1px solid #22262e;background:#171b21;padding:9px 11px;font-size:13px;line-height:1.55;color:#d6dae0">{{ m.body }}<sc-if value="{{ m.src }}" hint-placeholder-val="{{ false }}"><div style="margin-top:8px"><span style="display:inline-block;border-radius:4px;border:1px solid #2a2f37;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#9aa1ad">{{ m.src }} ↗</span></div></sc-if></div>
+                  </div>
+                  <sc-if value="{{ m.showActions }}" hint-placeholder-val="{{ false }}">
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-left:30px">
+                      <button onClick="{{ helpedYes }}" style="border-radius:999px;border:1px solid #2a2f37;background:none;padding:6px 12px;font-size:11.5px;color:#9aa1ad;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026">That helped</button>
+                      <button onClick="{{ openEsc }}" style="border-radius:999px;border:1px solid color-mix(in srgb,var(--brand) 55%,#2a2f37);background:color-mix(in srgb,var(--brand) 12%,transparent);padding:6px 12px;font-size:11.5px;font-weight:600;color:#e6e8eb;cursor:pointer">Still stuck — raise a ticket →</button>
+                    </div>
+                  </sc-if>
+                </sc-if>
+                <sc-if value="{{ m.user }}" hint-placeholder-val="{{ false }}">
+                  <div style="align-self:flex-end;max-width:84%;border-radius:10px;background:color-mix(in srgb,var(--brand) 17%,#171b21);border:1px solid color-mix(in srgb,var(--brand) 32%,#22262e);padding:9px 11px;font-size:13px;line-height:1.5;color:#e6e8eb">{{ m.body }}</div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ typing }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;gap:8px;align-items:center">
+                <span style="display:grid;height:22px;width:22px;flex:none;place-items:center;border-radius:7px;background:#0a0c0f;border:1px solid #22262e"><img src="AIGarage-brand/mark/aigarage-mark-on-dark.svg" alt="" style="width:11px;height:11px"></span>
+                <div style="display:flex;gap:4px;border-radius:10px;border:1px solid #22262e;background:#171b21;padding:12px 13px"><span style="height:5px;width:5px;border-radius:999px;background:#9aa1ad;animation:blinkDot 1.2s infinite"></span><span style="height:5px;width:5px;border-radius:999px;background:#9aa1ad;animation:blinkDot 1.2s infinite .2s"></span><span style="height:5px;width:5px;border-radius:999px;background:#9aa1ad;animation:blinkDot 1.2s infinite .4s"></span></div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ showSuggs }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-left:30px;display:flex;flex-direction:column;align-items:flex-start;gap:6px">
+                <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170">ON THIS PAGE — TRY ONE</span>
+                <sc-for list="{{ suggs }}" as="s" hint-placeholder-count="3">
+                  <button onClick="{{ askSugg }}" data-q="{{ s.q }}" style="border-radius:999px;border:1px solid #2a2f37;background:#14181e;padding:7px 12px;font-size:12px;color:#c6cad1;cursor:pointer;text-align:left" style-hover="border-color:#3a4049;background:#1c2026">{{ s.q }}</button>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+          <div style="display:flex;gap:8px;border-top:1px solid #22262e;padding:10px 12px">
+            <input value="{{ chatInput }}" onChange="{{ onChatInput }}" onKeyDown="{{ chatKey }}" placeholder="Ask anything about AI Garage…" style="flex:1;background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none">
+            <button onClick="{{ sendChat }}" aria-label="Send" style="display:grid;height:36px;width:36px;flex:none;place-items:center;border-radius:8px;background:var(--brand);border:0;color:var(--on-brand);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg></button>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #22262e;background:#0e1116;padding:7px 14px">
+            <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170">CONTEXT ATTACHED · /STAFF · OWNER</span>
+            <sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><button onClick="{{ viewReply }}" style="background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.06em;color:#ffb020;cursor:pointer">1 NEW REPLY →</button></sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ aEsc }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:11px">
+            <button onClick="{{ toChat }}" style="align-self:flex-start;background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← BACK TO ASSIST</button>
+            <div style="font-size:14px;font-weight:600;color:#e6e8eb">Raise a ticket</div>
+            <div style="display:flex;gap:6px">
+              <sc-for list="{{ escChips }}" as="c" hint-placeholder-count="3">
+                <button onClick="{{ pickType }}" data-t="{{ c.t }}" style="border-radius:7px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.cl }};font-weight:{{ c.fw }};padding:7px 11px;font-size:12px;cursor:pointer">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170">SUBJECT</label><input value="{{ escSubject }}" onChange="{{ onEscSubject }}" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none"></div>
+            <div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170">WHAT'S GOING ON?</label><textarea rows="5" value="{{ escBody }}" onChange="{{ onEscBody }}" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.5;color:#e6e8eb;outline:none;resize:vertical"></textarea></div>
+            <div style="border:1px dashed #2a2f37;border-radius:8px;padding:9px 10px">
+              <div style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170;margin-bottom:7px">ATTACHED AUTOMATICALLY</div>
+              <div style="display:flex;flex-wrap:wrap;gap:5px">
+                <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">ROUTE /STAFF</span>
+                <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">BRANCH MAIN-WORKSHOP</span>
+                <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">ROLE OWNER</span>
+                <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">BUILD a1b2c3f</span>
+                <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">SENTRY · NONE IN LAST HOUR</span>
+                <button onClick="{{ toggleShot }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:4px;border:1px solid {{ shotBd }};background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:{{ shotCl }};cursor:pointer"><span style="display:inline-block;width:15px;height:10px;border-radius:2px;border:1px solid #3a4049;background:linear-gradient(135deg,#1c2026 60%,#2a313b 60%)"></span>{{ shotLabel }}</button>
+              </div>
+            </div>
+            <button onClick="{{ sendTicket }}" style="border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-size:13px;font-weight:600;padding:10px 0;cursor:pointer">Send to AI Garage</button>
+            <div style="text-align:center;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170">REPLIES LAND HERE AND BY EMAIL</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ aSent }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:30px 24px;text-align:center">
+            <span style="display:grid;height:38px;width:38px;place-items:center;border-radius:999px;border:1px solid #2d5a3f;background:#13301f;color:#5fdd9d"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <div style="font-size:15px;font-weight:600;color:#e6e8eb">Ticket sent</div>
+            <span style="border-radius:5px;border:1px solid #2a2f37;background:#0e1116;padding:4px 9px;font-family:'Geist Mono',monospace;font-size:11px;color:#9aa1ad">{{ sentRef }}</span>
+            <p style="margin:0;font-size:12px;line-height:1.55;color:#9aa1ad">The AI Garage team replies here and at owner@smith-motors.demo — typically the same working day.</p>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button onClick="{{ openTickets }}" style="border-radius:8px;border:1px solid #2a2f37;background:none;color:#9aa1ad;font-size:12.5px;padding:8px 14px;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026">View my tickets</button>
+              <button onClick="{{ toChat }}" style="border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-size:12.5px;font-weight:600;padding:8px 16px;cursor:pointer">Done</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ aTickets }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
+            <div style="padding:12px 14px 8px"><button onClick="{{ toChat }}" style="background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← BACK TO ASSIST</button>
+            <div style="margin-top:8px;font-size:14px;font-weight:600;color:#e6e8eb">Your tickets</div></div>
+            <sc-for list="{{ ticketRows }}" as="t" hint-placeholder-count="3">
+              <button onClick="{{ openTicket }}" data-id="{{ t.id }}" style="display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:10px 14px;background:none;border:0;border-top:1px solid #1c2026;cursor:pointer" style-hover="background:#171b21">
+                <span style="display:flex;align-items:center;gap:7px;width:100%"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ t.ref }}</span><span style="border-radius:999px;background:{{ t.stBg }};color:{{ t.stCl }};padding:2px 8px;font-size:10px;font-weight:600">{{ t.stLabel }}</span><sc-if value="{{ t.unread }}" hint-placeholder-val="{{ false }}"><span style="border-radius:999px;border:1px solid #5a4218;background:#3a2c14;color:#ffb020;padding:1px 7px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.06em">1 NEW</span></sc-if><span style="margin-left:auto;font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ t.time }}</span></span>
+                <span style="font-size:13px;font-weight:500;color:#e6e8eb">{{ t.subject }}</span>
+                <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170;text-transform:uppercase">{{ t.typeLabel }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ aThread }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:420px">
+            <button onClick="{{ backToTickets }}" style="align-self:flex-start;background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← ALL TICKETS</button>
+            <div>
+              <div style="font-size:13.5px;font-weight:600;color:#e6e8eb;line-height:1.35">{{ thSubject }}</div>
+              <div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:7px"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ thRef }}</span><span style="border-radius:999px;background:{{ thStBg }};color:{{ thStCl }};padding:2px 8px;font-size:10px;font-weight:600">{{ thStLabel }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170;text-transform:uppercase">{{ thType }} · {{ thTime }}</span></div>
+            </div>
+            <sc-for list="{{ thMsgs }}" as="m" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column">
+                <sc-if value="{{ m.platform }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-radius:10px;border:1px solid color-mix(in srgb,var(--brand) 30%,#22262e);background:color-mix(in srgb,var(--brand) 7%,#14181e);padding:9px 11px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><span style="font-size:11.5px;font-weight:600;color:#e6e8eb">{{ m.from }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">{{ m.time }}</span></div><div style="font-size:12.5px;line-height:1.55;color:#d6dae0;white-space:pre-wrap">{{ m.body }}</div></div>
+                </sc-if>
+                <sc-if value="{{ m.staff }}" hint-placeholder-val="{{ true }}">
+                  <div style="border-radius:10px;border:1px solid #22262e;background:#171b21;padding:9px 11px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><span style="font-size:11.5px;font-weight:600;color:#9aa1ad">{{ m.from }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">{{ m.time }}</span></div><div style="font-size:12.5px;line-height:1.55;color:#d6dae0;white-space:pre-wrap">{{ m.body }}</div></div>
+                </sc-if>
+              </div>
+            </sc-for>
+            <sc-if value="{{ thResolved }}" hint-placeholder-val="{{ false }}"><div style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170;text-align:center">RESOLVED — REPLYING REOPENS THE TICKET</div></sc-if>
+          </div>
+          <div style="display:flex;gap:8px;border-top:1px solid #22262e;padding:10px 12px">
+            <input value="{{ reply }}" onChange="{{ onReply }}" placeholder="Reply to the team…" style="flex:1;background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none">
+            <button onClick="{{ sendReply }}" aria-label="Send reply" style="display:grid;height:36px;width:36px;flex:none;place-items:center;border-radius:8px;background:var(--brand);border:0;color:var(--on-brand);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg></button>
+          </div>
+        </sc-if>
+      </section>
+    </sc-if>
+    <sc-if value="{{ dOpen }}" hint-placeholder-val="{{ false }}">
+      <button onClick="{{ closeAll }}" aria-label="Close" style="position:fixed;inset:0;background:none;border:0;cursor:default;z-index:40"></button>
+      <section data-screen-label="Support widget — D triage console" style="position:absolute;right:0;top:48px;width:430px;max-height:calc(100vh - 74px);display:flex;flex-direction:column;background:#0a0c0f;border:1px solid #2a2f37;border-radius:12px;box-shadow:0 24px 64px rgba(0,0,0,.7);overflow:hidden;animation:popIn .18s ease-out;z-index:41">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #1c2026">
+          <span style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.16em;color:#5a6170">// SUPPORT CONSOLE</span>
+          <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#9aa1ad"><span style="color:#5fdd9d">●</span> NOMINAL · BUILD a1b2c3f</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;padding:8px 14px;border-bottom:1px solid #1c2026">
+          <button onClick="{{ openTickets }}" style="display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:#9aa1ad;cursor:pointer" style-hover="color:#e6e8eb">MY TICKETS · 3<sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="border-radius:999px;border:1px solid #5a4218;background:#3a2c14;color:#ffb020;padding:1px 6px;font-size:8.5px">1 NEW</span></sc-if></button>
+          <span style="font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.08em;color:#9aa1ad;cursor:pointer">MANUAL ↗</span>
+          <button onClick="{{ closeAll }}" aria-label="Close" style="margin-left:auto;display:grid;height:22px;width:22px;place-items:center;border-radius:5px;background:none;border:0;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+        </div>
+
+        <sc-if value="{{ dInputPhase }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 14px;display:flex;flex-direction:column;gap:10px">
+            <div style="font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:var(--brand)">&gt; DESCRIBE IT IN ONE LINE — I'LL WRITE THE TICKET.</div>
+            <textarea rows="2" value="{{ dInput }}" onChange="{{ onDInput }}" placeholder="e.g. booking calendar shows wrong hours on Saturdays" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:10px 12px;font-family:'Geist Mono',monospace;font-size:12.5px;line-height:1.5;color:#e6e8eb;outline:none;resize:vertical"></textarea>
+            <div style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170;line-height:1.6">AI CLASSIFIES TYPE + SEVERITY, DRAFTS THE BODY, ATTACHES CONTEXT.<br>YOU REVIEW BEFORE ANYTHING SENDS.</div>
+            <button onClick="{{ runTriage }}" style="border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-family:'Geist Mono',monospace;font-size:11.5px;font-weight:700;letter-spacing:.08em;padding:10px 0;cursor:pointer">TRIAGE →</button>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ dRun }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:16px 14px 22px;display:flex;flex-direction:column;gap:2px;min-height:120px">
+            <sc-for list="{{ dStepRows }}" as="s" hint-placeholder-count="1">
+              <div style="font-family:'Geist Mono',monospace;font-size:11px;color:#9aa1ad;animation:stepIn .25s ease-out;padding:3px 0">{{ s.txt }} <span style="color:#5fdd9d">{{ s.ok }}</span></div>
+            </sc-for>
+            <div style="font-family:'Geist Mono',monospace;font-size:11px;color:var(--brand);padding:3px 0"><span style="animation:caret 1s steps(1) infinite">▮</span></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ dDraft }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="border-radius:4px;background:{{ dTypeBg }};color:{{ dTypeCl }};padding:3px 8px;font-family:'Geist Mono',monospace;font-size:9.5px;letter-spacing:.1em">{{ draftTypeLabel }}</span>
+              <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.1em;color:#5a6170">SEVERITY</span>
+              <sc-for list="{{ sevChips }}" as="c" hint-placeholder-count="4">
+                <button onClick="{{ pickSev }}" data-s="{{ c.s }}" style="border-radius:5px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.cl }};padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9.5px;cursor:pointer">{{ c.label }}</button>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170">SUBJECT · AI DRAFT, EDITABLE</label><input value="{{ dSubject }}" onChange="{{ onDSubject }}" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none"></div>
+            <div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170">BODY · STRUCTURED FOR THE TEAM</label><textarea rows="7" value="{{ dBody }}" onChange="{{ onDBody }}" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:10px 12px;font-family:'Geist Mono',monospace;font-size:11.5px;line-height:1.6;color:#d6dae0;outline:none;resize:vertical"></textarea></div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">ROUTE /STAFF</span>
+              <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">BRANCH MAIN-WORKSHOP</span>
+              <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">ROLE OWNER</span>
+              <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:{{ dSentryCl }}">{{ dSentry }}</span>
+              <button onClick="{{ dToggleShot }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:4px;border:1px solid {{ dShotBd }};background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:{{ dShotCl }};cursor:pointer"><span style="display:inline-block;width:15px;height:10px;border-radius:2px;border:1px solid #3a4049;background:linear-gradient(135deg,#1c2026 60%,#2a313b 60%)"></span>{{ dShotLabel }}</button>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:2px">
+              <button onClick="{{ fileTicket }}" style="flex:1;border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-family:'Geist Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.08em;padding:10px 0;cursor:pointer">FILE TICKET</button>
+              <button onClick="{{ discard }}" style="border-radius:8px;border:1px solid #2a2f37;background:none;color:#9aa1ad;font-family:'Geist Mono',monospace;font-size:11px;letter-spacing:.08em;padding:10px 14px;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026">DISCARD</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ dFiled }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 24px;text-align:center">
+            <div style="font-family:'Geist Mono',monospace;font-size:14px;letter-spacing:.06em;color:var(--brand)">FILED {{ filedRef }}</div>
+            <p style="margin:0;font-size:12px;line-height:1.55;color:#9aa1ad">The team replies here and by email — typically the same working day.</p>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button onClick="{{ openTickets }}" style="border-radius:8px;border:1px solid #2a2f37;background:none;color:#9aa1ad;font-family:'Geist Mono',monospace;font-size:10.5px;letter-spacing:.06em;padding:8px 13px;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026">VIEW TICKETS</button>
+              <button onClick="{{ dReset }}" style="border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-family:'Geist Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.06em;padding:8px 15px;cursor:pointer">NEW TRIAGE</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ dTickets }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;overflow-y:auto;display:flex;flex-direction:column">
+            <div style="padding:12px 14px 8px"><button onClick="{{ toDConsole }}" style="background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← CONSOLE</button></div>
+            <sc-for list="{{ ticketRows }}" as="t" hint-placeholder-count="3">
+              <button onClick="{{ openTicket }}" data-id="{{ t.id }}" style="display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:10px 14px;background:none;border:0;border-top:1px solid #14181e;cursor:pointer" style-hover="background:#0e1116">
+                <span style="display:flex;align-items:center;gap:7px;width:100%"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ t.ref }}</span><span style="border-radius:999px;background:{{ t.stBg }};color:{{ t.stCl }};padding:2px 8px;font-size:10px;font-weight:600">{{ t.stLabel }}</span><sc-if value="{{ t.unread }}" hint-placeholder-val="{{ false }}"><span style="border-radius:999px;border:1px solid #5a4218;background:#3a2c14;color:#ffb020;padding:1px 7px;font-family:'Geist Mono',monospace;font-size:9px">1 NEW</span></sc-if><span style="margin-left:auto;font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ t.time }}</span></span>
+                <span style="font-size:12.5px;font-weight:500;color:#e6e8eb">{{ t.subject }}</span>
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ dThread }}" hint-placeholder-val="{{ false }}">
+          <div style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px;max-height:400px">
+            <button onClick="{{ backToTickets }}" style="align-self:flex-start;background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← ALL TICKETS</button>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:#e6e8eb;line-height:1.35">{{ thSubject }}</div>
+              <div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:7px"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ thRef }}</span><span style="border-radius:999px;background:{{ thStBg }};color:{{ thStCl }};padding:2px 8px;font-size:10px;font-weight:600">{{ thStLabel }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170;text-transform:uppercase">{{ thType }} · {{ thTime }}</span></div>
+            </div>
+            <sc-for list="{{ thMsgs }}" as="m" hint-placeholder-count="2">
+              <div style="display:flex;flex-direction:column">
+                <sc-if value="{{ m.platform }}" hint-placeholder-val="{{ false }}">
+                  <div style="border-radius:8px;border:1px solid color-mix(in srgb,var(--brand) 30%,#22262e);background:color-mix(in srgb,var(--brand) 7%,#0e1116);padding:9px 11px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><span style="font-size:11.5px;font-weight:600;color:#e6e8eb">{{ m.from }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">{{ m.time }}</span></div><div style="font-size:12.5px;line-height:1.55;color:#d6dae0;white-space:pre-wrap">{{ m.body }}</div></div>
+                </sc-if>
+                <sc-if value="{{ m.staff }}" hint-placeholder-val="{{ true }}">
+                  <div style="border-radius:8px;border:1px solid #1c2026;background:#0e1116;padding:9px 11px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><span style="font-size:11.5px;font-weight:600;color:#9aa1ad">{{ m.from }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">{{ m.time }}</span></div><div style="font-size:12.5px;line-height:1.55;color:#d6dae0;white-space:pre-wrap">{{ m.body }}</div></div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:8px;border-top:1px solid #1c2026;padding:10px 12px">
+            <input value="{{ reply }}" onChange="{{ onReply }}" placeholder="Reply to the team…" style="flex:1;background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none">
+            <button onClick="{{ sendReply }}" aria-label="Send reply" style="display:grid;height:36px;width:36px;flex:none;place-items:center;border-radius:8px;background:var(--brand);border:0;color:var(--on-brand);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg></button>
+          </div>
+        </sc-if>
+      </section>
+    </sc-if>
+
+    <sc-if value="{{ peekOn }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Support peek toast" style="position:absolute;right:0;top:48px;width:324px;border-radius:12px;border:1px solid #2a2f37;background:#15181d;box-shadow:0 20px 48px rgba(0,0,0,.6);overflow:hidden;animation:peekIn .3s cubic-bezier(.2,.9,.3,1.15);z-index:39">
+        <div style="display:flex;gap:10px;padding:12px 12px 10px">
+          <span style="display:grid;height:28px;width:28px;flex:none;place-items:center;border-radius:8px;background:#0a0c0f;border:1px solid #2a2f37"><img src="AIGarage-brand/mark/aigarage-mark-on-dark.svg" alt="AI Garage" style="width:14px;height:14px"></span>
+          <div style="min-width:0;flex:1">
+            <div style="font-size:12.5px;font-weight:600;color:#e6e8eb">AI Garage Support replied</div>
+            <div style="margin-top:2px;font-size:11.5px;line-height:1.45;color:#9aa1ad;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">We traced it — the reminder engine cached the old address for queued sends. Fix ships tonight.</div>
+            <div style="margin-top:7px;display:flex;gap:12px">
+              <button onClick="{{ viewReply }}" style="background:none;border:0;padding:0;font-size:11.5px;font-weight:600;color:var(--brand);cursor:pointer">View reply →</button>
+              <button onClick="{{ dismissPeek }}" style="background:none;border:0;padding:0;font-size:11.5px;color:#5a6170;cursor:pointer">Dismiss</button>
+            </div>
+          </div>
+        </div>
+        <div style="height:2px;background:#22262e"><div style="height:100%;background:var(--brand);animation:shrinkX 6.4s linear forwards"></div></div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ bOpen }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ closeAll }}" aria-label="Close" style="position:fixed;inset:0;background:rgba(0,0,0,.45);border:0;cursor:default;z-index:45;animation:fadeIn .2s"></button>
+    <section data-screen-label="Support widget — B drawer" style="position:fixed;top:0;right:0;bottom:0;width:400px;max-width:92vw;background:#15181d;border-left:1px solid #2a2f37;box-shadow:-24px 0 64px rgba(0,0,0,.5);display:flex;flex-direction:column;animation:drawerIn .26s cubic-bezier(.2,.8,.2,1);z-index:46">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px">
+        <div><div style="font-size:15px;font-weight:700;color:#e6e8eb">Support</div><div style="margin-top:2px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.14em;color:#5a6170">SMITH MOTORS · MAIN WORKSHOP</div></div>
+        <button onClick="{{ closeAll }}" aria-label="Close" style="display:grid;height:28px;width:28px;place-items:center;border-radius:6px;background:none;border:0;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg></button>
+      </div>
+      <div style="padding:0 16px 12px;border-bottom:1px solid #22262e">
+        <div style="position:relative">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#5a6170" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:11px;top:50%;transform:translateY(-50%)"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          <input value="{{ search }}" onChange="{{ onSearch }}" placeholder="Search the manual…" style="width:100%;background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px 9px 33px;font-size:13px;color:#e6e8eb;outline:none">
+        </div>
+      </div>
+
+      <sc-if value="{{ bHome }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow-y:auto;padding:6px 0 16px">
+          <div style="padding:12px 16px 6px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.14em;color:#5a6170">{{ bListLabel }}</div>
+          <sc-for list="{{ artRows }}" as="a" hint-placeholder-count="3">
+            <button onClick="{{ openArticle }}" data-id="{{ a.id }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 16px;background:none;border:0;cursor:pointer" style-hover="background:#1a1e24">
+              <span style="width:76px;flex:none;text-align:center;border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 0;font-family:'Geist Mono',monospace;font-size:8.5px;letter-spacing:.08em;color:#9aa1ad">{{ a.tag }}</span>
+              <span style="flex:1;font-size:13px;color:#d6dae0">{{ a.title }}</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5a6170" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+            </button>
+          </sc-for>
+          <div style="padding:16px 16px 6px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.14em;color:#5a6170">GET HELP</div>
+          <button onClick="{{ openFormB }}" data-t="bug" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:9px 16px;background:none;border:0;cursor:pointer" style-hover="background:#1a1e24">
+            <span style="display:grid;height:30px;width:30px;flex:none;place-items:center;border-radius:8px;border:1px solid #5a2424;background:#3a1a1a;color:#ff5b5b"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"></path><path d="M14.12 3.88 16 2"></path><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"></path><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"></path><path d="M12 20v-9"></path><path d="M6.53 9C4.6 8.8 3 7.1 3 5"></path><path d="M6 13H2"></path><path d="M3 21c0-2.1 1.7-3.9 3.8-4"></path><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"></path><path d="M22 13h-4"></path><path d="M17.2 17c2.1.1 3.8 1.9 3.8 4"></path></svg></span>
+            <span style="flex:1"><span style="display:block;font-size:13px;font-weight:600;color:#e6e8eb">Report a bug</span><span style="display:block;margin-top:1px;font-size:11px;color:#9aa1ad">Something is broken or behaving wrongly.</span></span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5a6170" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+          </button>
+          <button onClick="{{ openFormB }}" data-t="question" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:9px 16px;background:none;border:0;cursor:pointer" style-hover="background:#1a1e24">
+            <span style="display:grid;height:30px;width:30px;flex:none;place-items:center;border-radius:8px;border:1px solid #2c4458;background:#1f2a35;color:#7ec8ff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><path d="M12 17h.01"></path></svg></span>
+            <span style="flex:1"><span style="display:block;font-size:13px;font-weight:600;color:#e6e8eb">Ask a question</span><span style="display:block;margin-top:1px;font-size:11px;color:#9aa1ad">You're not sure how something works.</span></span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5a6170" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+          </button>
+          <button onClick="{{ openFormB }}" data-t="feature_request" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:9px 16px;background:none;border:0;cursor:pointer" style-hover="background:#1a1e24">
+            <span style="display:grid;height:30px;width:30px;flex:none;place-items:center;border-radius:8px;border:1px solid #5a4218;background:#3a2c14;color:#ffb020"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"></path><path d="M9 18h6"></path><path d="M10 22h4"></path></svg></span>
+            <span style="flex:1"><span style="display:block;font-size:13px;font-weight:600;color:#e6e8eb">Request a feature</span><span style="display:block;margin-top:1px;font-size:11px;color:#9aa1ad">Something AI Garage should do but doesn't yet.</span></span>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5a6170" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"></path></svg>
+          </button>
+          <div style="padding:16px 16px 2px;display:flex;align-items:center;justify-content:space-between"><span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.14em;color:#5a6170">YOUR TICKETS</span><sc-if value="{{ unread }}" hint-placeholder-val="{{ false }}"><span style="border-radius:999px;border:1px solid #5a4218;background:#3a2c14;color:#ffb020;padding:1px 7px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.06em">1 NEW REPLY</span></sc-if></div>
+          <sc-for list="{{ ticketRows }}" as="t" hint-placeholder-count="3">
+            <button onClick="{{ openTicket }}" data-id="{{ t.id }}" style="display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:10px 16px;background:none;border:0;border-bottom:1px solid #1c2026;cursor:pointer" style-hover="background:#1a1e24">
+              <span style="display:flex;align-items:center;gap:7px;width:100%"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ t.ref }}</span><span style="border-radius:999px;background:{{ t.stBg }};color:{{ t.stCl }};padding:2px 8px;font-size:10px;font-weight:600">{{ t.stLabel }}</span><sc-if value="{{ t.unread }}" hint-placeholder-val="{{ false }}"><span style="border-radius:999px;border:1px solid #5a4218;background:#3a2c14;color:#ffb020;padding:1px 7px;font-family:'Geist Mono',monospace;font-size:9px">1 NEW</span></sc-if><span style="margin-left:auto;font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ t.time }}</span></span>
+              <span style="font-size:13px;font-weight:500;color:#e6e8eb">{{ t.subject }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ bArticle }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+          <button onClick="{{ toHome }}" style="align-self:flex-start;background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← SUPPORT</button>
+          <span style="align-self:flex-start;border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 8px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.1em;color:#9aa1ad">MANUAL · {{ artTag }}</span>
+          <h2 style="margin:0;font-size:16px;font-weight:700;color:#e6e8eb;line-height:1.3">{{ artTitle }}</h2>
+          <p style="margin:0;font-size:13px;line-height:1.65;color:#c6cad1">{{ artP1 }}</p>
+          <p style="margin:0;font-size:13px;line-height:1.65;color:#c6cad1">{{ artP2 }}</p>
+          <button style="align-self:flex-start;border-radius:7px;border:1px solid #2a2f37;background:none;color:#9aa1ad;font-size:12px;padding:7px 12px;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026">Open the full manual ↗</button>
+          <div style="margin-top:6px;border-top:1px solid #22262e;padding-top:12px;display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:12px;color:#9aa1ad">Didn't answer it?</span>
+            <button onClick="{{ openFormB }}" data-t="question" style="border-radius:7px;border:1px solid color-mix(in srgb,var(--brand) 55%,#2a2f37);background:color-mix(in srgb,var(--brand) 12%,transparent);color:#e6e8eb;font-size:12px;font-weight:600;padding:7px 12px;cursor:pointer">Ask the team →</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ bForm }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:11px">
+          <button onClick="{{ toHome }}" style="align-self:flex-start;background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← SUPPORT</button>
+          <div style="font-size:14px;font-weight:600;color:#e6e8eb">New ticket</div>
+          <div style="display:flex;gap:6px">
+            <sc-for list="{{ escChips }}" as="c" hint-placeholder-count="3">
+              <button onClick="{{ pickType }}" data-t="{{ c.t }}" style="border-radius:7px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.cl }};font-weight:{{ c.fw }};padding:7px 11px;font-size:12px;cursor:pointer">{{ c.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170">SUBJECT</label><input value="{{ escSubject }}" onChange="{{ onEscSubject }}" placeholder="{{ subjPlaceholder }}" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none"></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><label style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170">{{ bodyLabel }}</label><textarea rows="6" value="{{ escBody }}" onChange="{{ onEscBody }}" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.5;color:#e6e8eb;outline:none;resize:vertical"></textarea></div>
+          <div style="border:1px dashed #2a2f37;border-radius:8px;padding:9px 10px">
+            <div style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.12em;color:#5a6170;margin-bottom:7px">ATTACHED AUTOMATICALLY</div>
+            <div style="display:flex;flex-wrap:wrap;gap:5px">
+              <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">ROUTE /STAFF</span>
+              <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">BRANCH MAIN-WORKSHOP</span>
+              <span style="border-radius:4px;border:1px solid #22262e;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:#9aa1ad">ROLE OWNER</span>
+              <button onClick="{{ toggleShot }}" style="display:inline-flex;align-items:center;gap:5px;border-radius:4px;border:1px solid {{ shotBd }};background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;color:{{ shotCl }};cursor:pointer"><span style="display:inline-block;width:15px;height:10px;border-radius:2px;border:1px solid #3a4049;background:linear-gradient(135deg,#1c2026 60%,#2a313b 60%)"></span>{{ shotLabel }}</button>
+            </div>
+          </div>
+          <button onClick="{{ sendTicket }}" style="border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-size:13px;font-weight:600;padding:10px 0;cursor:pointer">Send ticket</button>
+          <div style="text-align:center;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170">GOES STRAIGHT TO THE AI GARAGE TEAM</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ bSent }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:30px 24px;text-align:center">
+          <span style="display:grid;height:38px;width:38px;place-items:center;border-radius:999px;border:1px solid #2d5a3f;background:#13301f;color:#5fdd9d"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+          <div style="font-size:15px;font-weight:600;color:#e6e8eb">Ticket sent</div>
+          <span style="border-radius:5px;border:1px solid #2a2f37;background:#0e1116;padding:4px 9px;font-family:'Geist Mono',monospace;font-size:11px;color:#9aa1ad">{{ sentRef }}</span>
+          <p style="margin:0;font-size:12px;line-height:1.55;color:#9aa1ad">Replies land in Your tickets and at owner@smith-motors.demo — typically the same working day.</p>
+          <button onClick="{{ toHome }}" style="margin-top:4px;border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-size:12.5px;font-weight:600;padding:8px 18px;cursor:pointer">Done</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ bThread }}" hint-placeholder-val="{{ false }}">
+        <div style="flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+          <button onClick="{{ toHome }}" style="align-self:flex-start;background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← SUPPORT</button>
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#e6e8eb;line-height:1.35">{{ thSubject }}</div>
+            <div style="margin-top:5px;display:flex;flex-wrap:wrap;align-items:center;gap:7px"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ thRef }}</span><span style="border-radius:999px;background:{{ thStBg }};color:{{ thStCl }};padding:2px 8px;font-size:10px;font-weight:600">{{ thStLabel }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170;text-transform:uppercase">{{ thType }} · {{ thTime }}</span></div>
+          </div>
+          <sc-for list="{{ thMsgs }}" as="m" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column">
+              <sc-if value="{{ m.platform }}" hint-placeholder-val="{{ false }}">
+                <div style="border-radius:10px;border:1px solid color-mix(in srgb,var(--brand) 30%,#22262e);background:color-mix(in srgb,var(--brand) 7%,#14181e);padding:10px 12px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><span style="font-size:12px;font-weight:600;color:#e6e8eb">{{ m.from }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">{{ m.time }}</span></div><div style="font-size:13px;line-height:1.55;color:#d6dae0;white-space:pre-wrap">{{ m.body }}</div></div>
+              </sc-if>
+              <sc-if value="{{ m.staff }}" hint-placeholder-val="{{ true }}">
+                <div style="border-radius:10px;border:1px solid #22262e;background:#1a1e24;padding:10px 12px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><span style="font-size:12px;font-weight:600;color:#9aa1ad">{{ m.from }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">{{ m.time }}</span></div><div style="font-size:13px;line-height:1.55;color:#d6dae0;white-space:pre-wrap">{{ m.body }}</div></div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <sc-if value="{{ thResolved }}" hint-placeholder-val="{{ false }}"><div style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170;text-align:center">RESOLVED — REPLYING REOPENS THE TICKET</div></sc-if>
+        </div>
+        <div style="display:flex;gap:8px;border-top:1px solid #22262e;padding:10px 12px">
+          <input value="{{ reply }}" onChange="{{ onReply }}" placeholder="Reply to the team…" style="flex:1;background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none">
+          <button onClick="{{ sendReply }}" aria-label="Send reply" style="display:grid;height:36px;width:36px;flex:none;place-items:center;border-radius:8px;background:var(--brand);border:0;color:var(--on-brand);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg></button>
+        </div>
+      </sc-if>
+    </section>
+  </sc-if>
+  <sc-if value="{{ cOpen }}" hint-placeholder-val="{{ false }}">
+    <button onClick="{{ closeAll }}" aria-label="Close" style="position:fixed;inset:0;background:rgba(8,10,13,.6);backdrop-filter:blur(5px);border:0;cursor:default;z-index:45;animation:fadeIn .18s"></button>
+    <section data-screen-label="Support widget — C palette" style="position:fixed;left:50%;top:16vh;width:580px;max-width:94vw;background:#101317;border:1px solid #2a2f37;border-radius:14px;box-shadow:0 40px 90px rgba(0,0,0,.7);overflow:hidden;animation:paletteIn .2s cubic-bezier(.2,.8,.25,1) both;z-index:46;transform:translateX(-50%)">
+      <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid #22262e">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"></path></svg>
+        <input value="{{ query }}" onChange="{{ onQuery }}" onKeyDown="{{ queryKey }}" autoFocus placeholder="Ask AI or search help…" style="flex:1;background:none;border:0;outline:none;font-size:15px;color:#e6e8eb">
+        <span style="border-radius:4px;border:1px solid #2a2f37;padding:3px 6px;font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">ESC</span>
+      </div>
+
+      <sc-if value="{{ cModeResults }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:4px 0 8px;max-height:340px;overflow-y:auto">
+          <sc-for list="{{ cResults }}" as="r" hint-placeholder-count="5">
+            <div style="display:flex;flex-direction:column">
+              <sc-if value="{{ r.head }}" hint-placeholder-val="{{ false }}"><div style="padding:9px 16px 4px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.14em;color:#5a6170">{{ r.label }}</div></sc-if>
+              <sc-if value="{{ r.btn }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ runResult }}" onMouseEnter="{{ hoverResult }}" data-idx="{{ r.idx }}" style="display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:9px 16px;background:{{ r.bg }};border:0;cursor:pointer">
+                  <span style="width:36px;flex:none;text-align:center;border-radius:4px;border:1px solid #2a2f37;background:#0e1116;padding:3px 0;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.06em;color:#9aa1ad">{{ r.glyph }}</span>
+                  <span style="flex:1;font-size:13.5px;color:#e6e8eb;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ r.label }}</span>
+                  <span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ r.hint }}</span>
+                </button>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ cModeAnswer }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;max-height:360px;overflow-y:auto">
+          <div style="font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170">ASKED — {{ cQ }}</div>
+          <sc-if value="{{ cTyping }}" hint-placeholder-val="{{ false }}">
+            <div style="height:14px;width:88%;border-radius:6px;background:linear-gradient(90deg,#171b21 25%,#242a33 50%,#171b21 75%);background-size:200% 100%;animation:shimmerBar 1.1s linear infinite"></div>
+            <div style="height:14px;width:70%;border-radius:6px;background:linear-gradient(90deg,#171b21 25%,#242a33 50%,#171b21 75%);background-size:200% 100%;animation:shimmerBar 1.1s linear infinite .12s"></div>
+            <div style="height:14px;width:78%;border-radius:6px;background:linear-gradient(90deg,#171b21 25%,#242a33 50%,#171b21 75%);background-size:200% 100%;animation:shimmerBar 1.1s linear infinite .24s"></div>
+          </sc-if>
+          <sc-if value="{{ cText }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:13.5px;line-height:1.6;color:#d6dae0;white-space:pre-wrap">{{ cText }}</div>
+            <div><span style="display:inline-block;border-radius:4px;border:1px solid #2a2f37;background:#0e1116;padding:3px 7px;font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#9aa1ad">{{ cSrc }} ↗</span></div>
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button onClick="{{ cRaise }}" style="border-radius:7px;border:1px solid color-mix(in srgb,var(--brand) 55%,#2a2f37);background:color-mix(in srgb,var(--brand) 12%,transparent);padding:7px 13px;font-size:12px;font-weight:600;color:#e6e8eb;cursor:pointer">Still stuck — raise a ticket →</button>
+              <button onClick="{{ cAgain }}" style="border-radius:7px;border:1px solid #2a2f37;background:none;padding:7px 13px;font-size:12px;color:#9aa1ad;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026">Ask another</button>
+            </div>
+          </sc-if>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ cModeForm }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:13.5px;font-weight:600;color:#e6e8eb">New ticket</span><button onClick="{{ cAgain }}" style="background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← BACK</button></div>
+          <div style="display:flex;gap:6px">
+            <sc-for list="{{ escChips }}" as="c" hint-placeholder-count="3">
+              <button onClick="{{ pickType }}" data-t="{{ c.t }}" style="border-radius:7px;border:1px solid {{ c.bd }};background:{{ c.bg }};color:{{ c.cl }};font-weight:{{ c.fw }};padding:6px 11px;font-size:12px;cursor:pointer">{{ c.label }}</button>
+            </sc-for>
+          </div>
+          <input value="{{ escSubject }}" onChange="{{ onEscSubject }}" placeholder="Subject" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none">
+          <textarea rows="4" value="{{ escBody }}" onChange="{{ onEscBody }}" placeholder="What's going on?" style="background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;line-height:1.5;color:#e6e8eb;outline:none;resize:vertical"></textarea>
+          <div style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170">CONTEXT + SCREENSHOT ATTACHED · /STAFF · MAIN-WORKSHOP · OWNER</div>
+          <button onClick="{{ sendTicket }}" style="border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-size:13px;font-weight:600;padding:10px 0;cursor:pointer">Send ticket</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ cModeSent }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 24px;text-align:center">
+          <span style="display:grid;height:36px;width:36px;place-items:center;border-radius:999px;border:1px solid #2d5a3f;background:#13301f;color:#5fdd9d"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+          <div style="font-size:14px;font-weight:600;color:#e6e8eb">Ticket sent — {{ sentRef }}</div>
+          <p style="margin:0;font-size:12px;line-height:1.5;color:#9aa1ad">Replies land in My tickets and by email, typically the same working day.</p>
+          <div style="display:flex;gap:8px">
+            <button onClick="{{ openTickets }}" style="border-radius:8px;border:1px solid #2a2f37;background:none;color:#9aa1ad;font-size:12px;padding:7px 13px;cursor:pointer" style-hover="color:#e6e8eb;background:#1c2026">View tickets</button>
+            <button onClick="{{ closeAll }}" style="border-radius:8px;border:0;background:var(--brand);color:var(--on-brand);font-size:12px;font-weight:600;padding:7px 15px;cursor:pointer">Done</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ cModeTickets }}" hint-placeholder-val="{{ false }}">
+        <div style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column">
+          <div style="padding:10px 16px 4px;display:flex;justify-content:space-between"><span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.14em;color:#5a6170">MY TICKETS</span><button onClick="{{ cAgain }}" style="background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer" style-hover="color:#e6e8eb">← BACK</button></div>
+          <sc-for list="{{ ticketRows }}" as="t" hint-placeholder-count="3">
+            <button onClick="{{ openTicket }}" data-id="{{ t.id }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;background:none;border:0;cursor:pointer" style-hover="background:#1a1f26">
+              <span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170;flex:none">{{ t.ref }}</span>
+              <span style="flex:1;font-size:13px;font-weight:500;color:#e6e8eb;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">{{ t.subject }}</span>
+              <sc-if value="{{ t.unread }}" hint-placeholder-val="{{ false }}"><span style="border-radius:999px;border:1px solid #5a4218;background:#3a2c14;color:#ffb020;padding:1px 7px;font-family:'Geist Mono',monospace;font-size:9px;flex:none">1 NEW</span></sc-if>
+              <span style="border-radius:999px;background:{{ t.stBg }};color:{{ t.stCl }};padding:2px 8px;font-size:10px;font-weight:600;flex:none">{{ t.stLabel }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ cModeThread }}" hint-placeholder-val="{{ false }}">
+        <div style="max-height:360px;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px"><span style="font-family:'Geist Mono',monospace;font-size:10px;color:#5a6170">{{ thRef }}</span><span style="font-size:13px;font-weight:600;color:#e6e8eb">{{ thSubject }}</span><span style="border-radius:999px;background:{{ thStBg }};color:{{ thStCl }};padding:2px 8px;font-size:10px;font-weight:600">{{ thStLabel }}</span></div>
+            <button onClick="{{ backToTickets }}" style="background:none;border:0;padding:0;font-family:'Geist Mono',monospace;font-size:10px;letter-spacing:.08em;color:#5a6170;cursor:pointer;flex:none" style-hover="color:#e6e8eb">← BACK</button>
+          </div>
+          <sc-for list="{{ thMsgs }}" as="m" hint-placeholder-count="2">
+            <div style="display:flex;flex-direction:column">
+              <sc-if value="{{ m.platform }}" hint-placeholder-val="{{ false }}">
+                <div style="border-radius:9px;border:1px solid color-mix(in srgb,var(--brand) 30%,#22262e);background:color-mix(in srgb,var(--brand) 7%,#14181e);padding:9px 11px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><span style="font-size:11.5px;font-weight:600;color:#e6e8eb">{{ m.from }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">{{ m.time }}</span></div><div style="font-size:12.5px;line-height:1.55;color:#d6dae0;white-space:pre-wrap">{{ m.body }}</div></div>
+              </sc-if>
+              <sc-if value="{{ m.staff }}" hint-placeholder-val="{{ true }}">
+                <div style="border-radius:9px;border:1px solid #22262e;background:#171b21;padding:9px 11px"><div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:4px"><span style="font-size:11.5px;font-weight:600;color:#9aa1ad">{{ m.from }}</span><span style="font-family:'Geist Mono',monospace;font-size:9px;color:#5a6170">{{ m.time }}</span></div><div style="font-size:12.5px;line-height:1.55;color:#d6dae0;white-space:pre-wrap">{{ m.body }}</div></div>
+              </sc-if>
+            </div>
+          </sc-for>
+          <div style="display:flex;gap:8px">
+            <input value="{{ reply }}" onChange="{{ onReply }}" placeholder="Reply to the team…" style="flex:1;background:#0e1116;border:1px solid #2a2f37;border-radius:8px;padding:9px 11px;font-size:13px;color:#e6e8eb;outline:none">
+            <button onClick="{{ sendReply }}" aria-label="Send reply" style="display:grid;height:36px;width:36px;flex:none;place-items:center;border-radius:8px;background:var(--brand);border:0;color:var(--on-brand);cursor:pointer"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"></path><path d="M22 2 11 13"></path></svg></button>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #22262e;background:#0c0f13;padding:7px 16px">
+        <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170">↑↓ NAVIGATE · ↵ SELECT · ESC CLOSE</span>
+        <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.08em;color:#5a6170">PRESS ? ANYWHERE</span>
+      </div>
+    </section>
+  </sc-if>
+
+  <!-- ═══════════ VARIANT SWITCHER (meta control) ═══════════ -->
+  <div data-screen-label="Variant switcher" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:11px;border-radius:999px;border:1px solid #2a2f37;background:rgba(10,12,15,.94);backdrop-filter:blur(8px);padding:6px 14px 6px 16px;box-shadow:0 16px 48px rgba(0,0,0,.55);max-width:94vw">
+    <span style="font-family:'Geist Mono',monospace;font-size:9px;letter-spacing:.14em;color:#5a6170;white-space:nowrap">SUPPORT ENTRY ×4</span>
+    <div style="display:flex;gap:4px">
+      <sc-for list="{{ variants }}" as="x" hint-placeholder-count="4">
+        <button onClick="{{ switchTo }}" data-k="{{ x.k }}" style="border-radius:999px;border:0;cursor:pointer;padding:6px 13px;font-size:12px;background:{{ x.bg }};color:{{ x.cl }};font-weight:{{ x.fw }}">{{ x.name }}</button>
+      </sc-for>
+    </div>
+    <span style="max-width:330px;min-width:0;flex:0 1 auto;font-size:11px;color:#9aa1ad;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ activeDesc }}</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;brandColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#6366f1&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#6366f1&quot;,&quot;#22c55e&quot;,&quot;#f59e0b&quot;,&quot;#38bdf8&quot;],&quot;section&quot;:&quot;Theme&quot;},&quot;unreadReply&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Demo state&quot;}}">
+const TYPE_LABELS = { bug: 'Bug', question: 'Question', feature_request: 'Feature request' };
+const STATUS_PILL = {
+  open: { bg: 'rgba(120,53,15,.3)', cl: '#fcd34d', label: 'Open' },
+  needs_info: { bg: 'rgba(30,58,138,.3)', cl: '#93c5fd', label: 'Needs info' },
+  in_progress: { bg: 'rgba(76,29,149,.35)', cl: '#d8b4fe', label: 'In progress' },
+  planned: { bg: 'rgba(12,74,110,.4)', cl: '#7dd3fc', label: 'Planned' },
+  resolved: { bg: 'rgba(20,83,45,.35)', cl: '#86efac', label: 'Resolved' },
+  closed: { bg: 'rgba(255,255,255,.06)', cl: '#d1d5db', label: 'Closed' },
+};
+const TICKETS0 = [
+  { id: 't1', ref: '#8F42C1A0', subject: 'Reminder emails going to an old address', type: 'Question', status: 'in_progress', time: '2h ago', unread: true, msgs: [
+    { from: 'Dan Smith', platform: false, time: 'Yesterday 16:12', body: 'Customer C-1042 keeps getting MOT reminders at their old email even though we updated it last week.' },
+    { from: 'AI Garage Support', platform: true, time: 'Today 09:04', body: 'We traced it — the reminder engine cached the old address for sends queued before your edit. Fix ships tonight. Could you confirm the customer ID so we can verify the queue is clean?' },
+  ]},
+  { id: 't2', ref: '#3B90DD12', subject: 'Export invoices as CSV', type: 'Feature request', status: 'planned', time: '3d ago', unread: false, msgs: [
+    { from: 'Dan Smith', platform: false, time: 'Tue 11:32', body: 'Our accountant wants a CSV of paid invoices each month — Xero sync covers most of it but she still reconciles manually.' },
+    { from: 'AI Garage Support', platform: true, time: 'Tue 15:07', body: 'Good shout. Planned for the July release alongside the Xero export improvements — we will update this thread when it ships.' },
+  ]},
+  { id: 't3', ref: '#C201F7E4', subject: 'Quote PDF cut off on iPhone', type: 'Bug', status: 'resolved', time: '5d ago', unread: false, msgs: [
+    { from: 'Dan Smith', platform: false, time: 'Mon 09:48', body: 'Customers on iPhone say the quote PDF loses the right-hand price column.' },
+    { from: 'AI Garage Support', platform: true, time: 'Mon 14:20', body: 'Fixed in build 9f3e21c — quote PDFs now render with safe margins on iOS. Marking resolved; reply here to reopen.' },
+  ]},
+];
+const ARTICLES = [
+  { id: 'attention', tag: 'DASHBOARD', title: 'Reading the attention queue', p1: 'The attention queue lists every vehicle whose MOT or service falls due within the next 60 days, ranked by urgency. OVERDUE means the date has passed; URGENT means it lands within 14 days; SOON covers the rest of the window.', p2: 'Send reminders straight from the queue — each row routes through the customer\u2019s home branch, so a customer served at several branches is only contacted once.' },
+  { id: 'kpi', tag: 'DASHBOARD', title: 'KPI tiles & what your role sees', p1: 'Tiles compose by role: finance tiles (revenue, WIP) need the revenue permission, ops tiles follow bookings, and owners get the monthly summary row with deep links.', p2: 'Sparklines show the last 8 weeks where history exists. A tile you expect but can\u2019t see usually means the permission is missing on your location role.' },
+  { id: 'bays', tag: 'SHOP', title: 'Set up bays for the day schedule', p1: 'Bays are the rows of the day schedule. Create them under Shop \u2192 Bays — name them the way the workshop talks ("MOT lane", "Two-post lift") and add a short description.', p2: 'Bookings without a bay collect in an Unassigned row, so nothing disappears if you skip assignment at booking time.' },
+  { id: 'hours', tag: 'SETTINGS', title: 'Business hours & special days', p1: 'Set per-day opening hours in Settings \u2192 Business hours. The booking widget refuses out-of-hours slots and staff get a warning when they force one.', p2: 'Use special hours for one-offs — bank holidays, early closes — without touching the weekly pattern.' },
+  { id: 'rem', tag: 'GROW', title: 'How MOT & service reminders send', p1: 'The reminders cron runs hourly and sends due MOT/service reminders by email or SMS, branded as the customer\u2019s home branch.', p2: 'Engagement (delivered / opened / clicked) lands back on the reminder row, and Win-back picks up customers who lapse anyway.' },
+];
+const SUGGS = ['Why is a vehicle in the attention queue?', 'How do I set up bays?', 'Change Saturday opening hours'];
+const VARIANTS = [
+  { k: 'a', name: 'Popover', desc: 'Round dock button \u2192 AI answers first, escalates to a ticket' },
+  { k: 'b', name: 'Drawer', desc: 'Labelled pill \u2192 ezyVet-style help drawer: articles + tickets, no AI' },
+  { k: 'c', name: 'Palette', desc: 'Ghost \u201c?\u201d \u2192 command palette: ask AI + quick actions \u2014 press ?' },
+  { k: 'd', name: 'Orb', desc: 'Status orb \u2192 triage console: one line in, AI drafts the ticket' },
+];
+function answerFor(q) {
+  const s = q.toLowerCase();
+  if (/(attention|overdue|queue)/.test(s)) return { text: 'The attention queue is every vehicle with an MOT or service due in the next 60 days. OVERDUE = the date already passed, URGENT = due within 14 days, SOON = the rest. Use \u201cSend reminders \u2192\u201d on the queue — each vehicle routes through the customer\u2019s home branch, so nobody gets chased twice.', src: 'MANUAL · DASHBOARD §2.3' };
+  if (/bay/.test(s)) return { text: 'Bays live under Shop \u2192 Bays. Each bay becomes a row on the dashboard\u2019s day schedule — bookings without a bay collect in an \u201cUnassigned\u201d row. Add a name plus a short description (e.g. \u201cMOT lane\u201d) and it shows up here immediately.', src: 'MANUAL · SHOP §5.1' };
+  if (/(hour|open|saturday)/.test(s)) return { text: 'Settings \u2192 Business hours sets per-day opening times — Saturdays can differ from weekdays. One-off changes (bank holidays, early close) go under Special hours so your weekly pattern stays intact. The booking widget respects both instantly.', src: 'MANUAL · SETTINGS §8.2' };
+  if (/(reminder|email|sms)/.test(s)) return { text: 'Reminders send automatically from the hourly cron: MOT and service dates pull from DVLA + job history, and each message brands as the customer\u2019s home branch. Preview or pause any batch under Ops \u2192 Reminders.', src: 'MANUAL · GROW §6.4' };
+  return { text: 'Here\u2019s the short version from the manual: every module in the left rail has a matching section with step-by-step guides, and your dashboard composes by role. If I\u2019m missing the specifics, raise a ticket — the team picks it up with your page, branch and role already attached.', src: 'MANUAL · GETTING STARTED §1' };
+}
+function classify(s) {
+  const t = s.toLowerCase();
+  if (/(wrong|broken|error|bug|crash|fail|cut off|doesn|won\u2019t|wont|missing)/.test(t)) return { type: 'bug', sev: 'p2' };
+  if (/(add|export|feature|wish|would be|could you|csv|integrat|support for)/.test(t)) return { type: 'feature_request', sev: 'p3' };
+  return { type: 'question', sev: 'p3' };
+}
+function draftBody(type, input) {
+  if (type === 'bug') return 'What happened\n' + input + '\n\nSteps to reproduce\n1. \n2. \n\nExpected\n\nActual\n';
+  if (type === 'feature_request') return 'The ask\n' + input + '\n\nWhy it matters\n';
+  return input + '\n\nWhat I\u2019ve tried\n';
+}
+function newRef() {
+  let s = '#';
+  for (let i = 0; i < 8; i++) s += '0123456789ABCDEF'[Math.floor(Math.random() * 16)];
+  return s;
+}
+
+class Component extends DCLogic {
+  state = {
+    variant: 'a', open: false, bellOpen: false,
+    aView: 'chat', bView: 'home', cMode: 'results', dPhase: 'input',
+    chat: [{ ai: true, body: 'Hi Dan — ask me anything about AI Garage. I answer from the manual, and hand you to the team when it needs a human.', src: null, actions: false }],
+    typing: false, chatInput: '',
+    escType: 'question', escSubject: '', escBody: '', escShot: true, sentRef: null,
+    tickets: TICKETS0, activeId: 't1', reply: '',
+    search: '', articleId: 'attention',
+    query: '', sel: 1, cQ: '', cTyping: false, cAns: null,
+    dInput: '', dSteps: 0, draft: { type: 'bug', sev: 'p2', subject: '', body: '' }, dShot: true, filedRef: null,
+    unreadOverride: null, peek: false,
+  };
+  _timers = [];
+  _t(fn, ms) { this._timers.push(setTimeout(fn, ms)); }
+
+  isUnread() { return this.state.unreadOverride ?? (this.props.unreadReply ?? true); }
+
+  applyBrand() {
+    const c = this.props.brandColor ?? '#6366f1';
+    let on = '#e6e8eb';
+    try {
+      const h = c.replace('#', '');
+      const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+      on = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.45 ? '#0e1014' : '#e6e8eb';
+    } catch (e) {}
+    document.body.style.setProperty('--brand', c);
+    document.body.style.setProperty('--on-brand', on);
+  }
+
+  componentDidMount() {
+    this.applyBrand();
+    this._lastUnreadProp = this.props.unreadReply;
+    this._key = (e) => {
+      if (e.key === 'Escape') { if (this.state.open || this.state.bellOpen) this.setState({ open: false, bellOpen: false }); return; }
+      const tag = (e.target && e.target.tagName) || '';
+      if (e.key === '?' && this.state.variant === 'c' && !this.state.open && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        this.setState({ open: true, cMode: 'results', query: '', sel: 1 });
+      }
+    };
+    document.addEventListener('keydown', this._key);
+    if (this.isUnread()) {
+      this._t(() => { if (this.isUnread()) this.setState({ peek: true }); }, 2200);
+      this._t(() => this.setState({ peek: false }), 8800);
+    }
+  }
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this._key);
+    this._timers.forEach(clearTimeout);
+  }
+  componentDidUpdate() {
+    this.applyBrand();
+    if (this.props.unreadReply !== this._lastUnreadProp) {
+      this._lastUnreadProp = this.props.unreadReply;
+      this.setState({ unreadOverride: null, peek: false });
+    }
+    if (this._chatEl) this._chatEl.scrollTop = this._chatEl.scrollHeight;
+  }
+
+  markRead() {
+    this.setState({ tickets: this.state.tickets.map((t) => ({ ...t, unread: false })), unreadOverride: false, peek: false });
+  }
+  ask(q) {
+    if (!q.trim()) return;
+    const chat = this.state.chat.map((m) => ({ ...m, actions: false }));
+    chat.push({ ai: false, body: q.trim(), src: null, actions: false });
+    this.setState({ chat, chatInput: '', typing: true });
+    this._t(() => {
+      const a = answerFor(q);
+      this.setState({ chat: [...this.state.chat, { ai: true, body: a.text, src: a.src, actions: true }], typing: false });
+    }, 1100);
+  }
+  lastUserQ() {
+    const u = this.state.chat.filter((m) => !m.ai);
+    return u.length ? u[u.length - 1].body : '';
+  }
+  makeTicket(type, subject, body) {
+    const ref = newRef();
+    const t = { id: 'n' + Date.now(), ref, subject: subject.trim() || '(no subject)', type: TYPE_LABELS[type], status: 'open', time: 'just now', unread: false, msgs: [{ from: 'Dan Smith', platform: false, time: 'Just now', body: body.trim() }] };
+    this.setState({ tickets: [t, ...this.state.tickets], sentRef: ref, filedRef: ref });
+    return ref;
+  }
+
+  renderVals() {
+    const st = this.state;
+    const unread = this.isUnread();
+    const open = st.open, v = st.variant;
+    const active = st.tickets.find((t) => t.id === st.activeId) || st.tickets[0];
+    const pill = (s) => STATUS_PILL[s] || STATUS_PILL.open;
+    const ticketRows = st.tickets.map((t) => ({ id: t.id, ref: t.ref, subject: t.subject, typeLabel: t.type, time: t.time, unread: t.unread, stBg: pill(t.status).bg, stCl: pill(t.status).cl, stLabel: pill(t.status).label }));
+    const chatMsgs = st.chat.map((m, i) => ({ ...m, user: !m.ai, showActions: m.ai && m.actions && i === st.chat.length - 1 && !st.typing }));
+    const escChips = ['bug', 'question', 'feature_request'].map((t) => {
+      const sel = st.escType === t;
+      return { t, label: TYPE_LABELS[t], bg: sel ? 'color-mix(in srgb,var(--brand) 14%,transparent)' : 'transparent', bd: sel ? 'var(--brand)' : '#2a2f37', cl: sel ? '#e6e8eb' : '#9aa1ad', fw: sel ? '600' : '400' };
+    });
+    const sevChips = ['p1', 'p2', 'p3', 'p4'].map((s) => {
+      const sel = st.draft.sev === s;
+      return { s, label: s.toUpperCase(), bg: sel ? 'color-mix(in srgb,var(--brand) 14%,transparent)' : 'transparent', bd: sel ? 'var(--brand)' : '#2a2f37', cl: sel ? '#e6e8eb' : '#5a6170' };
+    });
+    const q = st.search.trim().toLowerCase();
+    const artRows = (q ? ARTICLES.filter((a) => (a.title + ' ' + a.p1).toLowerCase().includes(q)) : ARTICLES.slice(0, 3)).map((a) => ({ id: a.id, tag: a.tag, title: a.title }));
+    const art = ARTICLES.find((a) => a.id === st.articleId) || ARTICLES[0];
+    // ── palette results ──
+    const pq = st.query.trim();
+    let rows = [];
+    if (pq) {
+      rows.push({ head: true, label: 'ASK' });
+      rows.push({ kind: 'ask', glyph: 'AI', label: 'Ask AI — \u201c' + pq + '\u201d', hint: '\u21b5' });
+      const hits = ARTICLES.filter((a) => a.title.toLowerCase().includes(pq.toLowerCase()));
+      if (hits.length) rows.push({ head: true, label: 'MANUAL' });
+      hits.forEach((a) => rows.push({ kind: 'article', id: a.id, glyph: 'DOC', label: a.title, hint: a.tag }));
+      rows.push({ head: true, label: 'ACTIONS' });
+      rows.push({ kind: 'bug', glyph: 'BUG', label: 'Report a bug — \u201c' + pq + '\u201d', hint: '' });
+    } else {
+      rows.push({ head: true, label: 'QUICK ACTIONS' });
+      rows.push({ kind: 'bug', glyph: 'BUG', label: 'Report a bug', hint: '' });
+      rows.push({ kind: 'feature', glyph: 'FR', label: 'Request a feature', hint: '' });
+      rows.push({ kind: 'tickets', glyph: 'TKT', label: 'My tickets', hint: unread ? '1 new reply' : '3 open' });
+      rows.push({ head: true, label: 'ON THIS PAGE' });
+      ARTICLES.slice(0, 3).forEach((a) => rows.push({ kind: 'article', id: a.id, glyph: 'DOC', label: a.title, hint: a.tag }));
+    }
+    let bi = -1;
+    const cResults = rows.map((r, i) => {
+      if (r.head) return { ...r, btn: false, idx: -1, active: false, bg: 'transparent' };
+      bi++;
+      const activeRow = bi === st.sel;
+      return { ...r, btn: true, idx: bi, active: activeRow, bg: activeRow ? '#1a1f26' : 'transparent' };
+    });
+    this._buttons = cResults.filter((r) => !r.head);
+    const dStepsAll = [
+      { txt: 'reading context \u2026 route:/staff · branch:main-workshop · role:owner', ok: '\u2713' },
+      { txt: 'classifying \u2026 type:' + (st.draft.type === 'feature_request' ? 'FEATURE' : st.draft.type.toUpperCase()) + ' · severity:' + st.draft.sev.toUpperCase(), ok: '\u2713' },
+      { txt: 'drafting subject + structured body \u2026', ok: '\u2713' },
+    ];
+    const dTypePill = st.draft.type === 'bug' ? { bg: 'rgba(127,29,29,.3)', cl: '#fca5a5' } : st.draft.type === 'feature_request' ? { bg: 'rgba(12,74,110,.4)', cl: '#7dd3fc' } : { bg: 'rgba(30,58,138,.3)', cl: '#93c5fd' };
+
+    return {
+      // shell / shared
+      variants: VARIANTS.map((x) => ({ ...x, active: x.k === v, bg: x.k === v ? 'var(--brand)' : 'transparent', cl: x.k === v ? 'var(--on-brand)' : '#9aa1ad', fw: x.k === v ? '700' : '500' })),
+      activeDesc: VARIANTS.find((x) => x.k === v).desc,
+      switchTo: (e) => this.setState({ variant: e.currentTarget.dataset.k, open: false, bellOpen: false, peek: false }),
+      isA: v === 'a', isB: v === 'b', isC: v === 'c', isD: v === 'd',
+      aOpen: open && v === 'a', bOpen: open && v === 'b', cOpen: open && v === 'c', dOpen: open && v === 'd',
+      toggleOpen: () => this.setState({ open: !open, bellOpen: false, aView: st.aView === 'sent' ? 'chat' : st.aView, bView: 'home', cMode: 'results', query: '', sel: 1, dPhase: st.dPhase === 'filed' ? 'input' : st.dPhase, peek: false }),
+      closeAll: () => this.setState({ open: false, bellOpen: false }),
+      bellOpen: st.bellOpen,
+      toggleBell: () => this.setState({ bellOpen: !st.bellOpen, open: false }),
+      unread, badgeCount: '1',
+      peekOn: st.peek && unread,
+      dismissPeek: () => this.setState({ peek: false }),
+      viewReply: () => {
+        this.markRead();
+        this.setState({ open: true, bellOpen: false, activeId: 't1', aView: 'thread', bView: 'thread', cMode: 'thread', dPhase: 'thread' });
+      },
+      // A chat
+      aChat: v === 'a' && st.aView === 'chat', aEsc: v === 'a' && st.aView === 'esc', aSent: v === 'a' && st.aView === 'sent', aTickets: v === 'a' && st.aView === 'tickets', aThread: v === 'a' && st.aView === 'thread',
+      chatMsgs, typing: st.typing, chatInput: st.chatInput, showSuggs: st.chat.length === 1 && !st.typing,
+      suggs: SUGGS.map((s) => ({ q: s })),
+      chatRef: (el) => { this._chatEl = el; },
+      onChatInput: (e) => this.setState({ chatInput: e.target.value }),
+      chatKey: (e) => { if (e.key === 'Enter') this.ask(st.chatInput); },
+      sendChat: () => this.ask(st.chatInput),
+      askSugg: (e) => this.ask(e.currentTarget.dataset.q),
+      helpedYes: () => this.setState({ chat: [...st.chat.map((m) => ({ ...m, actions: false })), { ai: true, body: 'Anytime — I\u2019m around if anything else comes up.', src: null, actions: false }] }),
+      openEsc: () => {
+        const lq = this.lastUserQ();
+        this.setState({ aView: 'esc', escType: 'question', escSubject: lq.slice(0, 120), escBody: lq ? 'Asked Assist: \u201c' + lq + '\u201d\n\nThe answer didn\u2019t fully solve it. What I still need:\n' : '', escShot: true });
+      },
+      // ticket form (shared A esc / B form / C form)
+      escChips, pickType: (e) => this.setState({ escType: e.currentTarget.dataset.t }),
+      escSubject: st.escSubject, onEscSubject: (e) => this.setState({ escSubject: e.target.value }),
+      escBody: st.escBody, onEscBody: (e) => this.setState({ escBody: e.target.value }),
+      escShot: st.escShot, toggleShot: () => this.setState({ escShot: !st.escShot }),
+      shotLabel: st.escShot ? 'SCREENSHOT · ATTACHED' : 'SCREENSHOT · OFF',
+      shotBd: st.escShot ? 'var(--brand)' : '#2a2f37', shotCl: st.escShot ? '#e6e8eb' : '#5a6170',
+      sendTicket: () => {
+        this.makeTicket(st.escType, st.escSubject, st.escBody);
+        this.setState({ aView: 'sent', bView: 'sent', cMode: 'sent' });
+      },
+      sentRef: st.sentRef,
+      toChat: () => this.setState({ aView: 'chat' }),
+      openTickets: () => this.setState({ aView: 'tickets', dPhase: 'tickets', cMode: 'tickets' }),
+      ticketRows,
+      openTicket: (e) => {
+        const id = e.currentTarget.dataset.id;
+        const tk = st.tickets.find((t) => t.id === id);
+        const patch = { activeId: id, aView: 'thread', bView: 'thread', cMode: 'thread', dPhase: 'thread' };
+        if (tk && tk.unread) { patch.tickets = st.tickets.map((t) => (t.id === id ? { ...t, unread: false } : t)); patch.unreadOverride = false; patch.peek = false; }
+        this.setState(patch);
+      },
+      backToTickets: () => this.setState({ aView: 'tickets', cMode: 'tickets', dPhase: 'tickets' }),
+      thSubject: active.subject, thRef: active.ref, thType: active.type, thTime: active.time,
+      thStBg: pill(active.status).bg, thStCl: pill(active.status).cl, thStLabel: pill(active.status).label,
+      thMsgs: active.msgs.map((m) => ({ ...m, staff: !m.platform })), thResolved: active.status === 'resolved',
+      reply: st.reply, onReply: (e) => this.setState({ reply: e.target.value }),
+      sendReply: () => {
+        if (!st.reply.trim()) return;
+        this.setState({ tickets: st.tickets.map((t) => (t.id === active.id ? { ...t, msgs: [...t.msgs, { from: 'Dan Smith', platform: false, time: 'Just now', body: st.reply.trim() }], time: 'just now' } : t)), reply: '' });
+      },
+      // B drawer
+      bHome: v === 'b' && st.bView === 'home', bArticle: v === 'b' && st.bView === 'article', bForm: v === 'b' && st.bView === 'form', bSent: v === 'b' && st.bView === 'sent', bThread: v === 'b' && st.bView === 'thread',
+      search: st.search, onSearch: (e) => this.setState({ search: e.target.value }), searching: q.length > 0,
+      artRows, openArticle: (e) => this.setState({ articleId: e.currentTarget.dataset.id, bView: 'article' }),
+      bListLabel: q ? 'RESULTS' : 'ON THIS PAGE',
+      subjPlaceholder: st.escType === 'feature_request' ? 'e.g. Export invoices as CSV' : 'e.g. Booking widget shows wrong opening hours',
+      bodyLabel: st.escType === 'feature_request' ? 'WHAT SHOULD IT DO, AND WHY?' : "WHAT'S GOING ON?",
+      artTitle: art.title, artTag: art.tag, artP1: art.p1, artP2: art.p2,
+      toHome: () => this.setState({ bView: 'home', search: '' }),
+      openFormB: (e) => this.setState({ bView: 'form', escType: e.currentTarget.dataset.t, escSubject: '', escBody: '', escShot: true }),
+      formTypeLabel: TYPE_LABELS[st.escType],
+      // C palette
+      query: st.query, cResults,
+      cModeResults: st.cMode === 'results', cModeAnswer: st.cMode === 'answer', cModeForm: st.cMode === 'form', cModeSent: st.cMode === 'sent', cModeTickets: st.cMode === 'tickets', cModeThread: st.cMode === 'thread',
+      cQ: st.cQ, cTyping: st.cTyping, cText: st.cAns ? st.cAns.text : '', cSrc: st.cAns ? st.cAns.src : '',
+      onQuery: (e) => this.setState({ query: e.target.value, sel: pq === '' && e.target.value ? 0 : 0, cMode: 'results' }),
+      queryKey: (e) => {
+        const btns = this._buttons || [];
+        if (e.key === 'ArrowDown') { e.preventDefault(); this.setState({ sel: Math.min(st.sel + 1, btns.length - 1) }); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); this.setState({ sel: Math.max(st.sel - 1, 0) }); }
+        else if (e.key === 'Enter') { const r = btns.find((b) => b.idx === st.sel); if (r) this.runRow(r); }
+      },
+      hoverResult: (e) => this.setState({ sel: +e.currentTarget.dataset.idx }),
+      runResult: (e) => { const idx = +e.currentTarget.dataset.idx; const r = (this._buttons || []).find((b) => b.idx === idx); if (r) this.runRow(r); },
+      cAgain: () => this.setState({ cMode: 'results', query: '', sel: 1, cAns: null }),
+      cRaise: () => this.setState({ cMode: 'form', escType: 'question', escSubject: st.cQ.slice(0, 120), escBody: 'Asked AI: \u201c' + st.cQ + '\u201d\n\nThe answer didn\u2019t fully solve it. What I still need:\n', escShot: true }),
+      // D console
+      dInputPhase: v === 'd' && st.dPhase === 'input', dRun: v === 'd' && st.dPhase === 'run', dDraft: v === 'd' && st.dPhase === 'draft', dFiled: v === 'd' && st.dPhase === 'filed', dTickets: v === 'd' && st.dPhase === 'tickets', dThread: v === 'd' && st.dPhase === 'thread',
+      dInput: st.dInput, onDInput: (e) => this.setState({ dInput: e.target.value }),
+      runTriage: () => {
+        const s = st.dInput.trim();
+        if (!s) return;
+        const c = classify(s);
+        const subj = (s.charAt(0).toUpperCase() + s.slice(1)).split(/[.!?\n]/)[0].slice(0, 90);
+        this.setState({ dPhase: 'run', dSteps: 0, draft: { type: c.type, sev: c.sev, subject: subj, body: draftBody(c.type, s) } });
+        this._t(() => this.setState({ dSteps: 1 }), 450);
+        this._t(() => this.setState({ dSteps: 2 }), 1000);
+        this._t(() => this.setState({ dSteps: 3 }), 1550);
+        this._t(() => this.setState({ dPhase: 'draft' }), 2050);
+      },
+      dStepRows: dStepsAll.slice(0, st.dSteps),
+      draftTypeLabel: TYPE_LABELS[st.draft.type].toUpperCase(), dTypeBg: dTypePill.bg, dTypeCl: dTypePill.cl,
+      sevChips, pickSev: (e) => this.setState({ draft: { ...st.draft, sev: e.currentTarget.dataset.s } }),
+      dSubject: st.draft.subject, onDSubject: (e) => this.setState({ draft: { ...st.draft, subject: e.target.value } }),
+      dBody: st.draft.body, onDBody: (e) => this.setState({ draft: { ...st.draft, body: e.target.value } }),
+      dShot: st.dShot, dToggleShot: () => this.setState({ dShot: !st.dShot }),
+      dShotLabel: st.dShot ? 'SCREENSHOT · ATTACHED' : 'SCREENSHOT · OFF',
+      dShotBd: st.dShot ? 'var(--brand)' : '#2a2f37', dShotCl: st.dShot ? '#e6e8eb' : '#5a6170',
+      dSentry: st.draft.type === 'bug' ? 'SENTRY · 1 ERROR LINKED' : 'SENTRY · NO RECENT ERRORS',
+      dSentryCl: st.draft.type === 'bug' ? '#ffb020' : '#5a6170',
+      fileTicket: () => { this.makeTicket(st.draft.type, st.draft.subject, st.draft.body); this.setState({ dPhase: 'filed' }); },
+      discard: () => this.setState({ dPhase: 'input', dInput: '' }),
+      filedRef: st.filedRef,
+      dReset: () => this.setState({ dPhase: 'input', dInput: '' }),
+      toDConsole: () => this.setState({ dPhase: 'input' }),
+    };
+  }
+
+  runRow(r) {
+    const st = this.state;
+    if (r.kind === 'ask') {
+      this.setState({ cMode: 'answer', cQ: st.query, cTyping: true, cAns: null });
+      this._t(() => this.setState({ cTyping: false, cAns: answerFor(this.state.cQ) }), 1100);
+    } else if (r.kind === 'article') {
+      const a = ARTICLES.find((x) => x.id === r.id);
+      this.setState({ cMode: 'answer', cQ: a.title, cTyping: false, cAns: { text: a.p1 + ' ' + a.p2, src: 'MANUAL · ' + a.tag } });
+    } else if (r.kind === 'bug') {
+      this.setState({ cMode: 'form', escType: 'bug', escSubject: st.query.slice(0, 120), escBody: '', escShot: true });
+    } else if (r.kind === 'feature') {
+      this.setState({ cMode: 'form', escType: 'feature_request', escSubject: '', escBody: '', escShot: true });
+    } else if (r.kind === 'tickets') {
+      this.setState({ cMode: 'tickets' });
+    }
+  }
+}
+</script>
+</body>
+</html>
