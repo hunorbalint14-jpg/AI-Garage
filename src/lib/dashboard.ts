@@ -1,6 +1,10 @@
 // Pure logic + shared types for the staff dashboard (src/app/staff/page.tsx).
-// Extracted verbatim from the page so it can be unit-tested; rendering stays
-// in src/components/staff/dashboard/*.
+// Extracted from the page so it can be unit-tested; rendering stays in
+// src/components/staff/dashboard/*.
+
+import type { PermissionKey } from "@/app/staff/staff-members/constants";
+
+export type OrgRole = "owner" | "admin" | "accountant" | null;
 
 export type AttentionVehicle = {
   id: string;
@@ -54,6 +58,52 @@ export type DashboardStats = {
   reminders_per_day: number[];
 };
 
+// dashboard_stats_v2 additions. The gated sections (wip / finance /
+// week_worked / my_day) come back null when the call excludes them — or when
+// the whole RPC errors and the page falls back to EMPTY_STATS; render code
+// must treat null as "absent", never crash.
+export type DashboardStatsV2 = DashboardStats & {
+  quotes_pending: { count: number; total: number };
+  courtesy: { out_count: number; overdue_count: number };
+  low_stock: number;
+  no_show_today: number;
+  wip: { job_count: number; total: number } | null;
+  finance: {
+    revenue_month: number;
+    total_paid: number;
+    paid_count: number;
+    aged_overdue: number;
+  } | null;
+  week_worked: { minutes: number; techs: number } | null;
+  my_day: {
+    bookings: {
+      id: string;
+      scheduled_at: string;
+      duration_minutes: number | null;
+      type: string;
+      status: string;
+      registration: string | null;
+      customer_name: string | null;
+      bay_id: string | null;
+    }[];
+    jobs: {
+      id: string;
+      description: string | null;
+      status: string;
+      registration: string | null;
+      customer_name: string | null;
+    }[];
+    open_entry: {
+      job_id: string;
+      status: string;
+      active_minutes: number;
+      segment_started_at: string | null;
+      job_description: string | null;
+      registration: string | null;
+    } | null;
+  } | null;
+};
+
 export const EMPTY_STATS: DashboardStats = {
   total_customers: 0,
   total_vehicles: 0,
@@ -71,6 +121,81 @@ export const EMPTY_STATS: DashboardStats = {
   vehicles_added_per_week: [],
   reminders_per_day: [],
 };
+
+export const EMPTY_STATS_V2: DashboardStatsV2 = {
+  ...EMPTY_STATS,
+  quotes_pending: { count: 0, total: 0 },
+  courtesy: { out_count: 0, overdue_count: 0 },
+  low_stock: 0,
+  no_show_today: 0,
+  wip: null,
+  finance: null,
+  week_worked: null,
+  my_day: null,
+};
+
+// ---------------------------------------------------------------------------
+// Role-aware widget visibility
+// ---------------------------------------------------------------------------
+
+// hasPermission() returns false for accountants on every key (they carry no
+// location permissions), yet they are org-wide finance readers. Mirror the
+// ACCOUNTANT_ITEMS nav allow-list for the finance widgets only.
+export const ACCOUNTANT_FINANCE_KEYS: ReadonlySet<PermissionKey> = new Set([
+  "revenue",
+  "invoices",
+  "reports",
+] satisfies PermissionKey[]);
+
+export function canFinance(
+  orgRole: OrgRole,
+  hasPerm: (key: PermissionKey) => boolean,
+  key: PermissionKey,
+): boolean {
+  return orgRole === "accountant" ? ACCOUNTANT_FINANCE_KEYS.has(key) : hasPerm(key);
+}
+
+export type DashboardWidgets = {
+  /** Bookings-today tile, TodaySchedule, active-jobs tile, no-shows tile, courtesy tile. */
+  bookingsOps: boolean;
+  /** Quotes-awaiting-approval tile. */
+  quotesPending: boolean;
+  /** Low-stock tile. */
+  lowStock: boolean;
+  /** Overdue tile, attention queue, reminders tile, header overdue copy. */
+  reminders: boolean;
+  /** Revenue-week tile, weekly chart, WIP tile. */
+  revenue: boolean;
+  /** Open-invoices tile. */
+  invoices: boolean;
+  /** Customers + Vehicles cumulative tiles (growth vanity — owner/admin only). */
+  growth: boolean;
+  /** Month revenue / avg invoice / aged debtors row (any org role). */
+  ownerRow: boolean;
+  /** Utilisation tile — owner/admin only (the reports page rejects accountants). */
+  utilisation: boolean;
+};
+
+export function dashboardWidgets(
+  orgRole: OrgRole,
+  hasPerm: (key: PermissionKey) => boolean,
+): DashboardWidgets {
+  return {
+    bookingsOps: hasPerm("bookings"),
+    quotesPending: hasPerm("quotes_approve_view"),
+    lowStock: hasPerm("products"),
+    reminders: hasPerm("reminders"),
+    revenue: canFinance(orgRole, hasPerm, "revenue"),
+    invoices: canFinance(orgRole, hasPerm, "invoices"),
+    growth: orgRole === "owner" || orgRole === "admin",
+    ownerRow: orgRole !== null,
+    utilisation: orgRole === "owner" || orgRole === "admin",
+  };
+}
+
+export function anyWidgetVisible(w: DashboardWidgets): boolean {
+  return Object.values(w).some(Boolean);
+}
 
 export function dueDays(d: string, nowMs: number = Date.now()): number {
   return Math.ceil((new Date(d).getTime() - nowMs) / (1000 * 60 * 60 * 24));
@@ -129,17 +254,37 @@ export type PriorityItem = {
   href: string;
 };
 
-export function buildPriorityItems(input: {
-  uninvoicedJobs: number;
-  expiringQuotes: { count: number; total: number };
-  invoicesOpen: { draft_count: number; draft_total: number; sent_count: number; sent_total: number };
-  overdueCount: number;
-  urgentCount: number;
-}): PriorityItem[] {
+// Which priority actions this user may see; each maps to the permission of
+// the page the action links to (invoices → canFinance('invoices'), quotesSend
+// → quotes_send, reminders → reminders; revenue only picks the fallback href).
+export type PriorityGates = {
+  invoices: boolean;
+  quotesSend: boolean;
+  reminders: boolean;
+  revenue: boolean;
+};
+
+export const ALL_PRIORITY_GATES: PriorityGates = {
+  invoices: true,
+  quotesSend: true,
+  reminders: true,
+  revenue: true,
+};
+
+export function buildPriorityItems(
+  input: {
+    uninvoicedJobs: number;
+    expiringQuotes: { count: number; total: number };
+    invoicesOpen: { draft_count: number; draft_total: number; sent_count: number; sent_total: number };
+    overdueCount: number;
+    urgentCount: number;
+  },
+  gates: PriorityGates = ALL_PRIORITY_GATES,
+): PriorityItem[] {
   const { uninvoicedJobs, expiringQuotes, invoicesOpen, overdueCount, urgentCount } = input;
   const items: PriorityItem[] = [];
 
-  if (uninvoicedJobs > 0) {
+  if (gates.invoices && uninvoicedJobs > 0) {
     items.push({
       n: String(items.length + 1).padStart(2, "0"),
       title: `Invoice ${uninvoicedJobs} finished job${uninvoicedJobs !== 1 ? "s" : ""}`,
@@ -149,7 +294,7 @@ export function buildPriorityItems(input: {
       href: "/staff/jobs",
     });
   }
-  if (expiringQuotes.count > 0) {
+  if (gates.quotesSend && expiringQuotes.count > 0) {
     items.push({
       n: String(items.length + 1).padStart(2, "0"),
       title: `${expiringQuotes.count} quote${expiringQuotes.count !== 1 ? "s" : ""} expiring within 3 days`,
@@ -159,7 +304,7 @@ export function buildPriorityItems(input: {
       href: "/staff/quotes",
     });
   }
-  if (overdueCount > 0) {
+  if (gates.reminders && overdueCount > 0) {
     items.push({
       n: String(items.length + 1).padStart(2, "0"),
       title: `Send reminders — ${overdueCount} overdue vehicle${overdueCount !== 1 ? "s" : ""}`,
@@ -171,7 +316,7 @@ export function buildPriorityItems(input: {
   }
   // Draft invoices were lumped in with sent ones under "chase unpaid" — but a
   // draft has never reached the customer; the action is "send it", not "chase it".
-  if (invoicesOpen.draft_count > 0) {
+  if (gates.invoices && invoicesOpen.draft_count > 0) {
     const value = Number(invoicesOpen.draft_total);
     items.push({
       n: String(items.length + 1).padStart(2, "0"),
@@ -182,7 +327,7 @@ export function buildPriorityItems(input: {
       href: "/staff/invoices",
     });
   }
-  if (invoicesOpen.sent_count > 0) {
+  if (gates.invoices && invoicesOpen.sent_count > 0) {
     const value = Number(invoicesOpen.sent_total);
     items.push({
       n: String(items.length + 1).padStart(2, "0"),
@@ -193,7 +338,7 @@ export function buildPriorityItems(input: {
       href: "/staff/invoices",
     });
   }
-  if (urgentCount > 0) {
+  if (gates.reminders && urgentCount > 0) {
     items.push({
       n: String(items.length + 1).padStart(2, "0"),
       title: `Book ${urgentCount} vehicle${urgentCount !== 1 ? "s" : ""} due within 14 days`,
@@ -207,10 +352,12 @@ export function buildPriorityItems(input: {
     items.push({
       n: "01",
       title: "All caught up",
-      body: "No urgent actions today. Review revenue or plan campaigns.",
+      body: gates.revenue
+        ? "No urgent actions today. Review revenue or plan campaigns."
+        : "No urgent actions today.",
       impact: "—",
       urgency: "today",
-      href: "/staff/revenue",
+      href: gates.revenue ? "/staff/revenue" : "/staff/bookings",
     });
   }
   return items;
