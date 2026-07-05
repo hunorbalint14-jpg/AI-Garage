@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
+import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import Link from "next/link";
@@ -61,14 +62,19 @@ export default async function RevenuePage({
   searchParams: Promise<{ scope?: string }>;
 }) {
   const ctx = await requireStaffContext();
-  if (!ctx.orgRole) redirect("/staff");
+  // Org roles get the roll-up; location staff with the `revenue` permission
+  // (manager/parts/bookkeeper templates) get their branch view — the nav
+  // shows Revenue to them, so this page must not bounce them back.
+  if (!ctx.orgRole && !hasPermission(ctx, "revenue")) redirect("/staff");
 
   // Org roles default to the all-locations roll-up; ?scope=<locationId> drops to
   // a specific branch (any accessible branch, not just the active one).
+  // Location staff are always scoped to their active branch.
   const { scope } = await searchParams;
   const accessibleIds = new Set(ctx.accessibleLocations.map((l) => l.id));
-  const selectedBranch = scope && scope !== "all" && accessibleIds.has(scope) ? scope : null;
-  const orgWide = !selectedBranch;
+  const selectedBranch =
+    !!ctx.orgRole && scope && scope !== "all" && accessibleIds.has(scope) ? scope : null;
+  const orgWide = !!ctx.orgRole && !selectedBranch;
   const branchId = selectedBranch ?? ctx.location.id;
   const branchName = ctx.accessibleLocations.find((l) => l.id === branchId)?.name ?? ctx.location.name;
   const locationIds = ctx.accessibleLocations.map((l) => l.id);
@@ -134,7 +140,7 @@ export default async function RevenuePage({
         title="Revenue"
         description={orgWide ? "Financial overview across all branches" : `Financial overview for ${branchName}`}
       />
-      {ctx.accessibleLocations.length > 1 && <FinanceScopeToggle locations={ctx.accessibleLocations} />}
+      {!!ctx.orgRole && ctx.accessibleLocations.length > 1 && <FinanceScopeToggle locations={ctx.accessibleLocations} />}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <StatCard label="This month" value={fmt(revenueThisMonth)} accent="green" />
