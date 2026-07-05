@@ -11,6 +11,7 @@ import { TodaySchedule } from "@/components/staff/dashboard/today-schedule";
 import { WeeklyChart } from "@/components/staff/dashboard/weekly-chart";
 import { AttentionQueue } from "@/components/staff/dashboard/attention-queue";
 import { PriorityActions } from "@/components/staff/dashboard/priority-actions";
+import { MyDay } from "@/components/staff/dashboard/my-day";
 import {
   EMPTY_STATS_V2,
   anyWidgetVisible,
@@ -288,7 +289,14 @@ async function DashboardContent() {
   // Pad the last md row so the bordered grid doesn't show a bare patch.
   const fillers = (4 - (tiles.length % 4)) % 4;
 
-  const showEmptyHint = !anyWidgetVisible(widgets);
+  // My day renders only when the user actually has work: their own
+  // assignments, no permission gate.
+  const myDay = stats.my_day;
+  const showMyDay =
+    myDay !== null &&
+    (myDay.bookings.length > 0 || myDay.jobs.length > 0 || myDay.open_entry !== null);
+
+  const showEmptyHint = !anyWidgetVisible(widgets) && !showMyDay;
 
   return (
     <div className="text-foreground">
@@ -315,6 +323,9 @@ async function DashboardContent() {
           {"// NO DASHBOARD MODULES ARE ENABLED FOR YOUR ROLE"}
         </div>
       )}
+
+      {/* The user's own day comes before the org-wide widgets. */}
+      {showMyDay && myDay && <MyDay data={myDay} now={now} />}
 
       {/* KPI grid — single column under 400px, where the 2-col layout wraps
           the mono captions ("REVENUE · WEEK") mid-word. */}
