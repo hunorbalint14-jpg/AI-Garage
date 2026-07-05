@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt,
   TrendingUp, Building2, Wrench, Columns, UserCog, FlaskConical, Zap, Package,
   FileText, ShieldCheck, Truck, ClipboardList, BarChart3, Repeat, CreditCard,
-  Hammer, RotateCcw, PhoneCall, CarFront, HandCoins, LifeBuoy,
+  Hammer, RotateCcw, PhoneCall, CarFront, HandCoins,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PermissionKey } from "@/app/staff/staff-members/constants";
@@ -88,8 +88,6 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { key: "team",     href: "/staff/staff-members", label: "Team",       icon: UserCog,      permission: "staff_manage" },
       { key: "settings", href: "/staff/settings",     label: "Settings",   icon: Settings },
-      // Deliberately ungated: every staff member can raise a platform ticket.
-      { key: "support",  href: "/staff/support",      label: "Support",    icon: LifeBuoy },
       { key: "billing",  href: "/staff/settings/billing", label: "Billing", icon: CreditCard, adminOnly: true },
       { key: "audit",    href: "/staff/audit-log",    label: "Audit log",  icon: ShieldCheck,  permission: "audit_log" },
       { key: "dev",      href: "/staff/dev",          label: "Dev tools",  icon: FlaskConical, adminOnly: true },
@@ -114,7 +112,7 @@ export function filterModulesForRole(ctxOrOrgRole: FilterCtx | "owner" | "admin"
   // and no settings/team. (Permission gates don't apply: accountants have no
   // location permissions.)
   const isAccountant = ctx.orgRole === "accountant";
-  const ACCOUNTANT_ITEMS = new Set(["dashboard", "revenue", "invoices", "finance", "reports", "support"]);
+  const ACCOUNTANT_ITEMS = new Set(["dashboard", "revenue", "invoices", "finance", "reports"]);
 
   const itemAllowed = (i: NavItem): boolean => {
     if (isAccountant) return ACCOUNTANT_ITEMS.has(i.key);

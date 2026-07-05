@@ -8,7 +8,17 @@ import {
   StreamedNotificationsBell,
   NotificationsBellFallback,
 } from "@/components/staff/notifications-bell-slot";
-import { listRecentNotifications, unreadNotificationCount } from "@/lib/staff-notifications";
+import {
+  listRecentNotifications,
+  unreadNotificationCount,
+  countUnreadTicketNotifications,
+  latestUnreadTicketReply,
+  TICKET_NOTIFICATION_KINDS,
+} from "@/lib/staff-notifications";
+import { countLiveOrgTickets } from "@/lib/support-tickets";
+import { onBrandColor } from "@/components/staff/staff-modules";
+import { SupportLauncher } from "@/components/staff/support/support-launcher";
+import { SupportLauncherSlot } from "@/components/staff/support/support-launcher-slot";
 import { headers as nextHeaders } from "next/headers";
 import { redirect } from "next/navigation";
 import { isDpaAccepted } from "@/lib/dpa";
@@ -66,23 +76,57 @@ export default async function StaffLayout({
   // display-only: when streaming, defer them behind a Suspense boundary so the
   // nav chrome paints before the two notification queries resolve; otherwise
   // fetch everything up front in parallel (the original behaviour).
+  // Ticket-kind notifications belong to the support widget (badge + peek
+  // toast); the bell excludes them so replies aren't double-badged.
+  const launcherStaticProps = {
+    brandColor: ctx.branding.primaryColor ?? "#6366f1",
+    onBrand: onBrandColor(ctx.branding.primaryColor ?? "#6366f1"),
+    firstName: fullName.split(/\s+/)[0] || "there",
+    userEmail: ctx.user.email ?? null,
+    role: ctx.orgRole ?? ctx.locationRole ?? "staff",
+    branchName: ctx.location.name,
+    buildSha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+  };
   let bell: React.ReactNode;
+  let launcher: React.ReactNode;
   let mfaVerified: boolean;
   if (streaming) {
     mfaVerified = mfaApplies ? await hasVerifiedMfa(ctx.user.id) : true;
     bell = (
       <Suspense fallback={<NotificationsBellFallback />}>
-        <StreamedNotificationsBell locationId={ctx.location.id} />
+        <StreamedNotificationsBell
+          locationId={ctx.location.id}
+          excludeKinds={TICKET_NOTIFICATION_KINDS}
+        />
       </Suspense>
     );
+    launcher = (
+      <SupportLauncherSlot
+        userId={ctx.user.id}
+        organizationId={ctx.organization.id}
+        staticProps={launcherStaticProps}
+      />
+    );
   } else {
-    const [unreadCount, recentNotifications, verified] = await Promise.all([
-      unreadNotificationCount(ctx.location.id),
-      listRecentNotifications(ctx.location.id, 8),
-      mfaApplies ? hasVerifiedMfa(ctx.user.id) : Promise.resolve(true),
-    ]);
+    const [unreadCount, recentNotifications, verified, unreadReplyCount, latestUnread, openTicketCount] =
+      await Promise.all([
+        unreadNotificationCount(ctx.location.id, { excludeKinds: TICKET_NOTIFICATION_KINDS }),
+        listRecentNotifications(ctx.location.id, 8, { excludeKinds: TICKET_NOTIFICATION_KINDS }),
+        mfaApplies ? hasVerifiedMfa(ctx.user.id) : Promise.resolve(true),
+        countUnreadTicketNotifications(ctx.user.id),
+        latestUnreadTicketReply(ctx.user.id),
+        countLiveOrgTickets(ctx.organization.id),
+      ]);
     mfaVerified = verified;
     bell = <NotificationsBell unreadCount={unreadCount} recent={recentNotifications} />;
+    launcher = (
+      <SupportLauncher
+        {...launcherStaticProps}
+        openTicketCount={openTicketCount}
+        unreadReplyCount={unreadReplyCount}
+        latestUnread={latestUnread}
+      />
+    );
   }
   // Branches the user can switch between come straight off the staff context.
   const locationsData = ctx.accessibleLocations;
@@ -149,7 +193,13 @@ export default async function StaffLayout({
   return (
     <>
       <ColorSchemeSync dark={true} />
-      {bell}
+      {/* Shared fixed top-right cluster: support launcher + notifications
+          bell. data-support-widget keeps the whole cluster out of the
+          widget's screenshot capture. */}
+      <div className="fixed top-3 right-4 z-30 flex items-center gap-2" data-support-widget>
+        {launcher}
+        {bell}
+      </div>
       <StaffShell
         brandColor={brandColor}
         orgRole={ctx.orgRole}

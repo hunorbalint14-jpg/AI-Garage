@@ -54,7 +54,9 @@ export function NotificationsBell({
   }
 
   return (
-    <div className="fixed top-3 right-4 z-30">
+    // Positioning is owned by the layout's shared top-right cluster
+    // (launcher + bell); this root just anchors the dropdown.
+    <div className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
