@@ -172,7 +172,7 @@ export type DashboardWidgets = {
   growth: boolean;
   /** Month revenue / avg invoice / aged debtors row (any org role). */
   ownerRow: boolean;
-  /** Utilisation tile — owner/admin only (the reports page rejects accountants). */
+  /** Utilisation tile — owner/admin only (ops metric, not part of the accountant's finance view). */
   utilisation: boolean;
 };
 

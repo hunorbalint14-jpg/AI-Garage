@@ -1,5 +1,6 @@
 import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
+import { canFinance } from "@/lib/dashboard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { listLocationStaff } from "@/lib/staff-directory";
@@ -55,7 +56,10 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
 
 export default async function ReportsPage({ searchParams }: { searchParams: Promise<{ period?: string; scope?: string }> }) {
   const ctx = await requireStaffContext();
-  if (!hasPermission(ctx, "reports")) {
+  // canFinance covers accountants: hasPermission alone returns false for them
+  // on every key, but reports is in their org-wide finance allow-list (the
+  // nav already shows it — this page must agree).
+  if (!canFinance(ctx.orgRole, (key) => hasPermission(ctx, key), "reports")) {
     return <p className="text-sm text-muted-foreground">You don&apos;t have access to reports.</p>;
   }
 
