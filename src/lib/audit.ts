@@ -171,7 +171,13 @@ export type AuditAction =
   | "standalone_quote.approve"
   | "standalone_quote.decline"
   | "standalone_quote.expire"
-  | "standalone_quote.deposit_paid";
+  | "standalone_quote.deposit_paid"
+  // Support tickets (platform <-> garage)
+  | "ticket.create"
+  | "ticket.reply"
+  | "ticket.internal_note"
+  | "ticket.status_change"
+  | "ticket.priority_change";
 
 type LogArgs = {
   organizationId?: string | null;

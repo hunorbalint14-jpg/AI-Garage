@@ -53,6 +53,10 @@ const LIMITERS = {
   // Public DVSA registration lookups (booking widget). Per IP — protects the
   // DVSA API quota from scripted enumeration on an unauthenticated surface.
   lookup: makeLimiter("lookup", 10, "60 s"),
+  // Support-ticket creation / replies (per user). Caps runaway scripts while
+  // leaving room for a genuinely bad day at the garage.
+  ticket: makeLimiter("ticket", 10, "3600 s"),
+  ticketReply: makeLimiter("ticketReply", 60, "3600 s"),
 } as const;
 
 export type RateLimitBucket = keyof typeof LIMITERS;
