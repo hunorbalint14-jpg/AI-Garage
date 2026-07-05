@@ -8,7 +8,9 @@ export type StaffNotificationKind =
   | "quote.deposit_paid"
   | "review.low_score"
   | "receptionist.booking"
-  | "receptionist.handoff";
+  | "receptionist.handoff"
+  | "ticket.reply"
+  | "ticket.status";
 
 export type StaffNotification = {
   id: string;

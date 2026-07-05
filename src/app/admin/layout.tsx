@@ -5,6 +5,7 @@ import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
 import { isPlatformAdminUser } from "@/lib/platform-admin";
 import { fetchAdminStatusSummary, type AdminStatusSummary } from "@/lib/platform/reliability";
+import { countOpenAdminTickets } from "@/lib/support-tickets";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { AdminTopbar } from "@/components/admin/admin-topbar";
 import { signOutPlatformAdmin } from "./login/actions";
@@ -70,7 +71,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect("/admin/login");
   if (!allowed) notFound();
 
-  const summary = await fetchAdminStatusSummary();
+  const [summary, openTickets] = await Promise.all([
+    fetchAdminStatusSummary(),
+    countOpenAdminTickets(),
+  ]);
   const sm = STATUS_META[summary.status];
 
   return (
@@ -104,7 +108,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
 
-        <AdminNav activeIncidents={summary.activeIncidents} />
+        <AdminNav activeIncidents={summary.activeIncidents} openTickets={openTickets} />
 
         {/* Footer */}
         <div className="mt-auto border-t border-[#23272f] px-1 pt-3">

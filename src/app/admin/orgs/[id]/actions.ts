@@ -1,25 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isPlatformAdminUser } from "@/lib/platform-admin";
+import { requirePlatformAdmin } from "@/lib/platform-admin";
 import { validateSlug } from "@/lib/slug";
 import { findSlugConflict } from "@/lib/slug-availability";
 import { logAudit } from "@/lib/audit";
 import { cacheDel } from "@/lib/redis";
 import { invalidateTenantCache } from "@/lib/tenant-data";
 import { invalidateStaffLocationCache } from "@/lib/staff-context";
-
-async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!(await isPlatformAdminUser(user))) redirect("/admin/login");
-  return user!;
-}
 
 export type SlugResult = { error: string } | { success: true; slug: string };
 

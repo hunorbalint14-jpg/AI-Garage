@@ -9,7 +9,19 @@ vi.mock("@/lib/supabase/server", () => ({
     },
   })),
 }));
-vi.mock("@/lib/platform-admin", () => ({ isPlatformAdminUser: vi.fn() }));
+// requirePlatformAdmin now lives in the shared lib; keep the tests' existing
+// isPlatformAdminUser switch as the single gate control.
+vi.mock("@/lib/platform-admin", () => {
+  const isPlatformAdminUser = vi.fn();
+  return {
+    isPlatformAdminUser,
+    requirePlatformAdmin: vi.fn(async () => {
+      const ok = await isPlatformAdminUser({ id: "u_ops", email: "ops@ai-garage.co.uk" });
+      if (!ok) throw new Error("REDIRECT:/admin/login");
+      return { id: "u_ops", email: "ops@ai-garage.co.uk" };
+    }),
+  };
+});
 vi.mock("@/lib/doc-shares", () => ({
   createShare: vi.fn(),
   revokeShare: vi.fn(),

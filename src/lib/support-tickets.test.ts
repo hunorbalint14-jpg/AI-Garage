@@ -7,7 +7,7 @@ import {
   statusPatch,
   shortTicketRef,
   buildTicketContext,
-} from "./support-tickets";
+} from "./support-tickets-shared";
 
 const NOW = "2026-07-05T12:00:00.000Z";
 

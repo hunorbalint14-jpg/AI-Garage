@@ -1,4 +1,6 @@
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 // Platform-operator access. Two sources, OR'd together:
 //   1. PLATFORM_ADMIN_EMAILS env (comma-separated) — the bootstrap allowlist,
@@ -38,4 +40,16 @@ export async function isPlatformAdminUser(
     .eq("user_id", user.id)
     .maybeSingle();
   return !!data;
+}
+
+// Server-action gate: resolves the signed-in user and bounces non-operators
+// to the admin login. Shared by every /admin/* actions file — previously an
+// identical inline copy in each.
+export async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!(await isPlatformAdminUser(user))) redirect("/admin/login");
+  return user!;
 }

@@ -2,9 +2,7 @@
 
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
-import { isPlatformAdminUser } from "@/lib/platform-admin";
+import { requirePlatformAdmin } from "@/lib/platform-admin";
 import {
   createShare,
   revokeShare,
@@ -16,15 +14,6 @@ import { logAudit } from "@/lib/audit";
 // Doc keys allowed from the UI. Must match keys in src/app/docs/[slug]/route.ts.
 const ALLOWED_DOC_KEYS = ["technical", "userguide"] as const;
 type AllowedDocKey = (typeof ALLOWED_DOC_KEYS)[number];
-
-async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!(await isPlatformAdminUser(user))) redirect("/admin/login");
-  return user!;
-}
 
 export type CreateShareActionResult =
   | { ok: true; url: string; slug: string; token: string }

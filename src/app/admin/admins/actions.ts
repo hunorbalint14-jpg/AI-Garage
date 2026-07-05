@@ -1,10 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isPlatformAdminUser } from "@/lib/platform-admin";
+import { requirePlatformAdmin } from "@/lib/platform-admin";
 import { sendEmail } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
 import { emailSchema, parseOrError } from "@/lib/validation";
@@ -25,15 +24,6 @@ async function mintHandoff(email: string, host: string, next: string): Promise<s
   const tokenHash = data?.properties?.hashed_token;
   if (error || !tokenHash) return null;
   return `${PROTO}://${host}${PORT}/auth/handoff?token_hash=${encodeURIComponent(tokenHash)}&next=${encodeURIComponent(next)}`;
-}
-
-async function requirePlatformAdmin(): Promise<{ id: string; email?: string | null }> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!(await isPlatformAdminUser(user))) redirect("/admin/login");
-  return user!;
 }
 
 export type InviteResult = { error: string } | { success: true; inviteLink: string };
