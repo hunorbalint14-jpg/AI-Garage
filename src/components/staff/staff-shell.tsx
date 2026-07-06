@@ -21,6 +21,7 @@ import {
   type NavItem,
 } from "@/components/staff/staff-modules";
 import { hasFreshRelease } from "@/lib/release-notes";
+import { WhatsNewPopup } from "@/components/staff/whats-new-popup";
 import type { Permissions } from "@/app/staff/staff-members/constants";
 
 // Chips rendered after a nav label: BETA for early-access surfaces, NEW on
@@ -301,6 +302,7 @@ export function StaffShell({
         />
       )}
       <CommandPalette />
+      <WhatsNewPopup />
       <NavProgressOverlay />
     </div>
     </NavProgressProvider>

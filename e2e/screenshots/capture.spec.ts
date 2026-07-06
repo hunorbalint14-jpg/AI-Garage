@@ -2,6 +2,7 @@ import { test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { shotSections } from "../../docs/help/manual.content";
+import { latestRelease } from "../../src/lib/release-notes";
 import {
   TENANT_ORIGIN,
   ROOT_ORIGIN,
@@ -86,15 +87,17 @@ for (const { portal, section } of shotSections()) {
       viewport: { width: 1440, height: 900 },
       deviceScaleFactor: 2,
     });
-    // Pre-acknowledge the cookie banner (it's localStorage-gated) before any page
-    // script runs, so it never renders into a screenshot.
-    await ctx.addInitScript(() => {
+    // Pre-acknowledge the cookie banner and dismiss the what's-new popup
+    // (both localStorage-gated) before any page script runs, so neither
+    // renders into a screenshot.
+    await ctx.addInitScript((seenVersion) => {
       try {
         localStorage.setItem("ai-garage-cookies-acknowledged", "1");
+        localStorage.setItem("whats-new-seen", seenVersion);
       } catch {
         /* storage unavailable — ignore */
       }
-    });
+    }, latestRelease().version);
     const page = await ctx.newPage();
     try {
       const origin = section.host === "root" ? ROOT_ORIGIN : TENANT_ORIGIN;
