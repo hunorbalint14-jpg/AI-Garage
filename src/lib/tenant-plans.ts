@@ -4,11 +4,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 type Admin = ReturnType<typeof createAdminClient>;
 
 // Tenant subscription tiers (the platform's own SaaS plans, billed on the
-// PLATFORM Stripe account). Hybrid model: each tier sets the per-payment
-// platform fee AND unlocks features. Prices here are placeholders — tune them
-// and create the matching Stripe Prices on the platform account, then set the
-// env ids below. Starter is free (no Stripe Price). PR1 tracks billing only;
-// feature gating + tier-based fee land in PR2/PR3.
+// PLATFORM Stripe account). Hybrid model: the payment fee (feePercent) carries
+// the small tiers; the top tier is flat SaaS priced on locations.
+//
+// Pricing (final, 2026-07, benchmarked against UK garage software):
+//   - The payment fee TAPERS to zero as the tier rises (Starter 2% → Pro 1% →
+//     Growth 0%). A garage graduates off the fee as it scales, instead of the
+//     fee compounding into a churn cliff at high card volume.
+//   - Growth is a flat £149/mo (no payment fee) covering up to 7 locations;
+//     beyond 7, +£25/location (perExtraLocationPence). The over-cap overage is
+//     NOT yet automated — Growth is self-serve capped at 7, and 8+ sites are
+//     handled by arrangement until the metered-billing follow-up lands.
+//   - Annual = 10× monthly (two months free). Starter is free (no Stripe Price).
+//
+// IMPORTANT: the Stripe Prices referenced by the *Env ids below must be created
+// on the platform account at these exact amounts. The billing page renders
+// monthlyPence/annualPence from here, but customers are charged the Stripe
+// Price — if the two diverge, the page and the receipt disagree.
 
 export type TierKey = "starter" | "pro" | "growth";
 export type FeatureKey = "xero" | "campaigns" | "automations" | "receptionist";
@@ -23,6 +35,9 @@ export type TierConfig = {
   priceAnnualEnv: string | null;
   features: Record<FeatureKey, boolean>;
   maxLocations: number; // Number.POSITIVE_INFINITY for unlimited
+  /** Price per location beyond maxLocations (Growth only). The over-cap
+   *  overage is not yet metered — see the tier comment above. */
+  perExtraLocationPence?: number | null;
 };
 
 export const TIERS: Record<TierKey, TierConfig> = {
@@ -42,7 +57,7 @@ export const TIERS: Record<TierKey, TierConfig> = {
     name: "Pro",
     monthlyPence: 4900,
     annualPence: 49000,
-    feePercent: 1.5,
+    feePercent: 1.0,
     priceMonthlyEnv: "STRIPE_TENANT_PRICE_PRO_MONTHLY",
     priceAnnualEnv: "STRIPE_TENANT_PRICE_PRO_ANNUAL",
     features: { xero: true, campaigns: true, automations: true, receptionist: false },
@@ -51,13 +66,14 @@ export const TIERS: Record<TierKey, TierConfig> = {
   growth: {
     key: "growth",
     name: "Growth",
-    monthlyPence: 9900,
-    annualPence: 99000,
-    feePercent: 1.0,
+    monthlyPence: 14900,
+    annualPence: 149000,
+    feePercent: 0,
     priceMonthlyEnv: "STRIPE_TENANT_PRICE_GROWTH_MONTHLY",
     priceAnnualEnv: "STRIPE_TENANT_PRICE_GROWTH_ANNUAL",
     features: { xero: true, campaigns: true, automations: true, receptionist: true },
-    maxLocations: Number.POSITIVE_INFINITY,
+    maxLocations: 7,
+    perExtraLocationPence: 2500,
   },
 };
 
