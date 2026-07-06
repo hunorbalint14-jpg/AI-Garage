@@ -48,6 +48,12 @@ export function AssistChat({
   async function ask(q: string) {
     const question = q.trim();
     if (!question || thinking) return;
+    // Prior turns (minus the canned welcome bubble) let the assistant handle
+    // follow-ups; the server re-sanitises and caps at 8.
+    const history = messages
+      .slice(1)
+      .slice(-8)
+      .map((m) => ({ role: m.role, body: m.body }));
     setMessages((m) => [...m, { role: "user", body: question }]);
     setDraft("");
     setThinking(true);
@@ -55,7 +61,7 @@ export function AssistChat({
       const res = await fetch("/api/support/assist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, path: pathname }),
+        body: JSON.stringify({ question, path: pathname, history }),
       });
       const data = (await res.json()) as {
         answer?: string;
@@ -102,14 +108,20 @@ export function AssistChat({
                   {m.body}
                   {m.source && (
                     <div className="mt-2">
-                      <a
-                        href={m.source.href}
-                        target="_blank"
-                        rel="noopener"
-                        className="inline-block rounded border border-[#2a2f37] bg-[#0e1116] px-[7px] py-[3px] font-mono text-[9px] tracking-[.08em] text-[#9aa1ad] no-underline hover:text-[#e6e8eb]"
-                      >
-                        {m.source.label} ↗
-                      </a>
+                      {m.source.href ? (
+                        <a
+                          href={m.source.href}
+                          target="_blank"
+                          rel="noopener"
+                          className="inline-block rounded border border-[#2a2f37] bg-[#0e1116] px-[7px] py-[3px] font-mono text-[9px] tracking-[.08em] text-[#9aa1ad] no-underline hover:text-[#e6e8eb]"
+                        >
+                          {m.source.label} ↗
+                        </a>
+                      ) : (
+                        <span className="inline-block rounded border border-[#2a2f37] bg-[#0e1116] px-[7px] py-[3px] font-mono text-[9px] tracking-[.08em] text-[#9aa1ad]">
+                          {m.source.label}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>

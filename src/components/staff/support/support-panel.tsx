@@ -13,7 +13,8 @@ import { TicketThread } from "./views/ticket-thread";
 export type ChatMsg = {
   role: "user" | "assistant";
   body: string;
-  source?: { label: string; href: string };
+  // href is null for knowledge-base sources (no manual section to link to).
+  source?: { label: string; href: string | null };
 };
 
 export type PanelView = "chat" | "escalate" | "sent" | "tickets" | "thread";
