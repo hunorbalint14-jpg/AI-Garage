@@ -27,8 +27,10 @@ export const ENV_VARS: EnvVar[] = [
   // ── Payments (Stripe) ─────────────────────────────────────────────────────
   { name: "STRIPE_SECRET_KEY", level: "feature", group: "Payments (Stripe)", ifMissing: "Checkout, deposits and refunds all fail." },
   { name: "STRIPE_WEBHOOK_SECRET", level: "feature", group: "Payments (Stripe)", ifMissing: "Webhook handler returns 500 → payments are never confirmed (invoices stay unpaid)." },
-  { name: "STRIPE_TENANT_PRICE_PRO_MONTHLY", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Pro subscription checkout can't price." },
-  { name: "STRIPE_TENANT_PRICE_GROWTH_ANNUAL", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Growth subscription checkout can't price." },
+  { name: "STRIPE_TENANT_PRICE_PRO_MONTHLY", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Pro monthly checkout can't price (must be the Stripe Price for £49/mo)." },
+  { name: "STRIPE_TENANT_PRICE_PRO_ANNUAL", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Pro annual checkout can't price (must be the Stripe Price for £490/yr)." },
+  { name: "STRIPE_TENANT_PRICE_GROWTH_MONTHLY", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Growth monthly checkout can't price (must be the Stripe Price for £99/mo)." },
+  { name: "STRIPE_TENANT_PRICE_GROWTH_ANNUAL", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Growth annual checkout can't price (must be the Stripe Price for £990/yr)." },
 
   // ── AI (Anthropic) — read implicitly by the SDK ───────────────────────────
   { name: "ANTHROPIC_API_KEY", level: "feature", group: "AI (Anthropic)", ifMissing: "Support assist, message drafting, diagnostics and the receptionist all fail." },

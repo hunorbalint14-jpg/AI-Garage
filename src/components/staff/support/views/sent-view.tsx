@@ -29,8 +29,8 @@ export function SentView({
         </span>
       )}
       <p className="m-0 text-[12px] leading-[1.55] text-[#9aa1ad]">
-        The AI Garage team replies here{userEmail ? ` and at ${userEmail}` : ""} — typically the
-        same working day.
+        The AI Garage team replies here{userEmail ? ` and at ${userEmail}` : ""} — within two
+        working days.
       </p>
       <div className="mt-1 flex gap-2">
         <button

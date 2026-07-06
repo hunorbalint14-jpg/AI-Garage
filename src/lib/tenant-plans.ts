@@ -5,10 +5,19 @@ type Admin = ReturnType<typeof createAdminClient>;
 
 // Tenant subscription tiers (the platform's own SaaS plans, billed on the
 // PLATFORM Stripe account). Hybrid model: each tier sets the per-payment
-// platform fee AND unlocks features. Prices here are placeholders — tune them
-// and create the matching Stripe Prices on the platform account, then set the
-// env ids below. Starter is free (no Stripe Price). PR1 tracks billing only;
-// feature gating + tier-based fee land in PR2/PR3.
+// platform fee AND unlocks features.
+//
+// Prices are final (set 2026-07, benchmarked against UK garage software).
+// Positioning: the per-payment fee (feePercent) provides revenue alongside the
+// subscription, so subscriptions sit moderate to drive adoption — Pro £49
+// undercuts the "serious independent" tools (GDS £149, TechMan £189) and
+// Growth £99 covers UNLIMITED locations where rivals charge per site/bay.
+// Annual = 10× monthly (two months free). Starter is free (no Stripe Price).
+//
+// IMPORTANT: the Stripe Prices referenced by the *Env ids below must be created
+// on the platform account at these exact amounts. The billing page renders
+// monthlyPence/annualPence from here, but customers are charged the Stripe
+// Price — if the two diverge, the page and the receipt disagree.
 
 export type TierKey = "starter" | "pro" | "growth";
 export type FeatureKey = "xero" | "campaigns" | "automations" | "receptionist";
