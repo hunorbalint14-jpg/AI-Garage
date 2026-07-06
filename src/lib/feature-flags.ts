@@ -24,6 +24,12 @@ export const FEATURE_FLAGS = {
       "Render the staff dashboard and notifications bell behind Suspense boundaries so the nav chrome paints before the dashboard RPC and notification queries resolve.",
     default: false,
   },
+  support_assist_sonnet: {
+    label: "Support assist on Sonnet",
+    description:
+      "Run the support widget's assistant on Claude Sonnet instead of Haiku. Better synthesis and multi-step tool use at roughly 3× the per-answer cost — flip after comparing answer quality.",
+    default: false,
+  },
 } as const satisfies Record<string, FeatureFlagDef>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

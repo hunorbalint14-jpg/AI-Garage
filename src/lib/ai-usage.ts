@@ -12,6 +12,8 @@ type ModelPricing = { inputPerMTokPence: number; outputPerMTokPence: number };
 
 export const AI_MODEL_PRICING: Record<string, ModelPricing> = {
   "claude-haiku-4-5-20251001": { inputPerMTokPence: 79, outputPerMTokPence: 395 },
+  // Claude Sonnet 5 — $3 / MTok input, $15 / MTok output at the same 0.79 GBP/USD.
+  "claude-sonnet-5": { inputPerMTokPence: 237, outputPerMTokPence: 1185 },
 };
 
 // Fallback for an un-mapped model id: assume the Haiku rate so a new model is
