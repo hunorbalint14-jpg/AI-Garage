@@ -29,6 +29,14 @@ export default defineConfig({
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 },
     },
+    {
+      // Screen recordings for the manual's `video` sections. Runs after the
+      // stills so a flow that changes state can't spoil a screenshot.
+      name: "video",
+      testMatch: /video\.spec\.ts/,
+      dependencies: ["setup", "capture"],
+      use: { ...devices["Desktop Chrome"] },
+    },
   ],
   webServer: {
     command: "npm run dev",

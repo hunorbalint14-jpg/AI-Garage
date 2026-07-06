@@ -33,7 +33,14 @@ function portalOf(part: Part): string {
 }
 
 function docText(section: Section): string {
-  return [section.purpose, ...(section.steps ?? []), ...(section.prose ?? []), ...(section.notes ?? [])]
+  return [
+    section.purpose,
+    section.roles ? `Visible to: ${section.roles}.` : "",
+    ...(section.steps ?? []),
+    ...(section.prose ?? []),
+    ...(section.notes ?? []),
+    ...(section.troubleshooting ?? []).map((t) => `${t.problem} — ${t.fix}`),
+  ]
     .filter(Boolean)
     .join("\n");
 }

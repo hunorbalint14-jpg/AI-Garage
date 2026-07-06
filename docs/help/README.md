@@ -11,7 +11,8 @@ doc-shares gate) from a single section manifest + auto-captured screenshots.
 | `scripts/seed-demo.ts` | Builds a deterministic, populated demo tenant on `smith-motors`. **Local Supabase only** (hard-guarded). |
 | `scripts/demo-constants.ts` | Shared demo logins/tenant, imported by the seed *and* the capture login. |
 | `playwright.screenshots.config.ts` + `e2e/screenshots/*` | Logs in (staff + customer) and screenshots every section → `docs/internal/help-images/`. Separate from the smoke suite; never runs in CI. |
-| `scripts/build-help-doc.ts` | Inlines the PNGs (data URIs) and writes the self-contained `docs/internal/user-guide.html`. |
+| `scripts/build-help-doc.ts` | Inlines the PNGs + WebM clips (data URIs) and writes TWO self-contained files: `docs/internal/user-guide.html` (full) and `docs/internal/user-guide-customer.html` (concepts + customer guide only). Also renders role badges, troubleshooting blocks, per-part FAQs, animated concept diagrams, interactive steppers and the in-page search. |
+| `e2e/screenshots/video.spec.ts` | Records short WebM walkthroughs for sections with `video` into `docs/internal/help-videos/` (runs after the stills so flows can't spoil a screenshot). |
 
 ## Run it (locally)
 
@@ -72,11 +73,13 @@ Capture hits the tenant at `http://smith-motors.localtest.me:3000`, so keep
 
 ## Output
 
-- `docs/internal/user-guide.html` — the committed artifact (self-contained;
-  served via the gate). The builder runs without screenshots too, emitting
-  "screenshot pending" placeholders, so content and capture can advance apart.
-- `docs/internal/help-images/**` and `e2e/screenshots/.auth/**` are intermediate
-  and gitignored.
+- `docs/internal/user-guide.html` (full) and `docs/internal/user-guide-customer.html`
+  (customer-only) — the committed artifacts (self-contained; served via the gate
+  and, for the full build, at the authenticated `/staff/manual`). The builder
+  runs without screenshots too, emitting "screenshot pending" placeholders and
+  skipping missing videos, so content and capture can advance apart.
+- `docs/internal/help-images/**`, `docs/internal/help-videos/**` and
+  `e2e/screenshots/.auth/**` are intermediate and gitignored.
 
 ## Share it
 
