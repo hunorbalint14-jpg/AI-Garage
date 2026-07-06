@@ -168,7 +168,9 @@ export function StaffShell({
       {/* ──────────────────────── MAIN COLUMN ──────────────────────── */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Mobile header (sm and below) */}
-        <header className="sm:hidden flex items-center gap-2 border-b border-[#2a2f37] bg-[#15181d] px-3 py-2.5">
+        {/* pr reserves space for the fixed support-launcher + bell cluster the
+            layout floats over the header's right side. */}
+        <header className="sm:hidden flex items-center gap-2 border-b border-[#2a2f37] bg-[#15181d] py-2.5 pl-3 pr-[104px]">
           <OrgChip initials={orgInitials} brandColor={brandColor} onBrand={onBrand} logoUrl={orgLogoUrl} size={28} />
           <button
             onClick={() => setSheetOpen(true)}

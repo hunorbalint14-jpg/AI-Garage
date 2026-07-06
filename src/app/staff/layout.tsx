@@ -196,7 +196,10 @@ export default async function StaffLayout({
       {/* Shared fixed top-right cluster: support launcher + notifications
           bell. data-support-widget keeps the whole cluster out of the
           widget's screenshot capture. */}
-      <div className="fixed top-3 right-4 z-30 flex items-center gap-2" data-support-widget>
+      <div
+        className="fixed top-2 right-3 z-40 flex items-center gap-2 sm:top-3 sm:right-4"
+        data-support-widget
+      >
         {launcher}
         {bell}
       </div>

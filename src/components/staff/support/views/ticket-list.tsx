@@ -35,7 +35,7 @@ export function TicketList({
   }, []);
 
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-3.5">
+    <div className="flex flex-1 flex-col gap-2 overflow-y-auto overscroll-contain p-3.5">
       <button
         onClick={onBack}
         className="self-start font-mono text-[10px] tracking-[.08em] text-[#5a6170] hover:text-[#e6e8eb]"

@@ -124,7 +124,7 @@ export function SupportLauncher(props: SupportLauncherProps) {
 
       {/* Peek toast */}
       {peek && !open && props.latestUnread && (
-        <div className="absolute right-0 top-12 z-[39] w-[324px] overflow-hidden rounded-xl border border-[#2a2f37] bg-[#15181d] shadow-[0_20px_48px_rgba(0,0,0,.6)] animate-in fade-in slide-in-from-right-5 duration-300 motion-reduce:animate-none">
+        <div className="fixed inset-x-3 top-14 z-[39] overflow-hidden rounded-xl border border-[#2a2f37] bg-[#15181d] shadow-[0_20px_48px_rgba(0,0,0,.6)] animate-in fade-in slide-in-from-right-5 duration-300 motion-reduce:animate-none sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-[324px]">
           <div className="flex gap-2.5 p-3 pb-2.5">
             <span className="grid h-7 w-7 flex-none place-items-center rounded-lg border border-[#2a2f37] bg-[#0a0c0f]">
               {/* eslint-disable-next-line @next/next/no-img-element */}

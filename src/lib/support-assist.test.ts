@@ -86,6 +86,14 @@ describe("parseSourcesLine", () => {
     expect(anchors).toEqual([]);
   });
 
+  it("strips markdown bold markers (bubble renders plain text)", () => {
+    const { answer } = parseSourcesLine(
+      "**Invoice.** Raise it from the job. 2 ** 3 stays.\nSOURCES: staff-bookings",
+      known,
+    );
+    expect(answer).toBe("Invoice. Raise it from the job. 2 ** 3 stays.");
+  });
+
   it("filters unknown ids and dedupes", () => {
     const { anchors } = parseSourcesLine(
       "A.\nSOURCES: staff-bookings, made-up, staff-bookings",

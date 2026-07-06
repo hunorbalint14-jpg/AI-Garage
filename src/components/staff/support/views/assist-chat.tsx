@@ -89,7 +89,7 @@ export function AssistChat({
 
   return (
     <>
-      <div ref={scrollRef} className="flex max-h-[390px] min-h-[230px] flex-1 flex-col gap-2.5 overflow-y-auto p-3.5">
+      <div ref={scrollRef} className="flex max-h-[390px] min-h-[160px] flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain p-3.5 sm:min-h-[230px]">
         {messages.map((m, i) =>
           m.role === "assistant" ? (
             <div key={i} className="flex flex-col gap-2">
@@ -189,7 +189,7 @@ export function AssistChat({
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && void ask(draft)}
           placeholder="Ask anything about AI Garage…"
-          className="flex-1 rounded-lg border border-[#2a2f37] bg-[#0e1116] px-[11px] py-[9px] text-[13px] text-[#e6e8eb] outline-none placeholder:text-[#5a6170]"
+          className="flex-1 rounded-lg border border-[#2a2f37] bg-[#0e1116] px-[11px] py-[9px] text-[16px] text-[#e6e8eb] outline-none placeholder:text-[#5a6170] sm:text-[13px]"
         />
         <button
           onClick={() => void ask(draft)}

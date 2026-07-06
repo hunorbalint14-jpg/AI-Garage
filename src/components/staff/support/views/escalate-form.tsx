@@ -106,7 +106,7 @@ export function EscalateForm({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-[11px] overflow-y-auto p-3.5">
+    <div className="flex flex-1 flex-col gap-[11px] overflow-y-auto overscroll-contain p-3.5">
       <button
         onClick={onBack}
         className="self-start font-mono text-[10px] tracking-[.08em] text-[#5a6170] hover:text-[#e6e8eb]"
@@ -144,7 +144,7 @@ export function EscalateForm({
           onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
           minLength={3}
           maxLength={150}
-          className="mt-1 w-full rounded-lg border border-[#2a2f37] bg-[#0e1116] px-[11px] py-[9px] font-sans text-[13px] tracking-normal text-[#e6e8eb] outline-none"
+          className="mt-1 w-full rounded-lg border border-[#2a2f37] bg-[#0e1116] px-[11px] py-[9px] font-sans text-[16px] tracking-normal text-[#e6e8eb] outline-none sm:text-[13px]"
         />
       </label>
       <label className="font-mono text-[9px] tracking-[.12em] text-[#5a6170]">
@@ -154,7 +154,7 @@ export function EscalateForm({
           value={form.body}
           onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))}
           maxLength={10000}
-          className="mt-1 w-full resize-y rounded-lg border border-[#2a2f37] bg-[#0e1116] px-[11px] py-[9px] font-sans text-[13px] leading-normal tracking-normal text-[#e6e8eb] outline-none"
+          className="mt-1 w-full resize-y rounded-lg border border-[#2a2f37] bg-[#0e1116] px-[11px] py-[9px] font-sans text-[16px] leading-normal tracking-normal text-[#e6e8eb] outline-none sm:text-[13px]"
         />
       </label>
 
