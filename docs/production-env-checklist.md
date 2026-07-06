@@ -60,4 +60,4 @@ Grouped; see `npm run check:env` output for the per-var failure mode.
 - [ ] **Screenshot storage** — raise a ticket with the screenshot toggle on; confirm the image renders in the admin ticket detail (needs the `support-shots` bucket).
 - [ ] **Auth rate limiting** — hammer the login endpoint with bad credentials; confirm you get throttled (429). If not, the Upstash vars are missing.
 - [ ] **Stripe webhook** — a test payment produces a `stripe_webhook_events` row and flips the invoice to paid (see #442).
-- [ ] **Email deliverability** — a real send passes SPF/DKIM/DMARC (see #444).
+- [ ] **Email deliverability** — a real send passes SPF/DKIM/DMARC, and a hard bounce / complaint lands in `email_suppressions` (see [email-deliverability.md](email-deliverability.md), #444).

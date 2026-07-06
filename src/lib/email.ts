@@ -6,8 +6,16 @@ import {
   type EmailDetailRow,
   type RenderEmailOpts,
 } from "./email-layout";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { loadSuppressed } from "./email-suppression";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+// Lazily-created service-role client used only to consult the email
+// suppression list (populated by the Resend webhook). Lazy so importing this
+// module never requires the service-role env at import time.
+let _admin: ReturnType<typeof createAdminClient> | null = null;
+const suppressionClient = () => (_admin ??= createAdminClient());
 
 const SENDER_NAME = process.env.RESEND_SENDER_NAME ?? "AI Garage";
 const RAW_FROM = process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev";
@@ -72,7 +80,7 @@ function appendCtaToText(text: string, cta?: EmailCta): string {
 
 export type SendEmailResult =
   | { success: true; messageId: string }
-  | { success: false; error: string };
+  | { success: false; error: string; suppressed?: boolean };
 
 export type BatchEmailItem = {
   to: string;
@@ -87,6 +95,9 @@ export type BatchEmailItemResult = {
   // Null when the chunk had partial failures: Resend's permissive batch
   // response doesn't say which created id belongs to which input then.
   messageId: string | null;
+  // True when the item was skipped because the recipient is on the
+  // suppression list (hard bounce / complaint) rather than actually sent.
+  suppressed?: boolean;
 };
 
 const RESEND_BATCH_LIMIT = 100;
@@ -100,8 +111,24 @@ export async function sendEmailBatch(items: BatchEmailItem[]): Promise<BatchEmai
     messageId: null,
   }));
 
+  // Skip suppressed recipients (hard bounce / complaint) — never send to them.
+  const suppressed = await loadSuppressed(suppressionClient(), items.map((i) => i.to));
+
   for (let start = 0; start < items.length; start += RESEND_BATCH_LIMIT) {
-    const batch = items.slice(start, start + RESEND_BATCH_LIMIT);
+    // The indices in this chunk we will actually send — suppressed ones are
+    // marked in-place and left out of the Resend call, so the response index
+    // maps back through `sendIdx`.
+    const sendIdx: number[] = [];
+    for (let i = start; i < Math.min(start + RESEND_BATCH_LIMIT, items.length); i++) {
+      if (suppressed.has(items[i].to.trim().toLowerCase())) {
+        results[i] = { success: false, error: "Recipient suppressed (bounce/complaint).", messageId: null, suppressed: true };
+      } else {
+        sendIdx.push(i);
+      }
+    }
+    if (sendIdx.length === 0) continue;
+
+    const batch = sendIdx.map((i) => items[i]);
     try {
       const { data, error } = await resend.batch.send(
         batch.map((i) => ({
@@ -115,9 +142,7 @@ export async function sendEmailBatch(items: BatchEmailItem[]): Promise<BatchEmai
       );
 
       if (error) {
-        for (let j = 0; j < batch.length; j++) {
-          results[start + j] = { success: false, error: error.message, messageId: null };
-        }
+        for (const i of sendIdx) results[i] = { success: false, error: error.message, messageId: null };
         continue;
       }
 
@@ -127,15 +152,13 @@ export async function sendEmailBatch(items: BatchEmailItem[]): Promise<BatchEmai
 
       for (let j = 0; j < batch.length; j++) {
         const failure = failedByIndex.get(j);
-        results[start + j] = failure
+        results[sendIdx[j]] = failure
           ? { success: false, error: failure, messageId: null }
           : { success: true, error: null, messageId: idsAligned ? data!.data[j].id : null };
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown email error";
-      for (let j = 0; j < batch.length; j++) {
-        results[start + j] = { success: false, error: msg, messageId: null };
-      }
+      for (const i of sendIdx) results[i] = { success: false, error: msg, messageId: null };
     }
   }
 
@@ -156,6 +179,11 @@ export async function sendEmail({
   cta?: EmailCta;
 }): Promise<SendEmailResult> {
   try {
+    const suppressed = await loadSuppressed(suppressionClient(), [to]);
+    if (suppressed.has(to.trim().toLowerCase())) {
+      return { success: false, suppressed: true, error: "Recipient suppressed (previous hard bounce or spam complaint)." };
+    }
+
     const { data, error } = await resend.emails.send({
       from: FROM,
       to: [to],

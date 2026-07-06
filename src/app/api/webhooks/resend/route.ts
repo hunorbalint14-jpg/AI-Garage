@@ -2,13 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { Webhook } from "svix";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { recordWebhookDelivery } from "@/lib/platform/webhooks";
+import { parseSuppression, suppressEmails, type ResendWebhookEvent } from "@/lib/email-suppression";
 
 export const runtime = "nodejs";
 
-type ResendEvent = {
-  type: string;
-  data: { email_id: string };
-};
+type ResendEvent = ResendWebhookEvent & { data: { email_id: string } };
 
 export async function POST(request: NextRequest) {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
@@ -78,6 +76,15 @@ export async function POST(request: NextRequest) {
     emailId,
     rowsUpdated: updated.count,
   });
+
+  // Stop sending to dead/complained addresses: a hard bounce or a spam
+  // complaint adds the recipient to the global suppression list, which
+  // src/lib/email.ts checks before every send. Soft bounces don't suppress.
+  const toSuppress = parseSuppression(event);
+  if (toSuppress.length > 0) {
+    await suppressEmails(admin, toSuppress, emailId);
+    console.log("[resend-webhook] suppressed", { type: event.type, count: toSuppress.length });
+  }
 
   await recordWebhookDelivery(admin, { provider: "resend", eventType: event.type, ok: true, statusCode: 200 });
 
