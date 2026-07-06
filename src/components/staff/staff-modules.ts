@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt,
   TrendingUp, Building2, Wrench, Columns, UserCog, FlaskConical, Zap, Package,
   FileText, ShieldCheck, Truck, ClipboardList, BarChart3, Repeat, CreditCard,
-  Hammer, RotateCcw, PhoneCall, CarFront, HandCoins,
+  Hammer, RotateCcw, PhoneCall, CarFront, HandCoins, Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PermissionKey } from "@/app/staff/staff-members/constants";
@@ -21,6 +21,8 @@ export type NavItem = {
   permission?: PermissionKey;
   /** Hide unless the user is org owner or admin (used for surfaces that are not gated by a single permission). */
   adminOnly?: boolean;
+  /** Early-access surface — renders a BETA chip beside the label. */
+  beta?: boolean;
 };
 
 export type NavModule = {
@@ -77,7 +79,7 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { key: "campaigns",   href: "/staff/campaigns",   label: "Campaigns",   icon: Megaphone, permission: "campaigns" },
       { key: "win-back",    href: "/staff/win-back",    label: "Win-back",    icon: RotateCcw, permission: "campaigns" },
-      { key: "receptionist", href: "/staff/receptionist", label: "Receptionist", icon: PhoneCall, permission: "bookings" },
+      { key: "receptionist", href: "/staff/receptionist", label: "Receptionist", icon: PhoneCall, permission: "bookings", beta: true },
       { key: "automations", href: "/staff/automations", label: "Automations", icon: Zap,       permission: "automations" },
     ],
   },
@@ -88,6 +90,8 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { key: "team",     href: "/staff/staff-members", label: "Team",       icon: UserCog,      permission: "staff_manage" },
       { key: "settings", href: "/staff/settings",     label: "Settings",   icon: Settings },
+      // Deliberately ungated: every staff member can read the release notes.
+      { key: "whats-new", href: "/staff/whats-new",   label: "What's new", icon: Sparkles },
       { key: "billing",  href: "/staff/settings/billing", label: "Billing", icon: CreditCard, adminOnly: true },
       { key: "audit",    href: "/staff/audit-log",    label: "Audit log",  icon: ShieldCheck,  permission: "audit_log" },
       { key: "dev",      href: "/staff/dev",          label: "Dev tools",  icon: FlaskConical, adminOnly: true },
@@ -112,7 +116,7 @@ export function filterModulesForRole(ctxOrOrgRole: FilterCtx | "owner" | "admin"
   // and no settings/team. (Permission gates don't apply: accountants have no
   // location permissions.)
   const isAccountant = ctx.orgRole === "accountant";
-  const ACCOUNTANT_ITEMS = new Set(["dashboard", "revenue", "invoices", "finance", "reports"]);
+  const ACCOUNTANT_ITEMS = new Set(["dashboard", "revenue", "invoices", "finance", "reports", "whats-new"]);
 
   const itemAllowed = (i: NavItem): boolean => {
     if (isAccountant) return ACCOUNTANT_ITEMS.has(i.key);

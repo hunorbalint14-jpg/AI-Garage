@@ -2,6 +2,7 @@ import { test, type Browser, type Page } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 import { TENANT_ORIGIN, STAFF_STATE, CUSTOMER_STATE } from "./helpers";
+import { latestRelease } from "../../src/lib/release-notes";
 
 // Screen recordings for the manual's `video` sections. Each flow records a
 // short, non-destructive walkthrough into docs/internal/help-videos/
@@ -25,13 +26,14 @@ async function record(
     viewport: SIZE,
     recordVideo: { dir: path.join(VIDEOS_DIR, ".tmp"), size: SIZE },
   });
-  await ctx.addInitScript(() => {
+  await ctx.addInitScript((seenVersion) => {
     try {
       localStorage.setItem("ai-garage-cookies-acknowledged", "1");
+      localStorage.setItem("whats-new-seen", seenVersion);
     } catch {
       /* ignore */
     }
-  });
+  }, latestRelease().version);
   const page = await ctx.newPage();
   try {
     await flow(page);

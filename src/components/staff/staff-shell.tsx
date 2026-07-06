@@ -18,8 +18,30 @@ import {
   findActive,
   onBrandColor,
   type NavModule,
+  type NavItem,
 } from "@/components/staff/staff-modules";
+import { hasFreshRelease } from "@/lib/release-notes";
+import { WhatsNewPopup } from "@/components/staff/whats-new-popup";
 import type { Permissions } from "@/app/staff/staff-members/constants";
+
+// Chips rendered after a nav label: BETA for early-access surfaces, NEW on
+// "What's new" while the latest release note is under two weeks old.
+function NavChips({ item }: { item: NavItem }) {
+  return (
+    <>
+      {item.beta && (
+        <span className="ml-auto rounded border border-[#5a4218] bg-[#3a2c14] px-1 py-px font-mono text-[8px] tracking-[.1em] text-[#ffb020]">
+          BETA
+        </span>
+      )}
+      {item.key === "whats-new" && hasFreshRelease() && (
+        <span className="ml-auto rounded border border-[#2d5a3f] bg-[#13301f] px-1 py-px font-mono text-[8px] tracking-[.1em] text-[#5fdd9d]">
+          NEW
+        </span>
+      )}
+    </>
+  );
+}
 
 type Location = { id: string; slug: string; name: string };
 
@@ -280,6 +302,7 @@ export function StaffShell({
         />
       )}
       <CommandPalette />
+      <WhatsNewPopup />
       <NavProgressOverlay />
     </div>
     </NavProgressProvider>
@@ -391,6 +414,7 @@ function ContextPane({
             >
               <Icon className="h-[15px] w-[15px] shrink-0" />
               {s.label}
+              <NavChips item={s} />
             </Link>
           );
         })}
@@ -544,6 +568,7 @@ function ModuleSheet({
                     >
                       <SIcon className="h-[14px] w-[14px]" />
                       <span className="flex-1">{s.label}</span>
+                      <NavChips item={s} />
                     </Link>
                   );
                 })}

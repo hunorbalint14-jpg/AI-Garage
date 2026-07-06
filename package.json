@@ -18,7 +18,8 @@
     "help:capture": "playwright test -c playwright.screenshots.config.ts",
     "help:build": "tsx scripts/build-help-doc.ts",
     "help:gen": "npm run help:seed && npm run help:capture && npm run help:build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "notes:draft": "tsx scripts/generate-release-notes.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",
