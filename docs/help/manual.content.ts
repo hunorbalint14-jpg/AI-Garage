@@ -4,13 +4,30 @@
 //   - the Playwright capture (e2e/screenshots/capture.spec.ts) — `route`,
 //     `persona`, `host`, and the optional `capture` hints say where to go and
 //     what to shoot. Sections with `noShot: true` are concept pages (no UI to
-//     capture) and are skipped by the capturer.
+//     capture) and are skipped by the capturer. `stepper` entries request
+//     extra state shots (`<portal>/<id>--<n>.png`) via the ACTIONS registry in
+//     the capture spec; `video` marks a section whose flow is recorded by
+//     e2e/screenshots/video.spec.ts into docs/internal/help-videos/.
 //   - the HTML assembler (scripts/build-help-doc.ts) — `title`, `purpose`,
-//     `steps`/`prose`, `notes` become the body beside (or instead of) the shot.
+//     `steps`/`prose`, `notes`, `roles`, `troubleshooting`, `diagram`,
+//     `stepper`, `video` become the body beside (or instead of) the shot.
 //
 // Adding a section is cheap: append one entry here, re-run `npm run help:gen`.
 
 export type Persona = "public" | "customer" | "staff";
+
+export type Troubleshoot = {
+  /** The symptom, as the user would describe it. */
+  problem: string;
+  /** What to check / do. */
+  fix: string;
+};
+
+export type StepperStep = {
+  /** Caption under the shot for this step. Screenshot file is
+   *  `<portal>/<id>--<index+1>.png`, produced by the capture ACTIONS registry. */
+  caption: string;
+};
 
 export type Section = {
   /** Stable slug — also the screenshot filename (`<portal>/<id>.png`) + the
@@ -26,25 +43,41 @@ export type Section = {
   host?: "tenant" | "root";
   /** One-line "what this is for", shown under the section title. */
   purpose: string;
+  /** Who can see this page — rendered as a badge. Omit for "All staff" on
+   *  staff sections / everyone elsewhere. */
+  roles?: string;
   /** Numbered callouts for a UI section. Each becomes a badge beside the shot. */
   steps?: string[];
   /** Prose paragraphs for a concept section (`noShot`) — rendered full-width. */
   prose?: string[];
   /** Optional caveats / examples rendered as a highlighted note block. */
   notes?: string[];
+  /** "If X isn't working…" box. */
+  troubleshooting?: Troubleshoot[];
   /** Concept page: no screenshot, full-width prose. Skipped by the capturer. */
   noShot?: boolean;
+  /** Built-in animated diagram (concepts): rendered by the builder. */
+  diagram?: "lifecycle" | "funding" | "comms" | "org";
+  /** Interactive stepper: click-through states. Shots come from the capture
+   *  ACTIONS registry (one action per section id producing --1, --2, …). */
+  stepper?: StepperStep[];
+  /** Screen recording (docs/internal/help-videos/<portal>/<id>.webm),
+   *  produced by video.spec.ts. */
+  video?: { caption: string };
   capture?: {
     /** Selector to wait for before shooting (content settled). */
     waitFor?: string;
     /** Click this from `route` to reach a detail page, then shoot that. */
     clickToDetail?: string;
+    /** Click these in order (for two-hop drills, e.g. documents → invoice). */
+    clickSequence?: string[];
     /** Full-page vs viewport. Default viewport (above the fold reads best). */
     fullPage?: boolean;
   };
 };
 
-export type Part = { name: string; blurb: string; sections: Section[] };
+export type Faq = { q: string; a: string };
+export type Part = { name: string; blurb: string; sections: Section[]; faq?: Faq[] };
 export type Manual = { title: string; subtitle: string; parts: Part[] };
 
 // ── Part 0 — How it works (concepts, no screenshots) ─────────────────────────
@@ -71,6 +104,7 @@ const concepts: Section[] = [
     persona: "public",
     route: "",
     noShot: true,
+    diagram: "lifecycle",
     purpose: "The end-to-end flow every visit follows, with an example.",
     prose: [
       "1. Booking. A customer requests an appointment (or the garage books one in for them, or the AI receptionist takes the call). It shows on the calendar as 'scheduled'.",
@@ -81,6 +115,24 @@ const concepts: Section[] = [
     ],
     notes: [
       "Example: Charlie books an MOT. The garage runs it, spots a worn brake disc, and sends a £140 quote with a photo. Charlie approves it on his phone. The garage fits the brakes, raises one invoice for the MOT + brakes, and Charlie pays by card — all without a phone call.",
+    ],
+  },
+  {
+    id: "org-roles",
+    title: "Branches, roles & who sees what",
+    persona: "public",
+    route: "",
+    noShot: true,
+    diagram: "org",
+    purpose: "How a multi-branch garage is structured, and what each role can do.",
+    prose: [
+      "The organisation is the account; each branch (location) is a workspace inside it. Everything operational — bookings, jobs, bays, invoices — belongs to a branch. Staff pick their active branch from the top-bar switcher and every page re-scopes to it.",
+      "Org-level roles. Owner and admin can act in every branch and manage settings, the team and billing. Accountant is finance-only: dashboards, revenue, invoices, finance and reports across all branches, with no operational pages at all — ideal for a bookkeeper.",
+      "Branch staff. Everyone else belongs to one or more branches with a branch role (manager, service advisor, mechanic…). What they can open is controlled by permission groups on the Team page — operational, financial, quotes, catalogue, sensitive and MOT. A page someone can't access simply doesn't appear in their navigation.",
+      "Customers are org-wide: registering at one branch registers them with the whole garage group. Each customer has a home branch (used for reminders and marketing), while their vehicles remember the branch that services them.",
+    ],
+    notes: [
+      "If a teammate says a page is 'missing', it's almost always a role or permission — an owner/admin can adjust it in Team & roles in under a minute.",
     ],
   },
   {
@@ -106,6 +158,7 @@ const concepts: Section[] = [
     persona: "public",
     route: "",
     noShot: true,
+    diagram: "funding",
     purpose: "How prepaid service plans work — and why they're fair to both sides.",
     prose: [
       "A plan (e.g. 'Complete Care': one MOT + one service a year, plus 10% off everything else) is a prepayment, not credit. The customer pays monthly or annually, and the included services are drawn down as they're used.",
@@ -116,6 +169,24 @@ const concepts: Section[] = [
     ],
     notes: [
       "Example: a member on 'Complete Care' books their included MOT. If their payments cover it, they pay £0 and the allowance shows 'MOT 0 of 1 left'. A second MOT in the same year falls back to the 10% member price.",
+    ],
+  },
+  {
+    id: "comms",
+    title: "Messages to customers — what sends, when, and from which branch",
+    persona: "public",
+    route: "",
+    noShot: true,
+    diagram: "comms",
+    purpose: "Every automatic email/SMS in one map, so nothing surprises you.",
+    prose: [
+      "Event messages follow the work: a booking confirmation, a quote link, an invoice or a payment receipt is sent by the branch where that work happens, with that branch's name and address on it — so a customer of a multi-branch group always knows which site to attend.",
+      "Scheduled messages follow the customer: MOT/service reminders and marketing campaigns go out from the customer's home branch, and each customer is contacted once even if their vehicles are serviced at several branches.",
+      "Channels. Email is always available; SMS and WhatsApp send where the garage has connected Twilio. Essential service messages (reminders, confirmations) send regardless of marketing consent; campaigns respect the customer's marketing opt-in.",
+      "Overdue invoices get a gentle automatic chase (dunning); pending quotes get reminder emails on the schedule set in Settings; completed visits can trigger a review request with the garage's Google review link.",
+    ],
+    notes: [
+      "Customers manage marketing consent themselves in their portal Settings; staff can see (not edit) consent on the customer record.",
     ],
   },
   {
@@ -151,6 +222,30 @@ const concepts: Section[] = [
       "Integrations are optional and set up in staff Settings → Integrations. The app works without them; connecting each one removes manual work (e.g. no re-keying invoices into Xero).",
     ],
   },
+  {
+    id: "getting-help",
+    title: "Getting help — the support widget",
+    persona: "public",
+    route: "",
+    noShot: true,
+    purpose: "Where staff go when something's unclear, broken or missing.",
+    prose: [
+      "Every staff page has a Support button (the life-ring, top right, next to the bell). It opens a small panel with an assistant that answers from this manual and from the garage's own settings — opening hours, connected integrations, services — and it respects roles, so it will never reveal something the signed-in person couldn't see in the app.",
+      "When the assistant can't help, 'Still stuck — raise a ticket' sends the question to the AI Garage team with helpful context attached automatically (the page you were on, your branch and role, and an optional screenshot you can switch off).",
+      "Replies land back in the widget and by email; the launcher shows a red badge when there's an unread reply. Bugs, questions and feature requests all go through the same place — feature requests the team adopts are marked 'planned' on your ticket.",
+    ],
+    notes: [
+      "The fastest bug reports include what you were doing, what you expected and what happened instead — the widget attaches the technical context for you.",
+    ],
+  },
+];
+
+const conceptsFaq: Faq[] = [
+  { q: "Do customers need the app installed?", a: "No — the customer portal is a website. Customers use the link the garage sends (or the garage's own web address) on any phone or computer." },
+  { q: "Can one person work at two branches?", a: "Yes. A staff member can belong to several branches and switches between them with the top-bar branch selector. Owners, admins and accountants see every branch automatically." },
+  { q: "Who holds the money when a customer pays?", a: "The garage. Payments go straight into the garage's own Stripe account — AI Garage never holds funds, it only takes a small platform fee per transaction." },
+  { q: "What happens if we disconnect Stripe or Xero?", a: "Past data is untouched. Customers simply can't pay online (Stripe) or invoices stop syncing (Xero) until it's reconnected in Settings → Integrations." },
+  { q: "Why can't a colleague see a page I can see?", a: "Roles and permissions. Pages a person can't access are hidden from their navigation entirely. An owner or admin can change their permissions on the Team page." },
 ];
 
 // ── Part 1 — Customer guide ──────────────────────────────────────────────────
@@ -165,8 +260,13 @@ const customer: Section[] = [
       "Enter your full name, email and mobile number.",
       "Pick your home garage — the branch you usually visit (skipped if the garage has a single location).",
       "Agree to the garage's privacy policy, then submit. You'll be signed in straight away.",
+      "Add your vehicle by registration — the make, model and MOT due date fill in automatically from the DVLA.",
     ],
     notes: ["One account covers every branch of the same garage group — you don't register twice."],
+    troubleshooting: [
+      { problem: "\"An account already exists for this email\"", fix: "You've registered before — use Sign in instead, and the email-link option if you've forgotten the password." },
+      { problem: "Your registration plate isn't recognised", fix: "Double-check the plate. If it's a very new or imported vehicle the DVLA record may lag — you can still add it manually and the garage can fix details later." },
+    ],
   },
   {
     id: "login",
@@ -178,6 +278,10 @@ const customer: Section[] = [
       "Choose 'Email link' to be sent a secure one-time sign-in link (nothing to remember), or 'Password' if you've set one.",
       "Enter your email (and password if using that tab).",
       "Open the email link on the same device, or press 'Sign in', to land on your dashboard.",
+    ],
+    troubleshooting: [
+      { problem: "The email link never arrives", fix: "Check spam/junk first. The link is one-time and expires — request a fresh one rather than reusing an old email." },
+      { problem: "Forgotten password", fix: "Use 'Forgotten password?' on the password tab, or simply switch to the email-link tab — no password needed." },
     ],
   },
   {
@@ -216,11 +320,15 @@ const customer: Section[] = [
     purpose: "Request a visit: choose branch, service, vehicle and a preferred time.",
     steps: [
       "Pick the branch (if the garage has more than one) and the service you need.",
-      "Choose the vehicle and a preferred date and time.",
+      "Choose the vehicle and a preferred date and time — only days the branch is open are offered.",
       "If the service is covered by your plan you'll see a green 'Included in your plan' note and pay nothing; otherwise any deposit or fee is shown before you confirm.",
       "Submit the request — the garage confirms the slot and you get a notification.",
     ],
     notes: ["'Pay now to confirm' appears only when the service has a price and the garage takes card payments. Covered plan services skip payment entirely."],
+    troubleshooting: [
+      { problem: "The date you want isn't offered", fix: "The branch is closed that day (weekly hours or a one-off closure). Pick another day or contact the garage directly." },
+      { problem: "A plan service isn't showing as included", fix: "Your plan may not have accrued enough yet (plans are prepayments — see 'Membership plans' in How it works) or this period's allowance is used. The member discount still applies." },
+    ],
   },
   {
     id: "quotes",
@@ -240,11 +348,15 @@ const customer: Section[] = [
     persona: "customer",
     route: "/dashboard/quotes",
     capture: { clickToDetail: "a[href*='/dashboard/quotes/']" },
+    video: { caption: "Watch: opening a quote, reviewing the items and approving it — about 20 seconds." },
     purpose: "The detail of a single quote, with everything you need to decide.",
     steps: [
       "Review each recommended item and its price; watch the inspection video if one is attached.",
       "Approve & authorise the work, or decline it.",
       "If a deposit is required, pay it securely here to lock in the booking.",
+    ],
+    troubleshooting: [
+      { problem: "The quote has expired", fix: "Quotes are valid for a set number of days. Ask the garage to reissue it — prices are then re-confirmed." },
     ],
   },
   {
@@ -284,6 +396,10 @@ const customer: Section[] = [
       "Print or save a PDF copy for your records.",
     ],
     notes: ["Membership credits and plan discounts are applied automatically before you pay — you never need to enter a code."],
+    troubleshooting: [
+      { problem: "Card payment failed", fix: "The invoice stays open — just press 'Pay now' and try again (or another card). If it keeps failing, your bank may be declining the payment; the garage can also take payment in person." },
+      { problem: "'Spread the cost' isn't showing", fix: "Finance appears only where the garage has enabled it and the invoice amount qualifies. Ask the garage about their threshold." },
+    ],
   },
   {
     id: "plans",
@@ -314,6 +430,14 @@ const customer: Section[] = [
   },
 ];
 
+const customerFaq: Faq[] = [
+  { q: "Do I have to pay online?", a: "No — online card payment is a convenience. You can always pay at the garage; the invoice simply stays open until it's settled either way." },
+  { q: "Will I get reminded before my MOT?", a: "Yes — the garage sends MOT and service reminders automatically as the due date approaches, by email (and SMS where enabled). These are service messages, separate from marketing." },
+  { q: "Can I stop marketing messages but keep reminders?", a: "Yes. Settings → toggle marketing email/SMS off. Reminders and booking confirmations still arrive because they're about your vehicle, not marketing." },
+  { q: "How do I cancel my plan?", a: "Plans page → Cancel plan. It stops immediately and refunds your unspent balance (services already used are charged at the normal price). Consumer plans have no minimum term." },
+  { q: "Is my card stored?", a: "Card details are held by Stripe, the payment provider — the garage and AI Garage never see the full number. Saving a card is optional and only used for the purposes shown when you save it (e.g. no-show protection)." },
+];
+
 // ── Part 2 — Staff guide (garage employees) ─────────────────────────────────
 const staff: Section[] = [
   {
@@ -325,7 +449,11 @@ const staff: Section[] = [
     steps: [
       "Enter your work email and password.",
       "If prompted, complete passkey verification (Face ID / fingerprint / security key).",
-      "You land on the dashboard for your active branch.",
+      "Multi-branch staff pick a branch next; everyone else lands straight on the dashboard.",
+    ],
+    troubleshooting: [
+      { problem: "Signed out in the middle of a shift", fix: "Sessions end automatically 12 hours after sign-in — a security measure, not a fault. Sign back in and carry on." },
+      { problem: "Locked out / forgotten password", fix: "An owner or admin can reset your access from Team & roles. Owners use the password reset link on the sign-in page." },
     ],
   },
   {
@@ -333,38 +461,91 @@ const staff: Section[] = [
     title: "Staff dashboard",
     persona: "staff",
     route: "/staff",
-    purpose: "Today at a glance: schedule, vehicles needing attention, open work and key numbers.",
+    purpose: "Today at a glance: your day, the schedule, vehicles needing attention and key numbers.",
     steps: [
-      "Today's bookings are laid out by bay and time.",
-      "Tiles track this week's revenue, customers, vehicles, open jobs, pending invoices and overdue amounts.",
-      "The day schedule shows each bay's bookings; use 'New booking' to add one.",
+      "'My day' pins your own clocked-on state and open jobs assigned to you.",
+      "Tiles track active jobs, today's bookings, quotes awaiting, low stock, courtesy cars out and no-shows — each links to its page.",
+      "The day schedule shows each bay's bookings on a timeline; use 'New booking' to add one.",
+      "Priority actions list where to focus now (overdue invoices, quotes waiting, vehicles due).",
       "Switch your active branch from the top-bar selector — every figure re-scopes to it.",
     ],
+    notes: ["What you see is role-aware: owners and accountants get the financial tiles; mechanics see their own work first."],
   },
   {
     id: "bookings",
     title: "Bookings",
     persona: "staff",
     route: "/staff/bookings",
+    video: { caption: "Watch: creating a booking from scratch — customer, vehicle, service, bay and time — in under a minute." },
     purpose: "Manage appointments in calendar or list view.",
     steps: [
       "Switch between month, day and list views; filter by status or assignee.",
+      "Days the branch is closed are greyed; the 'Now' line tracks the current time on the day view.",
       "Open a booking to assign a staff member and bay, confirm with the customer, or reschedule.",
       "Create a new booking with 'New booking'. Turning a booking into a job moves it to the workshop board.",
     ],
+    troubleshooting: [
+      { problem: "Can't book a slot", fix: "Check the branch's opening hours (Settings → Business) and any special-day closure for that date — the calendar only offers open days." },
+      { problem: "Customer says they never got the confirmation", fix: "Open the booking and re-send the confirmation. Check the email address on the customer record and ask them to check spam." },
+    ],
+  },
+  {
+    id: "booking-detail",
+    title: "Inside a booking",
+    persona: "staff",
+    route: "/staff/bookings",
+    capture: { clickSequence: ["text=List", "a[href*='/staff/bookings/']"] },
+    purpose: "One appointment end to end: assignment, confirmation, payment state and history.",
+    steps: [
+      "Assign the bay and the staff member doing the work; both show on the day schedule.",
+      "Send or re-send the confirmation; the customer can confirm from the email link.",
+      "Take a deposit or card-on-file where the service requires it; the payment state shows here.",
+      "Reschedule, cancel, or mark no-show; converting to a job carries everything across to the workshop board.",
+    ],
+  },
+  {
+    id: "booking-new",
+    title: "New booking",
+    persona: "staff",
+    route: "/staff/bookings/new",
+    purpose: "Book a customer in — existing or brand new — in one form.",
+    steps: [
+      "Search an existing customer or create one inline (name + contact is enough to start).",
+      "Pick the vehicle (or add by registration — DVLA fills the details), the service and the bay.",
+      "Choose date and time; the form warns if you pick a time outside the branch's opening hours.",
+      "Save — the booking appears on the calendar and the customer gets a confirmation.",
+    ],
+    notes: ["Booking for a customer whose home branch is elsewhere? A note reminds you they normally visit another branch — carry on if that's intended."],
   },
   {
     id: "jobs",
-    title: "Jobs",
+    title: "Jobs — the workshop board",
     persona: "staff",
     route: "/staff/jobs",
-    purpose: "The workshop board — every job by stage: open, completed, invoiced.",
+    purpose: "Every job by stage: open, completed, invoiced.",
     steps: [
       "Cards show the vehicle, customer, assignee and a high-voltage (⚡ EV) flag where it applies.",
       "Open a job to add parts and labour, record work and mark it complete.",
       "Completed jobs flow through to invoicing in one step.",
     ],
     notes: ["The ⚡ flag means an electric/hybrid vehicle with high-voltage systems — only EV-qualified mechanics should work on it (see 'Badges & signs')."],
+  },
+  {
+    id: "job-detail",
+    title: "Inside a job",
+    persona: "staff",
+    route: "/staff/jobs",
+    capture: { clickToDetail: "a[href*='/staff/jobs/']" },
+    purpose: "The working record of a visit: line items, time, checks, quotes and the invoice.",
+    steps: [
+      "Add parts (from Products) and labour lines as the work happens; totals and VAT update live.",
+      "Record tyre checks and inspection findings; attach photos/video for the customer.",
+      "Found extra work? Raise a quote from the job — the customer approves it from their portal before you proceed.",
+      "Clock time against the job; mark it complete, then 'Create invoice' carries every line across.",
+    ],
+    troubleshooting: [
+      { problem: "Part not in the picker", fix: "It's not in Products yet — add it there (or ask someone with catalogue permission), then it's available on every job." },
+    ],
   },
   {
     id: "customers",
@@ -375,7 +556,7 @@ const staff: Section[] = [
     steps: [
       "Search by name, email or phone; results paginate.",
       "Open a customer to see vehicles, reminders, memberships and GDPR tools.",
-      "Add a new customer with 'New customer'.",
+      "Add a new customer with 'New customer', or bring a whole book across with Import.",
     ],
   },
   {
@@ -386,22 +567,25 @@ const staff: Section[] = [
     capture: { clickToDetail: "a[href*='/staff/customers/']" },
     purpose: "Everything about one customer across tabs: overview, vehicles, reminders, memberships.",
     steps: [
-      "Overview shows contact details and marketing consent.",
+      "Overview shows contact details and marketing consent (view-only — the customer controls consent).",
+      "Vehicles lists each car with MOT/service dates; add one by registration.",
       "The Memberships tab lists plans; staff can bring plan benefits forward when a customer enrols right after a service + MOT.",
       "Reminder history records every MOT/service nudge sent and whether it was delivered.",
+      "GDPR tools (owner/admin): export the customer's data, or erase them permanently.",
     ],
   },
   {
-    id: "invoices",
-    title: "Invoices",
+    id: "customers-import",
+    title: "Importing customers",
     persona: "staff",
-    route: "/staff/invoices",
-    purpose: "The invoice register with status totals and search.",
+    route: "/staff/customers/import",
+    purpose: "Move an existing customer book in from a spreadsheet.",
     steps: [
-      "Filter by status — draft, sent, paid, overdue — or search by customer or number.",
-      "Totals by status sit across the top so you can see what's outstanding.",
-      "Open an invoice to send it, record a payment or issue a refund.",
+      "Download the template, fill one row per customer (vehicles can come along too), and upload.",
+      "Review the preview — problems are flagged per row so you can fix and re-upload.",
+      "Confirm to import; existing customers (same email) are updated, not duplicated.",
     ],
+    notes: ["Imports don't email anyone — customers are simply ready in the directory for the next booking."],
   },
   {
     id: "quotes",
@@ -414,12 +598,61 @@ const staff: Section[] = [
       "Track which quotes the customer has viewed and responded to.",
       "Create a new quote, attach a photo or video, and send it for approval.",
     ],
+    troubleshooting: [
+      { problem: "Customer didn't get the quote", fix: "Open the quote and re-send. The link needs no login — check spam and that the email on the customer record is right." },
+      { problem: "Quote expired before they answered", fix: "Reissue it (revise) — validity days are set in Settings → Integrations." },
+    ],
+  },
+  {
+    id: "quote-new",
+    title: "Creating a quote",
+    persona: "staff",
+    route: "/staff/quotes/new",
+    purpose: "Build a priced recommendation the customer can approve from their phone.",
+    steps: [
+      "Pick the customer and vehicle (or quote a walk-in by contact details).",
+      "Add line items from your services and products, or free-type; set quantities and prices.",
+      "Attach an inspection photo or video — approval rates jump when the customer can see the problem.",
+      "Send. The customer gets a secure link (no login needed) to approve, decline or pay a deposit.",
+    ],
+  },
+  {
+    id: "invoices",
+    title: "Invoices",
+    persona: "staff",
+    route: "/staff/invoices",
+    roles: "Branch staff with financial permission · Owner · Admin · Accountant",
+    purpose: "The invoice register with status totals and search.",
+    steps: [
+      "Filter by status — draft, sent, paid, overdue — or search by customer or number.",
+      "Totals by status sit across the top so you can see what's outstanding.",
+      "Open an invoice to send it, record a payment or issue a refund.",
+    ],
+  },
+  {
+    id: "invoice-detail",
+    title: "Inside an invoice",
+    persona: "staff",
+    route: "/staff/invoices",
+    roles: "Branch staff with financial permission · Owner · Admin · Accountant",
+    capture: { clickToDetail: "a[href*='/staff/invoices/']" },
+    purpose: "Send, take payment, credit or refund one invoice.",
+    steps: [
+      "Line items, VAT and any plan credit/discount are itemised exactly as the customer sees them.",
+      "Send (or re-send) by email; the customer pays from the link — or record a payment taken in person.",
+      "Issue a credit note or refund where needed; everything lands in the audit log.",
+      "Overdue invoices are chased automatically (dunning); you can see what's been sent.",
+    ],
+    troubleshooting: [
+      { problem: "Customer paid but it shows unpaid", fix: "Card payments mark themselves within moments. For bank transfers or cash, record the payment manually here." },
+    ],
   },
   {
     id: "revenue",
     title: "Revenue",
     persona: "staff",
     route: "/staff/revenue",
+    roles: "Owner · Admin · Accountant",
     purpose: "Cash-flow at a glance with a monthly trend.",
     steps: [
       "See this month's revenue, year-to-date, paid, outstanding and overdue.",
@@ -431,12 +664,26 @@ const staff: Section[] = [
     title: "Reports",
     persona: "staff",
     route: "/staff/reports",
+    roles: "Owner · Admin · Accountant",
     purpose: "Analytics: VAT, aged debt, labour productivity and bay utilisation.",
     steps: [
       "Pick a period — this month, year-to-date or a custom range.",
       "Review the VAT summary and aged-debtor buckets (current, 1–30, 31–60, 60+ days).",
       "Productivity and utilisation break billable hours down by mechanic.",
     ],
+  },
+  {
+    id: "finance",
+    title: "Finance applications",
+    persona: "staff",
+    route: "/staff/finance",
+    roles: "Owner · Admin · Accountant",
+    purpose: "Track 'spread the cost' finance applications against invoices.",
+    steps: [
+      "Each application shows the invoice, provider, amount and current state.",
+      "The garage is paid in full by the provider — the customer repays them in instalments.",
+    ],
+    notes: ["Finance appears to customers only where it's enabled and the invoice amount qualifies."],
   },
   {
     id: "services",
@@ -447,6 +694,7 @@ const staff: Section[] = [
     steps: [
       "Services are grouped by category (MOT, servicing, brakes, tyres…).",
       "Add a service or edit its price, duration, VAT treatment and active flag.",
+      "Duration drives the calendar slot length; price drives the booking and quote defaults.",
     ],
   },
   {
@@ -457,7 +705,31 @@ const staff: Section[] = [
     purpose: "Parts inventory with stock levels and reorder points.",
     steps: [
       "Edit name, SKU, cost and unit price, stock quantity and reorder level inline.",
-      "Stock at or below the reorder level flags items to order.",
+      "Stock at or below the reorder level flags items to order — the dashboard's 'low stock' tile counts them.",
+      "Restock through Purchase orders; receiving a PO tops the quantities back up.",
+    ],
+  },
+  {
+    id: "suppliers",
+    title: "Suppliers",
+    persona: "staff",
+    route: "/staff/suppliers",
+    purpose: "The address book behind purchase orders.",
+    steps: [
+      "Keep each parts supplier's contact details and notes in one place.",
+      "Suppliers feed the purchase-order form — pick one instead of retyping details.",
+    ],
+  },
+  {
+    id: "purchase-orders",
+    title: "Purchase orders",
+    persona: "staff",
+    route: "/staff/purchase-orders",
+    purpose: "Order parts from suppliers and receive them into stock.",
+    steps: [
+      "Raise a PO against a supplier; add product lines and quantities.",
+      "Send it, then mark lines received when the parts arrive — stock levels update automatically.",
+      "Part-receipts are fine: receive what turned up, the rest stays on order.",
     ],
   },
   {
@@ -486,43 +758,218 @@ const staff: Section[] = [
     notes: ["Most reminders also go out automatically — this page is for sending one by hand. See Automations to schedule them."],
   },
   {
+    id: "automations",
+    title: "Automations",
+    persona: "staff",
+    route: "/staff/automations",
+    roles: "Owner · Admin",
+    purpose: "The scheduled messages that run without you: reminders, digests, dunning, review requests.",
+    steps: [
+      "Each automation shows its schedule and when it last ran.",
+      "Reminders nudge customers ahead of MOT/service dates; dunning chases overdue invoices gently; review requests follow completed visits.",
+      "Turn an automation on or off per branch; sending respects each customer's contact consent.",
+    ],
+  },
+  {
+    id: "campaigns",
+    title: "Campaigns",
+    persona: "staff",
+    route: "/staff/campaigns",
+    roles: "Owner · Admin",
+    purpose: "One-off marketing to your customer base — promotions, announcements, seasonal pushes.",
+    steps: [
+      "Write the message and choose the audience; the recipient count shows before you send.",
+      "Send by email or SMS. Only customers with marketing consent are included, automatically.",
+      "Each customer is contacted once, from their home branch.",
+    ],
+    notes: ["Campaigns are gated by your AI Garage subscription tier — the page tells you if an upgrade is needed."],
+  },
+  {
+    id: "win-back",
+    title: "Win-back",
+    persona: "staff",
+    route: "/staff/win-back",
+    roles: "Owner · Admin",
+    purpose: "Customers who've drifted — vehicles overdue a visit — ready for a nudge.",
+    steps: [
+      "The list surfaces vehicles with no recent visit and an MOT or service now due.",
+      "Reach out directly or fold them into a campaign.",
+    ],
+  },
+  {
+    id: "fleet",
+    title: "Fleet",
+    persona: "staff",
+    route: "/staff/fleet",
+    purpose: "Business customers with multiple vehicles, managed as one account.",
+    steps: [
+      "Each fleet company groups its vehicles, bookings and invoices under one umbrella.",
+      "Open a fleet to see all its vehicles and their MOT/service status in one table.",
+      "Fleet plans can carry minimum terms (unlike consumer plans).",
+    ],
+  },
+  {
+    id: "courtesy-cars",
+    title: "Courtesy cars",
+    persona: "staff",
+    route: "/staff/courtesy-cars",
+    purpose: "Loan cars: the small fleet you lend while customers' vehicles are in.",
+    steps: [
+      "Each car shows its details and current state — available or out on loan.",
+      "Issue a car against a booking/job; record the return when the customer brings it back.",
+      "The dashboard tile counts cars out and flags overdue returns.",
+    ],
+  },
+  {
+    id: "bays",
+    title: "Bays",
+    persona: "staff",
+    route: "/staff/bays",
+    roles: "Owner · Admin",
+    purpose: "The physical workshop bays the calendar schedules into.",
+    steps: [
+      "Add, rename or retire bays (e.g. 'MOT bay', 'Ramp 2').",
+      "Every bay becomes a row on the day schedule; bookings and jobs are assigned to one.",
+    ],
+  },
+  {
+    id: "receptionist",
+    title: "AI receptionist",
+    persona: "staff",
+    route: "/staff/receptionist",
+    roles: "Owner · Admin",
+    purpose: "Answers missed calls by text, quotes services and books customers into real slots.",
+    steps: [
+      "Connect a phone number (Twilio) and switch the receptionist on.",
+      "It texts back callers you missed, answers service/price questions from your catalogue, and offers genuine free slots.",
+      "Review its conversations here — every booking it makes lands on the calendar like any other.",
+    ],
+  },
+  {
+    id: "notifications",
+    title: "Notifications",
+    persona: "staff",
+    route: "/staff/notifications",
+    purpose: "The bell, and the archive behind it.",
+    steps: [
+      "The bell (top right) badges unread events — new bookings, payments, quote responses.",
+      "This page is the full archive; open any row to jump to the thing itself.",
+      "Notification preferences let you mute kinds you don't need.",
+    ],
+  },
+  {
+    id: "support",
+    title: "Support widget",
+    persona: "staff",
+    route: "/staff",
+    capture: { waitFor: "text=MY DAY" },
+    stepper: [
+      { caption: "The Support launcher lives next to the bell on every staff page." },
+      { caption: "Ask the assistant anything — it answers from the manual and your garage's own settings." },
+      { caption: "Still stuck? Raise a ticket — context (page, branch, role, optional screenshot) attaches automatically." },
+    ],
+    video: { caption: "Watch: asking the assistant a question, then raising a ticket — 30 seconds." },
+    purpose: "Help without leaving the page: an assistant that knows the product, and tickets to the AI Garage team.",
+    steps: [
+      "Open Support (life-ring, top right). Ask in plain English — it answers from this manual and from your own garage's configuration, respecting your role.",
+      "'TICKETS · n' shows your organisation's open tickets; the red badge means the team replied.",
+      "Raise a ticket for bugs, questions or feature requests; replies land here and by email.",
+    ],
+  },
+  {
     id: "settings",
     title: "Settings",
     persona: "staff",
     route: "/staff/settings",
-    purpose: "Organisation configuration: branding, locations, team, integrations and compliance.",
+    roles: "Owner · Admin",
+    purpose: "Organisation configuration: branding, hours, locations, integrations and compliance.",
     steps: [
-      "Business: logo, brand colour, opening hours and contact details.",
+      "Business: logo, brand colour, contact details, and per-day opening hours with one-off special days (bank holidays).",
       "Locations: add branches and set the primary location.",
       "Integrations: connect Stripe and Xero, set the deposit % and quote validity.",
       "Compliance: accept the Data Processing Agreement and set MFA enforcement.",
     ],
-    notes: ["Owners and admins only. Some actions (managing the team, GDPR) stay locked to owner/admin even when other permissions are granted."],
+    notes: ["Some actions (managing the team, GDPR) stay locked to owner/admin even when other permissions are granted."],
+    troubleshooting: [
+      { problem: "Changed opening hours but old bookings look wrong", fix: "Hour changes affect future availability only — existing bookings keep their slot. Move them by hand if needed." },
+      { problem: "Stripe shows 'charges not enabled'", fix: "Stripe onboarding isn't finished — reopen the Stripe connect flow from Integrations and complete the remaining steps." },
+    ],
+  },
+  {
+    id: "billing",
+    title: "Your AI Garage subscription",
+    persona: "staff",
+    route: "/staff/settings/billing",
+    roles: "Owner · Admin",
+    purpose: "The garage's own subscription to AI Garage — tier, invoices, payment method.",
+    steps: [
+      "See your current tier and what it includes; upgrade or downgrade takes effect next period.",
+      "Update the payment card and download AI Garage's invoices to you (separate from your customers' invoices).",
+    ],
   },
   {
     id: "staff-members",
     title: "Team & roles",
     persona: "staff",
     route: "/staff/staff-members",
+    roles: "Owner · Admin",
     purpose: "Invite teammates and control what each can see and do.",
     steps: [
       "Invite staff by email and set an org role (owner, admin, accountant) or a per-branch role.",
       "Grant permissions by group — operational, financial, quotes, catalogue, sensitive, MOT.",
+      "'Add location access' gives an existing member another branch.",
       "Flag MOT testers / QC reviewers and EV (SERMI) certification where relevant.",
     ],
     notes: ["Accountant is an org-wide, finance-read-only role — handy for a bookkeeper who shouldn't touch operations."],
+    troubleshooting: [
+      { problem: "A teammate can't see a page", fix: "Check their permission groups here — pages they lack access to are hidden from their navigation entirely." },
+    ],
+  },
+  {
+    id: "team-roles",
+    title: "Role templates",
+    persona: "staff",
+    route: "/staff/settings/team-roles",
+    roles: "Owner · Admin",
+    purpose: "Reusable permission bundles so new starters get the right access in one click.",
+    steps: [
+      "Define a template (e.g. 'Service advisor') with its permission groups.",
+      "Apply it when inviting or editing a team member; tweak individual permissions after if needed.",
+    ],
+  },
+  {
+    id: "account",
+    title: "My account",
+    persona: "staff",
+    route: "/staff/account",
+    purpose: "Your own sign-in security: password, passkeys, MFA.",
+    steps: [
+      "Change your password, or add a passkey (Face ID / fingerprint / security key) for faster, phishing-resistant sign-in.",
+      "If your organisation enforces MFA, set it up here.",
+    ],
   },
   {
     id: "audit-log",
     title: "Audit log",
     persona: "staff",
     route: "/staff/audit-log",
+    roles: "Owner · Admin (or audit permission)",
     purpose: "An append-only trail of staff actions for GDPR and finance compliance.",
     steps: [
       "Filter by action group (GDPR, financial, quotes, integrations, auth), actor or action.",
       "Each row records who did what, when, and from where.",
     ],
   },
+];
+
+const staffFaq: Faq[] = [
+  { q: "Why was I signed out?", a: "Staff sessions end 12 hours after sign-in, full stop — it's a security measure. Sign back in and your work is where you left it." },
+  { q: "A page my colleague has is missing for me — why?", a: "Permissions. Pages you can't access are hidden from navigation. An owner/admin can grant the permission group on the Team page." },
+  { q: "Customer says they didn't get an email — where do I look?", a: "Open the thing you sent (booking, quote, invoice) and re-send it; check the email address on the customer record; ask them to check spam. Reminder history on the customer shows delivery status for reminders." },
+  { q: "How do I close early on a bank holiday?", a: "Settings → Business → add a special day for that date (closed, or custom hours). It beats the weekly pattern for that day and the booking widget respects it immediately." },
+  { q: "Where do refunds happen?", a: "On the invoice. Refunds are issued from your own Stripe account; a credit note records the paperwork and it all lands in the audit log." },
+  { q: "What's the difference between Reminders and Campaigns?", a: "Reminders are per-vehicle service messages (MOT/service due) and send regardless of marketing consent. Campaigns are marketing to many customers at once and only go to customers who've opted in." },
+  { q: "Where do I ask for a new feature?", a: "The Support widget (life-ring, top right) → raise a ticket → type 'Feature request'. Ones the team adopts show as 'planned' on your ticket." },
 ];
 
 export const MANUAL: Manual = {
@@ -533,16 +980,19 @@ export const MANUAL: Manual = {
       name: "How it works",
       blurb: "Start here — the concepts behind the screens.",
       sections: concepts,
+      faq: conceptsFaq,
     },
     {
       name: "Customer guide",
       blurb: "For vehicle owners using the garage's online portal.",
       sections: customer,
+      faq: customerFaq,
     },
     {
       name: "Staff guide",
       blurb: "For garage employees running the back office.",
       sections: staff,
+      faq: staffFaq,
     },
   ],
 };

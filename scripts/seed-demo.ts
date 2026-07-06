@@ -447,6 +447,191 @@ async function main() {
     }
   });
 
+  // ── Manual v2 additions: data for the wider staff-page coverage ────────────
+
+  // A pending quote the customer can open/approve (customer quotes pages +
+  // staff quotes register + the approve-quote video).
+  await step("pending quote + items", async () => {
+    const existing = await db.from("quotes").select("id").eq("organization_id", orgId).eq("title", "Front brake discs & pads").maybeSingle();
+    if (existing.data) return;
+    const quote = must(
+      await db
+        .from("quotes")
+        .insert({
+          quote_type: "standalone",
+          organization_id: orgId,
+          location_id: locId,
+          created_by: staffUserId,
+          customer_id: customerId,
+          vehicle_id: v0,
+          title: "Front brake discs & pads",
+          description: "Found on inspection during the full service.",
+          customer_message: "Front discs are lipped and pads are at 3mm — recommend replacing both before the next MOT.",
+          subtotal: 190,
+          vat_rate: 20,
+          vat_amount: 38,
+          total: 228,
+          status: "pending",
+          slug: "demo-brakes-quote",
+          token_hash: "0".repeat(64), // never a real link — portal pages don't need the raw token
+          sent_at: daysFromNow(-2).toISOString(),
+          expires_at: daysFromNow(12).toISOString(),
+        })
+        .select("id")
+        .single(),
+    );
+    must(
+      await db.from("quote_items").insert([
+        { quote_id: quote.id, description: "Front brake discs (pair)", type: "part", quantity: 1, unit_price: 98, sort_order: 0 },
+        { quote_id: quote.id, description: "Front brake pads", type: "part", quantity: 1, unit_price: 44, sort_order: 1 },
+        { quote_id: quote.id, description: "Fitting", type: "labour", quantity: 1, unit_price: 48, sort_order: 2 },
+      ]).select("id"),
+    );
+  });
+
+  // Suppliers + a purchase order (Suppliers + Purchase orders pages).
+  let supplierId: string | null = null;
+  await step("suppliers", async () => {
+    const suppliers = [
+      { name: "MotorParts Direct", contact_email: "orders@motorparts.example", contact_phone: "0161 000 0001", notes: "Next-day on brake components." },
+      { name: "TyreHub Wholesale", contact_email: "sales@tyrehub.example", contact_phone: "0161 000 0002", notes: null },
+    ];
+    for (const s of suppliers) {
+      const existing = await db.from("suppliers").select("id").eq("location_id", locId).eq("name", s.name).maybeSingle();
+      if (existing.data) {
+        supplierId ??= existing.data.id as string;
+        continue;
+      }
+      const row = must(await db.from("suppliers").insert({ location_id: locId, ...s }).select("id").single());
+      supplierId ??= row.id as string;
+    }
+  });
+
+  await step("purchase order + items", async () => {
+    if (!supplierId) throw new Error("no supplier");
+    const existing = await db.from("purchase_orders").select("id").eq("location_id", locId).eq("reference", "PO-DEMO-001").maybeSingle();
+    if (existing.data) return;
+    const pads = await db.from("products").select("id").eq("location_id", locId).eq("name", "Brake pads (front)").maybeSingle();
+    const po = must(
+      await db
+        .from("purchase_orders")
+        .insert({
+          location_id: locId,
+          supplier_id: supplierId,
+          reference: "PO-DEMO-001",
+          status: "ordered",
+          notes: "Restock before the weekend rush.",
+          created_by: staffUserId,
+          ordered_at: daysFromNow(-1).toISOString(),
+        })
+        .select("id")
+        .single(),
+    );
+    must(
+      await db.from("purchase_order_items").insert([
+        { purchase_order_id: po.id, product_id: pads.data?.id ?? null, description: "Brake pads (front)", quantity: 10, unit_cost: 22, sort_order: 0 },
+        { purchase_order_id: po.id, product_id: null, description: "Brake discs (pair)", quantity: 4, unit_cost: 55, sort_order: 1 },
+      ]).select("id"),
+    );
+  });
+
+  // Courtesy cars: one available, one out on loan (Courtesy cars page + tile).
+  await step("courtesy cars + live loan", async () => {
+    const cars = [
+      { registration: "CC70 AAA", make: "Toyota", model: "Aygo", notes: "Small + economical." },
+      { registration: "CC71 BBB", make: "Kia", model: "Picanto", notes: null },
+    ];
+    const carIds: string[] = [];
+    for (const c of cars) {
+      const existing = await db.from("courtesy_cars").select("id").eq("location_id", locId).eq("registration", c.registration).maybeSingle();
+      if (existing.data) {
+        carIds.push(existing.data.id as string);
+        continue;
+      }
+      const row = must(await db.from("courtesy_cars").insert({ location_id: locId, active: true, ...c }).select("id").single());
+      carIds.push(row.id as string);
+    }
+    const existingLoan = await db.from("courtesy_car_loans").select("id").eq("car_id", carIds[0]).is("returned_at", null).maybeSingle();
+    if (!existingLoan.data && carIds[0]) {
+      must(
+        await db
+          .from("courtesy_car_loans")
+          .insert({
+            location_id: locId,
+            car_id: carIds[0],
+            customer_id: customerId,
+            job_id: jobId,
+            loaned_at: daysFromNow(-1).toISOString(),
+            due_back_at: daysFromNow(1).toISOString(),
+            fuel_out: 6, // eighths of a tank — 6/8 = ¾
+
+            odometer_out: 24310,
+            condition_out: "Clean, small scuff rear bumper.",
+            created_by: staffUserId,
+          })
+          .select("id"),
+      );
+    }
+  });
+
+  // A fleet company (Fleet page).
+  await step("fleet company", async () => {
+    const existing = await db.from("fleet_companies").select("id").eq("location_id", locId).eq("name", "Speedy Couriers Ltd").maybeSingle();
+    if (existing.data) return;
+    must(
+      await db
+        .from("fleet_companies")
+        .insert({
+          location_id: locId,
+          name: "Speedy Couriers Ltd",
+          contact_name: "Dana Fleet",
+          contact_email: "fleet@speedy.example",
+          contact_phone: "0161 000 0003",
+          notes: "12 vans; MOTs staggered quarterly.",
+        })
+        .select("id"),
+    );
+  });
+
+  // A tyre check on the completed job's vehicle (job detail + customer history).
+  await step("tyre check", async () => {
+    if (!v0) throw new Error("no vehicle");
+    const existing = await db.from("tyre_checks").select("id").eq("vehicle_id", v0).maybeSingle();
+    if (existing.data) return;
+    must(
+      await db
+        .from("tyre_checks")
+        .insert({
+          vehicle_id: v0,
+          location_id: locId,
+          checked_at: daysFromNow(-10).toISOString(),
+          nsf_depth: 4.5, osf_depth: 4.2, nsr_depth: 6.1, osr_depth: 6.0,
+          notes: "Fronts approaching 3mm — advise replacement within 6 months.",
+        })
+        .select("id"),
+    );
+  });
+
+  // Staff notifications for the owner (bell + Notifications page).
+  await step("staff notifications", async () => {
+    if (!staffUserId) throw new Error("no staff user");
+    const rows = [
+      { kind: "booking.created", title: "New booking request", body: "Charlie Customer requested an MOT for AB19 CDE." },
+      { kind: "invoice.paid", title: "Invoice paid", body: "INV-DEMO-002 (£65.82) was paid by card." },
+      { kind: "quote.approved", title: "Quote viewed", body: "Charlie Customer viewed 'Front brake discs & pads'." },
+    ];
+    for (const n of rows) {
+      const existing = await db.from("staff_notifications").select("id").eq("user_id", staffUserId).eq("title", n.title).maybeSingle();
+      if (existing.data) continue;
+      must(
+        await db
+          .from("staff_notifications")
+          .insert({ user_id: staffUserId, location_id: locId, organization_id: orgId, href: "/staff", ...n })
+          .select("id"),
+      );
+    }
+  });
+
   summary();
 }
 

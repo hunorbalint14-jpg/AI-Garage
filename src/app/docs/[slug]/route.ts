@@ -11,6 +11,9 @@ export const dynamic = "force-dynamic";
 const DOC_MAP: Record<string, string> = {
   technical: "docs/internal/technical-doc.html",
   userguide: "docs/internal/user-guide.html",
+  // Customer-only cut of the manual (concepts + customer guide, no staff part)
+  // — lighter, safe to hand to a garage to pass on to its customers.
+  "userguide-customer": "docs/internal/user-guide-customer.html",
   // Add more docs here:
   // runbook: "docs/internal/runbook.html",
 };

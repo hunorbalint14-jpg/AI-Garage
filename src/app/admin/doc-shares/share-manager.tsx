@@ -7,7 +7,8 @@ import { useConfirm } from "@/components/confirm-provider";
 
 const DOC_OPTIONS = [
   { value: "technical", label: "Technical reference" },
-  { value: "userguide", label: "User manual" },
+  { value: "userguide", label: "User manual (full)" },
+  { value: "userguide-customer", label: "User manual (customer-only)" },
   // Add more entries here as DOC_MAP in src/app/docs/[slug]/route.ts grows.
 ];
 
