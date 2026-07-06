@@ -11,6 +11,7 @@ import { recordSubscriptionFromStripe } from "@/lib/service-plans";
 import { recordTenantSubscription } from "@/lib/tenant-plans";
 import { sendTenantSubscriptionReceipt, sendServicePlanReceipt } from "@/lib/subscription-receipts";
 import { recordWebhookDelivery } from "@/lib/platform/webhooks";
+import { decidePlanFunding } from "@/lib/plan-funding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -472,20 +473,43 @@ async function handleStripeEvent(
       const raw = parentSub ?? directSub ?? null;
       const subId = typeof raw === "string" ? raw : raw?.id ?? null;
       const amountPaid = inv.amount_paid ?? 0;
-      if (subId && amountPaid > 0) {
-        const { data: ps } = await admin
-          .from("plan_subscriptions")
-          .select("id, paid_in_pence")
-          .eq("stripe_subscription_id", subId)
-          .maybeSingle();
-        if (ps) {
-          const row = ps as { id: string; paid_in_pence: number | null };
-          await admin
+
+      // Look up the subscription row (present unless this invoice.paid raced
+      // ahead of the checkout.session.completed that creates it).
+      const { data: ps } = subId
+        ? await admin
             .from("plan_subscriptions")
-            .update({ paid_in_pence: Number(row.paid_in_pence ?? 0) + amountPaid })
-            .eq("id", row.id);
-          console.log("[stripe-webhook] plan funding accrued", { sub: subId, amountPaid });
-        }
+            .select("id, paid_in_pence")
+            .eq("stripe_subscription_id", subId)
+            .maybeSingle()
+        : { data: null };
+
+      // decidePlanFunding handles the Stripe-event-ordering race — see
+      // src/lib/plan-funding.ts. A "retry" decision throws so the POST handler
+      // releases the idempotency claim and Stripe redelivers.
+      const decision = decidePlanFunding({
+        subId,
+        amountPaid,
+        rowExists: !!ps,
+        hasConnectedAccount: !!event.account,
+        eventAgeMs: event.created ? Date.now() - event.created * 1000 : 0,
+      });
+
+      if (decision.action === "retry") {
+        throw new Error(decision.reason);
+      }
+      if (decision.action === "accrue" && ps) {
+        const row = ps as { id: string; paid_in_pence: number | null };
+        await admin
+          .from("plan_subscriptions")
+          .update({ paid_in_pence: Number(row.paid_in_pence ?? 0) + decision.amountPence })
+          .eq("id", row.id);
+        console.log("[stripe-webhook] plan funding accrued", { sub: subId, amountPaid: decision.amountPence });
+      } else if (decision.action === "skip" && decision.reason === "grace-expired-no-row") {
+        console.warn(
+          "[stripe-webhook] invoice.paid: no plan_subscriptions row after grace window; dropping accrual",
+          { sub: subId, amountPaid },
+        );
       }
       break;
     }
