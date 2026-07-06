@@ -115,6 +115,12 @@ export function rankSections(
     .map((s) => s.doc);
 }
 
+// The chat bubble renders plain text, so markdown bold markers the model
+// sometimes emits ("**Invoice.**") would show as literal asterisks.
+function stripBoldMarkers(s: string): string {
+  return s.replace(/\*\*([^*]+)\*\*/g, "$1");
+}
+
 // The model is instructed to end with "SOURCES: id1, id2" (or "SOURCES: none").
 // Take the LAST matching line — a mid-answer literal "SOURCES:" must not win —
 // strip it from the answer, and keep only anchors we actually provided.
@@ -130,10 +136,12 @@ export function parseSourcesLine(
       break;
     }
   }
-  if (sourceIdx === -1) return { answer: raw.trim(), anchors: [] };
+  if (sourceIdx === -1) return { answer: stripBoldMarkers(raw.trim()), anchors: [] };
 
   const value = lines[sourceIdx].replace(/^\s*SOURCES:\s*/i, "").trim();
-  const answer = [...lines.slice(0, sourceIdx), ...lines.slice(sourceIdx + 1)].join("\n").trim();
+  const answer = stripBoldMarkers(
+    [...lines.slice(0, sourceIdx), ...lines.slice(sourceIdx + 1)].join("\n").trim(),
+  );
   if (!value || /^none$/i.test(value)) return { answer, anchors: [] };
   const anchors = value
     .split(",")

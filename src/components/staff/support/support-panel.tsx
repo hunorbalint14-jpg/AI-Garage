@@ -94,7 +94,7 @@ export function SupportPanel(props: PanelProps) {
         ref={panelRef}
         role="dialog"
         aria-label="Support"
-        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[82%] flex-col overflow-hidden rounded-t-2xl border-t border-[#2a2f37] bg-[#111418] shadow-[0_24px_64px_rgba(0,0,0,.65)] animate-in fade-in slide-in-from-top-1 zoom-in-[.97] duration-150 motion-reduce:animate-none sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-12 sm:z-40 sm:max-h-[calc(100vh-74px)] sm:w-[382px] sm:rounded-[14px] sm:border"
+        className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-[#2a2f37] bg-[#111418] pb-[env(safe-area-inset-bottom)] shadow-[0_24px_64px_rgba(0,0,0,.65)] animate-in fade-in slide-in-from-bottom-6 duration-200 motion-reduce:animate-none sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-12 sm:z-40 sm:max-h-[calc(100vh-74px)] sm:w-[382px] sm:rounded-[14px] sm:border sm:pb-0 sm:slide-in-from-top-1 sm:slide-in-from-bottom-0 sm:zoom-in-[.97] sm:duration-150"
       >
         {/* Mobile grab handle */}
         <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-[#2a2f37] sm:hidden" />

@@ -60,7 +60,7 @@ export function TicketThread({
 
   return (
     <>
-      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-3.5">
+      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto overscroll-contain p-3.5">
         <button
           onClick={onBack}
           className="self-start font-mono text-[10px] tracking-[.08em] text-[#5a6170] hover:text-[#e6e8eb]"
@@ -128,7 +128,7 @@ export function TicketThread({
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendReply()}
               placeholder="Reply to the team…"
-              className="flex-1 rounded-lg border border-[#2a2f37] bg-[#0e1116] px-[11px] py-[9px] text-[13px] text-[#e6e8eb] outline-none placeholder:text-[#5a6170]"
+              className="flex-1 rounded-lg border border-[#2a2f37] bg-[#0e1116] px-[11px] py-[9px] text-[16px] text-[#e6e8eb] outline-none placeholder:text-[#5a6170] sm:text-[13px]"
             />
             <button
               onClick={sendReply}
