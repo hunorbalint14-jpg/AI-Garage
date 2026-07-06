@@ -325,16 +325,20 @@ export async function addLocation(
   const admin = createAdminClient();
 
   // Tier location limit (lapsed/past-grace tenants fall back to the Starter cap).
-  const maxLocations = tenantBillingActive(ctx.tenantBilling)
-    ? tierFor(ctx.tenantBilling).maxLocations
-    : TIERS.starter.maxLocations;
+  const tier = tenantBillingActive(ctx.tenantBilling) ? tierFor(ctx.tenantBilling) : TIERS.starter;
+  const maxLocations = tier.maxLocations;
   const { count: locationCount } = await admin
     .from("locations")
     .select("id", { count: "exact", head: true })
     .eq("organization_id", ctx.organization.id);
   if ((locationCount ?? 0) >= maxLocations) {
     const allowed = maxLocations === Number.POSITIVE_INFINITY ? "unlimited" : maxLocations;
-    return { error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. Upgrade in Settings â†’ Billing to add more.` };
+    // Top tier (Growth) has no higher plan — extra sites are priced per-location
+    // by arrangement until the metered overage lands, so point them at support.
+    const more = tier.perExtraLocationPence
+      ? `Contact us to add more sites (£${Math.round(tier.perExtraLocationPence / 100)}/site).`
+      : "Upgrade in Settings → Billing to add more.";
+    return { error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. ${more}` };
   }
 
   const slug = await generateLocationSlug(admin, ctx.organization.slug, name);

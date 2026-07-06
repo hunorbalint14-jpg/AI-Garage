@@ -17,8 +17,8 @@ describe("tierFor / tierFeePercent / tenantHasFeature", () => {
   });
   it("maps tier → fee + features", () => {
     expect(tierFeePercent({ tenant_plan: "starter" })).toBe(2.0);
-    expect(tierFeePercent({ tenant_plan: "pro" })).toBe(1.5);
-    expect(tierFeePercent({ tenant_plan: "growth" })).toBe(1.0);
+    expect(tierFeePercent({ tenant_plan: "pro" })).toBe(1.0);
+    expect(tierFeePercent({ tenant_plan: "growth" })).toBe(0);
     expect(tenantHasFeature({ tenant_plan: "starter" }, "xero")).toBe(false);
     expect(tenantHasFeature({ tenant_plan: "pro" }, "xero")).toBe(true);
   });
@@ -68,7 +68,9 @@ describe("tenantBillingActive", () => {
 describe("effectiveFeePercent", () => {
   const now = new Date("2026-06-05T00:00:00Z");
   it("charges the tier fee while billing is in good standing", () => {
-    expect(effectiveFeePercent({ tenant_plan: "growth", tenant_subscription_status: "active", tenant_current_period_end: null, tenant_trial_end: null }, now)).toBe(1.0);
+    // Pro carries a 1% fee; Growth is flat (no payment fee).
+    expect(effectiveFeePercent({ tenant_plan: "pro", tenant_subscription_status: "active", tenant_current_period_end: null, tenant_trial_end: null }, now)).toBe(1.0);
+    expect(effectiveFeePercent({ tenant_plan: "growth", tenant_subscription_status: "active", tenant_current_period_end: null, tenant_trial_end: null }, now)).toBe(0);
   });
   it("falls back to the Starter fee when a paid tier has lapsed past grace", () => {
     expect(effectiveFeePercent({ tenant_plan: "growth", tenant_subscription_status: "canceled", tenant_current_period_end: "2026-05-01T00:00:00Z", tenant_trial_end: null }, now)).toBe(2.0);
@@ -80,5 +82,16 @@ describe("TIERS config", () => {
     expect(TIERS.starter.priceMonthlyEnv).toBeNull();
     expect(TIERS.pro.priceMonthlyEnv).toBeTruthy();
     expect(TIERS.growth.feePercent).toBeLessThan(TIERS.starter.feePercent);
+  });
+  it("tapers the payment fee to zero as the tier rises", () => {
+    expect(TIERS.starter.feePercent).toBeGreaterThan(TIERS.pro.feePercent);
+    expect(TIERS.pro.feePercent).toBeGreaterThan(TIERS.growth.feePercent);
+    expect(TIERS.growth.feePercent).toBe(0);
+  });
+  it("Growth is flat £149 covering 7 locations, then £25/site", () => {
+    expect(TIERS.growth.monthlyPence).toBe(14900);
+    expect(TIERS.growth.annualPence).toBe(14900 * 10); // two months free
+    expect(TIERS.growth.maxLocations).toBe(7);
+    expect(TIERS.growth.perExtraLocationPence).toBe(2500);
   });
 });

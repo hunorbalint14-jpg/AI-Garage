@@ -86,7 +86,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             <p className="text-sm text-muted-foreground">Current plan</p>
             <p className="text-lg font-semibold">{current.name}</p>
             <p className="text-xs text-muted-foreground">
-              {current.feePercent}% platform fee
+              {current.feePercent === 0 ? "No platform fee" : `${current.feePercent}% platform fee`}
               {org.tenant_subscription_status ? ` · ${org.tenant_subscription_status}` : ""}
               {trialActive ? ` · Pro trial until ${fmtDate(org.tenant_trial_end)}` : ""}
               {org.tenant_current_period_end ? ` · renews ${fmtDate(org.tenant_current_period_end)}` : ""}
@@ -109,13 +109,18 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                   {fmtPrice(t.monthlyPence)}
                   {t.monthlyPence > 0 ? "/mo" : ""}
                 </p>
-                <p className="text-xs text-muted-foreground">{t.feePercent}% platform fee</p>
+                <p className="text-xs text-muted-foreground">
+                  {t.feePercent === 0 ? "No platform fee" : `${t.feePercent}% platform fee`}
+                </p>
               </div>
 
               <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
                 <li>
-                  {t.maxLocations === Number.POSITIVE_INFINITY ? "Unlimited" : t.maxLocations} location
-                  {t.maxLocations === 1 ? "" : "s"}
+                  {t.maxLocations === Number.POSITIVE_INFINITY
+                    ? "Unlimited locations"
+                    : t.perExtraLocationPence
+                      ? `Up to ${t.maxLocations} locations, then ${fmtPrice(t.perExtraLocationPence)}/site`
+                      : `${t.maxLocations} location${t.maxLocations === 1 ? "" : "s"}`}
                 </li>
                 {enabledFeatures.length > 0 ? (
                   enabledFeatures.map(([f]) => <li key={f}>{FEATURE_LABELS[f] ?? f}</li>)
