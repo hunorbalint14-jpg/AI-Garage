@@ -5,8 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // service-role signed URLs. The widget captures a PNG client-side, PUTs it to
 // a signed upload URL, and the ticket context stores only the object path.
 
-export const SUPPORT_SHOT_BUCKET = "support-shots";
-export const SUPPORT_SHOT_MAX_BYTES = 4 * 1024 * 1024; // 4 MB
+export { SUPPORT_SHOT_BUCKET, SUPPORT_SHOT_MAX_BYTES } from "./support-shots-shared";
+import { SUPPORT_SHOT_BUCKET } from "./support-shots-shared";
 
 // One folder per org so a forged path can be rejected by prefix server-side.
 export function shotPath(organizationId: string): string {

@@ -33,12 +33,16 @@ const CSP = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline' https://js.stripe.com${live(LIVE)}${dev("'unsafe-eval' https://va.vercel-scripts.com")}`,
   `style-src 'self' 'unsafe-inline'${live(LIVE)}`,
-  "img-src 'self' data: blob: https:",
+  // Dev: signed-URL images (e.g. support-ticket screenshots) come from the
+  // local Supabase stack over plain http.
+  `img-src 'self' data: blob: https:${dev(" http://127.0.0.1:54321")}`,
   // Quote/DVI videos stream from Supabase Storage signed URLs via <video>.
   "media-src 'self' blob: https://*.supabase.co",
   `font-src 'self' data:${live(`${LIVE} https://assets.vercel.com`)}`,
   // *.sentry.io: the browser Sentry SDK posts events to its ingest host.
-  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.sentry.io${live(`${LIVE} ${LIVE_PUSHER}`)}`,
+  // Dev: the local Supabase stack (signed storage uploads, e.g. the support
+  // widget's screenshot PUT) lives on 127.0.0.1:54321, not *.supabase.co.
+  `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.sentry.io${live(`${LIVE} ${LIVE_PUSHER}`)}${dev("http://127.0.0.1:54321")}`,
   `frame-src https://js.stripe.com https://hooks.stripe.com${live(LIVE)}`,
   "frame-ancestors 'none'",
   "base-uri 'self'",

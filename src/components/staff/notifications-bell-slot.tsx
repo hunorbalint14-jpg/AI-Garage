@@ -6,25 +6,29 @@ import { NotificationsBell } from "./notifications-bell";
 // behind a Suspense boundary — the nav chrome paints before these two queries
 // resolve. Used only when the `streaming_dashboard` flag is on; otherwise the
 // layout fetches the data up front and renders <NotificationsBell> directly.
-export async function StreamedNotificationsBell({ locationId }: { locationId: string }) {
+export async function StreamedNotificationsBell({
+  locationId,
+  excludeKinds,
+}: {
+  locationId: string;
+  excludeKinds?: readonly string[];
+}) {
   const [unreadCount, recent] = await Promise.all([
-    unreadNotificationCount(locationId),
-    listRecentNotifications(locationId, 8),
+    unreadNotificationCount(locationId, { excludeKinds }),
+    listRecentNotifications(locationId, 8, { excludeKinds }),
   ]);
   return <NotificationsBell unreadCount={unreadCount} recent={recent} />;
 }
 
-// Static placeholder shown while the bell streams in: same position and shape,
-// no badge, non-interactive.
+// Static placeholder shown while the bell streams in: same shape, no badge,
+// non-interactive. Positioning comes from the layout's shared cluster.
 export function NotificationsBellFallback() {
   return (
-    <div className="fixed top-3 right-4 z-30">
-      <div
-        className="grid h-10 w-10 place-items-center rounded-full border border-[#2a2f37] bg-[#15181d] text-[#e6e8eb]"
-        aria-hidden="true"
-      >
-        <Bell className="h-4 w-4 opacity-50" />
-      </div>
+    <div
+      className="grid h-10 w-10 place-items-center rounded-full border border-[#2a2f37] bg-[#15181d] text-[#e6e8eb]"
+      aria-hidden="true"
+    >
+      <Bell className="h-4 w-4 opacity-50" />
     </div>
   );
 }

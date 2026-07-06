@@ -108,7 +108,8 @@ export async function sendAdminReplyEmailToRequester(
     // Never email the actor (an admin replying to their own test ticket).
     if (opts.actingAdminEmail && ticket.requester_email.toLowerCase() === opts.actingAdminEmail.toLowerCase()) return;
     const ref = shortTicketRef(ticket.id);
-    const ticketUrl = tenantPortalUrl(orgSlug, `/staff/support/${ticket.id}`);
+    // Deep link opens the support widget on this thread.
+    const ticketUrl = tenantPortalUrl(orgSlug, `/staff?ticket=${ticket.id}`);
     const statusLine = opts.newStatus
       ? `<p style="margin:16px 0 0;color:#9aa1ab">Status updated to <strong>${STATUS_LABELS[opts.newStatus]}</strong>.</p>`
       : "";
@@ -142,7 +143,7 @@ export async function sendStatusChangeEmailToRequester(
     if (!ticket.requester_email) return;
     if (opts.actingAdminEmail && ticket.requester_email.toLowerCase() === opts.actingAdminEmail.toLowerCase()) return;
     const ref = shortTicketRef(ticket.id);
-    const ticketUrl = tenantPortalUrl(orgSlug, `/staff/support/${ticket.id}`);
+    const ticketUrl = tenantPortalUrl(orgSlug, `/staff?ticket=${ticket.id}`);
     const html = renderPlatformEmail({
       preheader: `Your ticket ${ref} is now ${STATUS_LABELS[newStatus]}`,
       heading: `Ticket ${ref}: ${STATUS_LABELS[newStatus]}`,

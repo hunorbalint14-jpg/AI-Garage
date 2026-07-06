@@ -45,7 +45,7 @@ async function notifyRequester(
     organizationId: ticket.organization_id,
     kind,
     title,
-    href: `/staff/support/${ticket.id}`,
+    href: `/staff?ticket=${ticket.id}`,
     entityType: "support_ticket",
     entityId: ticket.id,
   });

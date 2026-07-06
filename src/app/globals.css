@@ -172,6 +172,12 @@
   to   { background-position: 200% center; }
 }
 
+/* Support-widget peek toast: progress bar drains over 6.4s (design spec). */
+@keyframes support-shrink-x {
+  from { width: 100%; }
+  to   { width: 0%; }
+}
+
 /* ── Utility classes ──────────────────────────────────── */
 .animate-blob {
   animation: blob 8s infinite;

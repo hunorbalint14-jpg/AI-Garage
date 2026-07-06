@@ -30,17 +30,46 @@ vi.mock("@/lib/support-ticket-emails", () => ({
   sendStaffReplyEmailToPlatform: vi.fn(),
 }));
 
-const redirect = vi.fn((url: string) => {
-  throw new Error(`REDIRECT:${url}`);
-});
-vi.mock("next/navigation", () => ({ redirect: (url: string) => redirect(url) }));
+const shotObjectExists = vi.fn();
+vi.mock("@/lib/support-shots", () => ({
+  shotObjectExists: (...a: unknown[]) => shotObjectExists(...a),
+  shotPath: vi.fn(() => "org-1/00000000-0000-0000-0000-000000000000.png"),
+  createShotUploadUrl: vi.fn(),
+}));
+
+const notifUpdate = vi.fn();
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    from: () => {
+      const builder = {
+        update: (...a: unknown[]) => {
+          notifUpdate(...a);
+          return builder;
+        },
+        select: () => builder,
+        eq: () => builder,
+        in: () => builder,
+        is: () => builder,
+        not: () => builder,
+        then: (resolve: (v: { data: { id: string }[] }) => void) =>
+          resolve({ data: [{ id: "n-1" }] }),
+      };
+      return builder;
+    },
+  }),
+}));
+
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/server", () => ({ after: (fn: () => void) => fn() }));
 vi.mock("next/headers", () => ({
   headers: async () => new Headers({ "user-agent": "vitest-agent" }),
 }));
 
-import { createSupportTicketAction, replyToTicketAction } from "./actions";
+import {
+  createSupportTicketAction,
+  replyToTicketAction,
+  markTicketNotificationsReadAction,
+} from "./actions";
 
 const CTX = {
   organization: { id: "org-1", name: "Smith Motors", slug: "smith-motors" },
@@ -82,11 +111,16 @@ describe("createSupportTicketAction", () => {
     expect(createTicket).not.toHaveBeenCalled();
   });
 
-  it("creates, audits and redirects on the happy path", async () => {
-    createTicket.mockResolvedValue({ ticket: { id: "t-1", subject: "abc" } });
-    await expect(
-      createSupportTicketAction(form({ type: "bug", subject: "Broken widget", body: "It broke." })),
-    ).rejects.toThrow("REDIRECT:/staff/support/t-1");
+  it("creates, audits and returns the ref on the happy path (no redirect)", async () => {
+    createTicket.mockResolvedValue({ ticket: { id: "3f2a9c1b-1234-5678-9abc-def012345678", subject: "abc" } });
+    const res = await createSupportTicketAction(
+      form({ type: "bug", subject: "Broken widget", body: "It broke." }),
+    );
+    expect(res).toEqual({
+      ok: true,
+      ticketId: "3f2a9c1b-1234-5678-9abc-def012345678",
+      ref: "#3F2A9C1B",
+    });
     expect(createTicket).toHaveBeenCalledWith(
       expect.objectContaining({
         organizationId: "org-1",
@@ -97,6 +131,46 @@ describe("createSupportTicketAction", () => {
       }),
     );
     expect(logAudit).toHaveBeenCalledWith(expect.objectContaining({ action: "ticket.create" }));
+  });
+
+  it("drops a screenshot path outside this org's folder", async () => {
+    createTicket.mockResolvedValue({ ticket: { id: "t-1", subject: "abc" } });
+    shotObjectExists.mockResolvedValue(true);
+    await createSupportTicketAction(
+      form({
+        type: "bug",
+        subject: "Broken widget",
+        body: "x",
+        screenshot_path: "org-EVIL/00000000-0000-0000-0000-000000000000.png",
+      }),
+    );
+    expect(shotObjectExists).not.toHaveBeenCalled();
+    expect(createTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ context: expect.objectContaining({ screenshot_path: null }) }),
+    );
+  });
+
+  it("keeps a valid, existing screenshot path", async () => {
+    createTicket.mockResolvedValue({ ticket: { id: "t-1", subject: "abc" } });
+    shotObjectExists.mockResolvedValue(true);
+    const path = "org-1/00000000-0000-0000-0000-000000000000.png";
+    await createSupportTicketAction(
+      form({ type: "bug", subject: "Broken widget", body: "x", screenshot_path: path }),
+    );
+    expect(shotObjectExists).toHaveBeenCalledWith(path);
+    expect(createTicket).toHaveBeenCalledWith(
+      expect.objectContaining({ context: expect.objectContaining({ screenshot_path: path }) }),
+    );
+  });
+});
+
+describe("markTicketNotificationsReadAction", () => {
+  it("clears own notifications and reports the count", async () => {
+    const res = await markTicketNotificationsReadAction("t-1");
+    expect(res).toEqual({ cleared: 1 });
+    expect(notifUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ read_at: expect.any(String) }),
+    );
   });
 });
 
