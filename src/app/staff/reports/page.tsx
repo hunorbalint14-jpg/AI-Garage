@@ -39,9 +39,9 @@ const BUCKET_LABEL: Record<AgedBucketKey, string> = {
 };
 const BUCKET_ACCENT: Record<AgedBucketKey, string> = {
   current: "",
-  "1-30": "text-amber-600",
-  "31-60": "text-orange-600",
-  "60+": "text-red-600",
+  "1-30": "text-ws-amber",
+  "31-60": "text-ws-amber",
+  "60+": "text-ws-red",
 };
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
@@ -287,7 +287,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <h3 className="text-sm font-medium">VAT summary</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <StatCard label="Net (ex VAT)" value={fmt(vat.net)} sub={`${vat.count} paid invoice${vat.count === 1 ? "" : "s"}`} />
-          <StatCard label="VAT collected" value={fmt(vat.vat)} accent="text-amber-600" />
+          <StatCard label="VAT collected" value={fmt(vat.vat)} accent="text-ws-amber" />
           <StatCard label="Gross" value={fmt(vat.gross)} />
         </div>
       </section>
@@ -310,13 +310,13 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                 ? `worked ÷ capacity · ${techCount} tech${techCount === 1 ? "" : "s"} across ${locationIds.length} branches`
                 : `worked ÷ capacity (${techCount} tech${techCount === 1 ? "" : "s"} × open hours this period)`
             }
-            accent={util.utilisationPct !== null && util.utilisationPct < 50 ? "text-amber-600" : ""}
+            accent={util.utilisationPct !== null && util.utilisationPct < 50 ? "text-ws-amber" : ""}
           />
           <StatCard
             label="Efficiency"
             value={util.efficiencyPct !== null ? `${util.efficiencyPct}%` : "—"}
             sub="sold ÷ worked"
-            accent={util.efficiencyPct !== null && util.efficiencyPct < 80 ? "text-amber-600" : ""}
+            accent={util.efficiencyPct !== null && util.efficiencyPct < 80 ? "text-ws-amber" : ""}
           />
           <StatCard
             label="£ / worked hour"
@@ -358,7 +358,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                       <td className="px-3 py-2 text-right tabular-nums">{r.jobCount}</td>
                       <td className="px-3 py-2 text-right tabular-nums">{formatMinutes(r.actualMinutes)}</td>
                       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{r.estimateMinutes > 0 ? formatMinutes(r.estimateMinutes) : "—"}</td>
-                      <td className={`px-3 py-2 text-right tabular-nums ${over ? "text-amber-600" : variance < 0 ? "text-green-700" : ""}`}>
+                      <td className={`px-3 py-2 text-right tabular-nums ${over ? "text-ws-amber" : variance < 0 ? "text-ws-green" : ""}`}>
                         {r.estimateMinutes > 0 ? `${variance >= 0 ? "+" : "−"}${formatMinutes(Math.abs(variance))}` : "—"}
                       </td>
                     </tr>

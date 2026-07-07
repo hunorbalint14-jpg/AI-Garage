@@ -107,7 +107,7 @@ export function WhatsNewPopup() {
           </Link>
           <button
             onClick={dismiss}
-            className="rounded-lg bg-[#e6e8eb] px-4 py-2 text-[12.5px] font-semibold text-[#0e1014] hover:bg-white"
+            className="rounded-lg bg-[#e6e8eb] px-4 py-2 text-[12.5px] font-semibold text-[#0e1014] hover:bg-ws-card"
           >
             Got it
           </button>

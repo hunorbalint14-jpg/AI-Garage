@@ -66,7 +66,7 @@ export function LocationsManager({
 
   return (
     <div className="flex flex-col gap-1.5">
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
       {locations.map((l) => {
         const isPrimary = l.id === primaryLocationId;
         const editing = editingId === l.id;
@@ -89,7 +89,7 @@ export function LocationsManager({
                   <span className="truncate font-medium">{l.name}</span>
                 )}
                 {isPrimary && (
-                  <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                  <span className="shrink-0 rounded bg-ws-amber-bg px-1.5 py-0.5 text-[11px] font-medium text-ws-amber dark:bg-amber-950/40 dark:text-amber-300">
                     Primary
                   </span>
                 )}

@@ -44,7 +44,7 @@ export function DeleteCustomerButton({ customerId }: { customerId: string }) {
           Cancel
         </button>
       )}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </div>
   );
 }
@@ -72,7 +72,7 @@ export function DeleteVehicleButton({
   return (
     <div className="flex items-center gap-1">
       <button
-        className={`inline-flex items-center gap-1 text-xs underline ${confirming ? "text-red-600 font-medium" : "text-muted-foreground"}`}
+        className={`inline-flex items-center gap-1 text-xs underline ${confirming ? "text-ws-red font-medium" : "text-muted-foreground"}`}
         disabled={pending}
         onClick={handleClick}
       >

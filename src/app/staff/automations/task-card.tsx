@@ -99,8 +99,8 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
   }
 
   const audienceBadge = meta.audience === "customer"
-    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-    : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300";
+    ? "bg-ws-blue-bg text-ws-blue dark:bg-blue-900/30 dark:text-blue-300"
+    : "bg-ws-purple-bg text-ws-purple dark:bg-purple-900/30 dark:text-purple-300";
 
   return (
     <div className={`rounded-lg border transition-opacity ${enabled ? "" : "opacity-60"}`}>
@@ -147,7 +147,7 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
             aria-label={enabled ? "Pause task" : "Enable task"}
             className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus:outline-none disabled:cursor-not-allowed ${enabled ? "bg-primary" : "bg-muted"}`}
           >
-            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${enabled ? "translate-x-4" : "translate-x-0"}`} />
+            <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-ws-card shadow-sm transition-transform ${enabled ? "translate-x-4" : "translate-x-0"}`} />
           </button>
         </div>
       </div>
@@ -252,7 +252,7 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
               </div>
             </div>
           )}
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-xs text-ws-red">{error}</p>}
           {canEdit && (
             <div className="flex gap-2 pt-1">
               <button

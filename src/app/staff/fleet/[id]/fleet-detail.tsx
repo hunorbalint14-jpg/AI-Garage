@@ -19,9 +19,9 @@ function dueDays(d: string | null) {
 function dueBadge(d: string | null) {
   const days = dueDays(d);
   if (days === null) return <span className="text-muted-foreground">—</span>;
-  if (days < 0) return <span className="text-red-600 font-semibold text-xs">Overdue</span>;
-  if (days <= 30) return <span className="text-red-600 font-semibold text-xs">{days}d</span>;
-  if (days <= 60) return <span className="text-amber-600 font-medium text-xs">{days}d</span>;
+  if (days < 0) return <span className="text-ws-red font-semibold text-xs">Overdue</span>;
+  if (days <= 30) return <span className="text-ws-red font-semibold text-xs">{days}d</span>;
+  if (days <= 60) return <span className="text-ws-amber font-medium text-xs">{days}d</span>;
   return <span className="text-muted-foreground text-xs">{new Date(d!).toLocaleDateString("en-GB")}</span>;
 }
 
@@ -105,7 +105,7 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
           </div>
           <div className="flex flex-col gap-1.5"><Label>Email</Label><Input name="contactEmail" type="email" defaultValue={company.contact_email ?? ""} disabled={pending} /></div>
           <div className="flex flex-col gap-1.5"><Label>Notes</Label><Input name="notes" defaultValue={company.notes ?? ""} disabled={pending} /></div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-ws-red">{error}</p>}
           <div className="flex gap-2">
             <Button type="submit" size="sm" loading={pending}>Save</Button>
             <Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>Cancel</Button>
@@ -221,7 +221,7 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
                     <td className="px-4 py-2">{vehicles.filter((v) => v.customer_id === c.id).length}</td>
                     <td className="px-4 py-2 text-right">
                       <button type="button" onClick={() => handleRemoveCustomer(c.id)} disabled={pending}
-                        className="text-xs text-muted-foreground hover:text-red-600 transition-colors">
+                        className="text-xs text-muted-foreground hover:text-ws-red transition-colors">
                         Remove
                       </button>
                     </td>

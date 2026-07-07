@@ -56,10 +56,10 @@ export function MembershipsSection({ memberships }: { memberships: MembershipRow
                     ? ` · ${m.cancel_at_period_end ? "Ends" : "Renews"} ${fmtDate(m.current_period_end)}`
                     : ""}
                 </p>
-                {p && <p className="mt-1 text-xs font-medium text-green-700">{p}</p>}
+                {p && <p className="mt-1 text-xs font-medium text-ws-green">{p}</p>}
                 {active && gateFuture && (
                   <div className="mt-2 flex flex-col gap-1">
-                    <p className="text-xs text-amber-700">
+                    <p className="text-xs text-ws-amber">
                       Plan benefits start {fmtDate(m.benefits_start_at)} (onboarding gate).
                     </p>
                     <StartBenefitsNowButton subscriptionId={m.id} />
@@ -67,7 +67,7 @@ export function MembershipsSection({ memberships }: { memberships: MembershipRow
                 )}
               </div>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${active ? "bg-ws-green-bg text-ws-green" : "bg-ws-hover text-ws-text-2"}`}
               >
                 {active ? "Active" : subscriptionStatusLabel(m.status)}
               </span>

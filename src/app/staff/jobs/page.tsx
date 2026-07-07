@@ -1,16 +1,17 @@
 import Link from "next/link";
-import { Zap } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
-import { PageHeader } from "@/components/staff/page-header";
+import { MicroLabel, Plate, WorkshopBadge } from "@/components/staff/workshop";
 import { JobFilters } from "./job-filters";
+import { InvoiceButton } from "./invoice-button";
 
 export const dynamic = "force-dynamic";
 
-// Workshop jobs board: every job grouped by lifecycle stage. Until now jobs
-// had no index at all — a job was only reachable through its booking, so
-// "what's on the go right now?" had no answer in the UI.
+// Workshop floor (UX review §1e): every job grouped by lifecycle stage, and
+// every card carries the reg, an aging dot, a plain-English age and the £
+// value — the "Done · unbilled" column is where the garage leaks money, so it
+// gets an alarm surface, a £-waiting total and a one-click INVOICE action.
 
 type JobRow = {
   id: string;
@@ -28,6 +29,18 @@ const JOB_SELECT =
   "id, status, description, created_at, completed_at, assigned_to, high_voltage, customer:customers(full_name), vehicle:vehicles(registration, make, model)";
 
 const COLUMN_LIMITS = { open: 100, complete: 50, invoiced: 20 } as const;
+
+function fmtPounds(n: number): string {
+  return `£${Math.round(n).toLocaleString("en-GB")}`;
+}
+
+// Plain-English age: hours under a day, days after.
+function ageLabel(iso: string, now: Date): { text: string; days: number } {
+  const ms = now.getTime() - new Date(iso).getTime();
+  const hours = Math.max(0, Math.floor(ms / 3_600_000));
+  const days = Math.floor(hours / 24);
+  return { text: days >= 1 ? `${days}d` : `${hours}h`, days: ms / 86_400_000 };
+}
 
 export default async function JobsPage({
   searchParams,
@@ -90,71 +103,132 @@ export default async function JobsPage({
     columnQuery("complete"),
     columnQuery("invoiced"),
   ]);
+  const openJobs = openRes.data ?? [];
+  const unbilledJobs = completeRes.data ?? [];
+  const invoicedJobs = invoicedRes.data ?? [];
+
+  // Job £ value = sum of its line items (cheapest correct source — no schema
+  // change). One query covers every card on the board.
+  const allIds = [...openJobs, ...unbilledJobs, ...invoicedJobs].map((j) => j.id);
+  const valueByJob = new Map<string, number>();
+  const invoiceByJob = new Map<string, { id: string; total: number; created_at: string }>();
+  if (allIds.length > 0) {
+    const [itemsRes, invRes] = await Promise.all([
+      admin.from("job_items").select("job_id, quantity, unit_price").in("job_id", allIds),
+      invoicedJobs.length > 0
+        ? admin
+            .from("invoices")
+            .select("id, job_id, total, created_at")
+            .in("job_id", invoicedJobs.map((j) => j.id))
+        : Promise.resolve({ data: [] as { id: string; job_id: string | null; total: number; created_at: string }[] }),
+    ]);
+    for (const it of (itemsRes.data ?? []) as { job_id: string; quantity: number; unit_price: number }[]) {
+      valueByJob.set(it.job_id, (valueByJob.get(it.job_id) ?? 0) + it.quantity * it.unit_price);
+    }
+    for (const inv of (invRes.data ?? []) as { id: string; job_id: string | null; total: number; created_at: string }[]) {
+      if (inv.job_id) invoiceByJob.set(inv.job_id, inv);
+    }
+  }
+
+  const now = new Date();
+  const jobValue = (j: JobRow) => valueByJob.get(j.id) ?? 0;
+  const wipTotal = openJobs.reduce((s, j) => s + jobValue(j), 0);
+  const waitingTotal = unbilledJobs.reduce((s, j) => s + jobValue(j), 0);
+
+  // "This wk" = invoices raised since Monday (garage timezone).
+  const todayKey = now.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+  const [y, m, d] = todayKey.split("-").map(Number);
+  const monday = new Date(y, m - 1, d - ((new Date(y, m - 1, d).getDay() + 6) % 7));
+  const weekTotal = invoicedJobs.reduce((s, j) => {
+    const inv = invoiceByJob.get(j.id);
+    return inv && new Date(inv.created_at) >= monday ? s + Number(inv.total) : s;
+  }, 0);
 
   const nameMap = new Map(staff.map((s) => [s.id, s.name]));
-
   const filtered = Boolean(query || assignee);
+
   const columns = [
     {
       key: "open" as const,
-      title: "In progress",
-      hint: "Open jobs on the floor",
-      accent: "border-t-amber-400",
-      jobs: openRes.data ?? [],
-      empty: filtered ? "No matching open jobs." : "Nothing on the go.",
+      label: "In progress",
+      labelClass: "text-ws-amber",
+      accent: "border-l-ws-amber",
+      surface: "bg-ws-card border-ws-border",
+      total: `${fmtPounds(wipTotal)} WIP`,
+      totalClass: "text-ws-text-2",
+      jobs: openJobs,
+      empty: filtered ? "// NO MATCHING OPEN JOBS" : "// NOTHING ON THE FLOOR",
     },
     {
       key: "complete" as const,
-      title: "Done — not invoiced",
-      hint: "Work finished, money not yet billed",
-      accent: "border-t-blue-400",
-      jobs: completeRes.data ?? [],
-      empty: filtered ? "No matching completed jobs." : "Nothing awaiting an invoice.",
+      label: "Done · unbilled",
+      labelClass: "text-ws-amber",
+      accent: "border-l-ws-amber",
+      surface: "bg-[#17130c] border-ws-amber-border",
+      total: `${fmtPounds(waitingTotal)} WAITING`,
+      totalClass: "text-ws-amber",
+      jobs: unbilledJobs,
+      empty: filtered ? "// NO MATCHING COMPLETED JOBS" : "// NOTHING AWAITING AN INVOICE",
     },
     {
       key: "invoiced" as const,
-      title: "Invoiced",
-      hint: "Recently billed",
-      accent: "border-t-green-400",
-      jobs: invoicedRes.data ?? [],
-      empty: filtered ? "No matching invoiced jobs." : "No invoiced jobs yet.",
+      label: "Invoiced",
+      labelClass: "text-ws-green",
+      accent: "border-l-ws-green",
+      surface: "bg-ws-card border-ws-border",
+      total: `${fmtPounds(weekTotal)} THIS WK`,
+      totalClass: "text-ws-text-2",
+      jobs: invoicedJobs,
+      empty: filtered ? "// NO MATCHING INVOICED JOBS" : "// NO INVOICED JOBS YET",
     },
   ];
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Jobs"
-        description="Every job at this location, grouped by stage. Jobs are created from a booking."
-      />
-
-      <JobFilters initialQ={query} staff={staff} assignee={assignee} />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <MicroLabel>Jobs · {ctx.organization.name}</MicroLabel>
+          <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.01em] text-ws-text">
+            Workshop floor
+          </h1>
+        </div>
+        <JobFilters initialQ={query} staff={staff} assignee={assignee} />
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         {columns.map((col) => (
-          <section key={col.key} className={`rounded-lg border border-t-2 ${col.accent}`}>
-            <header className="border-b bg-muted/30 px-4 py-2.5">
-              <h2 className="text-sm font-semibold">
-                {col.title}
-                <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                  {col.jobs.length}
-                </span>
+          <section
+            key={col.key}
+            className={`rounded-[6px] border border-l-[3px] ${col.accent} ${col.surface}`}
+          >
+            <header className="flex items-baseline justify-between gap-2 border-b border-ws-border px-4 py-3">
+              <h2 className={`font-mono text-[10px] font-semibold uppercase tracking-[0.12em] ${col.labelClass}`}>
+                {col.label} · {col.jobs.length}
               </h2>
-              <p className="text-xs text-muted-foreground">{col.hint}</p>
+              <span className={`font-mono text-[11px] font-semibold ${col.totalClass}`}>
+                {col.total}
+              </span>
             </header>
             {col.jobs.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-muted-foreground">{col.empty}</p>
+              <p className="px-4 py-8 text-center font-mono text-xs text-ws-text-3">{col.empty}</p>
             ) : (
               <>
                 <ul className="flex flex-col gap-2 p-2.5">
                   {col.jobs.map((job) => (
                     <li key={job.id}>
-                      <JobCard job={job} technician={job.assigned_to ? (nameMap.get(job.assigned_to) ?? null) : null} />
+                      <JobCard
+                        job={job}
+                        column={col.key}
+                        value={jobValue(job)}
+                        invoice={invoiceByJob.get(job.id) ?? null}
+                        technician={job.assigned_to ? (nameMap.get(job.assigned_to) ?? null) : null}
+                        now={now}
+                      />
                     </li>
                   ))}
                 </ul>
                 {col.jobs.length === COLUMN_LIMITS[col.key] && (
-                  <p className="border-t px-4 py-2 text-center text-xs text-muted-foreground">
+                  <p className="border-t border-ws-border px-4 py-2 text-center font-mono text-[10px] text-ws-text-3">
                     Showing the latest {COLUMN_LIMITS[col.key]} — use search to find older jobs.
                   </p>
                 )}
@@ -167,41 +241,94 @@ export default async function JobsPage({
   );
 }
 
-function JobCard({ job, technician }: { job: JobRow; technician: string | null }) {
+function AgingDot({ days }: { days: number }) {
+  const cls = days < 1 ? "bg-ws-green" : days <= 7 ? "bg-ws-amber" : "bg-ws-red";
+  return <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${cls}`} aria-hidden />;
+}
+
+function JobCard({
+  job,
+  column,
+  value,
+  invoice,
+  technician,
+  now,
+}: {
+  job: JobRow;
+  column: "open" | "complete" | "invoiced";
+  value: number;
+  invoice: { id: string; total: number; created_at: string } | null;
+  technician: string | null;
+  now: Date;
+}) {
   const vehicleDesc = [job.vehicle?.make, job.vehicle?.model].filter(Boolean).join(" ");
-  const dateLabel = job.completed_at
-    ? `Completed ${new Date(job.completed_at).toLocaleDateString("en-GB")}`
-    : `Started ${new Date(job.created_at).toLocaleDateString("en-GB")}`;
+  const ageSource = column === "open" ? job.created_at : (job.completed_at ?? job.created_at);
+  const age = ageLabel(ageSource, now);
+
+  // Footer age/value line + escalation tones (unbilled ≥5d nags, ≥7d alarms).
+  let footer: string;
+  let footerClass = "text-ws-text-3";
+  let cardBorder = "border-ws-border";
+  if (column === "open") {
+    footer = `on floor ${age.text} · ${fmtPounds(value)}`;
+  } else if (column === "complete") {
+    footer = `done ${age.text} ago · ${fmtPounds(value)}`;
+    if (age.days >= 7) {
+      footerClass = "text-ws-red";
+      cardBorder = "border-ws-red-border";
+    } else if (age.days >= 5) {
+      footer = `done ${age.text} ago — stuck? · ${fmtPounds(value)}`;
+      footerClass = "text-ws-amber";
+    }
+  } else {
+    const invDate = invoice
+      ? new Date(invoice.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" })
+      : "—";
+    footer = `invoiced ${invDate} · ${fmtPounds(invoice ? Number(invoice.total) : value)}`;
+  }
 
   return (
-    <Link
-      href={`/staff/jobs/${job.id}`}
-      className="block rounded-lg border bg-card p-3 transition-colors hover:bg-muted/40"
+    <div
+      className={`relative rounded-[4px] border bg-ws-hover p-3 transition-colors hover:border-[#3a4049] ${cardBorder} ${
+        column === "invoiced" ? "opacity-75" : ""
+      }`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-sm font-medium leading-snug">
-          {job.high_voltage && (
-            <Zap
-              className="mr-1 inline h-3.5 w-3.5 -translate-y-0.5 fill-amber-400 text-amber-500"
-              aria-label="High-voltage vehicle"
-            />
-          )}
-          {job.description || "Untitled job"}
+      {/* Whole card opens the job; action chips sit above the overlay. */}
+      <Link href={`/staff/jobs/${job.id}`} className="absolute inset-0" aria-label={job.description ?? "Job"} />
+
+      <div className="flex items-center gap-2">
+        {job.vehicle?.registration && <Plate reg={job.vehicle.registration} />}
+        {job.high_voltage && <WorkshopBadge tone="amber">⚡ HV</WorkshopBadge>}
+        <span className="ml-auto flex items-center">
+          <AgingDot days={age.days} />
         </span>
-        {job.vehicle?.registration && (
-          <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-medium">
-            {job.vehicle.registration}
-          </span>
-        )}
       </div>
-      <div className="mt-1.5 text-xs text-muted-foreground">
+
+      <div className="mt-2 text-[13px] font-semibold leading-snug text-ws-text">
+        {job.description || "Untitled job"}
+      </div>
+      <div className="mt-0.5 text-[11px] text-ws-text-2">
         {job.customer?.full_name ?? "—"}
         {vehicleDesc ? ` · ${vehicleDesc}` : ""}
       </div>
-      <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{dateLabel}</span>
-        {technician && <span className="rounded bg-muted px-1.5 py-0.5">{technician}</span>}
+
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <span className={`font-mono text-[10px] ${footerClass}`}>{footer}</span>
+        {column === "complete" ? (
+          <InvoiceButton jobId={job.id} />
+        ) : column === "invoiced" ? (
+          <Link
+            href={invoice ? `/staff/invoices/${invoice.id}` : `/staff/jobs/${job.id}`}
+            className="relative z-10 border-b border-[#3a4049] font-mono text-[10px] font-medium text-ws-text-2 transition-colors hover:text-ws-text"
+          >
+            view →
+          </Link>
+        ) : technician ? (
+          <span className="rounded-[2px] border border-ws-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.06em] text-ws-text-2">
+            {technician.split(/\s+/)[0]}
+          </span>
+        ) : null}
       </div>
-    </Link>
+    </div>
   );
 }

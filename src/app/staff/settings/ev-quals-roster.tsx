@@ -45,10 +45,10 @@ export function EvQualsRoster({ rows }: { rows: StaffQualView[] }) {
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       qualified
-                        ? "bg-green-100 text-green-700"
+                        ? "bg-ws-green-bg text-ws-green"
                         : row.expired
-                          ? "bg-red-100 text-red-700"
-                          : "bg-gray-100 text-gray-600"
+                          ? "bg-ws-red-bg text-ws-red"
+                          : "bg-ws-hover text-ws-text-2"
                     }`}
                   >
                     {qualified ? "HV qualified" : row.expired ? "Expired" : "Not qualified"}

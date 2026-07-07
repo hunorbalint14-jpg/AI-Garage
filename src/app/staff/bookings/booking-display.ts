@@ -1,6 +1,8 @@
 // Shared booking display helpers — imported by both the server table
 // (page.tsx) and the client calendar so status colours + labels stay in sync.
 
+import type { WorkshopTone } from "@/components/staff/workshop";
+
 export type BookingRow = {
   id: string;
   scheduled_at: string;
@@ -27,10 +29,10 @@ export function confirmationState(b: BookingRow): ConfirmationState {
   return null;
 }
 
-export const CONFIRMATION_STYLE: Record<Exclude<ConfirmationState, null>, string> = {
-  confirmed: "bg-green-100 text-green-700",
-  reschedule_requested: "bg-amber-100 text-amber-700",
-  awaiting: "bg-gray-100 text-gray-600",
+export const CONFIRMATION_TONE: Record<Exclude<ConfirmationState, null>, WorkshopTone> = {
+  confirmed: "green",
+  reschedule_requested: "amber",
+  awaiting: "neutral",
 };
 
 export function confirmationLabel(s: Exclude<ConfirmationState, null>): string {
@@ -39,23 +41,27 @@ export function confirmationLabel(s: Exclude<ConfirmationState, null>): string {
   return "Awaiting reply";
 }
 
-export const STATUS_STYLE: Record<string, string> = {
-  scheduled: "bg-blue-100 text-blue-700",
-  in_progress: "bg-amber-100 text-amber-700",
-  complete: "bg-green-100 text-green-700",
-  cancelled: "bg-gray-100 text-gray-600",
-  no_show: "bg-red-100 text-red-700",
-  payment_pending: "bg-purple-100 text-purple-700",
+// WorkshopBadge tone per status — aligned with the dashboard's
+// BOOKING_STATUS colours (scheduled neutral · in-progress amber · complete
+// green · cancelled red · no-show purple); payment_pending gets blue.
+export const STATUS_TONE: Record<string, WorkshopTone> = {
+  scheduled: "neutral",
+  in_progress: "amber",
+  complete: "green",
+  cancelled: "red",
+  no_show: "purple",
+  payment_pending: "blue",
 };
 
-// Solid dot colour per status, for the month-grid day indicators.
+// Solid dot colour per status, for the month-grid day indicators — same
+// hues as the badge tones.
 export const STATUS_DOT: Record<string, string> = {
-  scheduled: "bg-blue-500",
-  in_progress: "bg-amber-500",
-  complete: "bg-green-500",
-  cancelled: "bg-gray-400",
-  no_show: "bg-red-500",
-  payment_pending: "bg-purple-500",
+  scheduled: "bg-ws-text-2",
+  in_progress: "bg-ws-amber",
+  complete: "bg-ws-green",
+  cancelled: "bg-ws-red",
+  no_show: "bg-ws-purple",
+  payment_pending: "bg-ws-blue",
 };
 
 export function statusLabel(s: string): string {

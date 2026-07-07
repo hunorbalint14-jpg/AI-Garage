@@ -97,7 +97,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Out now
         </h2>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-ws-red">{error}</p>}
         {open.length === 0 ? (
           <p className="text-sm text-muted-foreground">No cars out on loan.</p>
         ) : (
@@ -118,7 +118,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Out {fmt(loan.loanedAt)} · due back {fmt(loan.dueBackAt)}
-                        {overdue && <span className="ml-1 font-medium text-red-600">overdue</span>}
+                        {overdue && <span className="ml-1 font-medium text-ws-red">overdue</span>}
                         {" · "}fuel {fuelLabel(loan.fuelOut)}
                         {loan.odometerOut != null && ` · ${loan.odometerOut.toLocaleString()} mi`}
                         {loan.licenceShareCode && ` · share code ${loan.licenceShareCode}`}
@@ -142,7 +142,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                             <img
                               src={loan.signatureUrl}
                               alt="Customer signature"
-                              className="h-12 rounded-md border bg-white object-contain px-1"
+                              className="h-12 rounded-md border bg-ws-card object-contain px-1"
                             />
                           </a>
                         </div>
@@ -235,7 +235,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                           <img
                             src={loan.signatureUrl}
                             alt="Customer signature"
-                            className="h-10 rounded-md border bg-white object-contain px-1"
+                            className="h-10 rounded-md border bg-ws-card object-contain px-1"
                           />
                         </a>
                       )}

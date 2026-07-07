@@ -75,7 +75,7 @@ export function EditCustomerForm({ customer }: { customer: Customer }) {
               autoComplete="tel"
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-ws-red">{error}</p>}
           <Button type="submit" loading={pending} className="self-start">
             Save changes
           </Button>

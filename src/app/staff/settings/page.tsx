@@ -298,7 +298,7 @@ export default async function SettingsPage({
               </h2>
               <span
                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                  evQualifiedCount > 0 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
+                  evQualifiedCount > 0 ? "bg-ws-green-bg text-ws-green" : "bg-ws-amber-bg text-ws-amber"
                 }`}
               >
                 {evQualifiedCount} HV-qualified
@@ -379,7 +379,7 @@ export default async function SettingsPage({
                 </a>
               </p>
             ) : (
-              <p className="text-sm text-amber-700 dark:text-amber-400">
+              <p className="text-sm text-ws-amber dark:text-amber-400">
                 DPA not yet accepted.{" "}
                 <a href="/staff/dpa-acceptance" className="underline">Accept now</a>
               </p>

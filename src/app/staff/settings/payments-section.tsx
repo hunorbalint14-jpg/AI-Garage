@@ -67,11 +67,11 @@ export function PaymentsSection({
 
   const badge =
     status === "active"
-      ? <span className="rounded-full bg-green-500/15 text-green-700 px-2 py-0.5 text-xs font-medium">Active</span>
+      ? <span className="rounded-full bg-green-500/15 text-ws-green px-2 py-0.5 text-xs font-medium">Active</span>
       : status === "pending"
-      ? <span className="rounded-full bg-amber-500/15 text-amber-700 px-2 py-0.5 text-xs font-medium">Under review</span>
+      ? <span className="rounded-full bg-amber-500/15 text-ws-amber px-2 py-0.5 text-xs font-medium">Under review</span>
       : status === "incomplete"
-      ? <span className="rounded-full bg-amber-500/15 text-amber-700 px-2 py-0.5 text-xs font-medium">Setup incomplete</span>
+      ? <span className="rounded-full bg-amber-500/15 text-ws-amber px-2 py-0.5 text-xs font-medium">Setup incomplete</span>
       : <span className="rounded-full bg-muted text-muted-foreground px-2 py-0.5 text-xs font-medium">Not connected</span>;
 
   return (
@@ -130,8 +130,8 @@ export function PaymentsSection({
         <li>Onboarding details submitted: {detailsSubmitted ? "yes" : "no"}</li>
       </ul>
 
-      {info && <p className="text-sm text-green-700">{info}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {info && <p className="text-sm text-ws-green">{info}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </section>
   );
 }

@@ -112,8 +112,8 @@ export function VehicleForm({ customerId }: { customerId: string }) {
                 Lookup
               </Button>
             </div>
-            {lookupHint && <p className="text-xs text-green-700">{lookupHint}</p>}
-            {lookupError && <p className="text-xs text-red-600">{lookupError}</p>}
+            {lookupHint && <p className="text-xs text-ws-green">{lookupHint}</p>}
+            {lookupError && <p className="text-xs text-ws-red">{lookupError}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -145,7 +145,7 @@ export function VehicleForm({ customerId }: { customerId: string }) {
             <div className="flex flex-col gap-2">
               <Label htmlFor="motExpiry">MOT expiry</Label>
               <Input id="motExpiry" name="motExpiry" type="date" value={motExpiry} onChange={(e) => setMotExpiry(e.target.value)} />
-              {motHint && <p className="text-xs text-amber-600">{motHint}</p>}
+              {motHint && <p className="text-xs text-ws-amber">{motHint}</p>}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="serviceDue">Service due</Label>
@@ -156,11 +156,11 @@ export function VehicleForm({ customerId }: { customerId: string }) {
           <div className="flex flex-col gap-2">
             <Label htmlFor="taxDueDate">Road tax due</Label>
             <Input id="taxDueDate" name="taxDueDate" type="date" value={taxDueDate} onChange={(e) => setTaxDueDate(e.target.value)} />
-            {vedHint && <p className="text-xs text-green-700">{vedHint}</p>}
+            {vedHint && <p className="text-xs text-ws-green">{vedHint}</p>}
           </div>
 
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-ws-red">{error}</p>}
 
           <Button type="submit" loading={pending}>
             Save vehicle

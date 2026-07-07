@@ -51,7 +51,7 @@ export default async function AutomationsPage() {
 
       {!entitledTo(ctx.tenantBilling, "automations") && <FeatureGateBanner message={UPGRADE_MESSAGE.automations} />}
 
-      {error && <p className="text-sm text-red-600">Failed to load: {error.message}</p>}
+      {error && <p className="text-sm text-ws-red">Failed to load: {error.message}</p>}
 
       <section className="flex flex-col gap-3">
         <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">

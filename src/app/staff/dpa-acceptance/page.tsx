@@ -45,7 +45,7 @@ export default async function DpaAcceptancePage() {
           {canAccept ? (
             <AcceptForm />
           ) : (
-            <div className="mt-6 rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            <div className="mt-6 rounded border border-ws-amber-border bg-ws-amber-bg p-4 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
               You don&apos;t have permission to accept this DPA. Ask the garage owner or an admin to sign in
               and accept it before continuing.
             </div>

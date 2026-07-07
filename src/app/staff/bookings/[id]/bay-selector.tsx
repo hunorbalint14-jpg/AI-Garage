@@ -56,8 +56,8 @@ export function BaySelector({
         ))}
       </select>
       {pending && <span className="text-xs text-muted-foreground">Saving…</span>}
-      {saved && <span className="text-xs text-green-600">Saved</span>}
-      {error && <span className="text-xs text-red-600">{error}</span>}
+      {saved && <span className="text-xs text-ws-green">Saved</span>}
+      {error && <span className="text-xs text-ws-red">{error}</span>}
     </div>
   );
 }

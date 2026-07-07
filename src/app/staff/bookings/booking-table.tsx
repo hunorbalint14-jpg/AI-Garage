@@ -2,14 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import {
-  STATUS_STYLE,
+  STATUS_TONE,
   statusLabel,
   typeLabel,
   confirmationState,
   confirmationLabel,
-  CONFIRMATION_STYLE,
+  CONFIRMATION_TONE,
   type BookingRow,
 } from "./booking-display";
+import { WorkshopBadge } from "@/components/staff/workshop";
 
 export type BookingListRow = BookingRow & { technicianName: string | null };
 
@@ -104,13 +105,9 @@ export function BookingTable({ rows }: { rows: BookingListRow[] }) {
 
 function StatusPill({ status }: { status: string }) {
   return (
-    <span
-      className={`inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-        STATUS_STYLE[status] ?? ""
-      }`}
-    >
+    <WorkshopBadge tone={STATUS_TONE[status] ?? "neutral"} className="shrink-0">
       {statusLabel(status)}
-    </span>
+    </WorkshopBadge>
   );
 }
 
@@ -118,10 +115,8 @@ function ConfirmationPill({ booking }: { booking: BookingRow }) {
   const state = confirmationState(booking);
   if (!state) return null;
   return (
-    <span
-      className={`ml-1 inline-block shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${CONFIRMATION_STYLE[state]}`}
-    >
+    <WorkshopBadge tone={CONFIRMATION_TONE[state]} className="ml-1 shrink-0">
       {confirmationLabel(state)}
-    </span>
+    </WorkshopBadge>
   );
 }

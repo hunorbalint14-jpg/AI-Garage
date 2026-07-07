@@ -170,7 +170,7 @@ export default async function CustomersPage({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600">Failed to load: {error.message}</p>
+        <p className="text-sm text-ws-red">Failed to load: {error.message}</p>
       )}
 
       {!error && rows.length === 0 ? (

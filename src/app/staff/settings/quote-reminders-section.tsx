@@ -131,8 +131,8 @@ export function QuoteRemindersSection({
       {!canManage && (
         <p className="text-xs text-muted-foreground">Only owners and admins can change this.</p>
       )}
-      {info && <p className="text-sm text-green-700">{info}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {info && <p className="text-sm text-ws-green">{info}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </section>
   );
 }

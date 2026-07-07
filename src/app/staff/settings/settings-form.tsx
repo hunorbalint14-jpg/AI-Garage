@@ -129,8 +129,8 @@ export function SettingsForm({
           </p>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {saved && <p className="text-sm text-green-700">Saved — reloading…</p>}
+        {error && <p className="text-sm text-ws-red">{error}</p>}
+        {saved && <p className="text-sm text-ws-green">Saved — reloading…</p>}
 
         {canEdit ? (
           <Button type="submit" loading={pending} className="self-start">

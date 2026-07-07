@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { STATUS_STYLE, statusLabel, typeLabel, type BookingRow } from "./booking-display";
+import { STATUS_TONE, statusLabel, typeLabel, type BookingRow } from "./booking-display";
+import { WorkshopBadge } from "@/components/staff/workshop";
 import { resolveHoursForDate, formatDayHours, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 
 type Bay = { id: string; name: string; description: string | null };
@@ -140,13 +141,9 @@ export function DayView({
                           {typeLabel(b.type)}
                           {b.technicianName ? ` · ${b.technicianName}` : ""}
                         </span>
-                        <span
-                          className={`ml-auto inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                            STATUS_STYLE[b.status] ?? ""
-                          }`}
-                        >
+                        <WorkshopBadge tone={STATUS_TONE[b.status] ?? "neutral"} className="ml-auto">
                           {statusLabel(b.status)}
-                        </span>
+                        </WorkshopBadge>
                       </Link>
                     </li>
                   ))}

@@ -27,7 +27,7 @@ export function AddLocationForm() {
 
   if (done) {
     return (
-      <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+      <div className="rounded-md border border-ws-green-border bg-ws-green-bg p-3 text-sm text-ws-green">
         <strong>{done}</strong> created. Switch to it with the branch picker in the top bar.{" "}
         <button className="underline" onClick={() => setDone(null)}>
           Add another
@@ -59,7 +59,7 @@ export function AddLocationForm() {
           Add the branch&apos;s postal address afterwards in the list above.
         </p>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" loading={pending}>
           Create location

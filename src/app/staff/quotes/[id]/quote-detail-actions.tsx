@@ -298,7 +298,7 @@ export function QuoteDetailActions({
             </label>
           </div>
           {outOfHours ? (
-            <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-800 flex flex-col gap-2">
+            <div className="rounded-md border border-ws-amber-border bg-ws-amber-bg p-2 text-sm text-ws-amber flex flex-col gap-2">
               <p>{outOfHours}</p>
               <div className="flex gap-2">
                 <Button size="sm" onClick={() => handleConvert(true)} loading={pending}>
@@ -340,8 +340,8 @@ export function QuoteDetailActions({
           </Button>
         </div>
       )}
-      {info && <p className="text-sm text-green-700">{info}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {info && <p className="text-sm text-ws-green">{info}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </section>
   );
 }

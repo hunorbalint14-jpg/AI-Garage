@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AigSpinner } from "@/components/ui/aig-spinner";
+import { SlotPicker } from "@/components/slot-picker";
 import { cancelCustomerBooking, rescheduleCustomerBooking } from "./booking-actions";
 import { useConfirm } from "@/components/confirm-provider";
 
@@ -12,6 +13,7 @@ type Booking = {
   status: string;
   duration_minutes: number;
   vehicle: { registration: string } | null;
+  location: { id: string; name: string; address: string | null } | null;
 };
 
 type Props = {
@@ -24,16 +26,12 @@ function typeLabel(t: string) {
   return t === "mot" ? "MOT" : t.charAt(0).toUpperCase() + t.slice(1);
 }
 
-function toLocalInput(isoDate: string): string {
-  const d = new Date(isoDate);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-}
-
 export function BookingCard({ booking, orgColor, garagePhone }: Props) {
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState<"idle" | "reschedule">("idle");
-  const [newDateTime, setNewDateTime] = useState(toLocalInput(booking.scheduled_at));
+  // SlotPicker value — naive "YYYY-MM-DDTHH:mm", same shape the action expects.
+  const [newDateTime, setNewDateTime] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelled, setCancelled] = useState(false);
 
@@ -60,6 +58,7 @@ export function BookingCard({ booking, orgColor, garagePhone }: Props) {
   }
 
   function handleReschedule() {
+    if (!newDateTime) return;
     setError(null);
     startTransition(async () => {
       const result = await rescheduleCustomerBooking(booking.id, newDateTime);
@@ -79,18 +78,23 @@ export function BookingCard({ booking, orgColor, garagePhone }: Props) {
     );
   }
 
+  const branchLine = [booking.location?.name, booking.location?.address].filter(Boolean).join(", ");
+
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-semibold">{typeLabel(booking.type)}</p>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <p className="font-semibold">
+            {typeLabel(booking.type)} ·{" "}
             {new Date(booking.scheduled_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+          </p>
+          <p className="text-sm text-gray-400 mt-0.5">
             {booking.vehicle ? (
-              ` · ${booking.vehicle.registration}`
+              booking.vehicle.registration
             ) : (
-              <span className="text-gray-500"> · No vehicle on file</span>
+              <span className="text-gray-500">No vehicle on file</span>
             )}
+            {branchLine && ` · ${branchLine}`}
           </p>
         </div>
         <span
@@ -101,29 +105,32 @@ export function BookingCard({ booking, orgColor, garagePhone }: Props) {
         </span>
       </div>
 
-      {mode === "reschedule" && (
-        <div className="mt-3 flex flex-col gap-2">
-          <input
-            type="datetime-local"
+      {mode === "reschedule" && booking.location && (
+        <div className="mt-4 flex flex-col gap-3">
+          <SlotPicker
+            locationId={booking.location.id}
+            durationMinutes={booking.duration_minutes || 60}
             value={newDateTime}
-            onChange={(e) => setNewDateTime(e.target.value)}
-            disabled={pending}
-            className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30 disabled:opacity-50"
+            onChange={setNewDateTime}
+            theme="dark"
+            primaryColor={orgColor}
           />
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleReschedule}
-              disabled={pending}
+              disabled={pending || !newDateTime}
               className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
               style={{ backgroundColor: orgColor }}
             >
               {pending && <AigSpinner />}
-              Confirm reschedule
+              {newDateTime
+                ? `Confirm — ${new Date(newDateTime).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+                : "Pick a time"}
             </button>
             <button
               type="button"
-              onClick={() => { setMode("idle"); setError(null); }}
+              onClick={() => { setMode("idle"); setError(null); setNewDateTime(null); }}
               disabled={pending}
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/10"
             >
@@ -140,25 +147,35 @@ export function BookingCard({ booking, orgColor, garagePhone }: Props) {
         </p>
       )}
 
-      {mode === "idle" && actionable && (
-        <div className="mt-3 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("reschedule")}
-            disabled={pending}
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
+      {mode === "idle" && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {actionable && (
+            <button
+              type="button"
+              onClick={() => setMode("reschedule")}
+              disabled={pending}
+              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/10 transition-colors disabled:opacity-50"
+            >
+              Change time
+            </button>
+          )}
+          <a
+            href={`/dashboard/ics/${booking.id}`}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/10 transition-colors"
           >
-            Reschedule
-          </button>
-          <button
-            type="button"
-            onClick={handleCancel}
-            disabled={pending}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
-          >
-            {pending && <AigSpinner />}
-            Cancel booking
-          </button>
+            Add to calendar
+          </a>
+          {actionable && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              disabled={pending}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+            >
+              {pending && <AigSpinner />}
+              Cancel booking
+            </button>
+          )}
         </div>
       )}
 
