@@ -265,8 +265,9 @@ async function renderDaySurface({
         <BayTimeline
           bookings={dayRows}
           bays={bays}
-          date={new Date(`${theDate}T00:00:00`)}
-          now={new Date()}
+          date={new Date(`${theDate}T00:00:00`).toISOString()}
+          now={new Date().toISOString()}
+          interactive
           workStart={workStart}
           workEnd={workEnd}
         />

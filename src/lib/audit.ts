@@ -49,6 +49,7 @@ export type AuditAction =
   | "feature_flag.set"
   // Scheduling / labour (Phase 3)
   | "booking.assign"
+  | "booking.move"
   | "job.assign"
   | "job.clock_in"
   | "job.clock_out"
