@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { BookingWidgetForm } from "./booking-widget-form";
-import { parseWeeklyHours, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
+import { parseWeeklyHours, formatWeeklySummary, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 import { cachedActiveServices, cachedLocationHours } from "@/lib/location-cache";
 
 export default async function BookingWidgetPage({
@@ -212,7 +212,10 @@ export default async function BookingWidgetPage({
           )}
           <div className="flex-1">
             <p className="font-bold text-gray-900 leading-tight">{org.name}</p>
-            <p className="text-xs text-gray-500">Book an appointment</p>
+            {/* Hours up front (UX review §1h) — landing branch's week. */}
+            <p className="text-xs text-gray-500">
+              Open {formatWeeklySummary(weeklyByLocation[defaultLocationId] ?? {})}
+            </p>
           </div>
           {prefill ? (
             <a
