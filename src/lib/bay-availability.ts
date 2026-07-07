@@ -2,7 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { cachedBays } from "@/lib/location-cache";
 
 // Bookings that occupy a bay (don't block the bay if cancelled, complete, no-show).
-const ACTIVE_STATUSES = ["scheduled", "in_progress", "payment_pending"] as const;
+// Exported so the slot-grid query (slots-actions.ts) blocks on exactly the same set.
+export const ACTIVE_STATUSES = ["scheduled", "in_progress", "payment_pending"] as const;
 
 type OverlapRow = {
   id: string;
