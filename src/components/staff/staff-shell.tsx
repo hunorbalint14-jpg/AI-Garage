@@ -80,6 +80,12 @@ export function StaffShell({
     [orgRole, locationPermissions],
   );
   const { module: activeModule, item: activeItem } = findActive(pathname, modules);
+  // Nav-item keys this user can see — the palette gates its create-actions on
+  // the same set, so Cmd+K never offers a verb the nav would hide.
+  const allowedNavKeys = useMemo(
+    () => modules.flatMap((m) => m.items.map((i) => i.key)),
+    [modules],
+  );
   const onBrand = useMemo(() => onBrandColor(brandColor), [brandColor]);
   const multiBranch = locations.length > 1;
   const currentBranchName = locations.find((l) => l.id === currentLocationId)?.name ?? null;
@@ -301,7 +307,7 @@ export function StaffShell({
           onClose={() => setSheetOpen(false)}
         />
       )}
-      <CommandPalette />
+      <CommandPalette allowedNavKeys={allowedNavKeys} />
       <WhatsNewPopup />
       <NavProgressOverlay />
     </div>
