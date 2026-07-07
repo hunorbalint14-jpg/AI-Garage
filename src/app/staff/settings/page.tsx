@@ -316,6 +316,48 @@ export default async function SettingsPage({
               )}
             </p>
           </section>
+
+          {/* Tenant data export (#455) — org-wide, so org-level roles only. */}
+          {isOwner && (
+            <section className="flex flex-col gap-3 rounded-lg border p-4">
+              <div>
+                <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
+                  Your data
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Download everything this organisation holds — yours to take at any time.
+                  Exports cover all branches and are recorded in the audit log.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {(
+                  [
+                    ["customers", "Customers"],
+                    ["vehicles", "Vehicles"],
+                    ["invoices", "Invoices"],
+                  ] as const
+                ).map(([entity, label]) => (
+                  <div key={entity} className="flex items-center justify-between gap-3 rounded-md border border-ws-border bg-ws-hover px-3 py-2">
+                    <span className="text-sm text-ws-text">{label}</span>
+                    <span className="flex gap-2">
+                      <a
+                        href={`/staff/settings/export?entity=${entity}&format=csv`}
+                        className="rounded-[3px] border border-ws-border px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-ws-text-2 no-underline transition-colors hover:text-ws-text"
+                      >
+                        CSV
+                      </a>
+                      <a
+                        href={`/staff/settings/export?entity=${entity}&format=json`}
+                        className="rounded-[3px] border border-ws-border px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-ws-text-2 no-underline transition-colors hover:text-ws-text"
+                      >
+                        JSON
+                      </a>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
 
