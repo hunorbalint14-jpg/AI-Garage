@@ -39,6 +39,7 @@ export type AuditAction =
   | "platform_admin.revoke"
   | "location.slug_change"
   | "org.slug_change"
+  | "org.data_export"
   // Platform reliability incidents
   | "incident.declare"
   | "incident.update"
