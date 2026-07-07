@@ -5,3 +5,4 @@ export { ChipButton, type ChipVariant } from "./chip-button";
 export { Plate } from "./plate";
 export { MicroLabel } from "./micro-label";
 export { Segmented, type SegmentedItem } from "./segmented";
+export { CountdownBadge, dueDays } from "./countdown-badge";

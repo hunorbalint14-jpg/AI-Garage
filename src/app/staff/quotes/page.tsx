@@ -1,12 +1,18 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PageHeader } from "@/components/staff/page-header";
 import { Pagination } from "@/components/staff/pagination";
-import { Button } from "@/components/ui/button";
-import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
+import {
+  WorkshopBadge,
+  ChipButton,
+  MicroLabel,
+  Plate,
+  CountdownBadge,
+  dueDays,
+  type WorkshopTone,
+} from "@/components/staff/workshop";
 import { QuoteFilters } from "./quote-filters";
+import { RemindButton } from "./remind-button";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +37,7 @@ type QuoteRow = {
   viewed_count: number;
   reminder_count: number;
   last_reminder_at: string | null;
+  converted_booking_id: string | null;
   // standalone quotes carry these directly; job quotes derive them via the job.
   customer: PersonRef;
   vehicle: VehicleRef;
@@ -54,11 +61,6 @@ function fmt(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
-function fmtDate(s: string | null): string {
-  if (!s) return "—";
-  return new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
-
 // A job quote's customer/vehicle live on its parent job; standalone quotes
 // carry them directly.
 function customerOf(r: QuoteRow): PersonRef {
@@ -69,7 +71,7 @@ function vehicleOf(r: QuoteRow): VehicleRef {
 }
 
 const QUOTE_SELECT =
-  "id, quote_type, job_id, slug, status, title, total, created_at, sent_at, expires_at, responded_at, viewed_count, reminder_count, last_reminder_at, customer:customers(id, full_name), vehicle:vehicles(registration), job:jobs(id, customer:customers(id, full_name), vehicle:vehicles(registration))";
+  "id, quote_type, job_id, slug, status, title, total, created_at, sent_at, expires_at, responded_at, viewed_count, reminder_count, last_reminder_at, converted_booking_id, customer:customers(id, full_name), vehicle:vehicles(registration), job:jobs(id, customer:customers(id, full_name), vehicle:vehicles(registration))";
 
 export default async function QuotesPage({
   searchParams,
@@ -190,30 +192,43 @@ export default async function QuotesPage({
     totalCount = res.count;
   }
 
-  // Pipeline stat cards — computed from a dedicated narrow query, so they
-  // reflect the whole branch rather than whichever rows this page happens to
-  // hold. Only shown on the unfiltered list (as before).
-  let stats: { pending: number; approved: number; expired: number; pendingValue: number; approvedValue: number } | null = null;
-  if (!query && !statusFilter && !typeFilter && rows.length > 0) {
-    const { data: statRows } = await admin
-      .from("quotes")
-      .select("status, total")
-      .eq("location_id", ctx.location.id)
-      .in("status", ["pending", "approved", "expired"])
-      .limit(2000);
-    const s = { pending: 0, approved: 0, expired: 0, pendingValue: 0, approvedValue: 0 };
-    for (const r of (statRows ?? []) as { status: string; total: number | null }[]) {
-      if (r.status === "pending") {
-        s.pending += 1;
-        s.pendingValue += Number(r.total ?? 0);
-      } else if (r.status === "approved") {
-        s.approved += 1;
-        s.approvedValue += Number(r.total ?? 0);
-      } else {
-        s.expired += 1;
-      }
-    }
-    stats = s;
+  // Pipeline cells — computed from a dedicated narrow query over the whole
+  // branch, ALWAYS visible (filtered, searching, paginated) because the cells
+  // ARE the status filter (UX review F11).
+  const { data: statRows } = await admin
+    .from("quotes")
+    .select("status, total, expires_at, converted_booking_id")
+    .eq("location_id", ctx.location.id)
+    .limit(2000);
+  const stats = {
+    all: 0,
+    draft: 0,
+    pending: 0,
+    approved: 0,
+    expired: 0,
+    pendingValue: 0,
+    approvedValue: 0,
+    expiringSoon: 0, // pending, expires ≤3d
+    approvedUnbooked: 0,
+  };
+  for (const r of (statRows ?? []) as {
+    status: string;
+    total: number | null;
+    expires_at: string | null;
+    converted_booking_id: string | null;
+  }[]) {
+    stats.all += 1;
+    if (r.status === "draft") stats.draft += 1;
+    else if (r.status === "pending") {
+      stats.pending += 1;
+      stats.pendingValue += Number(r.total ?? 0);
+      const d = dueDays(r.expires_at);
+      if (d !== null && d <= 3) stats.expiringSoon += 1;
+    } else if (r.status === "approved" || r.status === "approved_after_close") {
+      stats.approved += 1;
+      stats.approvedValue += Number(r.total ?? 0);
+      if (!r.converted_booking_id) stats.approvedUnbooked += 1;
+    } else if (r.status === "expired") stats.expired += 1;
   }
 
   // Preserve active filters across pagination links.
@@ -221,35 +236,86 @@ export default async function QuotesPage({
   if (statusFilter) pageParams.set("status", statusFilter);
   if (typeFilter) pageParams.set("type", typeFilter);
 
+  // Pipeline cell definitions — each cell is a status-filter link (F11).
+  const cellHref = (s: string) => {
+    const sp2 = new URLSearchParams();
+    if (s) sp2.set("status", s);
+    if (typeFilter) sp2.set("type", typeFilter);
+    if (query) sp2.set("q", query);
+    const qs = sp2.toString();
+    return qs ? `/staff/quotes?${qs}` : "/staff/quotes";
+  };
+  const CELL_TONE: Record<string, { text: string; bg: string; bar: string }> = {
+    "": { text: "text-ws-text", bg: "bg-ws-hover", bar: "#e6e8eb" },
+    draft: { text: "text-ws-text-2", bg: "bg-ws-hover", bar: "#9aa1ad" },
+    pending: { text: "text-ws-amber", bg: "bg-ws-amber-bg", bar: "#ffb020" },
+    approved: { text: "text-ws-green", bg: "bg-ws-green-bg", bar: "#5fdd9d" },
+    expired: { text: "text-ws-text-2", bg: "bg-ws-hover", bar: "#9aa1ad" },
+  };
+  const cells: { status: string; label: string; value: string; sub?: { text: string; cls: string } }[] = [
+    { status: "", label: "All", value: String(stats.all) },
+    { status: "draft", label: "Draft", value: String(stats.draft) },
+    {
+      status: "pending",
+      label: "Pending",
+      value: `${stats.pending} → ${fmt(stats.pendingValue)}`,
+      sub: stats.expiringSoon > 0 ? { text: `${stats.expiringSoon} expire ≤3d`, cls: "text-ws-red" } : undefined,
+    },
+    {
+      status: "approved",
+      label: "Approved",
+      value: `${stats.approved} → ${fmt(stats.approvedValue)}`,
+      sub: stats.approvedUnbooked > 0 ? { text: `${stats.approvedUnbooked} not yet booked`, cls: "text-ws-text-3" } : undefined,
+    },
+    { status: "expired", label: "Expired", value: String(stats.expired) },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Quotes" description="Every quote — pre-job and in-job (DVI) — in one place." />
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <QuoteFilters initialQ={query} initialStatus={statusFilter ?? ""} initialType={typeFilter ?? ""} />
-        <Link href="/staff/quotes/new">
-          <Button>
-            <Plus className="mr-1 h-4 w-4" /> New quote
-          </Button>
-        </Link>
+      {/* Header states the job to be done (§1f). One amber primary. */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <MicroLabel>Quotes · {ctx.organization.name}</MicroLabel>
+          <h1 className="mt-1 text-[22px] font-semibold tracking-[-0.01em] text-ws-text">
+            {stats.pending > 0
+              ? `${fmt(stats.pendingValue)} waiting on customers`
+              : "Quotes"}
+          </h1>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <QuoteFilters initialQ={query} initialType={typeFilter ?? ""} />
+          <ChipButton variant="primary" href="/staff/quotes/new">
+            + New quote
+          </ChipButton>
+        </div>
       </div>
 
-      {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending ({stats.pending})</p>
-            <p className="text-2xl font-bold text-ws-amber">{fmt(stats.pendingValue)}</p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Approved ({stats.approved})</p>
-            <p className="text-2xl font-bold text-ws-green">{fmt(stats.approvedValue)}</p>
-          </div>
-          <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Expired</p>
-            <p className="text-2xl font-bold">{stats.expired}</p>
-          </div>
-        </div>
-      )}
+      {/* Pipeline row = the status filter. Always visible. */}
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[6px] border border-ws-border bg-ws-border sm:grid-cols-5">
+        {cells.map((c) => {
+          const active = (statusFilter || "") === c.status;
+          const tone = CELL_TONE[c.status];
+          return (
+            <Link
+              key={c.status || "all"}
+              href={cellHref(c.status)}
+              aria-current={active ? "page" : undefined}
+              className={`flex flex-col gap-1 px-3.5 py-3 no-underline transition-colors ${
+                active ? tone.bg : "bg-ws-card hover:bg-ws-hover"
+              }`}
+              style={active ? { boxShadow: `inset 0 -2px 0 ${tone.bar}` } : undefined}
+            >
+              <span className={`font-mono text-[9px] font-semibold uppercase tracking-[0.12em] ${active ? tone.text : "text-ws-text-3"}`}>
+                {c.label}
+              </span>
+              <span className={`font-mono text-[18px] font-semibold leading-none ${active ? tone.text : "text-ws-text"}`}>
+                {c.value}
+              </span>
+              {c.sub && <span className={`font-mono text-[9px] ${c.sub.cls}`}>{c.sub.text}</span>}
+            </Link>
+          );
+        })}
+      </div>
 
       {query && rows.length > 0 && (
         <p className="text-xs text-muted-foreground">
@@ -259,24 +325,31 @@ export default async function QuotesPage({
       )}
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            {query || statusFilter || typeFilter ? "No quotes match these filters." : "No quotes yet. Click 'New quote' to send one."}
+        <div className="rounded-lg border border-dashed border-ws-border p-8 text-center">
+          <p className="font-mono text-xs text-ws-text-3">
+            {query || statusFilter || typeFilter ? "// NO QUOTES MATCH THESE FILTERS" : "// NO QUOTES YET"}
           </p>
+          {!query && !statusFilter && !typeFilter && (
+            <p className="mt-2 text-sm text-muted-foreground">Send your first with &lsquo;+ New quote&rsquo;.</p>
+          )}
         </div>
       ) : (
-        <div className="rounded-lg border overflow-hidden">
+        <div className="rounded-lg border border-ws-border overflow-x-auto">
+          {/* 8 columns → 6 (§1f): type + reg fold into QUOTE, sent/views
+              compress into the EXPIRES activity sub-line, ACTION chases money. */}
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                <th className="px-4 py-2 font-medium">Type</th>
-                <th className="px-4 py-2 font-medium">Title / Reg</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium text-right">Total</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Sent</th>
-                <th className="px-4 py-2 font-medium">Expires</th>
-                <th className="px-4 py-2 font-medium text-right">Views</th>
+            <thead className="text-left">
+              <tr className="border-b border-ws-border">
+                {["Quote", "Customer", "Total", "Status", "Expires", "Action"].map((h, i) => (
+                  <th
+                    key={h}
+                    className={`px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 ${
+                      i === 2 || i === 5 ? "text-right" : ""
+                    }`}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -284,49 +357,61 @@ export default async function QuotesPage({
                 const cust = customerOf(r);
                 const veh = vehicleOf(r);
                 const isJob = r.quote_type === "job";
+                const isPending = r.status === "pending";
+                const isApprovedUnbooked =
+                  (r.status === "approved" || r.status === "approved_after_close") && !r.converted_booking_id;
                 return (
-                  <tr key={r.id} className="border-t hover:bg-muted/20">
-                    <td className="px-4 py-2">
-                      <WorkshopBadge tone={isJob ? "purple" : "blue"}>
-                        {isJob ? "DVI" : "Pre-job"}
-                      </WorkshopBadge>
-                      {isJob && r.job_id && (
-                        <Link href={`/staff/jobs/${r.job_id}`} className="mt-1 block text-[11px] text-muted-foreground underline">
-                          View job →
+                  <tr key={r.id} className="border-t border-ws-border hover:bg-ws-hover/50">
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <Link href={`/staff/quotes/${r.id}`} className="text-[13px] font-semibold text-ws-text no-underline hover:underline">
+                          {r.title || "(no title)"}
                         </Link>
-                      )}
+                        {isJob && <WorkshopBadge tone="purple">DVI</WorkshopBadge>}
+                      </div>
+                      {veh?.registration && <Plate reg={veh.registration} className="mt-1" />}
                     </td>
-                    <td className="px-4 py-2">
-                      <Link href={`/staff/quotes/${r.id}`} className="underline">
-                        {r.title || `(no title)`}
-                      </Link>
-                      {veh?.registration && (
-                        <div className="text-xs font-mono text-muted-foreground">{veh.registration}</div>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2.5">
                       {cust?.id ? (
-                        <Link href={`/staff/customers/${cust.id}`} className="underline">
+                        <Link href={`/staff/customers/${cust.id}`} className="text-ws-text no-underline hover:underline">
                           {cust.full_name ?? "—"}
                         </Link>
                       ) : "—"}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums">{fmt(Number(r.total ?? 0))}</td>
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-2.5 text-right font-mono text-[13px] font-semibold tabular-nums text-ws-text">
+                      £{Math.round(Number(r.total ?? 0)).toLocaleString("en-GB")}
+                    </td>
+                    <td className="px-4 py-2.5">
                       <WorkshopBadge tone={STATUS_TONE[r.status] ?? "neutral"}>
                         {r.status.replace(/_/g, " ")}
                       </WorkshopBadge>
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">
-                      {fmtDate(r.sent_at)}
-                      {r.reminder_count > 0 && (
-                        <div className="text-[11px]" title={r.last_reminder_at ? `Last reminded ${fmtDate(r.last_reminder_at)}` : undefined}>
-                          ↺ {r.reminder_count} reminder{r.reminder_count === 1 ? "" : "s"}
-                        </div>
+                    <td className="px-4 py-2.5">
+                      <CountdownBadge expiresAt={isPending ? r.expires_at : null} />
+                      <div className="mt-1 font-mono text-[9px] text-ws-text-3">
+                        {r.viewed_count > 0 ? `viewed ${r.viewed_count}×` : r.sent_at ? "never viewed" : "not sent"}
+                        {r.reminder_count > 0 ? ` · ↺${r.reminder_count}` : ""}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      {isPending ? (
+                        <RemindButton quoteId={r.id} />
+                      ) : isApprovedUnbooked ? (
+                        <Link
+                          href={`/staff/quotes/${r.id}`}
+                          className="inline-block rounded-[2px] border border-ws-green-border bg-ws-green-bg px-2 py-[3px] font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-ws-green no-underline transition-colors hover:bg-[#1a4029]"
+                        >
+                          Book job →
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/staff/quotes/${r.id}`}
+                          className="border-b border-[#3a4049] font-mono text-[10px] font-medium text-ws-text-2 no-underline transition-colors hover:text-ws-text"
+                        >
+                          view →
+                        </Link>
                       )}
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">{fmtDate(r.expires_at)}</td>
-                    <td className="px-4 py-2 text-right text-muted-foreground tabular-nums">{r.viewed_count ?? 0}</td>
                   </tr>
                 );
               })}
