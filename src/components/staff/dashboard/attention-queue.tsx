@@ -1,13 +1,6 @@
 import Link from "next/link";
 import { dueDays, type AttentionVehicle } from "@/lib/dashboard";
-
-function Plate({ reg }: { reg: string }) {
-  return (
-    <span className="inline-block whitespace-nowrap rounded-[3px] border border-[#c9a435] bg-[#f4d35e] px-[7px] py-0.5 font-mono text-[11px] font-bold tracking-[0.06em] text-background">
-      {reg}
-    </span>
-  );
-}
+import { Plate } from "@/components/staff/workshop";
 
 const STATUS_BADGE = {
   overdue: { className: "border-[#5a2424] bg-[#3a1a1a] text-[#ff5b5b]", label: "OVERDUE" },

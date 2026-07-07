@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { getStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { StaffShell } from "@/components/staff/staff-shell";
@@ -43,13 +44,34 @@ function computeBillingNudge(
   return null;
 }
 
+// Workshop design fonts (UX review §1b) — scoped to /staff via the wrapper's
+// CSS variables, same pattern as /admin. globals.css uses `@theme inline`, so
+// font-sans → var(--font-sans) and font-mono → var(--font-geist-mono);
+// override exactly those within the staff subtree. `contents` keeps the
+// wrapper out of layout. Known limitation (shared with /admin): portalled
+// overlays render outside this subtree and keep the root fonts.
+const wsSans = Space_Grotesk({ subsets: ["latin"], variable: "--font-staff-sans" });
+const wsMono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-staff-mono" });
+const wsFontScope = {
+  "--font-sans": "var(--font-staff-sans)",
+  "--font-geist-mono": "var(--font-staff-mono)",
+} as React.CSSProperties;
+
+function StaffFonts({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={`${wsSans.variable} ${wsMono.variable} contents font-sans`} style={wsFontScope}>
+      {children}
+    </div>
+  );
+}
+
 export default async function StaffLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const ctx = await getStaffContext();
-  if (!ctx) return <>{children}</>;
+  if (!ctx) return <StaffFonts>{children}</StaffFonts>;
 
   const fullName = ctx.user.fullName ?? ctx.user.email ?? "Staff";
   const role = ctx.orgRole ?? ctx.locationRole ?? "staff";
@@ -62,7 +84,7 @@ export default async function StaffLayout({
   // shell, no gates) — they sit between sign-in and the portal; gates re-apply
   // once the user moves on.
   if (pathname.startsWith("/staff/select-branch") || pathname.startsWith("/staff/onboarding")) {
-    return <>{children}</>;
+    return <StaffFonts>{children}</StaffFonts>;
   }
 
   const onAcceptancePage =
@@ -191,7 +213,7 @@ export default async function StaffLayout({
     .slice(0, 2);
 
   return (
-    <>
+    <StaffFonts>
       <ColorSchemeSync dark={true} />
       {/* Shared fixed top-right cluster: support launcher + notifications
           bell. data-support-widget keeps the whole cluster out of the
@@ -221,6 +243,6 @@ export default async function StaffLayout({
         {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} />}
         {children}
       </StaffShell>
-    </>
+    </StaffFonts>
   );
 }
