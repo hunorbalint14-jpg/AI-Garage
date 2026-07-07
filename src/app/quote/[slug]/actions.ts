@@ -219,8 +219,8 @@ export async function approveQuote(
   // quote_deposit_pct is a v2 column; retry without it if the migration
   // hasn't run, so existing approve flow stays alive.
   const TENANT_COLS = "tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end";
-  const fullLocSelect = `id, slug, organization:organizations!organization_id(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, ${TENANT_COLS})`;
-  const v1LocSelect = `id, slug, organization:organizations!organization_id(id, name, stripe_account_id, stripe_charges_enabled, ${TENANT_COLS})`;
+  const fullLocSelect = `id, slug, organization:organizations!organization_id(id, slug, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, ${TENANT_COLS})`;
+  const v1LocSelect = `id, slug, organization:organizations!organization_id(id, slug, name, stripe_account_id, stripe_charges_enabled, ${TENANT_COLS})`;
 
   let locRowData: unknown = null;
   const locFirst = await admin.from("locations").select(fullLocSelect).eq("id", verify.quote.location_id).maybeSingle();
@@ -235,6 +235,7 @@ export async function approveQuote(
     slug: string;
     organization: {
       id: string;
+      slug: string;
       name: string;
       stripe_account_id: string | null;
       stripe_charges_enabled: boolean | null;
@@ -376,7 +377,7 @@ export async function approveQuote(
           },
           metadata: { quote_id: q.id },
           success_url: `${publicOrigin()}/quote/${slug}/deposit-success?t=${token}`,
-          cancel_url: tenantQuoteUrl(loc.slug, slug, token),
+          cancel_url: tenantQuoteUrl(org!.slug, slug, token),
         },
         { stripeAccount: org.stripe_account_id! },
       );
@@ -549,17 +550,17 @@ export async function declineAndRebook(slug: string, token: string): Promise<Reb
 
   const { data: locRow } = await admin
     .from("locations")
-    .select("slug, organization:organizations!organization_id(id)")
+    .select("slug, organization:organizations!organization_id(id, slug)")
     .eq("id", q.location_id)
     .maybeSingle();
-  type LocRow = { slug: string; organization: { id: string } | null };
+  type LocRow = { slug: string; organization: { id: string; slug: string } | null };
   const loc = locRow as LocRow | null;
   if (!loc) return { error: "Garage not found." };
 
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "ai-garage.co.uk";
   const isLocal = rootDomain.includes("localtest") || rootDomain.includes("localhost");
   const proto = isLocal ? "http" : "https";
-  const rebookUrl = `${proto}://${loc.slug}.${rootDomain}/book?quote=${slug}&t=${encodeURIComponent(token)}`;
+  const rebookUrl = `${proto}://${loc.organization?.slug ?? loc.slug}.${rootDomain}/book?quote=${slug}&t=${encodeURIComponent(token)}`;
 
   await logAudit({
     organizationId: loc.organization?.id ?? null,
@@ -610,7 +611,7 @@ async function approveStandaloneQuote(
   // Org-level deposit policy + Stripe Connect.
   const { data: locRow } = await admin
     .from("locations")
-    .select("id, slug, organization:organizations!organization_id(id, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)")
+    .select("id, slug, organization:organizations!organization_id(id, slug, name, stripe_account_id, stripe_charges_enabled, quote_deposit_pct, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end)")
     .eq("id", verifyQuote.location_id)
     .maybeSingle();
   type LocRow = {
@@ -618,6 +619,7 @@ async function approveStandaloneQuote(
     slug: string;
     organization: {
       id: string;
+      slug: string;
       name: string;
       stripe_account_id: string | null;
       stripe_charges_enabled: boolean | null;
@@ -693,7 +695,7 @@ async function approveStandaloneQuote(
           },
           metadata: { standalone_quote_id: q.id },
           success_url: `${publicOrigin()}/quote/${slug}/deposit-success?t=${token}`,
-          cancel_url: tenantQuoteUrl(loc.slug, slug, token),
+          cancel_url: tenantQuoteUrl(org!.slug, slug, token),
         },
         { stripeAccount: org.stripe_account_id! },
       );

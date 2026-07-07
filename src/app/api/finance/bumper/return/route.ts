@@ -36,13 +36,13 @@ export async function GET(request: NextRequest) {
     subject_type: string;
     subject_id: string;
     amount: number;
-    location: { slug: string } | null;
+    location: { slug: string; organization: { slug: string } | null } | null;
   };
 
   const { data: appData } = bumperToken
     ? await admin
         .from("finance_applications")
-        .select("id, organization_id, status, subject_type, subject_id, amount, location:locations(slug)")
+        .select("id, organization_id, status, subject_type, subject_id, amount, location:locations(slug, organization:organizations!organization_id(slug))")
         .eq("token", bumperToken)
         .maybeSingle()
     : { data: null };
@@ -54,7 +54,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unknown application" }, { status: 400 });
   }
 
-  const slug = app.location?.slug ?? null;
+  // Tenant subdomain is the ORG slug, not the branch slug.
+  const slug = app.location?.organization?.slug ?? null;
   const buildTarget = (outcome: string): string => {
     if (!slug) return "/";
     if (app.subject_type === "invoice") {

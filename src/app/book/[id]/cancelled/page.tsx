@@ -26,13 +26,13 @@ export default async function BookingCancelledPage({
   const admin = createAdminClient();
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, location:locations(slug)")
+    .select("id, location:locations(slug, organization:organizations!organization_id(slug))")
     .eq("id", id)
     .maybeSingle();
 
-  type BookingRow = { id: string; location: { slug: string } | null };
+  type BookingRow = { id: string; location: { slug: string; organization: { slug: string } | null } | null };
   const b = booking as unknown as BookingRow | null;
-  const bookUrl = b?.location?.slug ? `${tenantOrigin(b.location.slug)}/book` : "/book";
+  const bookUrl = b?.location?.organization?.slug ? `${tenantOrigin(b.location.organization.slug)}/book` : "/book";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0b0d11] text-white px-6">

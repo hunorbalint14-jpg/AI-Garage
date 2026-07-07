@@ -26,7 +26,7 @@ export default async function BookingPaidPage({
   const admin = createAdminClient();
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, scheduled_at, paid_amount_pence, service:services(name), location:locations(name, slug, organization:organizations!organization_id(name))")
+    .select("id, scheduled_at, paid_amount_pence, service:services(name), location:locations(name, slug, organization:organizations!organization_id(name, slug))")
     .eq("id", id)
     .maybeSingle();
 
@@ -35,7 +35,7 @@ export default async function BookingPaidPage({
     scheduled_at: string;
     paid_amount_pence: number | null;
     service: { name: string } | null;
-    location: { name: string; slug: string; organization: { name: string } | null } | null;
+    location: { name: string; slug: string; organization: { name: string; slug: string } | null } | null;
   };
   const b = booking as unknown as BookingRow | null;
 
@@ -60,8 +60,8 @@ export default async function BookingPaidPage({
   // tenant's dashboard so the user lands back in their portal (with the
   // right auth cookies), not on the apex /dashboard where they'd be
   // bounced to /login because there's no tenant context.
-  const dashboardUrl = b?.location?.slug
-    ? `${tenantOrigin(b.location.slug)}/dashboard`
+  const dashboardUrl = b?.location?.organization?.slug
+    ? `${tenantOrigin(b.location.organization.slug)}/dashboard`
     : "/dashboard";
 
   return (
