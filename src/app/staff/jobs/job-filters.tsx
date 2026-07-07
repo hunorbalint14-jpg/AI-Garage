@@ -3,12 +3,12 @@
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
 
 type Staff = { id: string; name: string };
 
-// Search + technician filter for the jobs board. Mirrors the bookings page's
-// assignee filter; both navigate with merged query params so they compose.
+// Search + technician filter for the jobs board, styled as workshop dark
+// chips (UX review §1e). Mirrors the bookings page's assignee filter; both
+// navigate with merged query params so they compose.
 export function JobFilters({
   initialQ,
   staff,
@@ -43,15 +43,15 @@ export function JobFilters({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-2">
       <form onSubmit={applyQuery}>
         <div className="relative">
-          <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ws-text-3" />
+          <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Registration, customer, description…"
-            className="w-72 pl-8"
+            className="w-72 rounded-[3px] border border-ws-border bg-ws-hover py-1.5 pl-8 pr-3 font-mono text-[11px] text-ws-text placeholder:text-ws-text-3 focus:outline-none focus:ring-1 focus:ring-ws-amber"
           />
         </div>
       </form>
@@ -59,10 +59,10 @@ export function JobFilters({
         <select
           value={assignee}
           onChange={(e) => applyAssignee(e.target.value)}
-          className="rounded-md border bg-background px-3 py-1.5 text-sm"
+          className="rounded-[3px] border border-ws-border bg-ws-hover px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.04em] text-ws-text-2 focus:outline-none focus:ring-1 focus:ring-ws-amber"
           aria-label="Filter by technician"
         >
-          <option value="">All technicians</option>
+          <option value="">Tech: all</option>
           {staff.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
