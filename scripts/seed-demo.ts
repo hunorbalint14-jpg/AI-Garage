@@ -331,10 +331,13 @@ async function main() {
       jobId = existing.data.id as string;
       return;
     }
+    // INV-DEMO-001 below links this job, so its app status is "invoiced"
+    // (the board's third column). "completed" is not a job status the app
+    // ever writes — completeJob() sets "complete".
     const job = must(
       await db
         .from("jobs")
-        .insert({ location_id: locId, customer_id: customerId, vehicle_id: v0, description: "Full service & brake check", status: "completed" })
+        .insert({ location_id: locId, customer_id: customerId, vehicle_id: v0, description: "Full service & brake check", status: "invoiced", completed_at: daysFromNow(-6).toISOString() })
         .select("id")
         .single(),
     );
@@ -346,6 +349,29 @@ async function main() {
           { job_id: jobId, description: "Full Service", type: "labour", quantity: 1, unit_price: 189, service_id: fullServiceId },
           { job_id: jobId, description: "Oil filter", type: "part", quantity: 1, unit_price: 12.5 },
           { job_id: jobId, description: "Brake pads (front)", type: "part", quantity: 1, unit_price: 48 },
+        ])
+        .select("id"),
+    );
+  });
+
+  // A finished-but-unbilled job — exercises the jobs board's "Done ·
+  // unbilled" column (aging escalation + one-click INVOICE →).
+  await step("unbilled completed job + items", async () => {
+    const existing = await db.from("jobs").select("id").eq("customer_id", customerId).eq("description", "Clutch replacement").maybeSingle();
+    if (existing.data) return;
+    const job = must(
+      await db
+        .from("jobs")
+        .insert({ location_id: locId, customer_id: customerId, vehicle_id: v0, description: "Clutch replacement", status: "complete", completed_at: daysFromNow(-9).toISOString() })
+        .select("id")
+        .single(),
+    );
+    must(
+      await db
+        .from("job_items")
+        .insert([
+          { job_id: job.id as string, description: "Clutch kit", type: "part", quantity: 1, unit_price: 320 },
+          { job_id: job.id as string, description: "Labour", type: "labour", quantity: 1, unit_price: 190 },
         ])
         .select("id"),
     );
