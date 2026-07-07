@@ -52,8 +52,11 @@ export default async function FleetPage() {
       />
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-          No fleet companies yet. Add one to group commercial customers and their vehicles.
+        <div className="rounded-lg border border-dashed p-12 text-center">
+          <p className="font-mono text-xs text-ws-text-3">{"// NO FLEET COMPANIES YET"}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Add one to group commercial customers and their vehicles.
+          </p>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">

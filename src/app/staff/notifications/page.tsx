@@ -17,7 +17,7 @@ export default async function NotificationsPage() {
 
       {notifications.length === 0 ? (
         <div className="rounded-lg border p-8 text-center">
-          <p className="text-sm text-muted-foreground">No notifications yet.</p>
+          <p className="font-mono text-xs text-ws-text-3">{"// NO NOTIFICATIONS YET"}</p>
           <Link href="/staff" className="text-sm underline mt-2 inline-block">← Back to dashboard</Link>
         </div>
       ) : (

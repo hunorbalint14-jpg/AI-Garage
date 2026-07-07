@@ -167,7 +167,7 @@ export default async function RevenuePage({
             </Link>
           </div>
           {recentInvoices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No invoices yet.</p>
+            <p className="font-mono text-xs text-ws-text-3">{"// NO INVOICES YET"}</p>
           ) : (
             <div className="rounded-lg border overflow-hidden">
               <table className="w-full text-sm">

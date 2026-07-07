@@ -50,8 +50,9 @@ export default async function ServicesPage() {
       />
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-          No services added yet. Add your first service to get started.
+        <div className="rounded-lg border border-dashed p-12 text-center">
+          <p className="font-mono text-xs text-ws-text-3">{"// NO SERVICES YET"}</p>
+          <p className="mt-2 text-sm text-muted-foreground">Add your first service to get started.</p>
         </div>
       ) : (
         <div className="flex flex-col gap-6">

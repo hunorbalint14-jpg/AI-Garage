@@ -130,9 +130,12 @@ export default async function FinancePage({
       )}
 
       {apps.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-          No finance applications yet. Customers start these from the &ldquo;Spread the cost&rdquo;
-          option on their quote or invoice — enable it in Settings → Customer finance.
+        <div className="rounded-lg border border-dashed p-12 text-center">
+          <p className="font-mono text-xs text-ws-text-3">{"// NO FINANCE APPLICATIONS YET"}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Customers start these from the &ldquo;Spread the cost&rdquo; option on their quote or
+            invoice — enable it in Settings → Customer finance.
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
