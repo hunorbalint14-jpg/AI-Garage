@@ -31,10 +31,10 @@ export function StatusFilter({ current }: { current: string }) {
     <select
       value={current}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-md border bg-background px-3 py-1.5 text-sm"
+      className="rounded-[3px] border border-ws-border bg-ws-hover px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.04em] text-ws-text-2 focus:outline-none focus:ring-1 focus:ring-ws-amber"
       aria-label="Filter by status"
     >
-      <option value="">All statuses</option>
+      <option value="">Status: all</option>
       {STATUSES.map((s) => (
         <option key={s} value={s}>
           {statusLabel(s)}

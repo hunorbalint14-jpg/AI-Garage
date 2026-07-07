@@ -7,7 +7,7 @@ import { hasPermission } from "@/lib/permissions";
 import { utilisationSummary, workingDaysBetween } from "@/lib/reports";
 import { CardGridSkeleton, BlockSkeleton, TableSkeleton } from "@/components/staff/skeletons";
 import { KpiTile } from "@/components/staff/dashboard/kpi-tile";
-import { TodaySchedule } from "@/components/staff/dashboard/today-schedule";
+import { BayTimeline } from "@/components/staff/workshop/bay-timeline";
 import { WeeklyChart } from "@/components/staff/dashboard/weekly-chart";
 import { AttentionQueue } from "@/components/staff/dashboard/attention-queue";
 import { PriorityActions } from "@/components/staff/dashboard/priority-actions";
@@ -380,12 +380,25 @@ async function DashboardContent() {
 
       {/* Day schedule */}
       {widgets.bookingsOps && (
-        <TodaySchedule
+        <BayTimeline
           bookings={todaySchedule}
           bays={locationBays}
+          date={now}
           now={now}
           workStart={businessHoursStart}
           workEnd={businessHoursEnd}
+          headerActions={
+            <>
+              {locationBays.length === 0 && (
+                <Link href="/staff/bays" className="rounded-[2px] border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground no-underline">
+                  Set up bays →
+                </Link>
+              )}
+              <Link href="/staff/bookings/new" className="rounded-[2px] border border-[#3a2c14] bg-[#1c1810] px-3 py-1.5 font-mono text-[11px] text-[#ffb020] no-underline">
+                + New booking →
+              </Link>
+            </>
+          }
         />
       )}
 
