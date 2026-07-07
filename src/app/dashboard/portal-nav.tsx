@@ -4,16 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { TrackedLink as Link } from "@/components/nav-progress";
 
-// Shared tab bar for the logged-in customer portal. Tabs are added here as each
-// destination ships — keep this list to routes that actually exist so we never
-// render a link that 404s. (Quotes / Documents / Settings arrive in later
-// Phase 2 PRs.)
+// Shared tab bar for the logged-in customer portal. Four tabs fit a 390px
+// viewport without scrolling (UX review F14). Quotes and Plans stay routable —
+// pending quotes surface on Overview as Next-up/action cards, and the quotes
+// list is linked from Documents.
 const TABS: { href: string; label: string; exact?: boolean }[] = [
   { href: "/dashboard", label: "Overview", exact: true },
   { href: "/dashboard/history", label: "History" },
-  { href: "/dashboard/quotes", label: "Quotes" },
   { href: "/dashboard/documents", label: "Documents" },
-  { href: "/dashboard/plans", label: "Plans" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
 
@@ -51,7 +49,7 @@ export function PortalNav({ orgColor }: { orgColor: string }) {
             <Link
               key={t.href}
               href={t.href}
-              className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors sm:px-4 ${
                 active ? "text-white" : "border-transparent text-gray-400 hover:text-white"
               }`}
               style={active ? { borderColor: orgColor } : undefined}
