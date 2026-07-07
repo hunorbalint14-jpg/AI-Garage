@@ -383,8 +383,9 @@ async function DashboardContent() {
         <BayTimeline
           bookings={todaySchedule}
           bays={locationBays}
-          date={now}
-          now={now}
+          date={now.toISOString()}
+          now={now.toISOString()}
+          interactive
           workStart={businessHoursStart}
           workEnd={businessHoursEnd}
           headerActions={

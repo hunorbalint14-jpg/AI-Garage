@@ -659,3 +659,102 @@ export async function deleteBooking(bookingId: string): Promise<UpdateBookingSta
   revalidatePath("/staff/bookings");
   redirect("/staff/bookings");
 }
+
+export type MoveBookingResult = { error: string } | { success: true };
+
+// Drag-to-reschedule/resize from the shared bay timeline (UX review §1d
+// follow-up, #491). One action moves time, bay and/or duration with the same
+// guards the create/assign paths use. Time/bay changes need a still-scheduled
+// booking; a duration resize is also allowed while work is in progress.
+export async function moveBooking(args: {
+  bookingId: string;
+  /** Naive local "YYYY-MM-DDTHH:mm" — same shape createBooking accepts. */
+  scheduledAt?: string;
+  /** undefined = keep current bay; null = move to unassigned. */
+  bayId?: string | null;
+  durationMinutes?: number;
+}): Promise<MoveBookingResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const { data } = await admin
+    .from("bookings")
+    .select("id, status, scheduled_at, duration_minutes, bay_id")
+    .eq("id", args.bookingId)
+    .eq("location_id", ctx.location.id)
+    .maybeSingle();
+  const booking = data as {
+    id: string;
+    status: string;
+    scheduled_at: string;
+    duration_minutes: number | null;
+    bay_id: string | null;
+  } | null;
+  if (!booking) return { error: "Booking not found." };
+
+  const movesTimeOrBay = args.scheduledAt !== undefined || args.bayId !== undefined;
+  if (movesTimeOrBay && booking.status !== "scheduled") {
+    return { error: "Only scheduled bookings can be moved." };
+  }
+  if (!movesTimeOrBay && booking.status !== "scheduled" && booking.status !== "in_progress") {
+    return { error: "This booking can no longer be changed." };
+  }
+
+  const duration = args.durationMinutes ?? booking.duration_minutes ?? 60;
+  if (!Number.isInteger(duration) || duration < 15 || duration > 720) {
+    return { error: "Duration must be between 15 minutes and 12 hours." };
+  }
+
+  let scheduledIso = booking.scheduled_at;
+  if (args.scheduledAt !== undefined) {
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(args.scheduledAt)) {
+      return { error: "Invalid date/time." };
+    }
+    const hoursCheck = await checkLocationHoursAt(admin, ctx.location.id, ctx.location.name, args.scheduledAt);
+    if (hoursCheck.message) return { error: hoursCheck.message };
+    scheduledIso = new Date(args.scheduledAt).toISOString();
+  }
+
+  const targetBay = args.bayId === undefined ? booking.bay_id : args.bayId;
+  if (targetBay) {
+    const { data: bay } = await admin
+      .from("bays")
+      .select("id")
+      .eq("id", targetBay)
+      .eq("location_id", ctx.location.id)
+      .maybeSingle();
+    if (!bay) return { error: "Bay not found at this location." };
+    const free = await isBayFreeAt({
+      locationId: ctx.location.id,
+      bayId: targetBay,
+      scheduledAt: scheduledIso,
+      durationMinutes: duration,
+      excludeBookingId: booking.id,
+    });
+    if (!free) return { error: "That bay is already booked for an overlapping time." };
+  }
+
+  const { error } = await admin
+    .from("bookings")
+    .update({ scheduled_at: scheduledIso, bay_id: targetBay, duration_minutes: duration })
+    .eq("id", booking.id)
+    .eq("location_id", ctx.location.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    action: "booking.move",
+    entityType: "booking",
+    entityId: booking.id,
+    metadata: {
+      from: { scheduled_at: booking.scheduled_at, bay_id: booking.bay_id, duration_minutes: booking.duration_minutes },
+      to: { scheduled_at: scheduledIso, bay_id: targetBay, duration_minutes: duration },
+    },
+  });
+
+  revalidatePath("/staff/bookings");
+  revalidatePath(`/staff/bookings/${booking.id}`);
+  revalidatePath("/staff");
+  return { success: true };
+}
