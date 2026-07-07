@@ -134,8 +134,15 @@ export default async function InvoicesPage({
       )}
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
-          {query ? `No invoices found for "${query}".` : "No invoices yet. Complete a job and create an invoice from the job card."}
+        <div className="rounded-lg border border-dashed p-12 text-center">
+          <p className="font-mono text-xs text-ws-text-3">
+            {query ? `// NO INVOICES MATCH "${query.toUpperCase()}"` : "// NO INVOICES YET"}
+          </p>
+          {!query && (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Complete a job and create an invoice from the job card.
+            </p>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">

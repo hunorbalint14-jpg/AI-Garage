@@ -175,9 +175,10 @@ export default async function CustomersPage({
 
       {!error && rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed p-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            {query ? `No customers found for "${query}".` : "No customers yet. Add your first one to get started."}
+          <p className="font-mono text-xs text-ws-text-3">
+            {query ? `// NO CUSTOMERS MATCH "${query.toUpperCase()}"` : "// NO CUSTOMERS YET"}
           </p>
+          {!query && <p className="text-sm text-muted-foreground">Add your first one to get started.</p>}
           {!query && (
             <Button
               nativeButton={false}
