@@ -306,7 +306,7 @@ export function QuoteBuilder({
   if (phase === "sent" && customerUrl) {
     return (
       <section className="rounded-lg border p-5 flex flex-col gap-3">
-        <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+        <p className="text-sm text-ws-green dark:text-green-400 flex items-center gap-2">
           <Check className="h-4 w-4" /> Quote sent — customer notified via email + SMS.
         </p>
         <div className="rounded-md border bg-muted/20 p-2 flex items-center gap-2">
@@ -385,7 +385,7 @@ export function QuoteBuilder({
             </p>
           </div>
         )}
-        {aiError && <p className="text-sm text-red-600">{aiError}</p>}
+        {aiError && <p className="text-sm text-ws-red">{aiError}</p>}
       </div>
 
       {/* Title + message */}
@@ -441,8 +441,8 @@ export function QuoteBuilder({
             </div>
           </div>
         ) : videoPath ? (
-          <div className="flex items-center justify-between rounded-md border bg-green-50 p-2 text-sm">
-            <span className="text-green-700">✓ Video uploaded</span>
+          <div className="flex items-center justify-between rounded-md border bg-ws-green-bg p-2 text-sm">
+            <span className="text-ws-green">✓ Video uploaded</span>
             <button type="button" onClick={() => { setVideoPath(null); setPendingQuoteId(null); if (fileInputRef.current) fileInputRef.current.value = ""; }} className="text-xs underline text-muted-foreground">
               Remove
             </button>
@@ -534,7 +534,7 @@ export function QuoteBuilder({
                 type="button"
                 onClick={() => removeItem(idx)}
                 disabled={pending || items.length === 1}
-                className="text-muted-foreground hover:text-red-600 disabled:opacity-30 h-9 px-2"
+                className="text-muted-foreground hover:text-ws-red disabled:opacity-30 h-9 px-2"
                 aria-label="Remove item"
               >
                 <Trash2 className="h-4 w-4" />
@@ -578,7 +578,7 @@ export function QuoteBuilder({
         </Button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </section>
   );
 }

@@ -149,7 +149,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
               {isDrafting ? "Drafting…" : "Draft with AI"}
             </Button>
             {step.type === "error" && (
-              <span className="text-sm text-red-600">{step.message}</span>
+              <span className="text-sm text-ws-red">{step.message}</span>
             )}
           </div>
         </>
@@ -210,7 +210,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
       {/* Done */}
       {step.type === "done" && (
         <div className="flex items-center gap-3">
-          <span className="text-sm text-green-700">{step.summary}</span>
+          <span className="text-sm text-ws-green">{step.summary}</span>
           <Button type="button" size="sm" variant="outline" onClick={reset}>
             New message
           </Button>

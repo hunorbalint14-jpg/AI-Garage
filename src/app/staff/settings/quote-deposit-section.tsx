@@ -42,7 +42,7 @@ export function QuoteDepositSection({
       </div>
 
       {!stripeActive && (
-        <p className="text-xs text-amber-700">
+        <p className="text-xs text-ws-amber">
           Connect Stripe above first — deposits won&rsquo;t work without an active card-payments account.
         </p>
       )}
@@ -71,8 +71,8 @@ export function QuoteDepositSection({
       {!canManage && (
         <p className="text-xs text-muted-foreground">Only owners and admins can change this.</p>
       )}
-      {info && <p className="text-sm text-green-700">{info}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {info && <p className="text-sm text-ws-green">{info}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </section>
   );
 }

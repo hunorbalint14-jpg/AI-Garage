@@ -23,9 +23,9 @@ function StaffRow({ member }: { member: DevStaff }) {
 
   const displayName = member.fullName ?? member.email;
   const roleStyle: Record<string, string> = {
-    owner: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
-    admin: "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300",
-    manager: "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300",
+    owner: "bg-ws-amber-bg text-ws-amber dark:bg-amber-950/40 dark:text-amber-300",
+    admin: "bg-ws-blue-bg text-ws-blue dark:bg-blue-950/40 dark:text-blue-300",
+    manager: "bg-ws-purple-bg text-ws-purple dark:bg-purple-950/40 dark:text-purple-300",
     staff: "bg-muted text-muted-foreground",
   };
 
@@ -48,7 +48,7 @@ function StaffRow({ member }: { member: DevStaff }) {
           Log in as
         </button>
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-ws-red">{error}</p>}
     </div>
   );
 }
@@ -96,7 +96,7 @@ function CustomerRow({ customer }: { customer: DevCustomer }) {
           </button>
         )}
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-ws-red">{error}</p>}
     </div>
   );
 }
@@ -124,9 +124,9 @@ export function DevTools({
   return (
     <div className="flex flex-col gap-6">
       {/* Warning banner */}
-      <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-4 py-3">
-        <p className="text-sm font-semibold text-red-800 dark:text-red-300">Owner-only impersonation</p>
-        <p className="text-xs text-red-700 dark:text-red-400 mt-1">
+      <div className="rounded-lg border border-ws-red-border dark:border-red-800 bg-ws-red-bg dark:bg-red-950/30 px-4 py-3">
+        <p className="text-sm font-semibold text-ws-red dark:text-red-300">Owner-only impersonation</p>
+        <p className="text-xs text-ws-red dark:text-red-400 mt-1">
           Click <strong>Log in as</strong> to switch session immediately. Your original session is preserved in a stash cookie; an <strong>Exit</strong> button appears at the bottom of the screen to restore it.
         </p>
       </div>

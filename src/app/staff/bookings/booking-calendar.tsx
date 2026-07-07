@@ -7,11 +7,12 @@ import { ChevronLeft, ChevronRight, CalendarPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   type BookingRow,
-  STATUS_STYLE,
+  STATUS_TONE,
   STATUS_DOT,
   statusLabel,
   typeLabel,
 } from "./booking-display";
+import { WorkshopBadge } from "@/components/staff/workshop";
 import {
   parseMonthParam,
   buildMonthGrid,
@@ -213,14 +214,9 @@ export function BookingCalendar({
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-sm font-medium">{instantTimeLabel(b.scheduled_at)}</span>
-                  <span
-                    className={cn(
-                      "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
-                      STATUS_STYLE[b.status] ?? "",
-                    )}
-                  >
+                  <WorkshopBadge tone={STATUS_TONE[b.status] ?? "neutral"}>
                     {statusLabel(b.status)}
-                  </span>
+                  </WorkshopBadge>
                 </div>
                 <div className="text-sm">
                   {typeLabel(b.type)}

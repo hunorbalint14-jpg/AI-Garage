@@ -97,11 +97,11 @@ export function PlanInvitePanel({
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       {result && (
         <div className="flex flex-col gap-2 text-sm">
-          <p className="text-green-700">
+          <p className="text-ws-green">
             Invite created{result.sent.email ? " · emailed" : ""}
             {result.sent.sms ? " · texted" : ""}.
           </p>

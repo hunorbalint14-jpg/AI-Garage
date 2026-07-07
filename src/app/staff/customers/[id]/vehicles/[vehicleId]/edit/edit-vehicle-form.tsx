@@ -126,8 +126,8 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
                 Refresh DVLA
               </Button>
             </div>
-            {lookupHint && <p className="text-xs text-green-700">{lookupHint}</p>}
-            {lookupError && <p className="text-xs text-red-600">{lookupError}</p>}
+            {lookupHint && <p className="text-xs text-ws-green">{lookupHint}</p>}
+            {lookupError && <p className="text-xs text-ws-red">{lookupError}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -158,7 +158,7 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
             <div className="flex flex-col gap-2">
               <Label htmlFor="motExpiry">MOT expiry</Label>
               <Input id="motExpiry" name="motExpiry" type="date" value={motExpiry} onChange={(e) => setMotExpiry(e.target.value)} />
-              {motHint && <p className="text-xs text-amber-600">{motHint}</p>}
+              {motHint && <p className="text-xs text-ws-amber">{motHint}</p>}
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="serviceDue">Service due</Label>
@@ -169,10 +169,10 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
           <div className="flex flex-col gap-2">
             <Label htmlFor="taxDueDate">Road tax due</Label>
             <Input id="taxDueDate" name="taxDueDate" type="date" value={taxDueDate} onChange={(e) => setTaxDueDate(e.target.value)} />
-            {vedHint && <p className="text-xs text-green-700">{vedHint}</p>}
+            {vedHint && <p className="text-xs text-ws-green">{vedHint}</p>}
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-ws-red">{error}</p>}
           <Button type="submit" loading={pending} className="self-start">
             Save changes
           </Button>
@@ -190,24 +190,24 @@ export function EditVehicleForm({ vehicle, customerId }: { vehicle: Vehicle; cus
             >
               Check DVSA safety recalls
             </Button>
-            {recallError && <span className="text-xs text-red-600">{recallError}</span>}
+            {recallError && <span className="text-xs text-ws-red">{recallError}</span>}
           </div>
           {recallResult && (
             recallResult.hasRecall ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 flex flex-col gap-2">
-                <p className="text-sm font-semibold text-red-700">⚠️ Outstanding safety recall on this vehicle</p>
-                <p className="text-xs text-red-800">DVSA has flagged an outstanding recall for {registration}. The customer&apos;s vehicle should not be returned until the recall is addressed.</p>
+              <div className="rounded-lg border border-ws-red-border bg-ws-red-bg p-3 flex flex-col gap-2">
+                <p className="text-sm font-semibold text-ws-red">⚠️ Outstanding safety recall on this vehicle</p>
+                <p className="text-xs text-ws-red">DVSA has flagged an outstanding recall for {registration}. The customer&apos;s vehicle should not be returned until the recall is addressed.</p>
                 <a
                   href={`https://www.check-mot.service.gov.uk/results?registration=${encodeURIComponent(registration)}&checkRecalls=true`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-medium text-red-700 underline"
+                  className="text-xs font-medium text-ws-red underline"
                 >
                   View full recall details for {registration} on GOV.UK →
                 </a>
               </div>
             ) : (
-              <p className="text-xs text-green-700">✓ No outstanding recalls found for {registration}.</p>
+              <p className="text-xs text-ws-green">✓ No outstanding recalls found for {registration}.</p>
             )
           )}
         </div>

@@ -162,8 +162,8 @@ export function BusinessHoursForm({
             </Button>
           </div>
         )}
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {saved && <p className="text-sm text-green-700">Saved.</p>}
+        {error && <p className="text-sm text-ws-red">{error}</p>}
+        {saved && <p className="text-sm text-ws-green">Saved.</p>}
       </form>
     </section>
   );

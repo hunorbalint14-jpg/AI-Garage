@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { Pagination } from "@/components/staff/pagination";
 import { Button } from "@/components/ui/button";
+import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 import { QuoteFilters } from "./quote-filters";
 
 export const dynamic = "force-dynamic";
@@ -36,14 +37,14 @@ type QuoteRow = {
   job: { id: string; customer: PersonRef; vehicle: VehicleRef } | null;
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  pending: "bg-amber-100 text-amber-800",
-  approved: "bg-green-100 text-green-700",
-  declined: "bg-red-100 text-red-700",
-  expired: "bg-gray-200 text-gray-700",
-  cancelled: "bg-gray-200 text-gray-700",
-  approved_after_close: "bg-purple-100 text-purple-700",
+const STATUS_TONE: Record<string, WorkshopTone> = {
+  draft: "neutral",
+  pending: "amber",
+  approved: "green",
+  declined: "red",
+  expired: "neutral",
+  cancelled: "neutral",
+  approved_after_close: "purple",
 };
 
 const STATUSES = ["draft", "pending", "approved", "declined", "expired", "cancelled"] as const;
@@ -237,11 +238,11 @@ export default async function QuotesPage({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Pending ({stats.pending})</p>
-            <p className="text-2xl font-bold text-amber-600">{fmt(stats.pendingValue)}</p>
+            <p className="text-2xl font-bold text-ws-amber">{fmt(stats.pendingValue)}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Approved ({stats.approved})</p>
-            <p className="text-2xl font-bold text-green-700">{fmt(stats.approvedValue)}</p>
+            <p className="text-2xl font-bold text-ws-green">{fmt(stats.approvedValue)}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Expired</p>
@@ -286,13 +287,9 @@ export default async function QuotesPage({
                 return (
                   <tr key={r.id} className="border-t hover:bg-muted/20">
                     <td className="px-4 py-2">
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                          isJob ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
-                        }`}
-                      >
+                      <WorkshopBadge tone={isJob ? "purple" : "blue"}>
                         {isJob ? "DVI" : "Pre-job"}
-                      </span>
+                      </WorkshopBadge>
                       {isJob && r.job_id && (
                         <Link href={`/staff/jobs/${r.job_id}`} className="mt-1 block text-[11px] text-muted-foreground underline">
                           View job →
@@ -316,9 +313,9 @@ export default async function QuotesPage({
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums">{fmt(Number(r.total ?? 0))}</td>
                     <td className="px-4 py-2">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_STYLE[r.status] ?? ""}`}>
+                      <WorkshopBadge tone={STATUS_TONE[r.status] ?? "neutral"}>
                         {r.status.replace(/_/g, " ")}
-                      </span>
+                      </WorkshopBadge>
                     </td>
                     <td className="px-4 py-2 text-muted-foreground">
                       {fmtDate(r.sent_at)}

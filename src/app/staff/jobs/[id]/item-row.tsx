@@ -93,15 +93,15 @@ export function ItemRow({
       </td>
       <td className="px-4 py-2 text-right tabular-nums font-medium">
         {fmt(total)}
-        {saved && <span className="ml-1 text-xs text-green-600">✓</span>}
-        {error && <div className="text-xs text-red-600">{error}</div>}
+        {saved && <span className="ml-1 text-xs text-ws-green">✓</span>}
+        {error && <div className="text-xs text-ws-red">{error}</div>}
       </td>
       <td className="px-4 py-2 text-right">
         <button
           type="button"
           onClick={onRemove}
           disabled={removePending || pending}
-          className="text-xs text-red-600 underline"
+          className="text-xs text-ws-red underline"
         >
           Remove
         </button>

@@ -15,10 +15,10 @@ export type SermiView = {
 };
 
 const STATUS_META: Record<SermiView["status"], { label: string; chip: string }> = {
-  not_applied: { label: "Not applied", chip: "bg-gray-100 text-gray-600" },
-  applied: { label: "Application in progress", chip: "bg-blue-100 text-blue-700" },
-  accredited: { label: "Accredited", chip: "bg-green-100 text-green-700" },
-  lapsed: { label: "Lapsed", chip: "bg-red-100 text-red-700" },
+  not_applied: { label: "Not applied", chip: "bg-ws-hover text-ws-text-2" },
+  applied: { label: "Application in progress", chip: "bg-ws-blue-bg text-ws-blue" },
+  accredited: { label: "Accredited", chip: "bg-ws-green-bg text-ws-green" },
+  lapsed: { label: "Lapsed", chip: "bg-ws-red-bg text-ws-red" },
 };
 
 export function SermiCard({ sermi, canManage }: { sermi: SermiView; canManage: boolean }) {
@@ -95,7 +95,7 @@ export function SermiCard({ sermi, canManage }: { sermi: SermiView; canManage: b
           </div>
         )}
       </form>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </section>
   );
 }

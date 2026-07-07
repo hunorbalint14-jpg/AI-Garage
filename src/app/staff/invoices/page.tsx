@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { InvoiceSearch } from "./invoice-search";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
+import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 
 export const dynamic = "force-dynamic";
 
@@ -18,11 +19,11 @@ type InvoiceRow = {
   customer: { id: string; full_name: string | null } | null;
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  sent: "bg-blue-100 text-blue-700",
-  paid: "bg-green-100 text-green-700",
-  overdue: "bg-red-100 text-red-700",
+const STATUS_TONE: Record<string, WorkshopTone> = {
+  draft: "neutral",
+  sent: "blue",
+  paid: "green",
+  overdue: "red",
 };
 
 function fmt(n: number) {
@@ -119,11 +120,11 @@ export default async function InvoicesPage({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Outstanding</p>
-            <p className="text-2xl font-bold text-amber-600">{fmt(totalOwed)}</p>
+            <p className="text-2xl font-bold text-ws-amber">{fmt(totalOwed)}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Received</p>
-            <p className="text-2xl font-bold text-green-700">{fmt(totalPaid)}</p>
+            <p className="text-2xl font-bold text-ws-green">{fmt(totalPaid)}</p>
           </div>
           <div className="rounded-lg border p-4">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Total invoices</p>
@@ -176,9 +177,9 @@ export default async function InvoicesPage({
                     {fmt(inv.total)}
                   </td>
                   <td className="px-4 py-2">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[inv.computedStatus] ?? ""}`}>
+                    <WorkshopBadge tone={STATUS_TONE[inv.computedStatus] ?? "neutral"}>
                       {inv.computedStatus}
-                    </span>
+                    </WorkshopBadge>
                   </td>
                   <td className="px-4 py-2 text-right">
                     <Link href={`/staff/invoices/${inv.id}`} className="underline text-sm">

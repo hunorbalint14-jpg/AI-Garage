@@ -55,7 +55,7 @@ export function NewFleetForm() {
             <Label htmlFor="contactEmail">Email</Label>
             <Input id="contactEmail" name="contactEmail" type="email" placeholder="fleet@company.com" disabled={pending} />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-ws-red">{error}</p>}
           <div className="flex gap-2 pt-1">
             <Button type="submit" loading={pending}>Create</Button>
             <Button type="button" variant="outline" onClick={() => { setOpen(false); setError(null); }}>Cancel</Button>

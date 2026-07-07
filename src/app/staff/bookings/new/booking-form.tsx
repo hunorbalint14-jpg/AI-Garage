@@ -129,7 +129,7 @@ export function BookingForm({
       </div>
 
       {bookingElsewhere && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+        <div className="flex items-start gap-2 rounded-md border border-ws-amber-border bg-ws-amber-bg px-3 py-2 text-sm text-ws-amber dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <span aria-hidden className="mt-0.5">⚠️</span>
           <p>
             {customer?.full_name ?? "This customer"}&apos;s home branch is{" "}
@@ -240,7 +240,7 @@ export function BookingForm({
       </label>
 
       {oohWarning && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+        <div className="flex items-start gap-2 rounded-md border border-ws-amber-border bg-ws-amber-bg px-3 py-2 text-sm text-ws-amber dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <span aria-hidden className="mt-0.5">⚠️</span>
           <p>
             {oohWarning} Submit again to create it anyway, or pick a different time.
@@ -248,7 +248,7 @@ export function BookingForm({
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={!customerId} loading={pending}>

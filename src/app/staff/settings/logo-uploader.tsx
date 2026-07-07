@@ -117,7 +117,7 @@ export function LogoUploader({
                 variant="outline"
                 onClick={handleRemove}
                 disabled={pending}
-                className="text-red-600"
+                className="text-ws-red"
               >
                 <Trash2 className="mr-1.5 h-4 w-4" />
                 Remove
@@ -130,8 +130,8 @@ export function LogoUploader({
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {saved && <p className="text-sm text-green-700">Logo updated.</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
+      {saved && <p className="text-sm text-ws-green">Logo updated.</p>}
     </div>
   );
 }

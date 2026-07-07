@@ -80,7 +80,7 @@ export function ImportForm() {
         </form>
 
         {error && (
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-ws-red">{error}</p>
         )}
       </div>
 
@@ -89,7 +89,7 @@ export function ImportForm() {
           <h2 className="text-sm font-medium">Import complete</h2>
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div className="flex flex-col gap-0.5">
-              <span className="text-2xl font-bold text-green-700">{result.customersCreated}</span>
+              <span className="text-2xl font-bold text-ws-green">{result.customersCreated}</span>
               <span className="text-muted-foreground">customers created</span>
             </div>
             <div className="flex flex-col gap-0.5">
@@ -97,14 +97,14 @@ export function ImportForm() {
               <span className="text-muted-foreground">customers matched</span>
             </div>
             <div className="flex flex-col gap-0.5">
-              <span className="text-2xl font-bold text-green-700">{result.vehiclesAdded}</span>
+              <span className="text-2xl font-bold text-ws-green">{result.vehiclesAdded}</span>
               <span className="text-muted-foreground">vehicles added</span>
             </div>
           </div>
           {result.errors.length > 0 && (
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-medium text-red-600">{result.errors.length} row{result.errors.length !== 1 ? "s" : ""} skipped:</p>
-              <ul className="text-xs text-red-600 list-disc list-inside space-y-0.5">
+              <p className="text-sm font-medium text-ws-red">{result.errors.length} row{result.errors.length !== 1 ? "s" : ""} skipped:</p>
+              <ul className="text-xs text-ws-red list-disc list-inside space-y-0.5">
                 {result.errors.map((e, i) => <li key={i}>{e}</li>)}
               </ul>
             </div>

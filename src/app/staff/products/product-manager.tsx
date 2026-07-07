@@ -54,7 +54,7 @@ export function ProductManager({ products, canEdit }: { products: Product[]; can
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Stat label="Products" value={String(products.length)} />
         <Stat label="In stock" value={String(products.reduce((s, p) => s + (p.stock_qty > 0 ? 1 : 0), 0))} />
-        <Stat label="Low stock" value={String(products.filter((p) => isLowStock(p.stock_qty, p.reorder_at)).length)} accent="text-amber-600" />
+        <Stat label="Low stock" value={String(products.filter((p) => isLowStock(p.stock_qty, p.reorder_at)).length)} accent="text-ws-amber" />
         <Stat label="Stock value" value={fmt(totalStockValue)} />
       </div>
 
@@ -83,7 +83,7 @@ export function ProductManager({ products, canEdit }: { products: Product[]; can
           type="button"
           onClick={() => setLowOnly((v) => !v)}
           aria-pressed={lowOnly}
-          className={`rounded-md border px-3 py-2 text-sm transition-colors ${lowOnly ? "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" : "hover:bg-muted"}`}
+          className={`rounded-md border px-3 py-2 text-sm transition-colors ${lowOnly ? "border-amber-500 bg-ws-amber-bg text-ws-amber dark:bg-amber-950/40 dark:text-amber-400" : "hover:bg-muted"}`}
         >
           Low stock{lowCount > 0 ? ` (${lowCount})` : ""}
         </button>
@@ -215,7 +215,7 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
   }
 
   const low = isLowStock(product.stock_qty, product.reorder_at);
-  const stockClass = product.stock_qty === 0 ? "text-red-600" : low ? "text-amber-600" : "";
+  const stockClass = product.stock_qty === 0 ? "text-ws-red" : low ? "text-ws-amber" : "";
 
   return (
     <tr className="border-t">
@@ -289,7 +289,7 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
       <td className="px-3 py-2 text-right">
         <div className="inline-flex items-center gap-1.5">
           {low && (
-            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+            <span className="rounded-full bg-ws-amber-bg px-1.5 py-0.5 text-[10px] font-medium text-ws-amber dark:bg-amber-950/40 dark:text-amber-400">
               Low
             </span>
           )}
@@ -349,7 +349,7 @@ function ProductRow({ product, canEdit }: { product: Product; canEdit: boolean }
             type="button"
             onClick={handleDelete}
             disabled={pending}
-            className="text-muted-foreground hover:text-red-600"
+            className="text-muted-foreground hover:text-ws-red"
             aria-label="Delete product"
           >
             <Trash2 className="h-4 w-4" />
@@ -415,7 +415,7 @@ function AddProductForm({ onDone }: { onDone: () => void }) {
         <Button type="submit" loading={pending}>Add product</Button>
         <Button type="button" variant="outline" onClick={onDone}>Cancel</Button>
       </div>
-      {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
+      {error && <p className="sm:col-span-2 text-sm text-ws-red">{error}</p>}
     </form>
   );
 }

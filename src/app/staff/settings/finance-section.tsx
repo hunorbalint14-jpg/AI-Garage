@@ -104,7 +104,7 @@ export function FinanceSection({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="text-xs text-muted-foreground">
-          API key {hasCredentials && <span className="text-green-600">(set — leave blank to keep)</span>}
+          API key {hasCredentials && <span className="text-ws-green">(set — leave blank to keep)</span>}
           <input
             type="password"
             className={`${INPUT_CLASS} mt-1 w-full`}
@@ -116,7 +116,7 @@ export function FinanceSection({
           />
         </label>
         <label className="text-xs text-muted-foreground">
-          Secret {hasCredentials && <span className="text-green-600">(set — leave blank to keep)</span>}
+          Secret {hasCredentials && <span className="text-ws-green">(set — leave blank to keep)</span>}
           <input
             type="password"
             className={`${INPUT_CLASS} mt-1 w-full`}
@@ -133,7 +133,7 @@ export function FinanceSection({
         encrypted before storage and can&apos;t be viewed again, only replaced.
       </p>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       {canManage && (
         <div>

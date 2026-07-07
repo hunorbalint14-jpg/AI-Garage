@@ -79,7 +79,7 @@ function ServiceForm({ service, onDone }: { service?: ServiceRow; onDone: () => 
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       <div className="flex gap-2">
         <Button type="submit" loading={pending}>{service ? "Save changes" : "Add service"}</Button>
@@ -124,7 +124,7 @@ export function ServiceCard({ service }: { service: ServiceRow }) {
           <div className="flex items-center gap-2 flex-wrap">
             <p className="font-semibold">{service.name}</p>
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize">{service.category}</span>
-            {!service.active && <span className="rounded-full bg-gray-100 text-gray-500 px-2 py-0.5 text-xs">Inactive</span>}
+            {!service.active && <span className="rounded-full bg-ws-hover text-gray-500 px-2 py-0.5 text-xs">Inactive</span>}
           </div>
           {service.description && <p className="text-xs text-muted-foreground mt-0.5">{service.description}</p>}
         </div>
@@ -138,7 +138,7 @@ export function ServiceCard({ service }: { service: ServiceRow }) {
         <button type="button" onClick={handleToggle} disabled={pending} className="text-xs underline text-muted-foreground hover:text-foreground">
           {service.active ? "Deactivate" : "Activate"}
         </button>
-        <button type="button" onClick={handleDelete} disabled={pending} className="text-xs underline text-red-500 hover:text-red-700">Delete</button>
+        <button type="button" onClick={handleDelete} disabled={pending} className="text-xs underline text-red-500 hover:text-ws-red">Delete</button>
       </div>
     </div>
   );

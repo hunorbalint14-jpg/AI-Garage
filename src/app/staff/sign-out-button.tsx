@@ -22,7 +22,7 @@ export function SignOutButton({ dark = true }: { dark?: boolean }) {
       className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition-colors disabled:opacity-50 ${
         dark
           ? "border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white"
-          : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+          : "border border-ws-border bg-ws-card text-ws-text-2 hover:bg-ws-hover hover:text-ws-text"
       }`}
     >
       {pending && <AigSpinner />}

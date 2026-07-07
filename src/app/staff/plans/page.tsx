@@ -75,7 +75,7 @@ export default async function PlansPage() {
       />
 
       {!connectReady && (
-        <div className="rounded-lg border border-amber-300/40 bg-amber-500/10 p-4 text-sm text-amber-700">
+        <div className="rounded-lg border border-ws-amber-border/40 bg-amber-500/10 p-4 text-sm text-ws-amber">
           Finish Stripe payment setup (Settings → Payments) before customers can subscribe. You can still draft plans now.
         </div>
       )}

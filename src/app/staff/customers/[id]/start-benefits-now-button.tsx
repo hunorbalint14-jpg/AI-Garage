@@ -13,7 +13,7 @@ export function StartBenefitsNowButton({ subscriptionId }: { subscriptionId: str
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  if (done) return <p className="text-xs text-green-700">Benefits now active (funding permitting).</p>;
+  if (done) return <p className="text-xs text-ws-green">Benefits now active (funding permitting).</p>;
 
   async function go() {
     const ok = await confirm({
@@ -35,11 +35,11 @@ export function StartBenefitsNowButton({ subscriptionId }: { subscriptionId: str
       <button
         onClick={go}
         disabled={pending}
-        className="text-xs font-medium text-blue-700 underline transition-colors hover:text-blue-900 disabled:opacity-60"
+        className="text-xs font-medium text-ws-blue underline transition-colors hover:text-blue-900 disabled:opacity-60"
       >
         {pending ? "Starting…" : "Start benefits now"}
       </button>
-      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="mt-1 text-xs text-ws-red">{error}</p>}
     </div>
   );
 }

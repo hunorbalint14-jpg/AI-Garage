@@ -43,7 +43,7 @@ export function BranchSelect({
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center gap-3">
           {logoUrl ? (
-            <div className="grid h-9 w-9 place-items-center overflow-hidden rounded bg-white">
+            <div className="grid h-9 w-9 place-items-center overflow-hidden rounded bg-ws-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={logoUrl} alt={orgName} className="h-9 w-9 object-contain" />
             </div>

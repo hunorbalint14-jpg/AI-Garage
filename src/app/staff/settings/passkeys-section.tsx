@@ -113,7 +113,7 @@ export function PasskeysSection({ initialPasskeys }: { initialPasskeys: PasskeyR
                 type="button"
                 onClick={() => handleDelete(p.credential_id)}
                 disabled={pending}
-                className="text-muted-foreground hover:text-red-600 shrink-0"
+                className="text-muted-foreground hover:text-ws-red shrink-0"
                 aria-label="Remove passkey"
               >
                 <Trash2 className="h-4 w-4" />
@@ -129,12 +129,12 @@ export function PasskeysSection({ initialPasskeys }: { initialPasskeys: PasskeyR
           Add a passkey
         </Button>
         {success && (
-          <span className="flex items-center gap-1 text-sm text-green-700 dark:text-green-400">
+          <span className="flex items-center gap-1 text-sm text-ws-green dark:text-green-400">
             <Check className="h-4 w-4" />
             {success}
           </span>
         )}
-        {error && <span className="text-sm text-red-600">{error}</span>}
+        {error && <span className="text-sm text-ws-red">{error}</span>}
       </div>
     </section>
   );

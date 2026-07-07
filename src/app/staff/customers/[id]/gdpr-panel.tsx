@@ -93,7 +93,7 @@ export function GdprPanel({
         <h2 className="mb-2 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
           <Shield className="h-4 w-4" /> Privacy & data (GDPR)
         </h2>
-        <p className="text-sm text-amber-700 dark:text-amber-400 flex items-center gap-2">
+        <p className="text-sm text-ws-amber dark:text-amber-400 flex items-center gap-2">
           <AlertTriangle className="h-4 w-4" />
           Customer data anonymized on {new Date(anonymizedAt).toLocaleDateString("en-GB")}. PII removed; financial records retained.
         </p>
@@ -147,7 +147,7 @@ export function GdprPanel({
             Export data
           </Button>
           {canErase && (
-            <Button variant="outline" onClick={handleAnonymize} disabled={pending} className="text-amber-700 dark:text-amber-400 border-amber-300">
+            <Button variant="outline" onClick={handleAnonymize} disabled={pending} className="text-ws-amber dark:text-amber-400 border-ws-amber-border">
               <AlertTriangle className="h-4 w-4 mr-1.5" />
               Erase PII (anonymize)
             </Button>
@@ -161,7 +161,7 @@ export function GdprPanel({
         </div>
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-ws-red">{error}</p>}
     </section>
   );
 }

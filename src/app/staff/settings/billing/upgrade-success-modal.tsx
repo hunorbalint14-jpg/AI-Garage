@@ -17,7 +17,7 @@ export function UpgradeSuccessModal({ planName }: { planName: string }) {
     >
       <div className="w-full max-w-sm rounded-2xl border bg-card p-6 text-center shadow-xl">
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/15">
-          <CheckCircle2 className="h-6 w-6 text-green-600" />
+          <CheckCircle2 className="h-6 w-6 text-ws-green" />
         </div>
         <h2 className="text-lg font-semibold">You&apos;re on {planName}</h2>
         <p className="mt-1 text-sm text-muted-foreground">

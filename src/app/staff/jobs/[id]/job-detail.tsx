@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/components/confirm-provider";
+import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 
 type Job = {
   id: string;
@@ -50,10 +51,10 @@ type Service = {
   category: string;
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  open: "bg-blue-100 text-blue-700",
-  complete: "bg-green-100 text-green-700",
-  invoiced: "bg-purple-100 text-purple-700",
+const STATUS_TONE: Record<string, WorkshopTone> = {
+  open: "blue",
+  complete: "green",
+  invoiced: "purple",
 };
 
 function formatGBP(n: number): string {
@@ -262,7 +263,7 @@ export function JobDetail({
           <h1 className="text-2xl font-bold flex items-center gap-2">
             Job card
             {job.high_voltage && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+              <span className="inline-flex items-center gap-1 rounded-full bg-ws-amber-bg px-2 py-0.5 text-xs font-medium text-ws-amber dark:bg-amber-950/40 dark:text-amber-300">
                 <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
                 High voltage
               </span>
@@ -273,9 +274,9 @@ export function JobDetail({
             {job.completed_at && ` · Completed ${new Date(job.completed_at).toLocaleDateString("en-GB")}`}
           </p>
         </div>
-        <span className={`shrink-0 mt-1 inline-block rounded-full px-3 py-1 text-xs font-medium capitalize ${STATUS_STYLE[job.status] ?? ""}`}>
+        <WorkshopBadge tone={STATUS_TONE[job.status] ?? "neutral"} className="shrink-0 mt-1">
           {job.status}
-        </span>
+        </WorkshopBadge>
       </div>
 
       <section className="rounded-lg border p-4">
@@ -547,7 +548,7 @@ export function JobDetail({
               <Button type="submit" loading={pending}>Add</Button>
             </div>
             {labourHint && (
-              <p className={`text-xs ${labourHint.startsWith("Error") ? "text-red-600" : "text-green-700"}`}>
+              <p className={`text-xs ${labourHint.startsWith("Error") ? "text-ws-red" : "text-ws-green"}`}>
                 {labourHint}
               </p>
             )}
@@ -590,8 +591,8 @@ export function JobDetail({
             </Button>
           )}
         </div>
-        {reviewSuccess && <p className="text-sm text-green-700">{reviewSuccess}</p>}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {reviewSuccess && <p className="text-sm text-ws-green">{reviewSuccess}</p>}
+        {error && <p className="text-sm text-ws-red">{error}</p>}
       </div>
     </div>
   );

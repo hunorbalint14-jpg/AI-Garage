@@ -8,6 +8,8 @@ import { TechnicianSelector } from "@/components/staff/technician-selector";
 import { assignBookingTechnician } from "../actions";
 import { BookingActions } from "./booking-actions";
 import { BaySelector } from "./bay-selector";
+import { STATUS_TONE } from "../booking-display";
+import { WorkshopBadge } from "@/components/staff/workshop";
 
 type Booking = {
   id: string;
@@ -29,14 +31,6 @@ type Booking = {
 };
 
 type LinkedJob = { id: string; status: string; completed_at: string | null };
-
-const STATUS_STYLE: Record<string, string> = {
-  scheduled: "bg-blue-100 text-blue-700",
-  in_progress: "bg-amber-100 text-amber-700",
-  complete: "bg-green-100 text-green-700",
-  cancelled: "bg-gray-100 text-gray-600",
-  no_show: "bg-red-100 text-red-700",
-};
 
 function statusLabel(s: string) {
   if (s === "in_progress") return "In progress";
@@ -113,9 +107,9 @@ export default async function BookingDetailPage({
             {booking.duration_minutes} min
           </p>
         </div>
-        <span className={`shrink-0 mt-1 inline-block rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLE[booking.status] ?? ""}`}>
+        <WorkshopBadge tone={STATUS_TONE[booking.status] ?? "neutral"} className="mt-1 shrink-0">
           {statusLabel(booking.status)}
-        </span>
+        </WorkshopBadge>
       </div>
 
       <section className="rounded-lg border p-4">

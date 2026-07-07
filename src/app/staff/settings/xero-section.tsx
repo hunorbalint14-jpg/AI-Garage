@@ -40,7 +40,7 @@ export function XeroSection({ connected, tenantName, connectedAt, canManage }: P
         <h2 className="text-base font-semibold flex items-center gap-2">
           Xero accounting
           {connected ? (
-            <span className="rounded-full bg-green-500/15 text-green-700 px-2 py-0.5 text-xs font-medium">
+            <span className="rounded-full bg-green-500/15 text-ws-green px-2 py-0.5 text-xs font-medium">
               Connected
             </span>
           ) : (

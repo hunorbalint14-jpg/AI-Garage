@@ -108,7 +108,7 @@ function SupplierRow({ supplier, canEdit }: { supplier: Supplier; canEdit: boole
       </td>
       {canEdit && (
         <td className="px-3 py-2 text-right">
-          <button type="button" onClick={handleDelete} disabled={pending} className="text-muted-foreground hover:text-red-600" aria-label="Delete supplier">
+          <button type="button" onClick={handleDelete} disabled={pending} className="text-muted-foreground hover:text-ws-red" aria-label="Delete supplier">
             <Trash2 className="h-4 w-4" />
           </button>
         </td>
@@ -152,7 +152,7 @@ function AddSupplierForm({ onDone }: { onDone: () => void }) {
         <Button type="submit" loading={pending}>Add supplier</Button>
         <Button type="button" variant="outline" onClick={onDone}>Cancel</Button>
       </div>
-      {error && <p className="sm:col-span-2 text-sm text-red-600">{error}</p>}
+      {error && <p className="sm:col-span-2 text-sm text-ws-red">{error}</p>}
     </form>
   );
 }

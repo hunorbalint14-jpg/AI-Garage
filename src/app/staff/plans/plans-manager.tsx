@@ -81,7 +81,7 @@ export function PlansManager({ plans, services }: { plans: PlanRow[]; services: 
         )}
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       {plans.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center text-sm text-muted-foreground">
@@ -158,7 +158,7 @@ function PlanCard({
           {plan.description && <p className="text-sm text-muted-foreground">{plan.description}</p>}
         </div>
         <span
-          className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${plan.active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}
+          className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${plan.active ? "bg-ws-green-bg text-ws-green" : "bg-ws-hover text-ws-text-2"}`}
         >
           {plan.active ? "Active" : "Inactive"}
         </span>
@@ -169,7 +169,7 @@ function PlanCard({
         {y && <span>{y}/yr</span>}
       </div>
 
-      {discountLabel(plan) && <p className="text-xs font-medium text-green-700">{discountLabel(plan)}</p>}
+      {discountLabel(plan) && <p className="text-xs font-medium text-ws-green">{discountLabel(plan)}</p>}
 
       {plan.included.length > 0 && (
         <p className="text-xs text-muted-foreground">
@@ -183,7 +183,7 @@ function PlanCard({
 
       <div className="text-xs text-muted-foreground">
         {plan.subscriberCount} active subscriber{plan.subscriberCount === 1 ? "" : "s"}
-        {!priced && <span className="ml-2 text-amber-600">· Stripe price pending</span>}
+        {!priced && <span className="ml-2 text-ws-amber">· Stripe price pending</span>}
       </div>
 
       <div className="mt-1 flex flex-wrap gap-2">

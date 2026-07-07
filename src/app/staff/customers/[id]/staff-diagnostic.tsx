@@ -8,9 +8,9 @@ import type { DiagnosisResult } from "@/lib/ai-diagnostic";
 type Vehicle = { id: string; registration: string; make: string | null; model: string | null };
 
 const URGENCY_STYLE = {
-  urgent: "border-red-200 bg-red-50 text-red-800",
-  soon: "border-amber-200 bg-amber-50 text-amber-800",
-  monitor: "border-green-200 bg-green-50 text-green-800",
+  urgent: "border-ws-red-border bg-ws-red-bg text-ws-red",
+  soon: "border-ws-amber-border bg-ws-amber-bg text-ws-amber",
+  monitor: "border-ws-green-border bg-ws-green-bg text-ws-green",
 };
 
 const URGENCY_LABEL = {
@@ -87,7 +87,7 @@ export function StaffDiagnostic({ vehicles }: { vehicles: Vehicle[] }) {
         Run diagnosis
       </button>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       {result && (
         <div className="flex flex-col gap-3 border-t pt-3">

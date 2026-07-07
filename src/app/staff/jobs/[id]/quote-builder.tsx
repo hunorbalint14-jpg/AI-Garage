@@ -283,8 +283,8 @@ export function QuoteBuilder({
               </div>
             ) : uploadedPath ? (
               <div className="flex items-center gap-2 text-sm">
-                <Check className="h-4 w-4 text-green-600" /> Video attached
-                <button type="button" onClick={removeVideo} className="ml-auto text-muted-foreground hover:text-red-600 flex items-center gap-1 text-xs">
+                <Check className="h-4 w-4 text-ws-green" /> Video attached
+                <button type="button" onClick={removeVideo} className="ml-auto text-muted-foreground hover:text-ws-red flex items-center gap-1 text-xs">
                   <X className="h-3 w-3" /> Remove
                 </button>
               </div>
@@ -336,7 +336,7 @@ export function QuoteBuilder({
                     onBlur={() => { if (it.unit_price === "") updateItem(idx, { unit_price: "0" }); }}
                     disabled={pending} placeholder="Unit £"
                   />
-                  <button type="button" onClick={() => removeItem(idx)} disabled={pending || items.length === 1} className="text-muted-foreground hover:text-red-600 disabled:opacity-30 h-9 px-2" aria-label="Remove item">
+                  <button type="button" onClick={() => removeItem(idx)} disabled={pending || items.length === 1} className="text-muted-foreground hover:text-ws-red disabled:opacity-30 h-9 px-2" aria-label="Remove item">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -360,7 +360,7 @@ export function QuoteBuilder({
             <Button type="button" variant="outline" size="sm" onClick={addItem} disabled={pending} className="self-start">
               <Plus className="mr-1 h-4 w-4" /> Add item
             </Button>
-            {aiError && <p className="text-sm text-red-600">{aiError}</p>}
+            {aiError && <p className="text-sm text-ws-red">{aiError}</p>}
           </div>
 
           <div className="rounded-md border bg-muted/20 p-3 text-sm">
@@ -377,7 +377,7 @@ export function QuoteBuilder({
               Save draft
             </Button>
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-ws-red">{error}</p>}
         </div>
       )}
 
@@ -385,7 +385,7 @@ export function QuoteBuilder({
 
       {phase === "saved" && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+          <p className="text-sm text-ws-green dark:text-green-400 flex items-center gap-2">
             <Check className="h-4 w-4" /> Draft saved. Send it to the customer from the Quotes page when ready.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -399,10 +399,10 @@ export function QuoteBuilder({
 
       {phase === "sent" && (
         <div className="flex flex-col gap-3">
-          <p className="text-sm text-green-700 dark:text-green-400 flex items-center gap-2">
+          <p className="text-sm text-ws-green dark:text-green-400 flex items-center gap-2">
             <Check className="h-4 w-4" /> {error ? "Quote created." : "Quote sent — customer notified via email + SMS."}
           </p>
-          {error && <p className="text-sm text-amber-600">{error}</p>}
+          {error && <p className="text-sm text-ws-amber">{error}</p>}
           {customerUrl && (
             <div className="rounded-md border bg-muted/20 p-2 flex items-center gap-2">
               <span className="text-xs text-muted-foreground shrink-0">Customer link:</span>
@@ -422,7 +422,7 @@ export function QuoteBuilder({
 
       {phase === "error" && (
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-ws-red">{error}</p>
           <Button variant="outline" onClick={() => setPhase("drafting")} className="self-start">Back</Button>
         </div>
       )}
