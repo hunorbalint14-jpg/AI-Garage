@@ -39,6 +39,7 @@ export function BookingCard({ booking, orgColor, garagePhone }: Props) {
   // in progress (or beyond), cancelling would orphan the job on the workshop
   // side, so the actions give way to a "call us" hint.
   const actionable = booking.status === "scheduled";
+  const unpaid = booking.status === "payment_pending";
 
   async function handleCancel() {
     const ok = await confirm({
@@ -97,13 +98,37 @@ export function BookingCard({ booking, orgColor, garagePhone }: Props) {
             {branchLine && ` · ${branchLine}`}
           </p>
         </div>
-        <span
-          className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium"
-          style={{ backgroundColor: `${orgColor}25`, color: orgColor }}
-        >
-          {booking.status === "in_progress" ? "In progress" : "Confirmed"}
-        </span>
+        {unpaid ? (
+          <span className="shrink-0 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-semibold text-amber-400">
+            Unpaid
+          </span>
+        ) : (
+          <span
+            className="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium"
+            style={{ backgroundColor: `${orgColor}25`, color: orgColor }}
+          >
+            {booking.status === "in_progress" ? "In progress" : "Confirmed"}
+          </span>
+        )}
       </div>
+
+      {/* Abandoned Stripe checkout: the appointment is reserved but unpaid —
+          the pay route reuses or regenerates the checkout session. Self-serve
+          changes stay hidden until it's paid. */}
+      {unpaid && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <a
+            href={`/book/${booking.id}/pay`}
+            className="rounded-lg px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ backgroundColor: orgColor }}
+          >
+            Complete payment →
+          </a>
+          <span className="text-xs text-gray-500">
+            Your slot is held until the payment completes.
+          </span>
+        </div>
+      )}
 
       {mode === "reschedule" && booking.location && (
         <div className="mt-4 flex flex-col gap-3">
@@ -140,14 +165,14 @@ export function BookingCard({ booking, orgColor, garagePhone }: Props) {
         </div>
       )}
 
-      {!actionable && (
+      {!actionable && !unpaid && (
         <p className="mt-3 text-xs text-gray-500">
           Work on this booking has started — {garagePhone ? `call us on ${garagePhone}` : "contact the garage"} if
           you need to make changes.
         </p>
       )}
 
-      {mode === "idle" && (
+      {mode === "idle" && !unpaid && (
         <div className="mt-3 flex flex-wrap gap-2">
           {actionable && (
             <button
