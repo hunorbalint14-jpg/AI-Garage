@@ -1,10 +1,14 @@
 import Link from "next/link";
-import { Car, AlertCircle, Clock, CheckCircle, CalendarDays, Receipt } from "lucide-react";
+import { Car, CalendarDays, Receipt } from "lucide-react";
 import { BookingCard } from "./booking-card";
 import { DiagnosticPanel } from "./diagnostic-panel";
+import { NextUpHero, type HeroAction } from "./next-up-hero";
+import { VehicleRow } from "./vehicle-row";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext } from "@/lib/portal-auth";
-import { garageLabel } from "@/lib/garage-identity";
+import { cachedActiveServices } from "@/lib/location-cache";
+import { getAvailableSlotsWeek } from "@/lib/slots-actions";
+import { APP_TZ } from "@/lib/business-hours";
 import { AnimatedBackground } from "@/components/animated-background";
 import { NavProgressProvider, NavProgressOverlay } from "@/components/nav-progress";
 import { CustomerSignOutButton } from "./sign-out-button";
@@ -37,7 +41,10 @@ type BookingRow = {
   status: string;
   duration_minutes: number;
   vehicle: { registration: string } | null;
+  location: { id: string; name: string; address: string | null } | null;
 };
+
+type QuoteRow = { id: string; title: string | null; total: number; expires_at: string | null };
 
 function formatDate(d: string | null) {
   if (!d) return "—";
@@ -49,45 +56,40 @@ function dueDays(d: string | null): number | null {
   return Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 }
 
-function dueBadge(d: string | null) {
-  const days = dueDays(d);
-  if (days === null) return null;
-  if (days < 0)
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-semibold text-red-400">
-        <AlertCircle className="h-3 w-3" /> Overdue
-      </span>
-    );
-  if (days <= 30)
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-semibold text-red-400">
-        <Clock className="h-3 w-3" /> Due in {days}d
-      </span>
-    );
-  if (days <= 60)
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 px-2.5 py-0.5 text-xs font-medium text-amber-400">
-        <Clock className="h-3 w-3" /> Due in {days}d
-      </span>
-    );
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-500/20 px-2.5 py-0.5 text-xs text-green-400">
-      <CheckCircle className="h-3 w-3" /> OK
-    </span>
-  );
-}
-
 function fmt(n: number) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
 
+// The single most urgent item across all vehicles ∪ pending quotes
+// (UX review §1g: min dueDays wins). Vehicle items count once they're
+// inside 30 days (or overdue); a pending quote is always actionable and
+// ranks by its expiry (14d stand-in when it has none).
+function pickNextAction(
+  vehicles: Vehicle[],
+  quotes: QuoteRow[],
+): { winner: { kind: "mot" | "service"; vehicle: Vehicle; days: number; date: string } | { kind: "quote"; quote: QuoteRow; days: number } | null; urgentCount: number } {
+  const candidates: ({ kind: "mot" | "service"; vehicle: Vehicle; days: number; date: string } | { kind: "quote"; quote: QuoteRow; days: number })[] = [];
+  for (const v of vehicles) {
+    const mot = dueDays(v.mot_expiry);
+    if (mot !== null && mot <= 30) candidates.push({ kind: "mot", vehicle: v, days: mot, date: v.mot_expiry! });
+    const svc = dueDays(v.service_due);
+    if (svc !== null && svc <= 30) candidates.push({ kind: "service", vehicle: v, days: svc, date: v.service_due! });
+  }
+  for (const q of quotes) {
+    candidates.push({ kind: "quote", quote: q, days: dueDays(q.expires_at) ?? 14 });
+  }
+  if (candidates.length === 0) return { winner: null, urgentCount: 0 };
+  candidates.sort((a, b) => a.days - b.days);
+  return { winner: candidates[0], urgentCount: candidates.length };
+}
+
 export default async function CustomerDashboard() {
-  const { user, location, customer, multiLocation } = await getPortalContext();
+  const { user, location, customer } = await getPortalContext();
 
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
-  const [vehiclesRes, invoicesRes, bookingsRes] = customer
+  const [vehiclesRes, invoicesRes, bookingsRes, custRowRes, standaloneQuotesRes] = customer
     ? await Promise.all([
         admin
           .from("vehicles")
@@ -102,23 +104,104 @@ export default async function CustomerDashboard() {
           .limit(5),
         admin
           .from("bookings")
-          .select("id, scheduled_at, type, status, duration_minutes, vehicle:vehicles(registration)")
+          .select(
+            "id, scheduled_at, type, status, duration_minutes, vehicle:vehicles(registration), location:locations(id, name, address)",
+          )
           .eq("customer_id", customer.id)
           .gte("scheduled_at", now)
           .in("status", ["scheduled", "in_progress"])
           .order("scheduled_at", { ascending: true })
           .limit(5),
+        admin.from("customers").select("preferred_location_id").eq("id", customer.id).maybeSingle(),
+        admin
+          .from("quotes")
+          .select("id, title, total, expires_at")
+          .eq("customer_id", customer.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(5),
       ])
-    : [{ data: null }, { data: null }, { data: null }];
+    : [{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }];
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const invoices = (invoicesRes.data ?? []) as unknown as InvoiceRow[];
   const bookings = (bookingsRes.data ?? []) as unknown as BookingRow[];
+  let pendingQuotes = (standaloneQuotesRes.data ?? []) as QuoteRow[];
+
+  // DVI quotes hang off the customer's jobs rather than the customer directly.
+  if (customer && pendingQuotes.length < 5) {
+    const { data: jobRows } = await admin.from("jobs").select("id").eq("customer_id", customer.id).limit(50);
+    const jobIds = (jobRows ?? []).map((j) => j.id);
+    if (jobIds.length > 0) {
+      const { data: jobQuotes } = await admin
+        .from("quotes")
+        .select("id, title, total, expires_at")
+        .in("job_id", jobIds)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      pendingQuotes = [...pendingQuotes, ...((jobQuotes ?? []) as QuoteRow[])];
+    }
+  }
 
   const firstName = customer?.full_name?.split(" ")[0] ?? user.email?.split("@")[0] ?? "there";
   const orgColor = location.organization.primary_color;
   const orgName = location.organization.name;
   const logoUrl = location.organization.logo_url;
+
+  // ── Next-up hero ────────────────────────────────────────────────────────
+  const { winner, urgentCount } = pickNextAction(vehicles, pendingQuotes);
+  let heroAction: HeroAction | null = null;
+  if (winner) {
+    if (winner.kind === "quote") {
+      heroAction = {
+        kind: "quote",
+        quoteId: winner.quote.id,
+        title: winner.quote.title,
+        total: Number(winner.quote.total),
+        expiresDays: dueDays(winner.quote.expires_at),
+      };
+    } else {
+      // Bookable hero: resolve the matching service at the customer's home
+      // branch (falling back to the landing branch), then prefetch a week of
+      // real slots so the chips render server-side with no client fetch.
+      const locId =
+        ((custRowRes as { data: { preferred_location_id: string | null } | null }).data
+          ?.preferred_location_id as string | null) ?? location.id;
+      const services = await cachedActiveServices(locId);
+      const rx = winner.kind === "mot" ? /mot/i : /service/i;
+      const service =
+        services.find((s) => rx.test(s.name) || rx.test(s.category ?? "")) ?? null;
+      const week = service
+        ? await getAvailableSlotsWeek(
+            locId,
+            new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ }),
+            service.duration_minutes || 60,
+          )
+        : null;
+      const v = winner.vehicle;
+      heroAction = {
+        kind: winner.kind,
+        vehicleId: v.id,
+        vehicleName: [v.year, v.make, v.model].filter(Boolean).join(" ") || "Your vehicle",
+        registration: v.registration,
+        dueDate: winner.date,
+        dueDays: winner.days,
+        service: service
+          ? { id: service.id, name: service.name, price: service.price, durationMinutes: service.duration_minutes || 60 }
+          : null,
+        locationId: locId,
+        week,
+      };
+    }
+  }
+
+  const greeting =
+    urgentCount === 0
+      ? "you're all set."
+      : urgentCount === 1
+        ? "one thing needs booking."
+        : `${urgentCount} things need attention.`;
 
   return (
     <NavProgressProvider>
@@ -141,16 +224,7 @@ export default async function CustomerDashboard() {
             )}
             <span className="text-sm font-semibold">{orgName}</span>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard/book"
-              className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
-              style={{ borderColor: `${orgColor}40` }}
-            >
-              + Book appointment
-            </Link>
-            <CustomerSignOutButton />
-          </div>
+          <CustomerSignOutButton />
         </div>
       </header>
 
@@ -159,12 +233,12 @@ export default async function CustomerDashboard() {
       </div>
 
       <main className="relative z-10 mx-auto max-w-2xl px-6 py-10 flex flex-col gap-10">
-        <div>
-          <h1 className="text-3xl font-bold">Hi {firstName} 👋</h1>
-          <p className="mt-1 text-sm text-gray-400">
-            Your vehicles and appointments with{" "}
-            {garageLabel({ orgName, locationName: multiLocation ? customer?.home_garage : null })}.
-          </p>
+        {/* The greeting carries the state — no emoji (UX review F12). */}
+        <div className="flex flex-col gap-5">
+          <h1 className="text-2xl font-bold leading-snug">
+            Hi {firstName} — {greeting}
+          </h1>
+          {heroAction && <NextUpHero action={heroAction} orgColor={orgColor} />}
         </div>
 
         {/* Vehicles */}
@@ -185,52 +259,10 @@ export default async function CustomerDashboard() {
               No vehicles on file yet. Contact {orgName} to add your car.
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
-              {vehicles.map((v) => {
-                const name = [v.year, v.make, v.model].filter(Boolean).join(" ") || "Vehicle";
-                const motDays = dueDays(v.mot_expiry);
-                const needsAttention = motDays !== null && motDays <= 30;
-                return (
-                  <div
-                    key={v.id}
-                    className={`rounded-2xl border p-5 backdrop-blur-sm ${
-                      needsAttention ? "border-red-500/30 bg-red-500/[0.05]" : "border-white/10 bg-white/[0.03]"
-                    }`}
-                  >
-                    <div className="mb-4 flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${orgColor}25` }}>
-                          <Car className="h-5 w-5" style={{ color: orgColor }} />
-                        </div>
-                        <div>
-                          <p className="font-mono text-base font-bold tracking-widest">{v.registration}</p>
-                          <p className="text-sm text-gray-400">{name}</p>
-                        </div>
-                      </div>
-                      {needsAttention && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2.5 py-1 text-xs font-bold text-red-400">
-                          <AlertCircle className="h-3 w-3" /> Action needed
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      {[{ label: "MOT expiry", date: v.mot_expiry }, { label: "Service due", date: v.service_due }, { label: "Road tax due", date: v.tax_due_date }].map(({ label, date }) => (
-                        <div key={label} className="rounded-xl bg-white/5 p-3">
-                          <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-gray-500">{label}</p>
-                          <p className="font-semibold">{formatDate(date)}</p>
-                          <div className="mt-2">{dueBadge(date)}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <Link
-                      href={`/dashboard/mot/${v.id}`}
-                      className="mt-3 inline-block text-xs font-semibold underline text-gray-400 hover:text-white transition-colors"
-                    >
-                      View full MOT history →
-                    </Link>
-                  </div>
-                );
-              })}
+            <div className="flex flex-col gap-3">
+              {vehicles.map((v) => (
+                <VehicleRow key={v.id} vehicle={v} />
+              ))}
             </div>
           )}
         </section>
@@ -239,7 +271,7 @@ export default async function CustomerDashboard() {
         {bookings.length > 0 && (
           <section>
             <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-2">
-              <CalendarDays className="h-4 w-4" /> Upcoming appointments
+              <CalendarDays className="h-4 w-4" /> Upcoming
             </h2>
             <div className="flex flex-col gap-3">
               {bookings.map((b) => (
@@ -252,6 +284,19 @@ export default async function CustomerDashboard() {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Book CTA lives in the flow now, not the header */}
+        {customer && (
+          <div>
+            <Link
+              href="/dashboard/book"
+              className="inline-block rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-white/10 hover:text-white transition-colors"
+              style={{ borderColor: `${orgColor}40` }}
+            >
+              + Book an appointment
+            </Link>
+          </div>
         )}
 
         {/* AI Diagnostic */}
