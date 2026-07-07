@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/staff/page-header";
 import Link from "next/link";
 import { RevenueChart } from "./revenue-chart-lazy";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
+import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 
 type InvoiceRow = {
   id: string;
@@ -46,7 +47,7 @@ function fmt(n: number) {
 }
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: "green" | "amber" | "red" }) {
-  const colours = { green: "text-green-700", amber: "text-amber-600", red: "text-red-600" };
+  const colours = { green: "text-ws-green", amber: "text-ws-amber", red: "text-ws-red" };
   return (
     <div className="rounded-xl border p-5 bg-card">
       <p className="text-sm font-medium text-muted-foreground">{label}</p>
@@ -127,11 +128,11 @@ export default async function RevenuePage({
     }),
     revenue: Number(m.revenue),
   }));
-  const STATUS_STYLE: Record<string, string> = {
-    draft: "bg-gray-100 text-gray-600",
-    sent: "bg-blue-100 text-blue-700",
-    paid: "bg-green-100 text-green-700",
-    overdue: "bg-red-100 text-red-700",
+  const STATUS_TONE: Record<string, WorkshopTone> = {
+    draft: "neutral",
+    sent: "blue",
+    paid: "green",
+    overdue: "red",
   };
 
   return (
@@ -190,9 +191,9 @@ export default async function RevenuePage({
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums font-medium">{fmt(inv.total)}</td>
                         <td className="px-3 py-2">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STATUS_STYLE[computedStatus] ?? ""}`}>
+                          <WorkshopBadge tone={STATUS_TONE[computedStatus] ?? "neutral"}>
                             {computedStatus}
-                          </span>
+                          </WorkshopBadge>
                         </td>
                       </tr>
                     );
@@ -212,7 +213,7 @@ export default async function RevenuePage({
             </div>
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Revenue collected</p>
-              <p className="text-3xl font-bold mt-1 text-green-700">{fmt(revenueThisMonth)}</p>
+              <p className="text-3xl font-bold mt-1 text-ws-green">{fmt(revenueThisMonth)}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Total invoiced (YTD)</p>

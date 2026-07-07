@@ -68,8 +68,8 @@ function dueDateClass(d: string | null): string {
   const days = Math.ceil(
     (new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24),
   );
-  if (days <= 30) return "text-red-600 font-semibold";
-  if (days <= 60) return "text-amber-600 font-medium";
+  if (days <= 30) return "text-ws-red font-semibold";
+  if (days <= 60) return "text-ws-amber font-medium";
   return "";
 }
 
@@ -343,9 +343,9 @@ export default async function CustomerDetailPage({
                   )}
 
                   <p className="mt-2 text-xs text-muted-foreground">
-                    <span className="text-red-600 font-semibold">Red</span> = due within
+                    <span className="text-ws-red font-semibold">Red</span> = due within
                     30 days or overdue.{" "}
-                    <span className="text-amber-600 font-medium">Amber</span> = due within
+                    <span className="text-ws-amber font-medium">Amber</span> = due within
                     60 days. Reminders send to all available channels (email + SMS + WhatsApp). MOT and service only.
                     Buttons disabled if no date set or no contact details on file.
                   </p>

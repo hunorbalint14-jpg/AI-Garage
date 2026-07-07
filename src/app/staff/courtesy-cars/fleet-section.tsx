@@ -143,7 +143,7 @@ function SignaturePad({
     <div className="mt-1">
       <canvas
         ref={canvasRef}
-        className="h-40 w-full rounded-md border border-black/20 bg-white dark:border-white/25"
+        className="h-40 w-full rounded-md border border-black/20 bg-ws-card dark:border-white/25"
         style={{ touchAction: "none" }}
         onPointerDown={start}
         onPointerMove={move}
@@ -308,7 +308,7 @@ export function FleetSection({
         </Button>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       {showAdd && (
         <form onSubmit={handleAdd} className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-4">
@@ -340,8 +340,8 @@ export function FleetSection({
                 Look up
               </Button>
             </div>
-            {lookupHint && <span className="mt-1 block text-xs text-green-700">{lookupHint}</span>}
-            {lookupError && <span className="mt-1 block text-xs text-red-600">{lookupError}</span>}
+            {lookupHint && <span className="mt-1 block text-xs text-ws-green">{lookupHint}</span>}
+            {lookupError && <span className="mt-1 block text-xs text-ws-red">{lookupError}</span>}
           </label>
           <label className="text-xs text-muted-foreground">
             Make
@@ -396,10 +396,10 @@ export function FleetSection({
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                     !car.active
-                      ? "bg-gray-100 text-gray-600"
+                      ? "bg-ws-hover text-ws-text-2"
                       : out
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-green-100 text-green-700"
+                        ? "bg-ws-amber-bg text-ws-amber"
+                        : "bg-ws-green-bg text-ws-green"
                   }`}
                 >
                   {!car.active ? "Inactive" : out ? "On loan" : "Available"}

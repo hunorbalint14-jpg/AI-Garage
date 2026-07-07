@@ -135,8 +135,8 @@ export function TemplateEditor({
 
   return (
     <div className="flex flex-col gap-6">
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {success && <p className="text-sm text-green-700">{success}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
+      {success && <p className="text-sm text-ws-green">{success}</p>}
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">

@@ -152,21 +152,21 @@ export function BookingActions({
         </Button>
       </div>
       {noShowChargedAt && noShowChargeAmountPence != null && (
-        <p className="text-sm text-green-700">
+        <p className="text-sm text-ws-green">
           No-show fee of {fmtGBP(noShowChargeAmountPence)} charged on{" "}
           {new Date(noShowChargedAt).toLocaleDateString("en-GB")}.
         </p>
       )}
       {noShowChargeError && !noShowChargedAt && (
-        <p className="text-sm text-amber-700">Last charge attempt failed: {noShowChargeError}</p>
+        <p className="text-sm text-ws-amber">Last charge attempt failed: {noShowChargeError}</p>
       )}
       {status === "no_show" && !cardOnFile && noShowFeePence > 0 && (
         <p className="text-xs text-muted-foreground">
           No card on file for this booking — the no-show fee can&apos;t be charged.
         </p>
       )}
-      {chargeInfo && <p className="text-sm text-green-700">{chargeInfo}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {chargeInfo && <p className="text-sm text-ws-green">{chargeInfo}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </div>
   );
 }

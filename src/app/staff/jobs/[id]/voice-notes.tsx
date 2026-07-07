@@ -187,7 +187,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
 
       {phase === "listening" && (
         <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2 text-sm text-ws-red dark:text-red-400">
             <span className="relative flex h-3 w-3">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500"></span>
@@ -258,7 +258,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
                   <span className="text-xs font-mono text-muted-foreground">x{item.quantity}</span>
                   <button
                     onClick={() => removeItem(i)}
-                    className="text-muted-foreground hover:text-red-600"
+                    className="text-muted-foreground hover:text-ws-red"
                     aria-label="Remove item"
                   >
                     <X className="h-4 w-4" />
@@ -287,12 +287,12 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
         <p className="mt-3 text-sm text-muted-foreground">Applying to job card…</p>
       )}
       {phase === "done" && (
-        <p className="mt-3 text-sm text-green-700 dark:text-green-400">Applied successfully.</p>
+        <p className="mt-3 text-sm text-ws-green dark:text-green-400">Applied successfully.</p>
       )}
 
       {error && (
         <div className="mt-3 flex flex-col gap-2">
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-ws-red">{error}</p>
           {phase === "error" && (
             <Button variant="outline" onClick={reset} className="self-start">
               Try again

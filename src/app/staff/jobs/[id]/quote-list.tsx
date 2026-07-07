@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Video, ArrowRight } from "lucide-react";
+import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 
 export type QuoteSummary = {
   id: string;
@@ -15,14 +16,14 @@ export type QuoteSummary = {
   decline_reason: string | null;
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-800",
-  approved: "bg-green-100 text-green-700",
-  declined: "bg-red-100 text-red-700",
-  rebooked: "bg-blue-100 text-blue-700",
-  expired: "bg-gray-200 text-gray-700",
-  cancelled: "bg-gray-200 text-gray-700",
-  approved_after_close: "bg-purple-100 text-purple-700",
+const STATUS_TONE: Record<string, WorkshopTone> = {
+  pending: "amber",
+  approved: "green",
+  declined: "red",
+  rebooked: "blue",
+  expired: "neutral",
+  cancelled: "neutral",
+  approved_after_close: "purple",
 };
 
 function formatGBP(n: number): string {
@@ -58,9 +59,9 @@ export function QuoteList({ quotes }: { quotes: QuoteSummary[] }) {
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${STATUS_STYLE[q.status] ?? ""}`}>
+                  <WorkshopBadge tone={STATUS_TONE[q.status] ?? "neutral"}>
                     {q.status.replace(/_/g, " ")}
-                  </span>
+                  </WorkshopBadge>
                   <span className="text-sm font-medium truncate">{q.title || "(no title)"}</span>
                 </div>
                 <div className="mt-1 text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5">

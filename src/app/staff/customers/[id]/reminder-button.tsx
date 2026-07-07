@@ -45,10 +45,10 @@ export function ReminderButton({ vehicleId, reminderType, disabled }: Props) {
         {`Send ${label} reminder`}
       </Button>
       {status === "success" && (
-        <span className="text-xs text-green-700">{message}</span>
+        <span className="text-xs text-ws-green">{message}</span>
       )}
       {status === "error" && (
-        <span className="text-xs text-red-600">{message}</span>
+        <span className="text-xs text-ws-red">{message}</span>
       )}
     </div>
   );

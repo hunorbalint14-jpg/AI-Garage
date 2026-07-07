@@ -27,10 +27,10 @@ const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", c
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
 const STATUS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-  ordered: "bg-blue-100 text-blue-700",
-  received: "bg-green-100 text-green-700",
-  cancelled: "bg-red-100 text-red-700",
+  draft: "bg-ws-hover text-ws-text-2 dark:bg-gray-800 dark:text-gray-300",
+  ordered: "bg-ws-blue-bg text-ws-blue",
+  received: "bg-ws-green-bg text-ws-green",
+  cancelled: "bg-ws-red-bg text-ws-red",
 };
 
 function poTotal(items: POItem[]) {
@@ -147,7 +147,7 @@ function POCard({ po, canEdit }: { po: PORow; canEdit: boolean }) {
               {po.receivedAt && <span className="self-center text-xs text-muted-foreground">Received {fmtDate(po.receivedAt)}</span>}
             </div>
           )}
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-2 text-sm text-ws-red">{error}</p>}
         </div>
       )}
     </div>
@@ -239,7 +239,7 @@ function NewPOForm({ suppliers, products, onDone }: { suppliers: POSupplier[]; p
             <input value={l.description} onChange={(e) => setLine(idx, { description: e.target.value, productId: l.productId ? "" : l.productId })} placeholder="Description" disabled={pending} className={inputClass} />
             <input type="number" min="0" step="any" value={l.quantity} onChange={(e) => setLine(idx, { quantity: e.target.value })} placeholder="Qty" disabled={pending} className={`${inputClass} text-right`} />
             <input type="number" min="0" step="0.01" value={l.unitCost} onChange={(e) => setLine(idx, { unitCost: e.target.value })} placeholder="Unit £" disabled={pending} className={`${inputClass} text-right`} />
-            <button type="button" onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, i) => i !== idx) : ls))} disabled={pending} className="text-muted-foreground hover:text-red-600" aria-label="Remove line">
+            <button type="button" onClick={() => setLines((ls) => (ls.length > 1 ? ls.filter((_, i) => i !== idx) : ls))} disabled={pending} className="text-muted-foreground hover:text-ws-red" aria-label="Remove line">
               <Trash2 className="h-4 w-4" />
             </button>
           </div>
@@ -258,7 +258,7 @@ function NewPOForm({ suppliers, products, onDone }: { suppliers: POSupplier[]; p
           <Button type="button" onClick={submit} loading={pending}>Create order</Button>
         </div>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </div>
   );
 }

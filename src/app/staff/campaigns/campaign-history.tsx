@@ -122,7 +122,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignDetail[] }) 
                   </td>
                   <td className="px-4 py-2 text-right tabular-nums">
                     {c.failed > 0 ? (
-                      <span className="text-red-600">{c.failed}</span>
+                      <span className="text-ws-red">{c.failed}</span>
                     ) : (
                       "—"
                     )}
@@ -172,12 +172,12 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignDetail[] }) 
 
                         {c.failures.length > 0 && (
                           <div>
-                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-red-700">
+                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ws-red">
                               Failures ({c.failures.length})
                             </p>
                             <ul className="space-y-1 text-xs">
                               {c.failures.map((f, i) => (
-                                <li key={i} className="text-red-700/90">
+                                <li key={i} className="text-ws-red/90">
                                   <span className="font-mono">{f.recipient}</span>{" "}
                                   <span className="uppercase text-muted-foreground">({f.channel})</span> — {f.reason}
                                 </li>

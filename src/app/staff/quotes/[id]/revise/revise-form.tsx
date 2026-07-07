@@ -139,11 +139,11 @@ export function ReviseForm({
     return (
       <div className="rounded-lg border p-4 flex flex-col gap-3">
         {sentInfo.channels.length > 0 ? (
-          <p className="text-sm text-green-700">
+          <p className="text-sm text-ws-green">
             Revision sent via {sentInfo.channels.join(" + ")}.
           </p>
         ) : (
-          <p className="text-sm text-amber-700">
+          <p className="text-sm text-ws-amber">
             The revision was saved and the old link is void, but no channel delivered — share the new
             link with the customer manually.
           </p>
@@ -266,7 +266,7 @@ export function ReviseForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="revisionNote">
-          What changed? <span className="text-red-600">*</span>
+          What changed? <span className="text-ws-red">*</span>
         </Label>
         <textarea
           id="revisionNote"
@@ -316,7 +316,7 @@ export function ReviseForm({
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       <div className="flex gap-2">
         <Button type="submit" loading={pending}>

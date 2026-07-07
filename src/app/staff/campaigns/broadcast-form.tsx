@@ -137,22 +137,22 @@ export function BroadcastForm({ hasCustomers }: Props) {
     return (
       <div className="rounded-lg border p-6 flex flex-col gap-4">
         {totalSent > 0 ? (
-          <p className="text-green-700 font-medium">
+          <p className="text-ws-green font-medium">
             Campaign sent — {sentParts.join(" + ")} delivered to provider.
           </p>
         ) : (
-          <p className="text-amber-600 font-medium">
+          <p className="text-ws-amber font-medium">
             Campaign processed — 0 messages sent.
           </p>
         )}
 
         {totalFailed > 0 && (
           <div className="rounded-md border border-red-500/30 bg-red-500/5 p-3 text-sm">
-            <p className="font-medium text-red-700">
+            <p className="font-medium text-ws-red">
               {totalFailed} failed at send time.
             </p>
             {failureSamples.length > 0 && (
-              <ul className="mt-2 space-y-1 text-xs text-red-700/90 list-disc pl-5">
+              <ul className="mt-2 space-y-1 text-xs text-ws-red/90 list-disc pl-5">
                 {failureSamples.map((f, i) => (
                   <li key={i}>
                     <span className="font-mono">{f.recipient}</span>{" "}
@@ -235,7 +235,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
               <span className="text-sm text-muted-foreground">No customers at this location yet.</span>
             )}
             {step.type === "error" && (
-              <span className="text-sm text-red-600">{step.message}</span>
+              <span className="text-sm text-ws-red">{step.message}</span>
             )}
           </div>
         </>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { TranscriptMessage } from "@/lib/receptionist/agent";
+import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 
 export type ConversationView = {
   id: string;
@@ -17,11 +18,11 @@ export type ConversationView = {
   lastMessageAt: string;
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  active: "bg-blue-100 text-blue-700",
-  completed: "bg-green-100 text-green-700",
-  handed_off: "bg-amber-100 text-amber-700",
-  expired: "bg-gray-100 text-gray-600",
+const STATUS_TONE: Record<string, WorkshopTone> = {
+  active: "blue",
+  completed: "green",
+  handed_off: "amber",
+  expired: "neutral",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -86,11 +87,9 @@ export function ConversationList({ conversations }: { conversations: Conversatio
                     View booking
                   </Link>
                 )}
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[c.status] ?? ""}`}
-                >
+                <WorkshopBadge tone={STATUS_TONE[c.status] ?? "neutral"}>
                   {STATUS_LABEL[c.status] ?? c.status}
-                </span>
+                </WorkshopBadge>
               </span>
             </button>
 

@@ -23,6 +23,7 @@ import {
 } from "./constants";
 import type { StaffEntry, LocationOption, RoleTemplateOption } from "./page";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -49,26 +50,24 @@ const ROLE_OPTIONS = [
 ];
 
 function RoleBadge({ role }: { role: string }) {
-  const styles: Record<string, string> = {
-    owner: "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
-    admin: "bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300",
-    manager: "bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300",
-    service_advisor: "bg-cyan-100 text-cyan-800 dark:bg-cyan-950/40 dark:text-cyan-300",
-    mechanic: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
-    apprentice: "bg-teal-100 text-teal-800 dark:bg-teal-950/40 dark:text-teal-300",
-    receptionist: "bg-pink-100 text-pink-800 dark:bg-pink-950/40 dark:text-pink-300",
-    parts: "bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300",
-    bookkeeper: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300",
-    accountant: "bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300",
-    staff: "bg-muted text-muted-foreground",
+  // Workshop tones (the portal is always dark; exotic hues collapse to the
+  // nearest of the kit's five status colours).
+  const tones: Record<string, WorkshopTone> = {
+    owner: "amber",
+    admin: "blue",
+    manager: "purple",
+    service_advisor: "blue",
+    mechanic: "green",
+    apprentice: "green",
+    receptionist: "purple",
+    parts: "amber",
+    bookkeeper: "blue",
+    accountant: "blue",
+    staff: "neutral",
   };
   const ORG_LABELS: Record<string, string> = { owner: "Owner", admin: "Admin", accountant: "Accountant" };
   const label = ORG_LABELS[role] ?? ROLE_OPTIONS.find((r) => r.value === role)?.label ?? role;
-  return (
-    <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${styles[role] ?? styles.staff}`}>
-      {label}
-    </span>
-  );
+  return <WorkshopBadge tone={tones[role] ?? "neutral"}>{label}</WorkshopBadge>;
 }
 
 const FILTER_OPTIONS = [
@@ -928,8 +927,8 @@ export function StaffManager({
         })}
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {success && <p className="text-sm text-green-700">{success}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
+      {success && <p className="text-sm text-ws-green">{success}</p>}
 
       {setPasswordFor && (
         <form onSubmit={handleSetPassword} className="rounded-lg border p-4 flex flex-col gap-3">
@@ -1084,21 +1083,21 @@ export function StaffManager({
       )}
 
       {inviteLink && (
-        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 flex flex-col gap-2">
+        <div className="rounded-lg border border-ws-amber-border dark:border-amber-800 bg-ws-amber-bg dark:bg-amber-950/30 p-4 flex flex-col gap-2">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Invite sent — share this link as a backup</p>
-              <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">An email was sent. If it doesn&apos;t arrive, share this link directly. Single-use, expires in 24h.</p>
+              <p className="text-sm font-semibold text-ws-amber dark:text-amber-300">Invite sent — share this link as a backup</p>
+              <p className="text-xs text-ws-amber dark:text-amber-400 mt-0.5">An email was sent. If it doesn&apos;t arrive, share this link directly. Single-use, expires in 24h.</p>
             </div>
-            <button onClick={() => setInviteLink(null)} className="text-xs text-amber-600 underline shrink-0">Dismiss</button>
+            <button onClick={() => setInviteLink(null)} className="text-xs text-ws-amber underline shrink-0">Dismiss</button>
           </div>
           <div className="flex items-center gap-2">
-            <code className="flex-1 rounded bg-amber-100 dark:bg-amber-900/40 px-2 py-1.5 text-xs break-all font-mono text-amber-900 dark:text-amber-200">
+            <code className="flex-1 rounded bg-ws-amber-bg dark:bg-amber-900/40 px-2 py-1.5 text-xs break-all font-mono text-amber-900 dark:text-amber-200">
               {inviteLink}
             </code>
             <button
               onClick={() => copyText(inviteLink)}
-              className="shrink-0 rounded border border-amber-300 dark:border-amber-700 px-2 py-1 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+              className="shrink-0 rounded border border-ws-amber-border dark:border-amber-700 px-2 py-1 text-xs text-ws-amber dark:text-amber-300 hover:bg-ws-amber-bg dark:hover:bg-amber-900/40"
             >
               Copy
             </button>
@@ -1107,21 +1106,21 @@ export function StaffManager({
       )}
 
       {resetLink && (
-        <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4 flex flex-col gap-2">
+        <div className="rounded-lg border border-ws-blue-border dark:border-blue-800 bg-ws-blue-bg dark:bg-blue-950/30 p-4 flex flex-col gap-2">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">Password reset link for {resetLink.email}</p>
-              <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">Share this with the staff member. Single-use, expires in 1h.</p>
+              <p className="text-sm font-semibold text-ws-blue dark:text-blue-300">Password reset link for {resetLink.email}</p>
+              <p className="text-xs text-ws-blue dark:text-blue-400 mt-0.5">Share this with the staff member. Single-use, expires in 1h.</p>
             </div>
-            <button onClick={() => setResetLink(null)} className="text-xs text-blue-600 underline shrink-0">Dismiss</button>
+            <button onClick={() => setResetLink(null)} className="text-xs text-ws-blue underline shrink-0">Dismiss</button>
           </div>
           <div className="flex items-center gap-2">
-            <code className="flex-1 rounded bg-blue-100 dark:bg-blue-900/40 px-2 py-1.5 text-xs break-all font-mono text-blue-900 dark:text-blue-200">
+            <code className="flex-1 rounded bg-ws-blue-bg dark:bg-blue-900/40 px-2 py-1.5 text-xs break-all font-mono text-blue-900 dark:text-blue-200">
               {resetLink.link}
             </code>
             <button
               onClick={() => copyText(resetLink.link)}
-              className="shrink-0 rounded border border-blue-300 dark:border-blue-700 px-2 py-1 text-xs text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+              className="shrink-0 rounded border border-ws-blue-border dark:border-blue-700 px-2 py-1 text-xs text-ws-blue dark:text-blue-300 hover:bg-ws-blue-bg dark:hover:bg-blue-900/40"
             >
               Copy
             </button>
@@ -1337,7 +1336,7 @@ export function StaffManager({
             </>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-ws-red">{error}</p>}
 
           <div className="flex gap-2">
             <Button type="submit" disabled={!invite.email} loading={pending}>

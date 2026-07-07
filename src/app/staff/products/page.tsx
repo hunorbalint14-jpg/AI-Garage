@@ -43,7 +43,7 @@ export default async function ProductsPage() {
         </p>
       </div>
 
-      {error && <p className="text-sm text-red-600">Failed to load: {error.message}</p>}
+      {error && <p className="text-sm text-ws-red">Failed to load: {error.message}</p>}
 
       <ProductManager products={products} canEdit={canEdit} />
     </div>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { InvoiceActions } from "./invoice-actions";
+import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 
 type Invoice = {
   id: string;
@@ -37,13 +38,13 @@ type JobItem = {
   unit_price: number;
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-600",
-  sent: "bg-blue-100 text-blue-700",
-  paid: "bg-green-100 text-green-700",
-  overdue: "bg-red-100 text-red-700",
-  part_refunded: "bg-amber-100 text-amber-700",
-  refunded: "bg-purple-100 text-purple-700",
+const STATUS_TONE: Record<string, WorkshopTone> = {
+  draft: "neutral",
+  sent: "blue",
+  paid: "green",
+  overdue: "red",
+  part_refunded: "amber",
+  refunded: "purple",
 };
 
 function fmt(n: number) {
@@ -103,9 +104,9 @@ export default async function InvoiceDetailPage({
           <h1 className="text-2xl font-bold font-mono">{invoice.invoice_number}</h1>
           <p className="text-sm text-muted-foreground mt-1">{garageName}</p>
         </div>
-        <span className={`shrink-0 mt-1 inline-block rounded-full px-3 py-1 text-xs font-medium capitalize ${STATUS_STYLE[computedStatus] ?? ""}`}>
+        <WorkshopBadge tone={STATUS_TONE[computedStatus] ?? "neutral"} className="shrink-0 mt-1">
           {computedStatus.replace(/_/g, " ")}
-        </span>
+        </WorkshopBadge>
       </div>
 
       <div className="grid grid-cols-3 gap-4 text-sm">
@@ -120,7 +121,7 @@ export default async function InvoiceDetailPage({
         </div>
         <div>
           <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Due</p>
-          <p className={computedStatus === "overdue" ? "font-semibold text-red-600" : ""}>
+          <p className={computedStatus === "overdue" ? "font-semibold text-ws-red" : ""}>
             {new Date(invoice.due_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
           </p>
         </div>
@@ -158,7 +159,7 @@ export default async function InvoiceDetailPage({
                 <td colSpan={4} className="px-4 py-2 text-right text-muted-foreground">
                   {invoice.membership_credit_description ?? "Included in membership"}
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums text-green-700">− {fmt(invoice.membership_credit_amount)}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-ws-green">− {fmt(invoice.membership_credit_amount)}</td>
               </tr>
             )}
             {invoice.discount_amount > 0 && (
@@ -166,7 +167,7 @@ export default async function InvoiceDetailPage({
                 <td colSpan={4} className="px-4 py-2 text-right text-muted-foreground">
                   {invoice.discount_description ?? "Member discount"}
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums text-green-700">− {fmt(invoice.discount_amount)}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-ws-green">− {fmt(invoice.discount_amount)}</td>
               </tr>
             )}
             <tr>
@@ -186,7 +187,7 @@ export default async function InvoiceDetailPage({
       )}
 
       {invoice.paid_at && (
-        <p className="text-sm text-green-700 font-medium">
+        <p className="text-sm text-ws-green font-medium">
           Paid {new Date(invoice.paid_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
         </p>
       )}
@@ -209,7 +210,7 @@ export default async function InvoiceDetailPage({
                   <span className="font-mono text-xs">{c.credit_number ?? "Credit"}</span>
                   <span className="ml-2 text-muted-foreground">{new Date(c.created_at).toLocaleDateString("en-GB")}{c.reason ? ` · ${c.reason}` : ""}</span>
                 </span>
-                <span className="tabular-nums text-red-600">− {fmt(Number(c.total))}</span>
+                <span className="tabular-nums text-ws-red">− {fmt(Number(c.total))}</span>
               </li>
             ))}
           </ul>

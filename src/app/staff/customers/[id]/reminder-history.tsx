@@ -54,8 +54,8 @@ function ChannelBadge({
       className={
         "inline-flex h-7 w-7 items-center justify-center rounded-full border " +
         (ok
-          ? "border-green-500/40 bg-green-500/10 text-green-700 dark:text-green-300"
-          : "border-red-500/40 bg-red-500/10 text-red-600")
+          ? "border-green-500/40 bg-green-500/10 text-ws-green dark:text-green-300"
+          : "border-red-500/40 bg-red-500/10 text-ws-red")
       }
     >
       <ChannelIcon channel={channel} />
@@ -155,7 +155,7 @@ export function ReminderHistory({ items }: { items: ReminderHistoryItem[] }) {
                                 </div>
                               </div>
                               {c.error && (
-                                <p className="border-b px-3 py-2 text-xs text-red-700">
+                                <p className="border-b px-3 py-2 text-xs text-ws-red">
                                   {c.error}
                                 </p>
                               )}

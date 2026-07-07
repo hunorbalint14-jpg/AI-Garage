@@ -27,7 +27,7 @@ export function UpgradeButtons({ tier }: { tier: "pro" | "growth" }) {
           Annual
         </Button>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </div>
   );
 }
@@ -50,7 +50,7 @@ export function ManageBillingButton() {
       <Button variant="outline" onClick={go} loading={pending}>
         Manage billing
       </Button>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
     </div>
   );
 }

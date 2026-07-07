@@ -20,8 +20,8 @@ type ClockResult = { error: string } | { success: true };
 type ClockPhase = "out" | "running" | "paused";
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  running: { label: "Running", className: "bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-400" },
-  paused: { label: "Paused", className: "bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400" },
+  running: { label: "Running", className: "bg-ws-green-bg text-ws-green dark:bg-green-950/40 dark:text-green-400" },
+  paused: { label: "Paused", className: "bg-ws-amber-bg text-ws-amber dark:bg-amber-950/40 dark:text-amber-400" },
   completed: { label: "Done", className: "bg-muted text-muted-foreground" },
 };
 
@@ -71,7 +71,7 @@ export function JobTimeTracking({
         <div className="flex items-baseline gap-4">
           <div>
             <p className="text-xs text-muted-foreground">Actual (active)</p>
-            <p className={`text-lg font-bold tabular-nums ${overEstimate ? "text-amber-600 dark:text-amber-400" : ""}`}>
+            <p className={`text-lg font-bold tabular-nums ${overEstimate ? "text-ws-amber dark:text-amber-400" : ""}`}>
               {formatMinutes(actual)}
             </p>
           </div>
@@ -136,7 +136,7 @@ export function JobTimeTracking({
         </div>
       </div>
 
-      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 text-sm text-ws-red">{error}</p>}
 
       {entries.length > 0 && (
         <ul className="mt-4 flex flex-col gap-1 border-t pt-3 text-sm">

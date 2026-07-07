@@ -30,13 +30,13 @@ const WARN_MIN = 3.0;
 
 function depthColor(d: number | null): string {
   if (d === null) return "text-muted-foreground";
-  if (d <= LEGAL_MIN) return "text-red-600 font-bold";
-  if (d <= WARN_MIN) return "text-amber-600 font-medium";
-  return "text-green-700";
+  if (d <= LEGAL_MIN) return "text-ws-red font-bold";
+  if (d <= WARN_MIN) return "text-ws-amber font-medium";
+  return "text-ws-green";
 }
 
 function depthBadge(d: number | null, replaced: boolean) {
-  if (replaced) return <span className="text-xs rounded-full bg-blue-100 text-blue-700 px-2 py-0.5">Replaced</span>;
+  if (replaced) return <span className="text-xs rounded-full bg-ws-blue-bg text-ws-blue px-2 py-0.5">Replaced</span>;
   if (d === null) return <span className="text-muted-foreground">—</span>;
   return <span className={depthColor(d)}>{d}mm{d <= LEGAL_MIN ? " ⚠️" : ""}</span>;
 }
@@ -150,7 +150,7 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
             />
           </div>
 
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-xs text-ws-red">{error}</p>}
 
           <button
             type="submit"
@@ -196,7 +196,7 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
                       type="button"
                       onClick={() => handleDelete(c.id)}
                       disabled={pending}
-                      className="text-xs text-muted-foreground hover:text-red-600 transition-colors"
+                      className="text-xs text-muted-foreground hover:text-ws-red transition-colors"
                     >
                       Delete
                     </button>
@@ -206,7 +206,7 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
             </tbody>
           </table>
           <p className="px-3 py-2 text-xs text-muted-foreground border-t">
-            Legal min: <span className="text-red-600 font-medium">1.6mm</span> · Advisory below: <span className="text-amber-600 font-medium">3mm</span>
+            Legal min: <span className="text-ws-red font-medium">1.6mm</span> · Advisory below: <span className="text-ws-amber font-medium">3mm</span>
           </p>
         </div>
       ) : null}

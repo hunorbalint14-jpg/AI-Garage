@@ -41,7 +41,7 @@ export function ProfileForm({ initialName, email }: { initialName: string; email
           Save changes
         </Button>
         {msg && (
-          <span className={`text-sm ${msg.ok ? "text-green-600" : "text-red-600"}`}>{msg.text}</span>
+          <span className={`text-sm ${msg.ok ? "text-ws-green" : "text-ws-red"}`}>{msg.text}</span>
         )}
       </div>
     </section>

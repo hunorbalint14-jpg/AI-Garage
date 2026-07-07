@@ -34,7 +34,7 @@ export function AcceptForm() {
         </span>
       </label>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
 
       <div className="flex gap-2">
         <Button onClick={handleAccept} disabled={!checked} loading={pending}>

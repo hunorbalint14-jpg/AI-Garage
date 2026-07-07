@@ -128,8 +128,8 @@ export function InvoiceActions({ invoiceId, status, hasCustomerEmail, refundable
         </div>
       )}
 
-      {success && <p className="text-sm text-green-700">{success}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {success && <p className="text-sm text-ws-green">{success}</p>}
+      {error && <p className="text-sm text-ws-red">{error}</p>}
       {!hasCustomerEmail && !isPaid && (
         <p className="text-xs text-muted-foreground">Customer has no email — cannot send electronically.</p>
       )}
