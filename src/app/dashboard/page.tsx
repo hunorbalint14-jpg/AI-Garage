@@ -109,7 +109,9 @@ export default async function CustomerDashboard() {
           )
           .eq("customer_id", customer.id)
           .gte("scheduled_at", now)
-          .in("status", ["scheduled", "in_progress"])
+          // payment_pending included so an abandoned Stripe checkout is
+          // recoverable from here (Complete payment → /book/[id]/pay).
+          .in("status", ["scheduled", "in_progress", "payment_pending"])
           .order("scheduled_at", { ascending: true })
           .limit(5),
         admin.from("customers").select("preferred_location_id").eq("id", customer.id).maybeSingle(),
