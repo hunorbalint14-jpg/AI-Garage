@@ -24,10 +24,10 @@ export function AssigneeFilter({ staff, current }: { staff: Staff[]; current: st
     <select
       value={current}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-md border bg-background px-3 py-1.5 text-sm"
+      className="rounded-[3px] border border-ws-border bg-ws-hover px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.04em] text-ws-text-2 focus:outline-none focus:ring-1 focus:ring-ws-amber"
       aria-label="Filter by technician"
     >
-      <option value="">All technicians</option>
+      <option value="">Tech: all</option>
       {staff.map((s) => (
         <option key={s.id} value={s.id}>{s.name}</option>
       ))}

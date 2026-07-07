@@ -1,5 +1,10 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { BayRow, BookingSlot } from "@/lib/dashboard";
+
+// Shared bay timeline (UX review §1d): promoted from the dashboard's
+// TodaySchedule so the dashboard and the bookings Schedule render the SAME
+// component — one file owns the block styles and status colours.
 
 const BOOKING_STATUS: Record<string, { bg: string; border: string; accent: string }> = {
   scheduled:   { bg: "var(--muted)", border: "var(--border)", accent: "var(--muted-foreground)" },
@@ -9,27 +14,35 @@ const BOOKING_STATUS: Record<string, { bg: string; border: string; accent: strin
   no_show:     { bg: "#2a1a2a", border: "#9a4a9a", accent: "#9a4a9a" },
 };
 
-export function TodaySchedule({
+export function BayTimeline({
   bookings,
   bays,
+  date,
   now,
   workStart = 8,
   workEnd = 18,
+  headerActions,
 }: {
   bookings: BookingSlot[];
   bays: BayRow[];
+  /** The day being rendered (drives the label + whether the now-line shows). */
+  date: Date;
   now: Date;
   workStart?: number;
   workEnd?: number;
+  /** Optional header buttons (the dashboard adds its own CTAs; the bookings
+      Schedule keeps its single primary button in the page header). */
+  headerActions?: ReactNode;
 }) {
   const DAY_START = Math.max(0, workStart - 1);
   const DAY_END = Math.min(23, workEnd + 1);
   const DAY_SPAN = DAY_END - DAY_START;
   const PX_PER_HOUR = 90;
   const TIMELINE_W = DAY_SPAN * PX_PER_HOUR;
+  const sameDay = date.toDateString() === now.toDateString();
   const nowH = now.getHours() + now.getMinutes() / 60;
   const nowPx = (nowH - DAY_START) * PX_PER_HOUR;
-  const showNow = nowH >= DAY_START && nowH <= DAY_START + DAY_SPAN;
+  const showNow = sameDay && nowH >= DAY_START && nowH <= DAY_START + DAY_SPAN;
   const hours = Array.from({ length: DAY_SPAN + 1 }, (_, i) => i + DAY_START);
   const padStart = `${String(DAY_START).padStart(2, "0")}:00`;
   const padEnd = `${String(DAY_END).padStart(2, "0")}:00`;
@@ -59,7 +72,7 @@ export function TodaySchedule({
         ]
       : [{ id: null, name: "All bookings", sub: null, items: bookings }];
 
-  function renderBlock(b: BookingSlot) {
+  function renderBlock(b: BookingSlot, unassigned: boolean) {
     const startDate = new Date(b.scheduledAt);
     const startH = startDate.getHours() + startDate.getMinutes() / 60;
     const leftPx = Math.max(0, (startH - DAY_START) * PX_PER_HOUR);
@@ -85,7 +98,8 @@ export function TodaySchedule({
           left: leftPx,
           width: widthPx,
           background: s.bg,
-          border: `1px solid ${s.border}`,
+          // Unassigned bookings read as "not yet placed" — dashed outline.
+          border: `1px ${unassigned ? "dashed" : "solid"} ${s.border}`,
           borderLeft: `3px solid ${s.accent}`,
         }}
       >
@@ -135,24 +149,15 @@ export function TodaySchedule({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-[22px] py-4">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
-            Day schedule · {now.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {padStart}–{padEnd}
+            Day schedule · {date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {padStart}–{padEnd}
           </div>
           <div className="mt-1 text-base font-semibold text-foreground">
             {bookings.length === 0
-              ? "No bookings today"
+              ? sameDay ? "No bookings today" : "No bookings this day"
               : `${bookings.length} booking${bookings.length !== 1 ? "s" : ""} · ${rows.length} row${rows.length !== 1 ? "s" : ""}`}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {bays.length === 0 && (
-            <Link href="/staff/bays" className="rounded-[2px] border border-border px-3 py-1.5 font-mono text-[11px] text-muted-foreground no-underline">
-              Set up bays →
-            </Link>
-          )}
-          <Link href="/staff/bookings/new" className="rounded-[2px] border border-[#3a2c14] bg-[#1c1810] px-3 py-1.5 font-mono text-[11px] text-[#ffb020] no-underline">
-            + New booking →
-          </Link>
-        </div>
+        {headerActions && <div className="flex flex-wrap gap-2">{headerActions}</div>}
       </div>
 
       {/* Schedule grid. Widths/offsets computed from the hour scale stay inline. */}
@@ -210,14 +215,14 @@ export function TodaySchedule({
                   style={{ left: nowPx }}
                 />
               )}
-              {row.items.map((b) => renderBlock(b))}
+              {row.items.map((b) => renderBlock(b, row.id === null && bays.length > 0))}
             </div>
           </div>
         ))}
 
         {bookings.length === 0 && (
           <div className="w-full px-[22px] py-8 text-center font-mono text-xs text-muted-foreground">
-            {"// NO BOOKINGS TODAY"}
+            {sameDay ? "// NO BOOKINGS TODAY" : "// NO BOOKINGS THIS DAY"}
           </div>
         )}
       </div>
