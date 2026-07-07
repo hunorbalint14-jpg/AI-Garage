@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { liveActiveMinutes, formatMinutes } from "@/lib/time-tracking";
 import type { DashboardStatsV2 } from "@/lib/dashboard";
+import { Plate } from "@/components/staff/workshop";
 
 type MyDayData = NonNullable<DashboardStatsV2["my_day"]>;
 
@@ -74,11 +75,7 @@ export function MyDay({ data, now }: { data: MyDayData; now: Date }) {
                 style={{ background: BOOKING_ACCENT[b.status] ?? BOOKING_ACCENT.scheduled }}
               />
               <span className="min-w-0">
-                {b.registration && (
-                  <span className="mr-2 inline-block whitespace-nowrap rounded-[3px] border border-[#c9a435] bg-[#f4d35e] px-[7px] py-0.5 font-mono text-[11px] font-bold tracking-[0.06em] text-background">
-                    {b.registration}
-                  </span>
-                )}
+                {b.registration && <Plate reg={b.registration} className="mr-2" />}
                 <span className="text-foreground">{b.customer_name ?? b.type.replace(/_/g, " ")}</span>
               </span>
               <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
