@@ -26,28 +26,51 @@ export default async function BookingCancelledPage({
   const admin = createAdminClient();
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, location:locations(slug, organization:organizations!organization_id(slug))")
+    .select("id, status, location:locations(slug, organization:organizations!organization_id(slug))")
     .eq("id", id)
     .maybeSingle();
 
-  type BookingRow = { id: string; location: { slug: string; organization: { slug: string } | null } | null };
+  type BookingRow = {
+    id: string;
+    status: string;
+    location: { slug: string; organization: { slug: string } | null } | null;
+  };
   const b = booking as unknown as BookingRow | null;
-  const bookUrl = b?.location?.organization?.slug ? `${tenantOrigin(b.location.organization.slug)}/book` : "/book";
+  const orgSlug = b?.location?.organization?.slug ?? null;
+  const bookUrl = orgSlug ? `${tenantOrigin(orgSlug)}/book` : "/book";
+  // The booking is still held awaiting payment — offer the way back into
+  // Stripe (/book/[id]/pay reuses or regenerates the checkout session).
+  const canRetry = b?.status === "payment_pending" && orgSlug;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0b0d11] text-white px-6">
       <div className="max-w-md w-full text-center rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-10">
         <h1 className="text-2xl font-bold">Payment cancelled</h1>
         <p className="mt-3 text-sm text-gray-400">
-          No charge was made and the booking slot was not held. Pick a new time
-          and try again to confirm your appointment.
+          {canRetry
+            ? "No charge was made. Your appointment is reserved but unpaid — complete the payment to confirm it, or start over with a new time."
+            : "No charge was made and the booking slot was not held. Pick a new time and try again to confirm your appointment."}
         </p>
-        <a
-          href={bookUrl}
-          className="mt-6 inline-block rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-500 transition-colors"
-        >
-          Back to booking
-        </a>
+        <div className="mt-6 flex flex-col items-center gap-3">
+          {canRetry && (
+            <a
+              href={`${tenantOrigin(orgSlug!)}/book/${b!.id}/pay`}
+              className="inline-block rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-500 transition-colors"
+            >
+              Complete payment →
+            </a>
+          )}
+          <a
+            href={bookUrl}
+            className={
+              canRetry
+                ? "text-xs text-gray-400 underline hover:text-white"
+                : "inline-block rounded-lg bg-green-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-green-500 transition-colors"
+            }
+          >
+            Back to booking
+          </a>
+        </div>
       </div>
     </div>
   );
