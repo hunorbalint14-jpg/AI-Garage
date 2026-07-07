@@ -1,9 +1,45 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Search, User, Car, Receipt, Wrench, CalendarDays, FileText, CornerDownLeft } from "lucide-react";
+import {
+  Search,
+  User,
+  Car,
+  Receipt,
+  Wrench,
+  CalendarDays,
+  FileText,
+  CornerDownLeft,
+  CalendarPlus,
+  UserPlus,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
 import { globalSearch, type SearchHit, type SearchResults } from "@/app/staff/search-actions";
+
+// Create-verbs (UX review F16): the palette also creates, not just finds.
+// navKey ties each action to the staff-modules nav item key so the palette
+// offers exactly what the nav shows this user (permissions applied upstream
+// in StaffShell via filterModulesForRole).
+type PaletteAction = { label: string; href: string; icon: LucideIcon; navKey: string };
+
+const ACTIONS: PaletteAction[] = [
+  { label: "New booking", href: "/staff/bookings/new", icon: CalendarPlus, navKey: "bookings" },
+  { label: "New quote", href: "/staff/quotes/new", icon: FileText, navKey: "quotes" },
+  { label: "New customer", href: "/staff/customers/new", icon: UserPlus, navKey: "customers" },
+  { label: "Go to settings", href: "/staff/settings", icon: Settings, navKey: "settings" },
+];
+
+// "new b" → "New booking": the whole label, or any word of it, starts with
+// the query. Actions stay reachable while typing without stealing the list
+// from real search hits.
+function actionMatches(label: string, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const l = label.toLowerCase();
+  return l.startsWith(q) || l.split(/\s+/).some((w) => w.startsWith(q));
+}
 
 const OPEN_EVENT = "staff:open-command-palette";
 
@@ -24,7 +60,7 @@ const EMPTY: SearchResults = {
 // Cmd/Ctrl+K global search across customers, registrations, jobs, bookings,
 // quotes and invoices. Front-desk flow: phone rings → type the reg or a name
 // → Enter → record.
-export function CommandPalette() {
+export function CommandPalette({ allowedNavKeys }: { allowedNavKeys?: string[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -72,6 +108,7 @@ export function CommandPalette() {
 
   const runSearch = useCallback((q: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSelected(0); // action list re-narrows with every keystroke
     if (q.trim().length < 2) {
       setResults(EMPTY);
       setSearching(false);
@@ -92,7 +129,17 @@ export function CommandPalette() {
     }, 200);
   }, []);
 
-  // Flat list across groups for keyboard navigation.
+  // Actions this user may see (nav-gated), narrowed by the query. On an empty
+  // query all of them show; while typing they stay reachable via prefix match.
+  const visibleActions = useMemo(() => {
+    const allowed = allowedNavKeys
+      ? ACTIONS.filter((a) => allowedNavKeys.includes(a.navKey))
+      : ACTIONS;
+    return allowed.filter((a) => actionMatches(a.label, query));
+  }, [allowedNavKeys, query]);
+
+  // Flat list across groups for keyboard navigation — actions first, then
+  // search hits, one continuous arrow-key sequence.
   const groups: { label: string; icon: typeof User; hits: SearchHit[] }[] = [
     { label: "Customers", icon: User, hits: results.customers },
     { label: "Vehicles", icon: Car, hits: results.vehicles },
@@ -101,10 +148,11 @@ export function CommandPalette() {
     { label: "Quotes", icon: FileText, hits: results.quotes },
     { label: "Invoices", icon: Receipt, hits: results.invoices },
   ].filter((g) => g.hits.length > 0);
-  const flat = groups.flatMap((g) => g.hits);
+  const searchFlat = groups.flatMap((g) => g.hits);
+  const flat: { href: string }[] = [...visibleActions, ...searchFlat];
 
   const navigate = useCallback(
-    (hit: SearchHit | undefined) => {
+    (hit: { href: string } | undefined) => {
       if (!hit) return;
       setOpen(false);
       router.push(hit.href);
@@ -156,11 +204,46 @@ export function CommandPalette() {
 
         {/* Results */}
         <div className="max-h-[55vh] overflow-y-auto p-2">
+          {/* Create-verbs — styled exactly like a result group, keyboard
+              indices 0..n-1 so Cmd+K → Enter fires the first action. */}
+          {visibleActions.length > 0 && (
+            <div className="mb-1">
+              <div className="flex items-center gap-1.5 px-3 pb-1 pt-2">
+                <CornerDownLeft className="h-3 w-3 text-[#5a6170]" />
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#5a6170]">
+                  Actions
+                </span>
+              </div>
+              {visibleActions.map((action, i) => {
+                const AIcon = action.icon;
+                const isSelected = i === selected;
+                return (
+                  <button
+                    key={action.href}
+                    onClick={() => navigate(action)}
+                    onMouseEnter={() => setSelected(i)}
+                    className={
+                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left " +
+                      (isSelected ? "bg-[#22272e]" : "")
+                    }
+                  >
+                    <AIcon className="h-4 w-4 shrink-0 text-[#9aa1ad]" />
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {action.label}
+                    </span>
+                    {isSelected && (
+                      <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-[#5a6170]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {query.trim().length < 2 ? (
             <p className="px-3 py-6 text-center text-sm text-[#5a6170]">
               Type at least 2 characters — customers, regs, jobs, bookings, quotes, invoices.
             </p>
-          ) : searching && flat.length === 0 ? (
+          ) : searching && searchFlat.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-[#5a6170]">Searching…</p>
           ) : flat.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-[#5a6170]">
