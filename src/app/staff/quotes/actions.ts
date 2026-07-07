@@ -186,7 +186,7 @@ export async function createStandaloneQuote(args: {
     insertPayload.link_token_encrypted = encryptLinkToken(token);
     insertPayload.slug = slug;
     insertPayload.expires_at = expiresAt;
-    customerUrl = tenantQuoteUrl(ctx.location.slug, slug, token);
+    customerUrl = tenantQuoteUrl(ctx.organization.slug, slug, token);
   }
 
   const { error: insertErr } = await admin.from("quotes").insert(insertPayload);
@@ -301,7 +301,7 @@ export async function sendStandaloneQuoteDraft(
     .eq("status", "draft");
   if (updateErr) return { error: updateErr.message };
 
-  const url = tenantQuoteUrl(ctx.location.slug, slug, token);
+  const url = tenantQuoteUrl(ctx.organization.slug, slug, token);
   const result = await dispatchStandaloneNotification({
     customer,
     vehicleReg: q.vehicle?.registration ?? null,
@@ -393,7 +393,7 @@ export async function sendQuoteDraft(quoteId: string): Promise<SendStandaloneRes
     .eq("status", "draft");
   if (updateErr) return { error: updateErr.message };
 
-  const url = tenantQuoteUrl(ctx.location.slug, slug, token);
+  const url = tenantQuoteUrl(ctx.organization.slug, slug, token);
   const result = await dispatchStandaloneNotification({
     customer,
     vehicleReg,
@@ -472,7 +472,7 @@ export async function sendFreshStandaloneQuote(
     .maybeSingle();
   const locationAddress = (locRow as { address: string | null } | null)?.address ?? null;
 
-  const url = tenantQuoteUrl(ctx.location.slug, q.slug, token);
+  const url = tenantQuoteUrl(ctx.organization.slug, q.slug, token);
   const result = await dispatchStandaloneNotification({
     customer,
     vehicleReg: q.vehicle?.registration ?? null,
@@ -711,7 +711,7 @@ export async function reviseQuote(args: {
   const { error: itemsErr } = await admin.from("quote_items").insert(itemRows);
   if (itemsErr) return { error: `Failed to save revised items: ${itemsErr.message}` };
 
-  const url = tenantQuoteUrl(ctx.location.slug, slug, token);
+  const url = tenantQuoteUrl(ctx.organization.slug, slug, token);
   const result = await dispatchStandaloneNotification({
     customer,
     vehicleReg,
@@ -807,7 +807,7 @@ export async function sendManualReminder(args: {
     return { error: "Stored link can't be read (encryption key changed?) — use Revise & re-send instead." };
   }
 
-  const url = tenantQuoteUrl(ctx.location.slug, q.slug, rawToken);
+  const url = tenantQuoteUrl(ctx.organization.slug, q.slug, rawToken);
   const result = await dispatchQuoteReminder({
     customer,
     vehicleReg,

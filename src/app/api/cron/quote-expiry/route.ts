@@ -109,6 +109,7 @@ type ReminderCandidate = {
   job: { customer: PersonRef; vehicle: { registration: string | null } | null } | null;
   location: { slug: string; name: string; address: string | null } | null;
   organization: {
+    slug: string;
     name: string;
     quote_reminders_enabled: boolean | null;
     quote_reminder_days: number[] | null;
@@ -127,7 +128,7 @@ async function processQuoteReminders(
   const { data, error } = await admin
     .from("quotes")
     .select(
-      "id, quote_type, organization_id, slug, title, total, expires_at, sent_at, last_reminder_at, reminder_count, sent_channels, link_token_encrypted, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration)), location:locations(slug, name, address), organization:organizations!organization_id(name, quote_reminders_enabled, quote_reminder_days, quote_reminder_max)",
+      "id, quote_type, organization_id, slug, title, total, expires_at, sent_at, last_reminder_at, reminder_count, sent_channels, link_token_encrypted, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration)), location:locations(slug, name, address), organization:organizations!organization_id(slug, name, quote_reminders_enabled, quote_reminder_days, quote_reminder_max)",
     )
     .eq("status", "pending")
     .gt("expires_at", nowIso)
@@ -176,7 +177,7 @@ async function processQuoteReminders(
 
     let url: string;
     try {
-      url = tenantQuoteUrl(q.location.slug, q.slug, decrypt(q.link_token_encrypted));
+      url = tenantQuoteUrl(q.organization!.slug, q.slug, decrypt(q.link_token_encrypted));
     } catch (e) {
       console.error("[quote-reminders] token decrypt failed", { quote: q.id, error: (e as Error).message });
       continue;

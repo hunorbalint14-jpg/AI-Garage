@@ -167,7 +167,7 @@ export async function createQuote(args: {
     insert.link_token_encrypted = encryptLinkToken(token);
     insert.slug = slug;
     insert.expires_at = expiresAt;
-    customerUrl = tenantQuoteUrl(ctx.location.slug, slug, token);
+    customerUrl = tenantQuoteUrl(ctx.organization.slug, slug, token);
   }
 
   const { error: insertErr } = await admin.from("quotes").insert(insert);
@@ -255,7 +255,7 @@ export async function sendQuoteWithToken(
     return { error: "Customer has no email or phone — cannot notify." };
   }
 
-  const url = tenantQuoteUrl(ctx.location.slug, quote.slug, token);
+  const url = tenantQuoteUrl(ctx.organization.slug, quote.slug, token);
   const garageName = ctx.organization.name;
   const firstName = customer.full_name?.split(" ")[0] ?? "there";
   const reg = quote.job?.vehicle?.registration ?? "your vehicle";

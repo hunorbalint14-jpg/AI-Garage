@@ -191,13 +191,15 @@ export async function verifyQuoteAccess(
 }
 
 // Build a tenant-aware quote URL: https://{slug}.{rootHost}/quote/{quoteSlug}?t={token}
+// `orgSlug` MUST be the ORGANISATION slug — the tenant subdomain resolves to
+// the org (org-scoped tenancy), never a branch/location slug.
 export function tenantQuoteUrl(
-  tenantSlug: string,
+  orgSlug: string,
   quoteSlug: string,
   token: string,
 ): string {
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "ai-garage.co.uk";
   const isLocal = rootDomain.includes("localtest") || rootDomain.includes("localhost");
   const proto = isLocal ? "http" : "https";
-  return `${proto}://${tenantSlug}.${rootDomain}/quote/${quoteSlug}?t=${token}`;
+  return `${proto}://${orgSlug}.${rootDomain}/quote/${quoteSlug}?t=${token}`;
 }

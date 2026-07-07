@@ -47,12 +47,12 @@ export async function acceptPlanInvite(
 
   const { data: locRow } = await admin
     .from("locations")
-    .select("slug, organization:organizations!organization_id(id, stripe_account_id, stripe_charges_enabled)")
+    .select("slug, organization:organizations!organization_id(id, slug, stripe_account_id, stripe_charges_enabled)")
     .eq("id", invite.location_id)
     .maybeSingle();
   const loc = locRow as unknown as {
     slug: string;
-    organization: { id: string; stripe_account_id: string | null; stripe_charges_enabled: boolean | null } | null;
+    organization: { id: string; slug: string; stripe_account_id: string | null; stripe_charges_enabled: boolean | null } | null;
   } | null;
   const org = loc?.organization;
   if (!loc || !org?.stripe_account_id || !org.stripe_charges_enabled) {
@@ -81,7 +81,8 @@ export async function acceptPlanInvite(
   }
   if (!priceId) return { error: "That billing option isn't available." };
 
-  const origin = tenantOrigin(loc.slug);
+  // Tenant subdomain is the ORG slug, not the branch slug.
+  const origin = tenantOrigin(loc.organization!.slug);
   const metadata = {
     kind: "service_plan",
     service_plan_id: plan.id,
