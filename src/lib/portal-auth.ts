@@ -17,6 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type PortalOrganization = {
   id: string;
+  slug: string;
   name: string;
   primary_color: string;
   logo_url: string | null;
@@ -104,7 +105,7 @@ export async function getPortalContext(): Promise<PortalContext> {
     id: primary.id,
     slug: primary.slug,
     name: primary.name,
-    organization: { id: org.id, name: org.name, primary_color: org.primary_color, logo_url: org.logo_url, phone: org.phone },
+    organization: { id: org.id, slug: org.slug, name: org.name, primary_color: org.primary_color, logo_url: org.logo_url, phone: org.phone },
   };
 
   const { data: customerRow } = await admin
