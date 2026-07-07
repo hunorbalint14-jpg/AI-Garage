@@ -115,15 +115,15 @@ export default async function FinancePage({
       {apps.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Financed (completed)</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Financed (completed)</p>
             <p className="text-2xl font-bold text-ws-green">{fmt(completedTotal)}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">In progress</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">In progress</p>
             <p className="text-2xl font-bold text-ws-blue">{openCount}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Applications</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Applications</p>
             <p className="text-2xl font-bold">{apps.length}</p>
           </div>
         </div>

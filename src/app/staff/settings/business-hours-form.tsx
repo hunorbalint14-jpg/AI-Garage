@@ -87,7 +87,7 @@ export function BusinessHoursForm({
 
   return (
     <section className="rounded-lg border p-4">
-      <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">
         Opening hours
       </h2>
       <p className="mb-4 text-xs text-muted-foreground">

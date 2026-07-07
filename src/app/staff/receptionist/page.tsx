@@ -81,7 +81,7 @@ export default async function ReceptionistPage() {
       />
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
           Conversations
         </h2>
         <ConversationList conversations={conversations} />

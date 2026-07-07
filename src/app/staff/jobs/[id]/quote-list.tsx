@@ -43,7 +43,7 @@ export function QuoteList({ quotes }: { quotes: QuoteSummary[] }) {
   return (
     <section className="rounded-lg border">
       <div className="p-4 border-b flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 flex items-center gap-2">
           <Video className="h-4 w-4" /> Sent quotes
         </h2>
         <Link href="/staff/quotes?type=job" className="text-xs text-muted-foreground underline">

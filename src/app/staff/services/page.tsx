@@ -58,7 +58,7 @@ export default async function ServicesPage() {
         <div className="flex flex-col gap-6">
           {sorted.map(([category, categoryServices]) => (
             <section key={category}>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">
                 {capitalize(category)}
               </h2>
               <div className="grid sm:grid-cols-2 gap-3">

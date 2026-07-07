@@ -74,7 +74,7 @@ export default async function AuditLogPage({
       />
 
       <div className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Filter by category</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Filter by category</h2>
         <div className="flex flex-wrap gap-1">
           <Link
             href={`/staff/audit-log${actorFilter ? `?actor=${encodeURIComponent(actorFilter)}` : ""}`}

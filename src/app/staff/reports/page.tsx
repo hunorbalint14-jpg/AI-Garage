@@ -243,7 +243,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
       {/* Aged debtors */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Aged debtors</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Aged debtors</h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {AGED_BUCKETS.map((k) => (
             <StatCard key={k} label={BUCKET_LABEL[k]} value={fmt(aged[k].total)} sub={`${aged[k].count} invoice${aged[k].count === 1 ? "" : "s"}`} accent={BUCKET_ACCENT[k]} />
@@ -278,7 +278,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
 
       {/* Period-scoped reports */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Period: {periodLabel}</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Period: {periodLabel}</h2>
         <PeriodSelector current={key} />
       </div>
 

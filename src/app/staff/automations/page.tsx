@@ -54,7 +54,7 @@ export default async function AutomationsPage() {
       {error && <p className="text-sm text-ws-red">Failed to load: {error.message}</p>}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
           Customer communications
         </h2>
         {customerTasks.map((t) => (
@@ -63,7 +63,7 @@ export default async function AutomationsPage() {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
           Internal / staff reports
         </h2>
         {staffTasks.map((t) => (

@@ -154,7 +154,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
   if (supported === false) {
     return (
       <section className="rounded-lg border p-4 bg-muted/20">
-        <h2 className="mb-2 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2 flex items-center gap-2">
           <Mic className="h-4 w-4" /> Voice notes
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -166,7 +166,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
 
   return (
     <section className="rounded-lg border p-4">
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3 flex items-center gap-2">
         <Mic className="h-4 w-4" /> Voice notes
         <span className="ml-auto text-xs text-muted-foreground normal-case tracking-normal">
           Dictate, AI structures into items
@@ -203,7 +203,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
       {/* Transcript display */}
       {(transcript || interim) && phase !== "done" && (
         <div className="mt-3 rounded-md border bg-muted/20 p-3 text-sm">
-          <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Transcript</div>
+          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">Transcript</div>
           <div className="whitespace-pre-wrap">
             {transcript}
             <span className="text-muted-foreground italic">{interim}</span>
@@ -234,7 +234,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
       {phase === "review" && structured && (
         <div className="mt-4 flex flex-col gap-4">
           <div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Summary</div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">Summary</div>
             <textarea
               value={structured.summary}
               onChange={(e) => setStructured({ ...structured, summary: e.target.value })}
@@ -243,7 +243,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
             />
           </div>
           <div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">
               Items to add ({structured.items.length})
             </div>
             <div className="rounded-md border divide-y">
@@ -251,7 +251,7 @@ export function VoiceNotes({ jobId }: { jobId: string }) {
                 <p className="p-3 text-sm text-muted-foreground">No items extracted.</p>
               ) : structured.items.map((item, i) => (
                 <div key={i} className="flex items-center gap-3 p-2">
-                  <span className="text-xs uppercase tracking-wide text-muted-foreground w-14 shrink-0">
+                  <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 w-14 shrink-0">
                     {item.type}
                   </span>
                   <span className="flex-1 text-sm">{item.description}</span>

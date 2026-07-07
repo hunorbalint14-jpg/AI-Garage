@@ -166,7 +166,7 @@ export default async function SettingsPage({
           />
           {isOwner && (
             <section className="flex flex-col gap-2 rounded-lg border p-4">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
                 AI assistant
               </h2>
               <p className="text-xs text-muted-foreground">
@@ -202,7 +202,7 @@ export default async function SettingsPage({
 
           <section className="flex flex-col gap-3 rounded-lg border p-4">
             <div>
-              <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
                 Booking widget
               </h2>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -293,7 +293,7 @@ export default async function SettingsPage({
 
           <section className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
                 Technician EV qualifications
               </h2>
               <span
@@ -323,7 +323,7 @@ export default async function SettingsPage({
       {tab === "locations" && (
         <section className="flex flex-col gap-3 rounded-lg border p-4">
           <div>
-            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
               Locations
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -349,7 +349,7 @@ export default async function SettingsPage({
 
           {isOwner && (
             <section className="flex flex-col gap-2 rounded-lg border p-4">
-              <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
                 Team roles
               </h2>
               <p className="text-xs text-muted-foreground">
@@ -367,7 +367,7 @@ export default async function SettingsPage({
           )}
 
           <section className="rounded-lg border p-4">
-            <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">
               Data Processing Agreement
             </h2>
             {(org as { dpa_version?: string; dpa_accepted_at?: string } | null)?.dpa_accepted_at ? (

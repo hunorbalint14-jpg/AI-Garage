@@ -85,7 +85,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
 
   return (
     <section className="rounded-lg border p-4 flex flex-col gap-3">
-      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
         AI Message
       </h2>
 
@@ -163,7 +163,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
           </p>
           {step.email !== null && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</label>
+              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Email</label>
               <textarea
                 className={TEXTAREA_CLASS + " min-h-[140px]"}
                 value={emailText}
@@ -174,7 +174,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
           )}
           {step.sms !== null && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
                 SMS <span className="normal-case font-normal">({smsText.length} chars)</span>
               </label>
               <textarea

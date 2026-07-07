@@ -51,7 +51,7 @@ export function PlanInvitePanel({
 
   return (
     <section className="rounded-lg border p-4 flex flex-col gap-3">
-      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Invite to a plan</h2>
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Invite to a plan</h2>
 
       {!hasEmail && !hasPhone ? (
         <p className="text-xs text-muted-foreground">Add an email or phone number to this customer to send an invite.</p>

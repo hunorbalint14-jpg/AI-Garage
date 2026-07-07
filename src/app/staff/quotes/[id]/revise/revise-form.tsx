@@ -202,7 +202,7 @@ export function ReviseForm({
       </div>
 
       <section className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Line items</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Line items</h2>
         {items.map((it, idx) => (
           <div key={idx} className="grid grid-cols-[1fr_110px_70px_100px_36px] items-center gap-2">
             <input

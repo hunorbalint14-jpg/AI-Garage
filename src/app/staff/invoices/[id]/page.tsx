@@ -111,16 +111,16 @@ export default async function InvoiceDetailPage({
 
       <div className="grid grid-cols-3 gap-4 text-sm">
         <div>
-          <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Bill to</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">Bill to</p>
           <p className="font-medium">{invoice.customer?.full_name ?? "—"}</p>
           {invoice.customer?.email && <p className="text-muted-foreground">{invoice.customer.email}</p>}
         </div>
         <div>
-          <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Issued</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">Issued</p>
           <p>{new Date(invoice.issued_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
         </div>
         <div>
-          <p className="text-muted-foreground text-xs uppercase tracking-wide mb-1">Due</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">Due</p>
           <p className={computedStatus === "overdue" ? "font-semibold text-ws-red" : ""}>
             {new Date(invoice.due_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
           </p>
@@ -202,7 +202,7 @@ export default async function InvoiceDetailPage({
 
       {creditNotes.length > 0 && (
         <div className="rounded-lg border p-4">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">Refunds / credit notes</h2>
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">Refunds / credit notes</h2>
           <ul className="flex flex-col gap-1.5 text-sm">
             {creditNotes.map((c) => (
               <li key={c.id} className="flex items-center justify-between gap-3">

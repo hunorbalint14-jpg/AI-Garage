@@ -128,7 +128,7 @@ export function WinBackList({ vehicles }: { vehicles: WinBackVehicle[] }) {
       <div className="overflow-x-auto rounded-lg border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 border-b bg-muted/40 text-left">
               <th className="px-3 py-2 font-medium">Vehicle</th>
               <th className="px-3 py-2 font-medium">Customer</th>
               <th className="px-3 py-2 font-medium">MOT tested</th>

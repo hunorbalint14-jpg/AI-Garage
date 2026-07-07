@@ -21,7 +21,7 @@ export function ProfileForm({ initialName, email }: { initialName: string; email
 
   return (
     <section className="flex flex-col gap-4 rounded-lg border p-4">
-      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Profile</h2>
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Profile</h2>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="name">Name</Label>

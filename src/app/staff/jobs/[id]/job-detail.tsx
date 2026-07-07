@@ -280,7 +280,7 @@ export function JobDetail({
       </div>
 
       <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">Customer & Vehicle</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">Customer & Vehicle</h2>
         <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-sm">
           <dt className="text-muted-foreground">Customer</dt>
           <dd>
@@ -317,7 +317,7 @@ export function JobDetail({
       <QuoteList quotes={quotes} />
 
       <form onSubmit={handleUpdate} className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Description & notes</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Description & notes</h2>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="description">Job description</Label>
           <Input
@@ -351,7 +351,7 @@ export function JobDetail({
 
       <section className="rounded-lg border">
         <div className="p-4 border-b">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Items</h2>
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Items</h2>
         </div>
 
         {items.length === 0 ? (
@@ -417,7 +417,7 @@ export function JobDetail({
 
         {isOpen && (
           <form onSubmit={handleAddItem} className="p-4 border-t flex flex-col gap-3 bg-muted/10">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Add item</h3>
+            <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Add item</h3>
             {/* Links the line to a catalogue product (decrements stock on complete)
                 or a service (recognised by plan included-services allowances). */}
             <input type="hidden" name="productId" value={productId} />
@@ -557,7 +557,7 @@ export function JobDetail({
       </section>
 
       <div className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Actions</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Actions</h2>
         <div className="flex flex-wrap gap-2">
           {isOpen && (
             <Button onClick={handleComplete} disabled={pending}>

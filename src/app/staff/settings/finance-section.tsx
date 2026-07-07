@@ -58,7 +58,7 @@ export function FinanceSection({
   return (
     <section className="flex flex-col gap-3 rounded-lg border p-4">
       <div>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
           Customer finance — Bumper
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">

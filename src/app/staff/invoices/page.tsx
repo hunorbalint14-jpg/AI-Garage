@@ -119,15 +119,15 @@ export default async function InvoicesPage({
       {!query && rows.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Outstanding</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Outstanding</p>
             <p className="text-2xl font-bold text-ws-amber">{fmt(totalOwed)}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Received</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Received</p>
             <p className="text-2xl font-bold text-ws-green">{fmt(totalPaid)}</p>
           </div>
           <div className="rounded-lg border p-4">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total invoices</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Total invoices</p>
             <p className="text-2xl font-bold">{rows.length}</p>
           </div>
         </div>

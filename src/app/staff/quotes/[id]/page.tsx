@@ -165,7 +165,7 @@ export default async function QuoteDetailPage({
           <p className="text-sm text-muted-foreground mt-1">
             Created {fmtDateTime(quote.created_at)}
             {quote.revision_number > 1 && (
-              <span className="ml-2 rounded-full bg-ws-amber-bg px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ws-amber">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 ml-2 rounded-full bg-ws-amber-bg px-2 py-0.5 text-ws-amber">
                 Revision {quote.revision_number}
               </span>
             )}
@@ -187,7 +187,7 @@ export default async function QuoteDetailPage({
       </div>
 
       <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">Customer & vehicle</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">Customer & vehicle</h2>
         <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-sm">
           <dt className="text-muted-foreground">Customer</dt>
           <dd>
@@ -218,14 +218,14 @@ export default async function QuoteDetailPage({
 
       {quote.description && (
         <section className="rounded-lg border p-4">
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">Staff notes</h2>
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">Staff notes</h2>
           <p className="text-sm whitespace-pre-wrap">{quote.description}</p>
         </section>
       )}
 
       {quote.customer_message && (
         <section className="rounded-lg border p-4">
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">Message to customer</h2>
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">Message to customer</h2>
           <p className="text-sm whitespace-pre-wrap">{quote.customer_message}</p>
         </section>
       )}
@@ -235,7 +235,7 @@ export default async function QuoteDetailPage({
       )}
 
       <section className="rounded-lg border overflow-hidden">
-        <div className="px-4 py-2 bg-muted/40 text-xs font-medium uppercase tracking-wide text-muted-foreground">Items</div>
+        <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 px-4 py-2 bg-muted/40">Items</div>
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-muted-foreground">
             <tr>
@@ -284,7 +284,7 @@ export default async function QuoteDetailPage({
       </section>
 
       <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">Timeline</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">Timeline</h2>
         <dl className="grid grid-cols-[160px_1fr] gap-y-1 text-sm">
           <dt className="text-muted-foreground">Sent</dt>
           <dd>{fmtDateTime(quote.sent_at)}</dd>
@@ -320,7 +320,7 @@ export default async function QuoteDetailPage({
 
       {revisions.length > 0 && (
         <section className="rounded-lg border overflow-hidden">
-          <div className="px-4 py-2 bg-muted/40 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 px-4 py-2 bg-muted/40">
             Revision history
           </div>
           <table className="w-full text-sm">

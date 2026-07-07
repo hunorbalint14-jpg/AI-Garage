@@ -256,7 +256,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
 
           {channels.has("email") && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
                 Email subject
               </label>
               <input
@@ -276,7 +276,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
 
           {emailText && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Email body</label>
+              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Email body</label>
               <textarea
                 className={TEXTAREA_CLASS + " min-h-[160px]"}
                 value={emailText}
@@ -288,7 +288,7 @@ export function BroadcastForm({ hasCustomers }: Props) {
 
           {smsText && (
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
                 SMS <span className="normal-case font-normal">({smsText.length} chars)</span>
               </label>
               <textarea

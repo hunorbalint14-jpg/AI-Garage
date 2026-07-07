@@ -38,7 +38,7 @@ function PhotoStrip({ urls, label }: { urls: string[]; label: string }) {
   if (urls.length === 0) return null;
   return (
     <div className="mt-2 flex flex-wrap items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">{label}</span>
       {urls.map((url, i) => (
         <a key={i} href={url} target="_blank" rel="noreferrer">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -94,7 +94,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
   return (
     <>
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
           Out now
         </h2>
         {error && <p className="text-sm text-ws-red">{error}</p>}
@@ -136,7 +136,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
                       <PhotoStrip urls={loan.photoUrlsOut} label="Out" />
                       {loan.signatureUrl && (
                         <div className="mt-2 flex items-center gap-2">
-                          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Signed</span>
+                          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Signed</span>
                           <a href={loan.signatureUrl} target="_blank" rel="noreferrer">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
@@ -198,7 +198,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
           History
         </h2>
         {history.length === 0 ? (
@@ -206,7 +206,7 @@ export function LoansSection({ loans }: { loans: LoanView[] }) {
         ) : (
           <div className="overflow-x-auto rounded-lg border">
             <table className="w-full min-w-[640px] text-sm">
-              <thead className="bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <thead className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 bg-muted/50 text-left">
                 <tr>
                   <th className="px-3 py-2 font-medium">Car</th>
                   <th className="px-3 py-2 font-medium">Customer</th>

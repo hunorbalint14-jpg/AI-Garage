@@ -22,7 +22,7 @@ export function NotificationsForm({ weeklyDigest }: { weeklyDigest: boolean }) {
 
   return (
     <section className="flex flex-col gap-3 rounded-lg border p-4">
-      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
         Email notifications
       </h2>
 
