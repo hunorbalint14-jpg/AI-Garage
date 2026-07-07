@@ -112,7 +112,8 @@ export async function subscribeToPlan(planId: string, interval: PlanInterval): P
   }
   if (!priceId) return { error: "That billing option isn't available for this plan." };
 
-  const origin = tenantOrigin(location.slug);
+  // Subdomain is the ORG slug (org-scoped tenancy), not the branch slug.
+  const origin = tenantOrigin(location.organization.slug);
   const metadata = {
     kind: "service_plan",
     service_plan_id: plan.id,

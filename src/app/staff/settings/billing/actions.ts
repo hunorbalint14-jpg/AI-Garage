@@ -63,7 +63,9 @@ export async function startTenantCheckout(
     console.error("[tenant-billing] existing-subscription check failed", err);
   }
 
-  const origin = tenantOrigin(ctx.location.slug);
+  // The tenant subdomain is the ORG slug (org-scoped tenancy), not a branch
+  // slug — a location slug like "colindale" isn't a valid subdomain.
+  const origin = tenantOrigin(ctx.organization.slug);
   const metadata = { kind: "tenant_billing", organization_id: ctx.organization.id, tier };
 
   try {
@@ -113,7 +115,7 @@ export async function openBillingPortal(): Promise<BillingResult> {
   try {
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
-      return_url: `${tenantOrigin(ctx.location.slug)}/staff/settings/billing?upgraded=1`,
+      return_url: `${tenantOrigin(ctx.organization.slug)}/staff/settings/billing?upgraded=1`,
     });
     return { url: session.url };
   } catch (err) {

@@ -77,7 +77,8 @@ export async function startInvoiceFinance(
       }))
     : [{ item: `Invoice ${invoice.invoice_number}`, quantity: "1", price: Number(invoice.total).toFixed(2) }];
 
-  const returnBase = `${tenantOrigin(location.slug)}/api/finance/bumper/return`;
+  // Subdomain is the ORG slug (org-scoped tenancy), not the branch slug.
+  const returnBase = `${tenantOrigin(org.slug)}/api/finance/bumper/return`;
 
   let result;
   try {

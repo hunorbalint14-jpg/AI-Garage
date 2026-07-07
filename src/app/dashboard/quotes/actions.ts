@@ -188,8 +188,8 @@ export async function approveQuoteAsOwner(quoteId: string): Promise<OwnerApprove
           ],
           payment_intent_data: { application_fee_amount: platformFeePence(amountPence, effectiveFeePercent(org)), metadata: { [metaKey]: q.id } },
           metadata: { [metaKey]: q.id },
-          success_url: `${tenantOrigin(location.slug)}/dashboard/quotes/${q.id}?deposit=success`,
-          cancel_url: `${tenantOrigin(location.slug)}/dashboard/quotes/${q.id}`,
+          success_url: `${tenantOrigin(location.organization.slug)}/dashboard/quotes/${q.id}?deposit=success`,
+          cancel_url: `${tenantOrigin(location.organization.slug)}/dashboard/quotes/${q.id}`,
         },
         { stripeAccount: org.stripe_account_id },
       );
