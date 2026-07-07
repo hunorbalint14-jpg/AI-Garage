@@ -79,7 +79,7 @@ export function InvoiceActions({ invoiceId, status, hasCustomerEmail, refundable
 
   return (
     <div className="rounded-lg border p-4 flex flex-col gap-3">
-      <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Actions</h2>
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Actions</h2>
       <div className="flex flex-wrap gap-2">
         {!isPaid && hasCustomerEmail && (
           <Button onClick={() => handle(() => sendInvoice(invoiceId), "Invoice sent.")} loading={pending}>

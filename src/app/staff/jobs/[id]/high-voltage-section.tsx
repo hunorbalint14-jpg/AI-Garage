@@ -34,7 +34,7 @@ export function HighVoltageSection({
     <section className="rounded-lg border p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
             High-voltage vehicle
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">

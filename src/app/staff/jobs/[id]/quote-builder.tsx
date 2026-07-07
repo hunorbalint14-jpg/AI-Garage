@@ -253,7 +253,7 @@ export function QuoteBuilder({
 
   return (
     <section className="rounded-lg border p-4">
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3 flex items-center gap-2">
         <Video className="h-4 w-4" /> Mid-job upsell
         <span className="ml-auto text-xs text-muted-foreground normal-case tracking-normal">
           Add a video + line items, save a draft or send for remote approval
@@ -310,7 +310,7 @@ export function QuoteBuilder({
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Items</div>
+            <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Items</div>
             {items.map((it, idx) => (
               <div key={idx} className="rounded-md border p-3 flex flex-col gap-2 bg-muted/10">
                 {products.length > 0 && (

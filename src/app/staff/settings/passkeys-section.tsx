@@ -88,7 +88,7 @@ export function PasskeysSection({ initialPasskeys }: { initialPasskeys: PasskeyR
 
   return (
     <section className="rounded-lg border p-4">
-      <h2 className="mb-2 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2 flex items-center gap-2">
         <Key className="h-4 w-4" /> Passkeys
       </h2>
       <p className="mb-3 text-xs text-muted-foreground">

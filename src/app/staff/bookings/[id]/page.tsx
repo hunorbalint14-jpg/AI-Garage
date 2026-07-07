@@ -113,7 +113,7 @@ export default async function BookingDetailPage({
       </div>
 
       <section className="rounded-lg border p-4">
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">
           Customer & Vehicle
         </h2>
         <dl className="grid grid-cols-[140px_1fr] gap-y-1 text-sm">
@@ -155,21 +155,21 @@ export default async function BookingDetailPage({
 
       {booking.notes && (
         <section className="rounded-lg border p-4">
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">Notes</h2>
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">Notes</h2>
           <p className="text-sm whitespace-pre-wrap">{booking.notes}</p>
         </section>
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <section className="rounded-lg border p-4">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">
             Bay assignment
           </h2>
           <BaySelector bookingId={booking.id} bays={bays} currentBayId={booking.bay_id} />
         </section>
 
         <section className="rounded-lg border p-4">
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">
             Technician
           </h2>
           <TechnicianSelector
@@ -183,7 +183,7 @@ export default async function BookingDetailPage({
 
       {job && (
         <section className="rounded-lg border p-4 bg-muted/20">
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">Linked Job</h2>
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">Linked Job</h2>
           <p className="text-sm">
             Job <span className="capitalize">{job.status}</span>
             {job.completed_at && ` — completed ${new Date(job.completed_at).toLocaleDateString("en-GB")}`}

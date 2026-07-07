@@ -140,7 +140,7 @@ export function TemplateEditor({
 
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Custom templates</h2>
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Custom templates</h2>
           {!creating && !editingId && (
             <Button size="sm" onClick={startCreate}>+ New template</Button>
           )}
@@ -195,7 +195,7 @@ export function TemplateEditor({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">System templates</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">System templates</h2>
         <p className="text-xs text-muted-foreground">
           Read-only baselines from UK garage research. Clone to make your own.
         </p>
@@ -286,7 +286,7 @@ function DraftFields({
       <div className="flex flex-col gap-3">
         {PERMISSION_GROUPS.map((g) => (
           <div key={g.label} className="rounded-md border p-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.label}</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">{g.label}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
               {g.keys.map((k) => {
                 const meta = PERMISSION_LABELS[k];

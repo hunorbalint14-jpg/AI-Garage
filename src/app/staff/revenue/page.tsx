@@ -208,15 +208,15 @@ export default async function RevenuePage({
           <h2 className="mb-3 text-base font-semibold">This month</h2>
           <div className="rounded-xl border p-5 bg-card flex flex-col gap-4">
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Jobs completed</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Jobs completed</p>
               <p className="text-3xl font-bold mt-1">{jobsThisMonth}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Revenue collected</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Revenue collected</p>
               <p className="text-3xl font-bold mt-1 text-ws-green">{fmt(revenueThisMonth)}</p>
             </div>
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Total invoiced (YTD)</p>
+              <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Total invoiced (YTD)</p>
               <p className="text-3xl font-bold mt-1">{fmt(revenueYtd)}</p>
             </div>
           </div>

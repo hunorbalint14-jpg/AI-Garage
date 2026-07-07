@@ -76,7 +76,7 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Tyre checks</h3>
+        <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Tyre checks</h3>
         <button
           type="button"
           onClick={() => setOpen(!open)}

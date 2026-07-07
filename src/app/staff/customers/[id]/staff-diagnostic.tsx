@@ -51,7 +51,7 @@ export function StaffDiagnostic({ vehicles }: { vehicles: Vehicle[] }) {
   return (
     <section className="rounded-lg border p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">AI Diagnostic</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">AI Diagnostic</h2>
         <button type="button" onClick={() => { setOpen(false); setResult(null); setSymptom(""); }} className="text-xs text-muted-foreground hover:text-foreground">Close</button>
       </div>
 
@@ -97,7 +97,7 @@ export function StaffDiagnostic({ vehicles }: { vehicles: Vehicle[] }) {
           </div>
 
           <div>
-            <p className="text-xs text-muted-foreground mb-1.5 uppercase tracking-wide">Likely causes</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1.5">Likely causes</p>
             <ul className="flex flex-col gap-1 text-sm">
               {result.likelyCauses.map((c, i) => (
                 <li key={i} className="flex gap-2">

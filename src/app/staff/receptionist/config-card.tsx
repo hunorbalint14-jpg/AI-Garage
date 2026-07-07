@@ -45,7 +45,7 @@ export function ConfigCard({
     <section className="flex flex-col gap-3 rounded-lg border p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
             Setup
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">

@@ -130,7 +130,7 @@ export function ProductManager({ products, canEdit }: { products: Product[]; can
 function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
     <div className="rounded-lg border p-3">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">{label}</div>
       <div className={`mt-1 text-xl font-bold ${accent ?? ""}`}>{value}</div>
     </div>
   );

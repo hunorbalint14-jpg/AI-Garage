@@ -116,11 +116,11 @@ export function FleetDetail({ company, customers, vehicles, unassignedCustomers 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
         <div className="rounded-xl border p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Drivers</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Drivers</p>
           <p className="text-3xl font-bold mt-1">{customers.length}</p>
         </div>
         <div className="rounded-xl border p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Vehicles</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Vehicles</p>
           <p className="text-3xl font-bold mt-1">{vehicles.length}</p>
         </div>
       </div>

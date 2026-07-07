@@ -90,7 +90,7 @@ export function GdprPanel({
   if (anonymizedAt) {
     return (
       <section className="rounded-lg border p-4 bg-muted/30">
-        <h2 className="mb-2 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2 flex items-center gap-2">
           <Shield className="h-4 w-4" /> Privacy & data (GDPR)
         </h2>
         <p className="text-sm text-ws-amber dark:text-amber-400 flex items-center gap-2">
@@ -103,7 +103,7 @@ export function GdprPanel({
 
   return (
     <section className="rounded-lg border p-4">
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3 flex items-center gap-2">
         <Shield className="h-4 w-4" /> Privacy & data (GDPR)
       </h2>
 

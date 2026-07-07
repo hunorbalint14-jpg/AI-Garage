@@ -63,7 +63,7 @@ export function JobTimeTracking({
 
   return (
     <section className="rounded-lg border p-4">
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3 flex items-center gap-2">
         <Clock className="h-4 w-4" /> Time tracking
       </h2>
 

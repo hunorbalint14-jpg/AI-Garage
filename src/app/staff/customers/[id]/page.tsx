@@ -204,7 +204,7 @@ export default async function CustomerDetailPage({
             content: (
               <div className="flex flex-col gap-6">
                 <section className="rounded-lg border p-4">
-                  <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                  <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">
                     Contact
                   </h2>
                   <dl className="grid grid-cols-[120px_1fr] gap-y-1 text-sm">
@@ -230,7 +230,7 @@ export default async function CustomerDetailPage({
                 </section>
 
                 <section className="rounded-lg border p-4">
-                  <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                  <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3">
                     At a glance
                   </h2>
                   <dl className="grid grid-cols-[120px_1fr] gap-y-1 text-sm">

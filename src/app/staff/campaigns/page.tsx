@@ -41,7 +41,7 @@ function KpiCard({
 }) {
   return (
     <div className="rounded-lg border bg-card p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">{label}</p>
       <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
       {sub && <p className="mt-1 text-xs text-muted-foreground">{sub}</p>}
     </div>

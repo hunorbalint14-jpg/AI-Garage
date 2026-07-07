@@ -150,7 +150,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignDetail[] }) 
 
                         {c.emailBody && (
                           <div>
-                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">
                               Email body
                             </p>
                             <pre className="whitespace-pre-wrap rounded-md border bg-background px-3 py-2 text-sm font-sans">
@@ -161,7 +161,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignDetail[] }) 
 
                         {c.smsBody && (
                           <div>
-                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1">
                               SMS body
                             </p>
                             <pre className="whitespace-pre-wrap rounded-md border bg-background px-3 py-2 text-sm font-sans">
@@ -172,7 +172,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignDetail[] }) 
 
                         {c.failures.length > 0 && (
                           <div>
-                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ws-red">
+                            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-1 text-ws-red">
                               Failures ({c.failures.length})
                             </p>
                             <ul className="space-y-1 text-xs">

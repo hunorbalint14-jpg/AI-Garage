@@ -112,7 +112,7 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
               {meta.audience}
             </span>
             {!enabled && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground uppercase tracking-wide font-medium">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 px-1.5 py-0.5 rounded bg-muted">
                 Paused
               </span>
             )}

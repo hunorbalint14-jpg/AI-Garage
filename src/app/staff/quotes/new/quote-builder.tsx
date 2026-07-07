@@ -331,7 +331,7 @@ export function QuoteBuilder({
     <section className="flex flex-col gap-5">
       {/* Customer + vehicle */}
       <div className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Customer & vehicle</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Customer & vehicle</h2>
         <CustomerVehiclePicker
           disabled={pending}
           vehicleLabel="Vehicle (optional)"
@@ -343,7 +343,7 @@ export function QuoteBuilder({
 
       {/* AI assist — seed the quote from a described symptom */}
       <div className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 flex items-center gap-2">
           <Sparkles className="h-4 w-4" /> AI assist
         </h2>
         <p className="text-xs text-muted-foreground">
@@ -370,7 +370,7 @@ export function QuoteBuilder({
         </div>
         {diagnosis && (
           <div className="rounded-md border bg-muted/20 p-3 text-sm flex flex-col gap-1.5">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
               Likely causes ({diagnosis.urgency === "urgent" ? "urgent" : diagnosis.urgency === "soon" ? "see within 2 weeks" : "monitor"})
             </p>
             <ul className="list-disc pl-5">
@@ -390,7 +390,7 @@ export function QuoteBuilder({
 
       {/* Title + message */}
       <div className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Quote details</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Quote details</h2>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="title" className="text-xs">Title (shown to customer)</Label>
           <Input
@@ -430,7 +430,7 @@ export function QuoteBuilder({
 
       {/* Optional video */}
       <div className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground flex items-center gap-2">
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 flex items-center gap-2">
           <Video className="h-4 w-4" /> Optional video
         </h2>
         {phase === "uploading" ? (
@@ -469,7 +469,7 @@ export function QuoteBuilder({
 
       {/* Items */}
       <div className="rounded-lg border p-4 flex flex-col gap-3">
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Items</h2>
+        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Items</h2>
         {items.map((it, idx) => (
           <div key={idx} className="rounded-md border p-3 flex flex-col gap-2 bg-muted/10">
             {products.length > 0 && (

@@ -153,7 +153,7 @@ function PermissionsGrid({
     <div className="flex flex-col gap-3">
       {PERMISSION_GROUPS.map((g) => (
         <div key={g.label} className="rounded-md border p-3">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.label}</p>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">{g.label}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
             {g.keys.map((k) => {
               const meta = PERMISSION_LABELS[k];
@@ -825,7 +825,7 @@ export function StaffManager({
                       </div>
 
                       <div className="rounded-md border p-3">
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">MOT (DVSA)</p>
+                        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">MOT (DVSA)</p>
                         <div className="flex flex-col gap-2">
                           <label className="flex items-start gap-2 text-sm cursor-pointer">
                             <input
@@ -861,7 +861,7 @@ export function StaffManager({
                       </div>
 
                       <div className="rounded-md border p-3">
-                        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">EV / high-voltage (IMI TechSafe)</p>
+                        <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">EV / high-voltage (IMI TechSafe)</p>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <label className="text-xs text-muted-foreground">
                             Qualification level
@@ -961,7 +961,7 @@ export function StaffManager({
       {addAccess && (
         <form onSubmit={submitAddAccess} className="rounded-lg border p-5 flex flex-col gap-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
               Add location access — {addAccess.name}
             </h3>
             <button
@@ -1046,7 +1046,7 @@ export function StaffManager({
           </div>
 
           <div className="rounded-md border p-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">MOT (DVSA)</p>
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">MOT (DVSA)</p>
             <div className="flex flex-col gap-2">
               <label className="flex items-start gap-2 text-sm cursor-pointer">
                 <input
@@ -1131,7 +1131,7 @@ export function StaffManager({
       {showInvite && (
         <form onSubmit={handleInviteSubmit} className="rounded-lg border p-5 flex flex-col gap-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
               Invite team member
             </h3>
             <button
@@ -1299,7 +1299,7 @@ export function StaffManager({
               </div>
 
               <div className="rounded-md border p-3">
-                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">MOT (DVSA)</p>
+                <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2">MOT (DVSA)</p>
                 <div className="flex flex-col gap-2">
                   <label className="flex items-start gap-2 text-sm cursor-pointer">
                     <input
