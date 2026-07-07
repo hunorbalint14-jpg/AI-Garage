@@ -48,6 +48,37 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ── Workshop palette — staff-portal design language (UX review §1b) ──
+   Named --color-ws-* so Tailwind 4 generates utilities (bg-ws-card,
+   border-ws-border, text-ws-amber, …). Raw CSS access: var(--color-ws-card). */
+@theme {
+  --color-ws-rail: #0a0c0f; /* icon rail bg */
+  --color-ws-page: #0e1014; /* page bg */
+  --color-ws-card: #15181d; /* card / elevated bg */
+  --color-ws-hover: #1c2026; /* hover / inset bg */
+  --color-ws-border: #2a2f37; /* all borders */
+  --color-ws-text: #e6e8eb; /* primary text */
+  --color-ws-text-2: #9aa1ad; /* secondary text */
+  --color-ws-text-3: #5a6170; /* faint / mono labels */
+  --color-ws-amber: #ffb020;
+  --color-ws-amber-bg: #3a2c14;
+  --color-ws-amber-border: #5a4218;
+  --color-ws-green: #5fdd9d;
+  --color-ws-green-bg: #13301f;
+  --color-ws-green-border: #2d5a3f;
+  --color-ws-red: #ff5b5b;
+  --color-ws-red-bg: #3a1a1a;
+  --color-ws-red-border: #5a2424;
+  --color-ws-blue: #7ec8ff;
+  --color-ws-blue-bg: #1f2a35;
+  --color-ws-blue-border: #2c4458;
+  --color-ws-purple: #c98fc9;
+  --color-ws-purple-bg: #2a1a2a;
+  --color-ws-purple-border: #4a2a4a;
+  --color-ws-plate: #f4d35e;
+  --color-ws-plate-border: #c9a435;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

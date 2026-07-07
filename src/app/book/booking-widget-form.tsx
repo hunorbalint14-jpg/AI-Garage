@@ -420,8 +420,8 @@ export function BookingWidgetForm({
             className="mt-0.5 h-4 w-4 rounded border-gray-300"
           />
           <span>
-            I agree to receive marketing communications from {garageName} (offers, news). You can opt out anytime.
-            We&apos;ll always send transactional updates about your booking.
+            Send me offers and news from {garageName}. You can opt out anytime — booking
+            updates always arrive.
           </span>
         </label>
       )}
