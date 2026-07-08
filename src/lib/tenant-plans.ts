@@ -79,6 +79,9 @@ export const TIERS: Record<TierKey, TierConfig> = {
 
 export const TENANT_BILLING_GRACE_DAYS = 7;
 
+// How close to the trial end the "trial ending" warning starts showing.
+export const TRIAL_ENDING_WINDOW_DAYS = 7;
+
 export type OrgBilling = {
   tenant_plan: string | null;
   tenant_subscription_status: string | null;
@@ -139,20 +142,58 @@ export function tierForStripePrice(priceId: string): TierKey | null {
   return null;
 }
 
+// The tenant billing lifecycle, in order of health. See
+// docs/billing-lapse-policy.md for the full policy; the invariant is that no
+// state ever gates core trading (jobs, invoices, payments) — only premium
+// features and the fee rate change.
+//   ok           — free Starter, a live subscription, or a courtesy trial with
+//                  plenty of runway
+//   trial_ending — courtesy trial live but inside TRIAL_ENDING_WINDOW_DAYS
+//   grace        — subscription past_due, still inside the grace window
+//   trial_ended  — courtesy trial expired and the org never subscribed
+//   lapsed       — grace expired, or the subscription was canceled / went
+//                  unpaid; premium features off, fee back to the Starter rate
+export type BillingState =
+  | { state: "ok" }
+  | { state: "trial_ending"; until: string }
+  | { state: "grace"; until: string }
+  | { state: "trial_ended"; since: string }
+  | { state: "lapsed" };
+
+export function tenantBillingState(org: OrgBilling, now: Date = new Date()): BillingState {
+  if (tierFor(org).key === "starter") return { state: "ok" };
+
+  const status = org.tenant_subscription_status;
+  if (status === "active" || status === "trialing") return { state: "ok" };
+
+  // No live subscription — a live courtesy trial (grandfathered orgs) still
+  // keeps the paid tier active, and takes precedence over a dead status.
+  const trialEnd = org.tenant_trial_end ? new Date(org.tenant_trial_end) : null;
+  if (trialEnd && trialEnd > now) {
+    const windowMs = TRIAL_ENDING_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    return trialEnd.getTime() - now.getTime() <= windowMs
+      ? { state: "trial_ending", until: trialEnd.toISOString() }
+      : { state: "ok" };
+  }
+
+  if (status === "past_due" && org.tenant_current_period_end) {
+    const graceEnd = new Date(org.tenant_current_period_end);
+    graceEnd.setDate(graceEnd.getDate() + TENANT_BILLING_GRACE_DAYS);
+    if (graceEnd > now) return { state: "grace", until: graceEnd.toISOString() };
+  }
+
+  // Trial expired and they never subscribed at all — distinct from a lapsed
+  // subscription so the owner sees "trial ended", not "payment failed".
+  if (trialEnd && !status) return { state: "trial_ended", since: trialEnd.toISOString() };
+  return { state: "lapsed" };
+}
+
 // Whether the tenant is in good standing. Starter is free (always active). Paid
 // tiers: active/trialing, or a live trial, or past_due still inside the grace
 // window. Used by PR2 enforcement; PR1 only surfaces it.
 export function tenantBillingActive(org: OrgBilling, now: Date = new Date()): boolean {
-  if (tierFor(org).key === "starter") return true;
-  if (org.tenant_trial_end && new Date(org.tenant_trial_end) > now) return true;
-  const status = org.tenant_subscription_status;
-  if (status === "active" || status === "trialing") return true;
-  if (status === "past_due" && org.tenant_current_period_end) {
-    const graceEnd = new Date(org.tenant_current_period_end);
-    graceEnd.setDate(graceEnd.getDate() + TENANT_BILLING_GRACE_DAYS);
-    return graceEnd > now;
-  }
-  return false;
+  const s = tenantBillingState(org, now).state;
+  return s === "ok" || s === "trial_ending" || s === "grace";
 }
 
 // Apply a platform-account tenant subscription to its organization (idempotent).

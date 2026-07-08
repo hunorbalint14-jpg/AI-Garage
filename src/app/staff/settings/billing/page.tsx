@@ -3,7 +3,15 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { PageHeader } from "@/components/staff/page-header";
-import { TIERS, tierFor, recordTenantSubscription, type TierKey, type OrgBilling } from "@/lib/tenant-plans";
+import {
+  TIERS,
+  tierFor,
+  recordTenantSubscription,
+  tenantBillingState,
+  effectiveFeePercent,
+  type TierKey,
+  type OrgBilling,
+} from "@/lib/tenant-plans";
 import { UpgradeButtons, ManageBillingButton } from "./billing-client";
 import { UpgradeSuccessModal } from "./upgrade-success-modal";
 
@@ -71,6 +79,20 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const trialActive = !!org.tenant_trial_end && new Date(org.tenant_trial_end) > new Date();
   const order: TierKey[] = ["starter", "pro", "growth"];
 
+  // Billing lifecycle (docs/billing-lapse-policy.md): spell out exactly what a
+  // degraded state means — which fee applies, when features end, that core
+  // work is never affected.
+  const billingState = tenantBillingState(org);
+  const effectiveFee = effectiveFeePercent(org);
+  const stateLine =
+    billingState.state === "grace"
+      ? `Your last payment failed. Your ${current.name} features continue until ${fmtDate(billingState.until)} — update your card in the billing portal to keep them.`
+      : billingState.state === "trial_ended"
+        ? `Your Pro trial ended on ${fmtDate(billingState.since)}. The account is on Starter features until you pick a plan — nothing has been deleted.`
+        : billingState.state === "lapsed"
+          ? "Your subscription has lapsed. The account is on Starter features and the 2% platform fee. Jobs, invoices and payments are unaffected — pick a plan to restore your features."
+          : null;
+
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <PageHeader
@@ -84,16 +106,36 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">Current plan</p>
-            <p className="text-lg font-semibold">{current.name}</p>
+            <p className="text-lg font-semibold">
+              {current.name}
+              {stateLine && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  ({billingState.state === "grace" ? "payment overdue" : "inactive"})
+                </span>
+              )}
+            </p>
             <p className="text-xs text-muted-foreground">
-              {current.feePercent === 0 ? "No platform fee" : `${current.feePercent}% platform fee`}
+              {effectiveFee === 0 ? "No platform fee" : `${effectiveFee}% platform fee`}
               {org.tenant_subscription_status ? ` · ${org.tenant_subscription_status}` : ""}
               {trialActive ? ` · Pro trial until ${fmtDate(org.tenant_trial_end)}` : ""}
-              {org.tenant_current_period_end ? ` · renews ${fmtDate(org.tenant_current_period_end)}` : ""}
+              {org.tenant_current_period_end && subscribed
+                ? ` · renews ${fmtDate(org.tenant_current_period_end)}`
+                : ""}
             </p>
           </div>
           <ManageBillingButton />
         </div>
+        {stateLine && (
+          <p
+            className={`mt-3 rounded-md border px-3 py-2 text-sm leading-snug ${
+              billingState.state === "lapsed"
+                ? "border-red-500/30 bg-red-500/10 text-red-200"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-200"
+            }`}
+          >
+            {stateLine}
+          </p>
+        )}
       </section>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -129,8 +171,13 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 )}
               </ul>
 
-              {isCurrent ? (
+              {isCurrent && (subscribed || !stateLine) ? (
                 <span className="text-sm font-medium text-primary">Current plan</span>
+              ) : isCurrent && key !== "starter" ? (
+                // The stamped tier is inactive (trial ended / lapsed) with no
+                // live subscription — without this the "current" card has no
+                // button and a never-subscribed org has no portal either.
+                <UpgradeButtons tier={key} />
               ) : subscribed ? (
                 // Already on a paid plan — upgrades/downgrades/cancel go through
                 // the billing portal so we never create a second subscription.
