@@ -8,14 +8,16 @@ import {
   ACCENT_DEFAULT,
   type EmailStep,
 } from "@/lib/email-layout";
+import { TIERS } from "@/lib/tenant-plans";
 
 // ── New-org welcome ─────────────────────────────────────────────────────────
 // Sent right after a garage signs up (signUpGarage), for every new org — they
 // all start on the free Starter tier, so this is the platform's first contact.
 // Branded as AI Garage. Warm confirmation → primary "Sign in" → a 3-step
-// getting-started → what the product does → the plans (names + features, no
-// prices) → help. The canonical onboarding email; paid-tier subscribers get a
-// separate billing receipt, not a second getting-started.
+// getting-started → what the product does → the plans (prices derived from
+// TIERS so this email can never disagree with the billing page) → help. The
+// canonical onboarding email; paid-tier subscribers get a separate billing
+// receipt, not a second getting-started.
 //
 // Best-effort: never throws (callers fire it via after() so it can't block the
 // signup redirect).
@@ -59,10 +61,11 @@ export async function sendOrgWelcomeEmail(input: {
       "Tracks jobs, invoices and revenue in one place",
     ];
 
+    const monthly = (pence: number) => (pence === 0 ? "free" : `£${pence / 100}/mo`);
     const tierBullets = [
-      "Starter (your plan) — 1 branch, core tools",
-      "Pro — up to 3 branches, plus Xero, campaigns & automations",
-      "Growth — unlimited branches, plus the AI receptionist",
+      `Starter (your plan) — ${monthly(TIERS.starter.monthlyPence)} · 1 branch, core tools`,
+      `Pro — ${monthly(TIERS.pro.monthlyPence)} · up to ${TIERS.pro.maxLocations} branches, plus Xero, campaigns & automations`,
+      `Growth — ${monthly(TIERS.growth.monthlyPence)} · up to ${TIERS.growth.maxLocations} branches, plus the AI receptionist and no payment fee`,
     ];
 
     const intro = `Hi ${first},\n\n${orgName} is all set up on AI Garage — welcome aboard. Sign in to your dashboard to get going:`;
