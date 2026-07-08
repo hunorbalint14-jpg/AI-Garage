@@ -26,22 +26,29 @@ import { isDpaAccepted } from "@/lib/dpa";
 import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa, isMfaNudgeDismissed } from "@/lib/mfa";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { MfaNudge } from "@/components/staff/mfa-nudge";
-import { TenantBillingNudge } from "@/components/staff/tenant-billing-nudge";
+import { TenantBillingNudge, type BillingNudgeReason } from "@/components/staff/tenant-billing-nudge";
+import { tenantBillingState, type OrgBilling } from "@/lib/tenant-plans";
 
-type BillingNudge = { reason: "past_due" | "trial_ending"; date: string | null };
+type BillingNudge = { reason: BillingNudgeReason; date: string | null };
 
-function computeBillingNudge(
-  billing: { tenant_subscription_status?: string | null; tenant_trial_end?: string | null } | null,
-  eligible: boolean,
-): BillingNudge | null {
+const fmtNudgeDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+
+function computeBillingNudge(billing: OrgBilling | null, eligible: boolean): BillingNudge | null {
   if (!eligible || !billing) return null;
-  if (billing.tenant_subscription_status === "past_due") return { reason: "past_due", date: null };
-  const trialEnd = billing.tenant_trial_end ? new Date(billing.tenant_trial_end) : null;
-  const now = new Date();
-  if (trialEnd && trialEnd > now && trialEnd.getTime() - now.getTime() < 7 * 24 * 60 * 60 * 1000) {
-    return { reason: "trial_ending", date: trialEnd.toLocaleDateString("en-GB", { day: "numeric", month: "long" }) };
+  const s = tenantBillingState(billing);
+  switch (s.state) {
+    case "trial_ending":
+      return { reason: "trial_ending", date: fmtNudgeDate(s.until) };
+    case "trial_ended":
+      return { reason: "trial_ended", date: fmtNudgeDate(s.since) };
+    case "grace":
+      return { reason: "grace", date: fmtNudgeDate(s.until) };
+    case "lapsed":
+      return { reason: "lapsed", date: null };
+    default:
+      return null;
   }
-  return null;
 }
 
 // Workshop design fonts (UX review §1b) — scoped to /staff via the wrapper's
