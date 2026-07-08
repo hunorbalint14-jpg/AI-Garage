@@ -35,6 +35,11 @@ describe("sendOrgWelcomeEmail", () => {
     expect(arg.text).toContain("https://smith.example/staff/onboarding");
     expect(arg.text).toContain("https://smith.example/book");
     expect(arg.text).toContain("https://smith.example/staff/settings/billing");
+    // Real prices + the real Growth location cap (#448) — derived from TIERS,
+    // so a pricing change shows up here before it can reach a customer stale.
+    expect(arg.text).toContain("Pro — £49/mo · up to 3 branches");
+    expect(arg.text).toContain("Growth — £149/mo · up to 7 branches");
+    expect(arg.text).not.toMatch(/unlimited/i);
   });
 
   it("logs (does not throw) when delivery fails", async () => {
