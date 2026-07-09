@@ -383,7 +383,26 @@ async function handleStripeEvent(
       // Record each Stripe refund as a credit note (idempotent on
       // stripe_refund_id, so an in-app refund the staff action already wrote
       // isn't duplicated). Covers refunds initiated in the Stripe dashboard too.
-      const refunds = charge.refunds?.data ?? [];
+      //
+      // Stripe API 2022-11+ omits charge.refunds unless expanded — and webhook
+      // payloads never expand it — so the list is usually EMPTY here. The old
+      // fallback recorded the whole amount_refunded under a synthetic
+      // `charge_...` id, which bypassed the per-refund idempotency and
+      // double-counted every in-app refund (#443 dry run). Fetch the real
+      // refund list instead; a throw here releases the claim for Stripe retry.
+      let refunds = charge.refunds?.data ?? [];
+      if (refunds.length === 0 && (charge.amount_refunded ?? 0) > 0) {
+        const listed = await stripe.refunds.list(
+          { charge: charge.id, limit: 100 },
+          event.account ? { stripeAccount: event.account } : undefined,
+        );
+        refunds = listed.data;
+        if (refunds.length === 0) {
+          console.error("[stripe-webhook] charge.refunded: amount_refunded > 0 but no refunds listed", {
+            charge: charge.id,
+          });
+        }
+      }
       for (const r of refunds) {
         await recordRefundCreditNote(admin, {
           invoiceId: invRow.id,
@@ -393,19 +412,6 @@ async function handleStripeEvent(
           vatRate: Number(invRow.vat_rate) || 0,
           reason: "Stripe refund",
           stripeRefundId: r.id,
-          createdBy: null,
-        });
-      }
-      // Fallback when the refund list isn't expanded on the event.
-      if (refunds.length === 0 && (charge.amount_refunded ?? 0) > 0) {
-        await recordRefundCreditNote(admin, {
-          invoiceId: invRow.id,
-          locationId: invRow.location_id,
-          customerId: invRow.customer_id,
-          grossPence: charge.amount_refunded,
-          vatRate: Number(invRow.vat_rate) || 0,
-          reason: "Stripe refund",
-          stripeRefundId: `charge_${charge.id}`,
           createdBy: null,
         });
       }
