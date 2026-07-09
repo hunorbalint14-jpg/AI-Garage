@@ -45,11 +45,17 @@ export async function recordRefundCreditNote(
     }
 
     const { subtotal, vat, total } = splitGross(args.grossPence, args.vatRate);
-    const { count } = await admin
-      .from("credit_notes")
-      .select("id", { count: "exact", head: true })
-      .eq("location_id", args.locationId);
-    const creditNumber = `CN-${String((count ?? 0) + 1).padStart(4, "0")}`;
+    // Atomic per-location number (see #451 migration — count-based numbering
+    // raced and reused numbers after deletes).
+    const { data: nextNum, error: numErr } = await admin.rpc("next_document_number", {
+      p_location_id: args.locationId,
+      p_kind: "credit_note",
+    });
+    if (numErr || typeof nextNum !== "number") {
+      console.error("[credit-notes] number allocation failed", numErr?.message);
+      return { creditNoteId: null, duplicate: false };
+    }
+    const creditNumber = `CN-${String(nextNum).padStart(4, "0")}`;
 
     const { data, error } = await admin
       .from("credit_notes")
