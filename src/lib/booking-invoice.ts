@@ -1,4 +1,6 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+﻿import { createAdminClient } from "@/lib/supabase/admin";
+import { nextDocumentNumber } from "@/lib/document-numbers";
+import { vatRateFor, isVatTreatment } from "@/lib/vat";
 import { sendEmail } from "@/lib/email";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
 import { garageLabel } from "@/lib/garage-identity";
@@ -37,7 +39,7 @@ export async function generateInvoiceForPaidBooking({
   const { data: bookingRow } = await admin
     .from("bookings")
     .select(
-      "id, location_id, customer_id, scheduled_at, notes, service:services(name, category), customer:customers(full_name, email), location:locations(name, address, organization:organizations!organization_id(id, name, phone, logo_url, primary_color))",
+      "id, location_id, customer_id, scheduled_at, notes, service:services(name, category, vat_treatment), customer:customers(full_name, email), location:locations(name, address, organization:organizations!organization_id(id, name, phone, logo_url, primary_color, vat_registered, vat_number))",
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -48,7 +50,7 @@ export async function generateInvoiceForPaidBooking({
     customer_id: string;
     scheduled_at: string;
     notes: string | null;
-    service: { name: string; category: string } | null;
+    service: { name: string; category: string; vat_treatment: string | null } | null;
     customer: { full_name: string | null; email: string | null } | null;
     location: {
       name: string;
@@ -59,6 +61,8 @@ export async function generateInvoiceForPaidBooking({
         phone: string | null;
         logo_url: string | null;
         primary_color: string | null;
+        vat_registered: boolean | null;
+        vat_number: string | null;
       } | null;
     } | null;
   };
@@ -75,24 +79,26 @@ export async function generateInvoiceForPaidBooking({
   }
 
   // UK GBP, gross-of-VAT. Stripe collected the total at checkout, so we
-  // back-calculate the net (subtotal) at the standard 20% VAT rate so the
-  // invoice line splits sensibly.
+  // back-calculate the net (subtotal) at the line's VAT rate. Rate 0 when the
+  // org isn't VAT-registered or the service is zero/exempt/outside-scope
+  // (e.g. the MOT fee) — then subtotal == total and no VAT line applies.
   const total = Math.round(amountPence) / 100;
-  const vatRate = 20;
+  const bookedTreatment = booking.service?.vat_treatment;
+  const vatRegistered = booking.location?.organization?.vat_registered !== false;
+  const vatRate = vatRegistered
+    ? vatRateFor(isVatTreatment(bookedTreatment) ? bookedTreatment : "standard")
+    : 0;
   const subtotal = +(total / (1 + vatRate / 100)).toFixed(2);
   const vatAmount = +(total - subtotal).toFixed(2);
 
-  // Take the next invoice number atomically (see #451 migration — the old
-  // count-based scheme raced and reused numbers after deletes).
-  const { data: nextNum, error: numErr } = await admin.rpc("next_document_number", {
-    p_location_id: booking.location_id,
-    p_kind: "invoice",
-  });
-  if (numErr || typeof nextNum !== "number") {
-    console.error("[booking-invoice] number allocation failed", numErr?.message);
+  // Take the next branch-prefixed invoice number atomically (see #451
+  // migration — the old count-based scheme raced and reused numbers).
+  const allocated = await nextDocumentNumber(admin, booking.location_id, "invoice");
+  if ("error" in allocated) {
+    console.error("[booking-invoice] number allocation failed", allocated.error);
     return;
   }
-  const invoiceNumber = `INV-${String(nextNum).padStart(4, "0")}`;
+  const invoiceNumber = allocated.number;
   const today = new Date();
 
   const { data: invoice, error: insertErr } = await admin
@@ -155,6 +161,7 @@ export async function generateInvoiceForPaidBooking({
     garageAddress: locationAddress,
     garagePhone: org?.phone ?? null,
     garageEmail: null,
+    vatNumber: org?.vat_registered !== false ? org?.vat_number ?? null : null,
     logoUrl: org?.logo_url ?? null,
     brandColor: org?.primary_color ?? "#22c55e",
     customerName: booking.customer?.full_name ?? "Customer",

@@ -19,6 +19,8 @@ export type CachedService = {
   price: number | null;
   /** True (default) = price is gross / VAT-inclusive. See src/lib/vat.ts. */
   vat_included: boolean;
+  /** UK VAT treatment — standard | zero | exempt | outside_scope. */
+  vat_treatment: string | null;
 };
 
 export type CachedProduct = {
@@ -64,7 +66,7 @@ export async function cachedActiveServices(locationId: string): Promise<CachedSe
       const admin = createAdminClient();
       const { data } = await admin
         .from("services")
-        .select("id, name, category, duration_minutes, price, vat_included")
+        .select("id, name, category, duration_minutes, price, vat_included, vat_treatment")
         .eq("location_id", locationId)
         .eq("active", true)
         .order("category")

@@ -5,6 +5,7 @@ import { requireStaffContext, type StaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { locationCacheTag } from "@/lib/location-cache";
+import { isVatTreatment } from "@/lib/vat";
 import { logAudit } from "@/lib/audit";
 
 export type ServiceResult = { error: string } | { success: true };
@@ -30,6 +31,8 @@ export async function upsertService(
   const priceStr = (formData.get("price") as string | null)?.trim();
   const durationStr = (formData.get("durationMinutes") as string | null)?.trim();
   const vatIncluded = formData.get("vatIncluded") !== "false";
+  const vatTreatmentRaw = (formData.get("vatTreatment") as string | null)?.trim();
+  const vatTreatment = isVatTreatment(vatTreatmentRaw) ? vatTreatmentRaw : "standard";
 
   if (!name) return { error: "Service name is required." };
 
@@ -39,7 +42,7 @@ export async function upsertService(
   const duration = durationStr ? parseInt(durationStr, 10) : 60;
   if (isNaN(duration) || duration < 5) return { error: "Invalid duration." };
 
-  const payload = { name, category, description, price, duration_minutes: duration, vat_included: vatIncluded };
+  const payload = { name, category, description, price, duration_minutes: duration, vat_included: vatIncluded, vat_treatment: vatTreatment };
 
   if (serviceId) {
     const { error } = await admin.from("services").update(payload).eq("id", serviceId).eq("location_id", ctx.location.id);

@@ -16,7 +16,7 @@ import { listLocationStaff } from "@/lib/staff-directory";
 import { logAudit } from "@/lib/audit";
 import { durationMinutes } from "@/lib/time-tracking";
 import { applyStockDelta } from "@/lib/stock";
-import { serviceNetUnitPrice } from "@/lib/vat";
+import { serviceNetUnitPrice, vatRateFor, isVatTreatment, STANDARD_VAT_RATE } from "@/lib/vat";
 
 // Sum product-linked part quantities for a job → Map<product_id, qty>. Used to
 // move stock on completion/reopen.
@@ -416,26 +416,33 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
   // included-services allowance recognise the line later).
   let serviceId: string | null = null;
   let effectiveUnitPrice = unitPrice;
+  // Line VAT rate is snapshotted at add time: custom lines and products are
+  // standard-rated; a service line carries its catalogue treatment (an MOT
+  // fee is outside the scope → 0%).
+  let lineVatRate = STANDARD_VAT_RATE;
   if (serviceIdRaw) {
     const { data: svc } = await admin
       .from("services")
-      .select("id, price, vat_included")
+      .select("id, price, vat_included, vat_treatment")
       .eq("id", serviceIdRaw)
       .eq("location_id", ctx.location.id)
       .maybeSingle();
     serviceId = svc ? serviceIdRaw : null;
-    // A vat_included service price is the advertised gross; the invoice adds
-    // VAT on top, so back it out (only when the client submitted the catalogue
-    // price unchanged — a hand-edited price is trusted as net).
-    const s = svc as { price: number | null; vat_included: boolean | null } | null;
-    if (s && s.vat_included !== false && s.price != null && Math.abs(unitPrice - Number(s.price)) < 0.005) {
-      effectiveUnitPrice = serviceNetUnitPrice(Number(s.price), true);
+    const s = svc as { price: number | null; vat_included: boolean | null; vat_treatment: string | null } | null;
+    if (s) {
+      lineVatRate = vatRateFor(isVatTreatment(s.vat_treatment) ? s.vat_treatment : "standard");
+      // A vat_included service price is the advertised gross; the invoice adds
+      // VAT on top, so back it out (only when the client submitted the catalogue
+      // price unchanged — a hand-edited price is trusted as net).
+      if (s.vat_included !== false && s.price != null && Math.abs(unitPrice - Number(s.price)) < 0.005) {
+        effectiveUnitPrice = serviceNetUnitPrice(Number(s.price), true, lineVatRate);
+      }
     }
   }
 
   const { data, error } = await admin
     .from("job_items")
-    .insert({ job_id: jobId, description, type, quantity, unit_price: effectiveUnitPrice, product_id: productId, service_id: serviceId })
+    .insert({ job_id: jobId, description, type, quantity, unit_price: effectiveUnitPrice, product_id: productId, service_id: serviceId, vat_rate: lineVatRate })
     .select("id")
     .single();
 

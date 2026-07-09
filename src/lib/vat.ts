@@ -1,6 +1,48 @@
 export const STANDARD_VAT_RATE = 20;
 
+// UK VAT treatment of a catalogue service. `standard` carries the standard
+// rate; the other three all charge 0% on the line but differ on the VAT
+// return (zero-rated vs exempt vs outside the scope — e.g. the MOT test fee).
+export type VatTreatment = "standard" | "zero" | "exempt" | "outside_scope";
+
+export const VAT_TREATMENTS: readonly VatTreatment[] = ["standard", "zero", "exempt", "outside_scope"];
+
+export const VAT_TREATMENT_LABELS: Record<VatTreatment, string> = {
+  standard: "Standard rate (20%)",
+  zero: "Zero-rated (0%)",
+  exempt: "VAT exempt",
+  outside_scope: "Outside the scope (e.g. MOT fee)",
+};
+
+export function isVatTreatment(v: unknown): v is VatTreatment {
+  return typeof v === "string" && (VAT_TREATMENTS as readonly string[]).includes(v);
+}
+
+export function vatRateFor(treatment: VatTreatment, standardRate: number = STANDARD_VAT_RATE): number {
+  return treatment === "standard" ? standardRate : 0;
+}
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+// Invoice-level VAT across mixed-rate lines. Deductions (member discount +
+// membership credit) are applied pro-rata across the lines' VAT, and the
+// blended effective rate is what gets stored on invoices.vat_rate so
+// downstream consumers (refund credit-note splitting) stay consistent.
+export function computeInvoiceVat(
+  lines: { net: number; quantity: number; vatRate: number }[],
+  deductions: number,
+): { vatAmount: number; effectiveRate: number } {
+  const grossNet = lines.reduce((s, l) => s + (Number(l.net) || 0) * (Number(l.quantity) || 0), 0);
+  const lineVat = lines.reduce(
+    (s, l) => s + ((Number(l.net) || 0) * (Number(l.quantity) || 0) * (Number(l.vatRate) || 0)) / 100,
+    0,
+  );
+  const netAfter = Math.max(0, grossNet - Math.max(0, deductions));
+  const scale = grossNet > 0 ? netAfter / grossNet : 0;
+  const vatAmount = round2(lineVat * scale);
+  const effectiveRate = netAfter > 0 ? round2((vatAmount / netAfter) * 100) : 0;
+  return { vatAmount, effectiveRate };
+}
 
 // Net unit price for a catalogue service line landing on an invoice.
 //

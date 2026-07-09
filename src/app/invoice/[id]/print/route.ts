@@ -47,12 +47,12 @@ export async function GET(
 
   const { data: location } = (await admin
     .from("locations")
-    .select("id, organization:organizations!organization_id(id, name, phone, logo_url, primary_color)")
+    .select("id, organization:organizations!organization_id(id, name, phone, logo_url, primary_color, vat_registered, vat_number)")
     .eq("slug", slug)
     .maybeSingle()) as {
     data: {
       id: string;
-      organization: { id: string; name: string; phone: string | null; logo_url: string | null; primary_color: string | null } | null;
+      organization: { id: string; name: string; phone: string | null; logo_url: string | null; primary_color: string | null; vat_registered: boolean | null; vat_number: string | null } | null;
     } | null;
   };
   if (!location?.organization) return new NextResponse("Not found", { status: 404 });
@@ -92,6 +92,7 @@ export async function GET(
     items,
     org: { name: org.name, logo_url: org.logo_url, primary_color: org.primary_color },
     contactLine: org.phone ?? "",
+    vatNumber: org.vat_registered !== false ? org.vat_number ?? null : null,
   });
 
   return new NextResponse(html, {

@@ -14,7 +14,7 @@ export default async function ServicesPage() {
 
   const { data: services } = await admin
     .from("services")
-    .select("id, name, category, description, price, duration_minutes, vat_included, active")
+    .select("id, name, category, description, price, duration_minutes, vat_included, vat_treatment, active")
     .eq("location_id", ctx.location.id)
     .order("active", { ascending: false })
     .order("category", { ascending: true })

@@ -15,10 +15,11 @@ import {
   getMemberBenefits,
   computeCoverage,
   computeMemberDiscount,
-  applyInvoiceTotals,
   discountDescription,
   finalizeCoverage,
 } from "@/lib/service-plans";
+import { computeInvoiceVat, STANDARD_VAT_RATE } from "@/lib/vat";
+import { nextDocumentNumber } from "@/lib/document-numbers";
 import { logAudit } from "@/lib/audit";
 
 export type CreateInvoiceResult = { error: string } | { success: true; invoiceId: string };
@@ -36,7 +37,7 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
       .maybeSingle(),
     admin
       .from("job_items")
-      .select("id, description, type, quantity, unit_price, service_id")
+      .select("id, description, type, quantity, unit_price, service_id, vat_rate")
       .eq("job_id", jobId),
   ]);
 
@@ -48,11 +49,19 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   if (job.status === "invoiced") return { error: "Invoice already exists for this job." };
 
   const items = (itemsRes.data ?? []) as {
-    id: string; description: string; type: string; quantity: number; unit_price: number; service_id: string | null;
+    id: string; description: string; type: string; quantity: number; unit_price: number; service_id: string | null; vat_rate: number | null;
   }[];
 
   const subtotal = items.reduce((sum, i) => sum + Number(i.quantity) * Number(i.unit_price), 0);
-  const vatRate = 20;
+
+  // An unregistered org charges no VAT at all; otherwise each line carries the
+  // rate snapshotted when it was added (MOT fees 0%, parts/labour 20%, …).
+  const { data: orgVat } = await admin
+    .from("organizations")
+    .select("vat_registered")
+    .eq("id", ctx.organization.id)
+    .maybeSingle();
+  const vatRegistered = (orgVat as { vat_registered: boolean | null } | null)?.vat_registered !== false;
 
   // Membership benefits — included-service allowance covers matching lines (£0)
   // up to the per-period quota; the plan discount then applies to the rest.
@@ -132,22 +141,27 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
     }
   }
 
-  const { vatAmount, total } = applyInvoiceTotals({
-    subtotal: Math.max(0, subtotal - membershipCredit),
-    discountAmount,
-    vatRate,
-  });
+  // Per-line VAT with deductions (credit + discount) applied pro-rata; the
+  // blended effective rate is stored on the invoice so refund credit-note
+  // splitting stays consistent.
+  const { vatAmount, effectiveRate: vatRate } = computeInvoiceVat(
+    items.map((i) => ({
+      net: Number(i.unit_price),
+      quantity: Number(i.quantity),
+      vatRate: vatRegistered ? (i.vat_rate == null ? STANDARD_VAT_RATE : Number(i.vat_rate)) : 0,
+    })),
+    membershipCredit + discountAmount,
+  );
+  const netPayable = Math.max(0, Math.round((subtotal - membershipCredit - discountAmount) * 100) / 100);
+  const total = Math.round((netPayable + vatAmount) * 100) / 100;
 
-  // Take the next invoice number atomically — never derived from a row count
-  // (racy, and reuses numbers after a draft delete). See #451 migration.
-  const { data: nextNum, error: numErr } = await admin.rpc("next_document_number", {
-    p_location_id: ctx.location.id,
-    p_kind: "invoice",
-  });
-  if (numErr || typeof nextNum !== "number") {
-    return { error: `Could not allocate an invoice number: ${numErr?.message ?? "no value returned"}` };
+  // Take the next branch-prefixed invoice number atomically — never derived
+  // from a row count (racy, and reuses numbers after a draft delete).
+  const allocated = await nextDocumentNumber(admin, ctx.location.id, "invoice");
+  if ("error" in allocated) {
+    return { error: `Could not allocate an invoice number: ${allocated.error}` };
   }
-  const invoiceNumber = `INV-${String(nextNum).padStart(4, "0")}`;
+  const invoiceNumber = allocated.number;
   const today = new Date();
   const due = new Date(today);
   due.setDate(due.getDate() + 30);
@@ -235,7 +249,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
       .maybeSingle(),
     admin
       .from("organizations")
-      .select("name, phone, logo_url, primary_color, stripe_account_id, stripe_charges_enabled")
+      .select("name, phone, logo_url, primary_color, stripe_account_id, stripe_charges_enabled, vat_registered, vat_number")
       .eq("id", ctx.organization.id)
       .maybeSingle(),
     admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle(),
@@ -267,6 +281,8 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     primary_color: string | null;
     stripe_account_id: string | null;
     stripe_charges_enabled: boolean | null;
+    vat_registered: boolean | null;
+    vat_number: string | null;
   } | null;
   const garageName = org?.name ?? ctx.organization.name;
   const where = garageLabel({ orgName: garageName, locationName: ctx.location.name });
@@ -282,6 +298,7 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
     garageAddress: locationAddress,
     garagePhone: org?.phone ?? null,
     garageEmail: ctx.user.email ?? null,
+    vatNumber: org?.vat_registered !== false ? org?.vat_number ?? null : null,
     logoUrl: org?.logo_url ?? null,
     brandColor: org?.primary_color ?? "#1f2937",
     customerName: invoice.customer.full_name ?? "Customer",
