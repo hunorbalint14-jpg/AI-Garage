@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useConfirm } from "@/components/confirm-provider";
 import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
+import { serviceNetUnitPrice } from "@/lib/vat";
 
 type Job = {
   id: string;
@@ -48,6 +49,7 @@ type Service = {
   id: string;
   name: string;
   price: number | null;
+  vat_included: boolean;
   category: string;
 };
 
@@ -110,7 +112,10 @@ export function JobDetail({
     if (!s) return;
     setItemDesc(s.name);
     setItemType("labour");
-    setItemUnitPrice(String(s.price ?? 0));
+    // Line prices are ex-VAT (the invoice adds VAT on top), so a VAT-inclusive
+    // catalogue price is backed out here — the total then matches the
+    // advertised price. Mirrors the server conversion in addJobItem.
+    setItemUnitPrice(String(serviceNetUnitPrice(s.price ?? 0, s.vat_included)));
     setLabourHint(null);
   }
 

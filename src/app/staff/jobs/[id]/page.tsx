@@ -103,6 +103,7 @@ export default async function JobDetailPage({
     id: s.id,
     name: s.name,
     price: s.price,
+    vat_included: s.vat_included !== false,
     category: s.category ?? "",
   }));
   const quotes = (quotesRes.data ?? []) as {

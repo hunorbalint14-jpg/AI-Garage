@@ -138,13 +138,16 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
     vatRate,
   });
 
-  // Generate invoice number
-  const { count } = await admin
-    .from("invoices")
-    .select("id", { count: "exact", head: true })
-    .eq("location_id", ctx.location.id);
-
-  const invoiceNumber = `INV-${String((count ?? 0) + 1).padStart(4, "0")}`;
+  // Take the next invoice number atomically — never derived from a row count
+  // (racy, and reuses numbers after a draft delete). See #451 migration.
+  const { data: nextNum, error: numErr } = await admin.rpc("next_document_number", {
+    p_location_id: ctx.location.id,
+    p_kind: "invoice",
+  });
+  if (numErr || typeof nextNum !== "number") {
+    return { error: `Could not allocate an invoice number: ${numErr?.message ?? "no value returned"}` };
+  }
+  const invoiceNumber = `INV-${String(nextNum).padStart(4, "0")}`;
   const today = new Date();
   const due = new Date(today);
   due.setDate(due.getDate() + 30);

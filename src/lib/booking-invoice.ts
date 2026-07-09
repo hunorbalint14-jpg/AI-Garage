@@ -82,12 +82,17 @@ export async function generateInvoiceForPaidBooking({
   const subtotal = +(total / (1 + vatRate / 100)).toFixed(2);
   const vatAmount = +(total - subtotal).toFixed(2);
 
-  // Generate invoice number scoped to the location.
-  const { count } = await admin
-    .from("invoices")
-    .select("id", { count: "exact", head: true })
-    .eq("location_id", booking.location_id);
-  const invoiceNumber = `INV-${String((count ?? 0) + 1).padStart(4, "0")}`;
+  // Take the next invoice number atomically (see #451 migration — the old
+  // count-based scheme raced and reused numbers after deletes).
+  const { data: nextNum, error: numErr } = await admin.rpc("next_document_number", {
+    p_location_id: booking.location_id,
+    p_kind: "invoice",
+  });
+  if (numErr || typeof nextNum !== "number") {
+    console.error("[booking-invoice] number allocation failed", numErr?.message);
+    return;
+  }
+  const invoiceNumber = `INV-${String(nextNum).padStart(4, "0")}`;
   const today = new Date();
 
   const { data: invoice, error: insertErr } = await admin
