@@ -6,13 +6,15 @@ import { cacheGet, cacheSet, cacheDel } from "@/lib/redis";
 const TENANT_TTL_SEC = 60;
 const tenantKey = (slug: string) => `tenant:${slug}`;
 
+// NOTE: organizations.custom_domain exists in the schema but custom domains
+// are PARKED — nothing routes them (see docs/custom-domains.md). Don't read
+// the column into app code until that feature is actually built.
 export type Organization = {
   id: string;
   slug: string;
   name: string;
   primary_color: string;
   logo_url: string | null;
-  custom_domain: string | null;
 };
 
 export type Location = {
@@ -101,7 +103,7 @@ export const getCurrentTenant = cache(async (): Promise<TenantContext | null> =>
   const { data } = (await admin
     .from("organizations")
     .select(
-      "id, slug, name, primary_color, logo_url, custom_domain, primary_location_id, locations:locations!organization_id(id, slug, name)",
+      "id, slug, name, primary_color, logo_url, primary_location_id, locations:locations!organization_id(id, slug, name)",
     )
     .eq("slug", slug)
     .maybeSingle()) as {
@@ -119,7 +121,6 @@ export const getCurrentTenant = cache(async (): Promise<TenantContext | null> =>
       name: data.name,
       primary_color: data.primary_color,
       logo_url: data.logo_url,
-      custom_domain: data.custom_domain,
     },
     locations,
     location: locations.find((l) => l.id === data.primary_location_id) ?? locations[0],
