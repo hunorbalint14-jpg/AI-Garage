@@ -90,6 +90,14 @@ export async function signUpGarage(formData: FormData): Promise<SignupResult> {
     return { error: linkErr.message };
   }
 
+  // Seed the org's default eVHC checklist (#497). Best-effort: a missing
+  // template just means the inspections UI offers none until an admin adds
+  // one — never block signup on it.
+  const { error: seedErr } = await admin.rpc("seed_default_inspection_template", {
+    p_organization_id: org.id,
+  });
+  if (seedErr) console.error("[signup] inspection template seed failed", seedErr.message);
+
   // Welcome the new owner — every signup starts on free Starter, so this is the
   // platform's first contact + the canonical getting-started email. Fire after
   // the response so a slow Resend call never delays the redirect; best-effort.
