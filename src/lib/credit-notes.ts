@@ -1,4 +1,5 @@
-import { createAdminClient } from "@/lib/supabase/admin";
+﻿import { createAdminClient } from "@/lib/supabase/admin";
+import { nextDocumentNumber } from "@/lib/document-numbers";
 
 // Shared credit-note logic used by both the staff refund action and the Stripe
 // charge.refunded webhook, so a refund recorded by one path isn't duplicated by
@@ -45,17 +46,14 @@ export async function recordRefundCreditNote(
     }
 
     const { subtotal, vat, total } = splitGross(args.grossPence, args.vatRate);
-    // Atomic per-location number (see #451 migration — count-based numbering
-    // raced and reused numbers after deletes).
-    const { data: nextNum, error: numErr } = await admin.rpc("next_document_number", {
-      p_location_id: args.locationId,
-      p_kind: "credit_note",
-    });
-    if (numErr || typeof nextNum !== "number") {
-      console.error("[credit-notes] number allocation failed", numErr?.message);
+    // Atomic branch-prefixed number (see #451 migration — count-based
+    // numbering raced and reused numbers after deletes).
+    const allocated = await nextDocumentNumber(admin, args.locationId, "credit_note");
+    if ("error" in allocated) {
+      console.error("[credit-notes] number allocation failed", allocated.error);
       return { creditNoteId: null, duplicate: false };
     }
-    const creditNumber = `CN-${String(nextNum).padStart(4, "0")}`;
+    const creditNumber = allocated.number;
 
     const { data, error } = await admin
       .from("credit_notes")

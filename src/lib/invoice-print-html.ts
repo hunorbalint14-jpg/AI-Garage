@@ -60,6 +60,8 @@ export function buildInvoicePrintHtml(args: {
   org: InvoicePrintOrg;
   /** Right-aligned contact line under "INVOICE" (e.g. phone · email). */
   contactLine?: string | null;
+  /** Printed when the org is VAT-registered — legally required on VAT invoices. */
+  vatNumber?: string | null;
   /** Auto-open the browser print dialog on load (default true). */
   autoPrint?: boolean;
 }): string {
@@ -133,6 +135,7 @@ export function buildInvoicePrintHtml(args: {
     <div class="invoice-label">INVOICE</div>
     <div class="invoice-number">${esc(invoice.invoice_number)}</div>
     ${contactLine ? `<div class="contact">${contactLine}</div>` : ""}
+    ${args.vatNumber?.trim() ? `<div class="contact">VAT No: ${esc(args.vatNumber.trim())}</div>` : ""}
   </div>
 </div>
 
@@ -178,10 +181,13 @@ export function buildInvoicePrintHtml(args: {
       <td colspan="4" style="text-align:right;color:#6b7280">${esc(invoice.discount_description ?? "Discount")}</td>
       <td class="num" style="color:#15803d">− ${fmt(invoice.discount_amount)}</td>
     </tr>` : ""}
-    <tr>
+    ${Number(invoice.vat_amount) > 0 || Number(invoice.vat_rate) > 0 ? `<tr>
       <td colspan="4" style="text-align:right;color:#6b7280">VAT (${invoice.vat_rate}%)</td>
       <td class="num">${fmt(invoice.vat_amount)}</td>
-    </tr>
+    </tr>` : `<tr>
+      <td colspan="4" style="text-align:right;color:#6b7280">No VAT applies</td>
+      <td class="num">${fmt(0)}</td>
+    </tr>`}
     <tr>
       <td colspan="4" style="text-align:right">Total due</td>
       <td class="num">${fmt(invoice.total)}</td>

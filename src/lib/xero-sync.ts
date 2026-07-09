@@ -224,16 +224,21 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
   // Build line items. Job invoices have job_items; booking invoices have
   // a single synthesised service line.
   let lineItems: LineItem[] = [];
+  // Whether this invoice carries VAT at all (unregistered org / all lines
+  // zero-rated → NONE everywhere so Xero's total matches ours).
+  const invoiceHasVat = Number(inv.vat_amount) > 0;
   if (inv.job_id) {
     const { data: items } = await admin
       .from("job_items")
-      .select("description, type, quantity, unit_price")
+      .select("description, type, quantity, unit_price, vat_rate")
       .eq("job_id", inv.job_id);
     lineItems = (items ?? []).map((it) => ({
       description: it.description,
       quantity: Number(it.quantity),
       unitAmount: Number(it.unit_price),
-      taxType: "OUTPUT2", // UK standard rate. Xero remaps if region differs.
+      // Per-line snapshot: standard-rated lines OUTPUT2 (UK 20%); an MOT fee
+      // or other 0% line is NONE so Xero doesn't add VAT we didn't charge.
+      taxType: invoiceHasVat && Number((it as { vat_rate?: number | null }).vat_rate ?? 20) > 0 ? "OUTPUT2" : "NONE",
       accountCode: DEFAULT_SALES_ACCOUNT_CODE,
     }));
   } else if (inv.booking_id) {
@@ -260,7 +265,7 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
         description: `${serviceName}${when ? ` — ${when}` : ""}`,
         quantity: 1,
         unitAmount: Number(inv.subtotal),
-        taxType: "OUTPUT2",
+        taxType: invoiceHasVat ? "OUTPUT2" : "NONE",
         accountCode: DEFAULT_SALES_ACCOUNT_CODE,
       },
     ];
@@ -270,7 +275,7 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
         description: `Invoice ${inv.invoice_number}`,
         quantity: 1,
         unitAmount: Number(inv.subtotal),
-        taxType: "OUTPUT2",
+        taxType: invoiceHasVat ? "OUTPUT2" : "NONE",
         accountCode: DEFAULT_SALES_ACCOUNT_CODE,
       },
     ];
@@ -283,7 +288,7 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
       description: inv.membership_credit_description ?? "Included in membership",
       quantity: 1,
       unitAmount: -Number(inv.membership_credit_amount),
-      taxType: "OUTPUT2",
+      taxType: invoiceHasVat ? "OUTPUT2" : "NONE",
       accountCode: DEFAULT_SALES_ACCOUNT_CODE,
     });
   }
@@ -291,12 +296,15 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
   // Member discount: represent it as a single negative line (same OUTPUT2 tax
   // so Xero's VAT lands on the discounted net, matching our stored total). Works
   // for both percent + fixed discounts without parsing the type.
+  // NOTE: on a mixed-rate invoice with deductions, our pro-rata VAT and
+  // Xero's per-line VAT can differ by pennies — acceptable for now, and only
+  // when a discounted invoice mixes standard + non-standard lines.
   if (Number(inv.discount_amount) > 0) {
     lineItems.push({
       description: inv.discount_description ?? "Member discount",
       quantity: 1,
       unitAmount: -Number(inv.discount_amount),
-      taxType: "OUTPUT2",
+      taxType: invoiceHasVat ? "OUTPUT2" : "NONE",
       accountCode: DEFAULT_SALES_ACCOUNT_CODE,
     });
   }

@@ -31,6 +31,8 @@ type OrgRow = {
   phone: string | null;
   logo_url: string | null;
   primary_color: string | null;
+  vat_registered: boolean | null;
+  vat_number: string | null;
 };
 
 export async function GET(
@@ -53,7 +55,7 @@ export async function GET(
       .maybeSingle(),
     admin
       .from("organizations")
-      .select("name, phone, logo_url, primary_color")
+      .select("name, phone, logo_url, primary_color, vat_registered, vat_number")
       .eq("id", ctx.organization.id)
       .maybeSingle(),
   ]);
@@ -85,6 +87,7 @@ export async function GET(
       primary_color: org?.primary_color ?? null,
     },
     contactLine,
+    vatNumber: org?.vat_registered !== false ? org?.vat_number ?? null : null,
   });
 
   return new NextResponse(html, {

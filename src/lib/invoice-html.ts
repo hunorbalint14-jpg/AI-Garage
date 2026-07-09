@@ -13,6 +13,8 @@ export type InvoiceHtmlArgs = {
   garageAddress?: string | null;
   garagePhone: string | null;
   garageEmail: string | null;
+  /** Printed when the org is VAT-registered — a legal requirement on VAT invoices. */
+  vatNumber?: string | null;
   logoUrl: string | null;
   brandColor: string;
   customerName: string;
@@ -31,7 +33,7 @@ export type InvoiceHtmlArgs = {
 
 export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
   const {
-    invoiceNumber, issuedAt, dueAt, garageName, locationName, garageAddress, garagePhone, garageEmail,
+    invoiceNumber, issuedAt, dueAt, garageName, locationName, garageAddress, garagePhone, garageEmail, vatNumber,
     logoUrl, brandColor, customerName, items, subtotal, vatRate, vatAmount, total,
     discountAmount, discountDescription, membershipCreditAmount, membershipCreditDescription, notes, payUrl,
   } = args;
@@ -130,6 +132,7 @@ export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
             <div class="hero-name" style="font-size:20px;font-weight:600;color:${onBrand};opacity:0.95">${garageName}</div>
             ${locationLine ? `<div style="font-size:13px;margin-top:4px;color:${onBrand};opacity:0.85">${locationLine}</div>` : ""}
             ${contactLine ? `<div style="font-size:13px;margin-top:4px;color:${onBrand};opacity:0.8">${contactLine}</div>` : ""}
+            ${vatNumber?.trim() ? `<div style="font-size:13px;margin-top:4px;color:${onBrand};opacity:0.8">VAT No: ${escapeHtml(vatNumber.trim())}</div>` : ""}
           </td>
           <td valign="top" align="right" style="padding:0;white-space:nowrap">
             <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.12em;opacity:0.75;color:${onBrand}">Invoice</div>
@@ -185,10 +188,13 @@ export function buildInvoiceHtml(args: InvoiceHtmlArgs): string {
               </tr>
               ${creditRow}
               ${discountRow}
-              <tr>
+              ${vatAmount > 0 || vatRate > 0 ? `<tr>
                 <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">VAT (${vatRate}%)</td>
                 <td align="right" style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#374151;font-size:14px">${fmt(vatAmount)}</td>
-              </tr>
+              </tr>` : `<tr>
+                <td style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px">No VAT applies</td>
+                <td align="right" style="padding:8px 0;border-bottom:1px solid #e5e7eb;color:#374151;font-size:14px">${fmt(0)}</td>
+              </tr>`}
               <tr>
                 <td style="padding:14px 0 0;font-weight:700;font-size:16px;color:#0f172a">${payUrl ? "Total due" : "Total paid"}</td>
                 <td align="right" style="padding:14px 0 0;font-weight:700;font-size:18px;color:${brandColor}">${fmt(total)}</td>

@@ -8,6 +8,7 @@ import { BusinessHoursForm } from "./business-hours-form";
 import { SpecialHoursSection, type SpecialHoursRow } from "./special-hours-section";
 import { PasskeysSection, type PasskeyRow } from "./passkeys-section";
 import { PaymentsSection } from "./payments-section";
+import { VatSection } from "./vat-section";
 import { QuoteDepositSection } from "./quote-deposit-section";
 import { QuoteValiditySection } from "./quote-validity-section";
 import { QuoteRemindersSection } from "./quote-reminders-section";
@@ -22,7 +23,7 @@ import { isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import type { FinanceConfigView } from "./finance-actions";
 import { SettingsTabs, isSettingsTab } from "./settings-tabs";
 
-type LocationRow = { id: string; slug: string; name: string; address: string | null; created_at: string };
+type LocationRow = { id: string; slug: string; name: string; address: string | null; invoice_prefix: string | null; created_at: string };
 
 const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
 const ROOT_HOST = ROOT.split(":")[0];
@@ -41,12 +42,12 @@ export default async function SettingsPage({
   const [orgRes, locationsRes, currentLocRes, passkeysRes, financeRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, custom_domain, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence")
+      .select("name, primary_color, logo_url, slug, custom_domain, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number")
       .eq("id", ctx.organization.id)
       .single(),
     admin
       .from("locations")
-      .select("id, slug, name, address, created_at")
+      .select("id, slug, name, address, invoice_prefix, created_at")
       .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: true }),
     admin
@@ -238,6 +239,14 @@ export default async function SettingsPage({
             chargesEnabled={stripeChargesEnabled}
             payoutsEnabled={!!(org as { stripe_payouts_enabled?: boolean } | null)?.stripe_payouts_enabled}
             detailsSubmitted={!!(org as { stripe_details_submitted?: boolean } | null)?.stripe_details_submitted}
+            canManage={isOwner}
+          />
+
+          <VatSection
+            vatRegistered={(org as { vat_registered?: boolean | null } | null)?.vat_registered !== false}
+            vatNumber={(org as { vat_number?: string | null } | null)?.vat_number ?? ""}
+            activeLocationName={ctx.location.name}
+            invoicePrefix={locations.find((l) => l.id === ctx.location.id)?.invoice_prefix ?? ""}
             canManage={isOwner}
           />
 

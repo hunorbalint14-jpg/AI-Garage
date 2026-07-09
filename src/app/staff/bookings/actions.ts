@@ -14,7 +14,7 @@ import { checkLocationHoursAt } from "@/lib/location-hours-check";
 import { formatDayHours, formatWeeklySummary } from "@/lib/business-hours";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { resolveVehicleHighVoltage } from "@/lib/vehicle-fuel";
-import { serviceNetUnitPrice } from "@/lib/vat";
+import { serviceNetUnitPrice, vatRateFor, isVatTreatment } from "@/lib/vat";
 import { logAudit } from "@/lib/audit";
 
 export type BookingType = "mot" | "service" | "repair" | "diagnostic" | "other";
@@ -328,11 +328,12 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
   if (booking.service_id) {
     const { data: service } = await admin
       .from("services")
-      .select("name, price, vat_included")
+      .select("name, price, vat_included, vat_treatment")
       .eq("id", booking.service_id)
       .eq("location_id", ctx.location.id)
       .maybeSingle();
     if (service) {
+      const svcRate = vatRateFor(isVatTreatment(service.vat_treatment) ? service.vat_treatment : "standard");
       await admin.from("job_items").insert({
         job_id: job.id,
         description: service.name,
@@ -340,8 +341,9 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
         quantity: 1,
         // Store net — the invoice adds VAT on top, and vat_included prices
         // are the advertised gross (see src/lib/vat.ts).
-        unit_price: serviceNetUnitPrice(Number(service.price ?? 0), service.vat_included !== false),
+        unit_price: serviceNetUnitPrice(Number(service.price ?? 0), service.vat_included !== false, svcRate),
         service_id: booking.service_id,
+        vat_rate: svcRate,
       });
     }
   }

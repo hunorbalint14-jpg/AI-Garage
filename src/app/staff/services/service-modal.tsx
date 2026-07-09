@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { VAT_TREATMENTS, VAT_TREATMENT_LABELS } from "@/lib/vat";
 
 export type ServiceRow = {
   id: string;
@@ -16,6 +17,7 @@ export type ServiceRow = {
   price: number | null;
   duration_minutes: number;
   vat_included: boolean;
+  vat_treatment: string | null;
   active: boolean;
 };
 
@@ -72,6 +74,15 @@ function ServiceForm({ service, onDone }: { service?: ServiceRow; onDone: () => 
             <option value="true">Price includes VAT</option>
             <option value="false">Price ex-VAT</option>
           </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1.5 col-span-2">
+          <Label>VAT treatment</Label>
+          <NativeSelect name="vatTreatment" defaultValue={service?.vat_treatment ?? "standard"} disabled={pending}>
+            {VAT_TREATMENTS.map((t) => (
+              <option key={t} value={t}>{VAT_TREATMENT_LABELS[t]}</option>
+            ))}
+          </NativeSelect>
+          <p className="text-xs text-muted-foreground">MOT test fees are outside the scope of VAT — no VAT is ever added to them.</p>
         </div>
         <div className="flex flex-col gap-1.5 col-span-2">
           <Label>Description</Label>
