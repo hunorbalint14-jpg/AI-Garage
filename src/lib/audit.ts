@@ -9,6 +9,7 @@ export type AuditAction =
   | "settings.vat"
   | "inspection.start"
   | "inspection.complete"
+  | "inspection.ai_summaries"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.special_hours_add"
