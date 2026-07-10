@@ -30,6 +30,9 @@ export type QuoteItemInput = {
   quantity: number;
   unit_price: number;
   product_id?: string | null;
+  // eVHC (#497): the finding this line prices. Feeds per-item outcomes and
+  // the deferred-work bank (#498).
+  inspection_item_id?: string | null;
 };
 
 
@@ -183,6 +186,7 @@ export async function createQuote(args: {
     quantity: it.quantity,
     unit_price: it.unit_price,
     product_id: it.product_id ?? null,
+    inspection_item_id: it.inspection_item_id ?? null,
     sort_order: idx,
   }));
   const { error: itemsErr } = await admin.from("quote_items").insert(itemRows);

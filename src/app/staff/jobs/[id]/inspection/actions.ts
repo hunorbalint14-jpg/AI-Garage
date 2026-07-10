@@ -22,6 +22,7 @@ import {
   type FindingRewrite,
 } from "@/lib/ai-inspection";
 import { getOrgAiBrief } from "@/lib/ai-profile";
+import { createQuote } from "../quote-actions";
 
 // eVHC Phase 2 (#497): tech capture flow server actions. Every mutation
 // re-verifies that the inspection belongs to the caller's active branch —
@@ -607,4 +608,123 @@ export async function updateInspectionSummary(itemId: string, summary: string): 
     .eq("id", itemId);
   if (error) return { error: error.message };
   return { success: true };
+}
+
+// ── Quote generation (Phase 4) ─────────────────────────────────────────────
+// "Quote the red & amber items": one draft unified quote (quote_type='job',
+// the EXISTING pipeline — revisions, reminders, expiry, deposits all come
+// free) with one line per selected finding. Line description is the
+// customer_summary (falls back to note → label); price is staff-confirmed in
+// the panel, prefilled from the AI suggestion. Findings flip to
+// outcome='quoted' and the inspection stamps quote_id.
+
+export async function generateInspectionQuote(
+  inspectionId: string,
+  selections: { itemId: string; price: number }[],
+): Promise<{ error: string } | { success: true; quoteId: string; quotedItemIds: string[] }> {
+  if (!(await isFeatureEnabled("evhc"))) return { error: "Health checks are not enabled." };
+  const ctx = await requireStaffContext();
+  // Quote creation is gated by the quote permission, not the capture one.
+  if (!hasPermission(ctx, "quotes_draft")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const inspection = await ownInspection(admin, ctx.location.id, inspectionId);
+  if (!inspection) return { error: "Inspection not found." };
+  if (inspection.status !== "complete") {
+    return { error: "Complete the check before quoting the findings." };
+  }
+  if (selections.length === 0) return { error: "Select at least one finding to quote." };
+  for (const s of selections) {
+    if (!Number.isFinite(s.price) || s.price < 0) return { error: "Every selected finding needs a price of £0 or more." };
+  }
+
+  // Existing quote: block while it's live; a cancelled one releases its
+  // findings back to 'none' so the check can be re-quoted.
+  const { data: inspRow } = await admin
+    .from("inspections")
+    .select("quote_id")
+    .eq("id", inspectionId)
+    .maybeSingle();
+  const existingQuoteId = (inspRow as { quote_id: string | null } | null)?.quote_id ?? null;
+  if (existingQuoteId) {
+    const { data: q } = await admin.from("quotes").select("id, status").eq("id", existingQuoteId).maybeSingle();
+    const status = (q as { status: string } | null)?.status;
+    if (status && status !== "cancelled") {
+      return { error: "A quote already exists for this check — cancel it before creating a new one." };
+    }
+    const { data: oldLines } = await admin
+      .from("quote_items")
+      .select("inspection_item_id")
+      .eq("quote_id", existingQuoteId)
+      .not("inspection_item_id", "is", null);
+    const oldIds = ((oldLines ?? []) as { inspection_item_id: string }[]).map((r) => r.inspection_item_id);
+    if (oldIds.length > 0) {
+      await admin.from("inspection_items").update({ outcome: "none" }).in("id", oldIds).eq("outcome", "quoted");
+    }
+    await admin.from("inspections").update({ quote_id: null }).eq("id", inspectionId);
+  }
+
+  // Re-validate every selection server-side: right inspection, amber/red,
+  // not already quoted/approved/declined.
+  const ids = selections.map((s) => s.itemId);
+  const { data: itemRows } = await admin
+    .from("inspection_items")
+    .select("id, section, label, rag, note, customer_summary, outcome, sort_order")
+    .eq("inspection_id", inspectionId)
+    .in("id", ids);
+  const rows = (itemRows ?? []) as {
+    id: string;
+    section: string;
+    label: string;
+    rag: string;
+    note: string | null;
+    customer_summary: string | null;
+    outcome: string;
+    sort_order: number;
+  }[];
+  if (rows.length !== selections.length) return { error: "Some findings no longer exist — reload and try again." };
+  for (const r of rows) {
+    if (r.rag !== "amber" && r.rag !== "red") return { error: `"${r.label}" is not an advisory finding.` };
+    if (r.outcome !== "none") return { error: `"${r.label}" is already on a quote.` };
+  }
+
+  const priceById = new Map(selections.map((s) => [s.itemId, s.price]));
+  const items = rows
+    .slice()
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((r) => ({
+      description: r.customer_summary?.trim() || r.note?.trim() || r.label,
+      type: "other" as const,
+      quantity: 1,
+      unit_price: priceById.get(r.id)!,
+      inspection_item_id: r.id,
+    }));
+
+  const result = await createQuote({
+    jobId: inspection.job_id,
+    title: "Vehicle health check — recommended work",
+    items,
+    asDraft: true,
+  });
+  if ("error" in result) return result;
+
+  const quotedItemIds = rows.map((r) => r.id);
+  const [{ error: stampErr }, { error: outcomeErr }] = await Promise.all([
+    admin.from("inspections").update({ quote_id: result.quoteId }).eq("id", inspectionId),
+    admin.from("inspection_items").update({ outcome: "quoted" }).in("id", quotedItemIds),
+  ]);
+  if (stampErr || outcomeErr) return { error: (stampErr ?? outcomeErr)!.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "inspection.quote_created",
+    entityType: "inspection",
+    entityId: inspectionId,
+    metadata: { quote_id: result.quoteId, job_id: inspection.job_id, finding_count: quotedItemIds.length, total: result.total },
+  });
+
+  revalidatePath(`/staff/jobs/${inspection.job_id}`);
+  return { success: true, quoteId: result.quoteId, quotedItemIds };
 }

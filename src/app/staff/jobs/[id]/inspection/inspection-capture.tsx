@@ -5,6 +5,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { Camera, Plus, Sparkles, Trash2, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/confirm-provider";
+import { InspectionQuotePanel } from "./quote-panel";
 import {
   updateInspectionItem,
   addInspectionFinding,
@@ -35,6 +36,7 @@ export type CaptureItem = {
   customerSummary: string;
   suggestedRepair: string | null;
   suggestedPrice: number | null;
+  outcome: "none" | "quoted" | "approved" | "declined";
   adhoc: boolean;
   media: { id: string; url: string; path: string }[];
 };
@@ -66,6 +68,7 @@ export function InspectionCapture({
   vehicleLine,
   customerName,
   initialItems,
+  initialQuote,
 }: {
   jobId: string;
   inspectionId: string;
@@ -73,12 +76,14 @@ export function InspectionCapture({
   vehicleLine: string;
   customerName: string;
   initialItems: CaptureItem[];
+  initialQuote: { id: string; status: string } | null;
 }) {
   const confirm = useConfirm();
   // Status lives in state: completing keeps the tech on this page (the review
   // card appears below) instead of a server round-trip + remount.
   const [status, setStatus] = useState(statusProp);
   const [items, setItems] = useState(initialItems);
+  const [quote, setQuote] = useState(initialQuote);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busyItem, setBusyItem] = useState<string | null>(null);
@@ -279,6 +284,7 @@ export function InspectionCapture({
         customerSummary: "",
         suggestedRepair: null,
         suggestedPrice: null,
+        outcome: "none",
         adhoc: true,
         media: [],
       },
@@ -508,14 +514,19 @@ export function InspectionCapture({
                 <li key={item.id} className="border-b px-4 py-3 last:border-b-0">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium leading-snug">{item.label}</span>
-                    <span
-                      className={`shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold ${
-                        item.rag === "red"
-                          ? "border-red-500/50 bg-red-500/25 text-ws-red"
-                          : "border-amber-500/50 bg-amber-500/25 text-ws-amber"
-                      }`}
-                    >
-                      {item.rag === "red" ? "Urgent" : "Advise"}
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {item.outcome !== "none" && (
+                        <span className="rounded-md border px-2 py-0.5 text-xs text-muted-foreground">On quote</span>
+                      )}
+                      <span
+                        className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${
+                          item.rag === "red"
+                            ? "border-red-500/50 bg-red-500/25 text-ws-red"
+                            : "border-amber-500/50 bg-amber-500/25 text-ws-amber"
+                        }`}
+                      >
+                        {item.rag === "red" ? "Urgent" : "Advise"}
+                      </span>
                     </span>
                   </div>
                   {item.note && <p className="mt-1 text-xs text-muted-foreground">Tech note: {item.note}</p>}
@@ -560,6 +571,21 @@ export function InspectionCapture({
             </ul>
           )}
         </section>
+      )}
+
+      {/* Quote generation (Phase 4) — price up the advisories into a draft
+          unified quote; the existing quote pipeline handles everything after. */}
+      {(complete || readOnly) && (
+        <InspectionQuotePanel
+          inspectionId={inspectionId}
+          items={items}
+          quote={quote}
+          readOnly={readOnly}
+          onQuoted={(quoteId, itemIds) => {
+            setQuote({ id: quoteId, status: "draft" });
+            setItems((prev) => prev.map((i) => (itemIds.includes(i.id) ? { ...i, outcome: "quoted" } : i)));
+          }}
+        />
       )}
     </div>
   );
