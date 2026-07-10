@@ -28,6 +28,7 @@ export type AuditAction =
   | "setup_checklist.dismissed"
   | "demo.seeded"
   | "demo.wiped"
+  | "import.committed"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.special_hours_add"

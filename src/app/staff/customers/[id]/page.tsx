@@ -21,6 +21,7 @@ import { DeferredWorkPanel } from "@/components/staff/deferred-work-panel";
 import { hasPermission } from "@/lib/permissions";
 import { accountBalance } from "@/lib/account";
 import { AccountSection } from "./account-section";
+import { ServiceHistorySection, type HistoryEntryRow } from "./service-history-section";
 
 type Customer = {
   id: string;
@@ -144,6 +145,17 @@ export default async function CustomerDetailPage({
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];
+
+  // Imported service history (#505): pre-platform work, read-only.
+  const { data: historyRows } = vehicles.length
+    ? await admin
+        .from("vehicle_history_entries")
+        .select("id, vehicle_id, happened_on, mileage, description, total, source")
+        .in("vehicle_id", vehicles.map((v) => v.id))
+        .order("happened_on", { ascending: false })
+        .limit(200)
+    : { data: [] };
+  const historyEntries = (historyRows ?? []) as HistoryEntryRow[];
 
   // eVHC deferred-work bank (#497): outstanding advisories per vehicle.
   const deferredByVehicle = (await isFeatureEnabled("evhc"))
@@ -396,6 +408,8 @@ export default async function CustomerDetailPage({
                     Buttons disabled if no date set or no contact details on file.
                   </p>
                 </section>
+
+                <ServiceHistorySection entries={historyEntries} regByVehicleId={regByVehicleId} />
 
                 <DeferredWorkPanel findings={deferredFindings} regByVehicleId={regByVehicleId} />
 
