@@ -42,6 +42,7 @@ export function SupportLauncher(props: SupportLauncherProps) {
     },
   ]);
   const [thread, setThread] = useState<{ ticket: SupportTicket; messages: SupportTicketMessage[] } | null>(null);
+  const [assistPrefill, setAssistPrefill] = useState<string | null>(null);
 
   const openThread = useCallback(
     async (ticketId: string) => {
@@ -72,6 +73,22 @@ export function SupportLauncher(props: SupportLauncherProps) {
     url.searchParams.delete("ticket");
     window.history.replaceState(null, "", url.pathname + url.search + url.hash);
   }, [deepLinkTicket, openThread]);
+
+  // Deep link: /staff?assist=<question> (setup-checklist "Ask AI" affordances).
+  // Opens the chat with the question pre-filled — the user presses send;
+  // never auto-sent. Same consume-and-strip dance as ?ticket= above.
+  const deepLinkAssist = searchParams.get("assist");
+  useEffect(() => {
+    if (!deepLinkAssist) return;
+    queueMicrotask(() => {
+      setAssistPrefill(deepLinkAssist);
+      setView("chat");
+      setOpen(true);
+    });
+    const url = new URL(window.location.href);
+    url.searchParams.delete("assist");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }, [deepLinkAssist]);
 
   // Peek toast: once per newest unread reply (localStorage-guarded), <24h old.
   useEffect(() => {
@@ -173,6 +190,8 @@ export function SupportLauncher(props: SupportLauncherProps) {
           thread={thread}
           openThread={openThread}
           onClose={close}
+          assistPrefill={assistPrefill}
+          onAssistPrefillConsumed={() => setAssistPrefill(null)}
         />
       )}
     </div>

@@ -21,6 +21,8 @@ export function AssistChat({
   unread,
   onEscalate,
   onOpenUnread,
+  prefill,
+  onPrefillConsumed,
 }: {
   pathname: string;
   role: string;
@@ -31,6 +33,8 @@ export function AssistChat({
   unread: number;
   onEscalate: () => void;
   onOpenUnread: () => void;
+  prefill?: string | null;
+  onPrefillConsumed?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const [thinking, setThinking] = useState(false);
@@ -40,6 +44,17 @@ export function AssistChat({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Pre-filled question from a deep link (setup checklist "Ask AI"). Fills
+  // the draft only — the user reads it and presses send themselves.
+  useEffect(() => {
+    if (!prefill) return;
+    queueMicrotask(() => {
+      setDraft(prefill.slice(0, 500));
+      onPrefillConsumed?.();
+      inputRef.current?.focus();
+    });
+  }, [prefill, onPrefillConsumed]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });

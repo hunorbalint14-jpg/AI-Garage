@@ -29,6 +29,8 @@ type PanelProps = SupportLauncherProps & {
   thread: { ticket: SupportTicket; messages: SupportTicketMessage[] } | null;
   openThread: (ticketId: string) => Promise<void>;
   onClose: () => void;
+  assistPrefill: string | null;
+  onAssistPrefillConsumed: () => void;
 };
 
 // Panel chrome: header, backdrop, focus trap, responsive popover (desktop) /
@@ -151,6 +153,8 @@ export function SupportPanel(props: PanelProps) {
             unread={props.unread}
             onEscalate={escalateFromChat}
             onOpenUnread={() => props.latestUnread && void props.openThread(props.latestUnread.ticketId)}
+            prefill={props.assistPrefill}
+            onPrefillConsumed={props.onAssistPrefillConsumed}
           />
         )}
         {props.view === "escalate" && (
