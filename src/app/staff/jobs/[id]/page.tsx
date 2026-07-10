@@ -9,6 +9,8 @@ import { hvWarningFor, isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import { assignJobTechnician } from "../actions";
 import { cachedActiveProducts, cachedActiveServices } from "@/lib/location-cache";
 import { JobDetail } from "./job-detail";
+import { InspectionCard, inspectionSummary } from "./inspection-card";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { JobTimeTracking, type TimeEntryView } from "./job-time-tracking";
 import { HighVoltageSection } from "./high-voltage-section";
 
@@ -44,6 +46,7 @@ export default async function JobDetailPage({
   const { id } = await params;
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
+  const evhcEnabled = await isFeatureEnabled("evhc");
 
   const [jobRes, itemsRes, products, cachedServices, quotesRes, staff, timeRes] = await Promise.all([
     admin
@@ -188,6 +191,8 @@ export default async function JobDetailPage({
         estimateMinutes={estimateMinutes}
         currentUserId={ctx.user.id}
       />
+
+      {evhcEnabled && <InspectionCard jobId={job.id} summary={await inspectionSummary(admin, job.id)} />}
 
       <JobDetail job={job} items={items} products={productOptions} services={services} quotes={quotes} />
     </div>

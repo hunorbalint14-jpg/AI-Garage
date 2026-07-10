@@ -30,6 +30,12 @@ export const FEATURE_FLAGS = {
       "Run the support widget's assistant on Claude Sonnet instead of Haiku. Better synthesis and multi-step tool use at roughly 3× the per-answer cost — flip after comparing answer quality.",
     default: false,
   },
+  evhc: {
+    label: "eVHC — digital vehicle health checks",
+    description:
+      "Staged rollout of inspections (#497): the job-card health check entry, the tech capture flow, and later phases (AI rewrite, customer report). Off = no eVHC surfaces render anywhere.",
+    default: false,
+  },
 } as const satisfies Record<string, FeatureFlagDef>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;
