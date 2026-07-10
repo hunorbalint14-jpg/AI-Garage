@@ -121,6 +121,21 @@ export async function GET(request: NextRequest) {
     console.error("[cron/tick] finance reconcile failed", e);
   }
 
+  // First-week activation emails (#506): platform-level, once per UTC day on
+  // the 09:00 tick. The route is stage-idempotent, so a double fire is safe
+  // and a missed hour just sends on the next day's tick.
+  if (now.getUTCHours() === 9) {
+    try {
+      const res = await fetch(`${origin}/api/cron/activation`, {
+        headers: { authorization: `Bearer ${secret}` },
+        cache: "no-store",
+      });
+      if (!res.ok) results.errors.push(`activation: HTTP ${res.status}`);
+    } catch (e) {
+      results.errors.push(`activation: ${(e as Error).message}`);
+    }
+  }
+
   await recordCronRun(admin, "cron/tick", results.failed === 0, Date.now() - __t0, `ran ${results.ran}, failed ${results.failed}`);
 
   console.log("[cron/tick]", results);

@@ -42,6 +42,12 @@ export const FEATURE_FLAGS = {
       "Staged rollout of the automated 14/30-day recovery messages (#498). Off = the cron route no-ops everywhere; the deferred-work bank and staff surfaces are unaffected. Each location must also enable its own Automations task.",
     default: false,
   },
+  activation_emails: {
+    label: "First-week activation emails",
+    description:
+      "Day 1/3/7 onboarding sequence for new orgs (#506). Sends to the org owner and stops on the first real (non-demo) booking or invoice. Off = the activation cron no-ops; nothing else is affected.",
+    default: false,
+  },
 } as const satisfies Record<string, FeatureFlagDef>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

@@ -144,10 +144,23 @@ export function tenantBookingUrl(tenantSlug: string): string {
 // dismissal short-circuit runs before any counting so established orgs pay
 // one indexed column read, not eight counts, per dashboard render.
 export async function loadSetupChecklist(admin: Admin, ctx: StaffContext): Promise<SetupChecklist | null> {
+  return loadSetupChecklistByIds(admin, {
+    organizationId: ctx.organization.id,
+    locationId: ctx.location.id,
+    slug: ctx.organization.slug,
+  });
+}
+
+// Id-addressed variant for callers without a StaffContext (the activation
+// cron, #506 PR 4). Same null semantics: dismissed or complete.
+export async function loadSetupChecklistByIds(
+  admin: Admin,
+  ids: { organizationId: string; locationId: string; slug: string },
+): Promise<SetupChecklist | null> {
   const { data: orgRow } = await admin
     .from("organizations")
     .select("setup_checklist_dismissed_at, stripe_account_id, stripe_charges_enabled, logo_url, xero_connected_at")
-    .eq("id", ctx.organization.id)
+    .eq("id", ids.organizationId)
     .maybeSingle();
   const org = orgRow as {
     setup_checklist_dismissed_at: string | null;
@@ -159,25 +172,25 @@ export async function loadSetupChecklist(admin: Admin, ctx: StaffContext): Promi
   if (!org || org.setup_checklist_dismissed_at) return null;
 
   const [locRes, servicesRes, baysRes, customersRes, demoRes, orgUsersRes, locUsersRes] = await Promise.all([
-    admin.from("locations").select("id, business_hours").eq("id", ctx.location.id).maybeSingle(),
-    admin.from("services").select("id", { count: "exact", head: true }).eq("location_id", ctx.location.id).eq("active", true),
-    admin.from("bays").select("id", { count: "exact", head: true }).eq("location_id", ctx.location.id),
+    admin.from("locations").select("id, business_hours").eq("id", ids.locationId).maybeSingle(),
+    admin.from("services").select("id", { count: "exact", head: true }).eq("location_id", ids.locationId).eq("active", true),
+    admin.from("bays").select("id", { count: "exact", head: true }).eq("location_id", ids.locationId),
     // Demo rows don't tick "first customer" — the sandbox is practice, not activation.
     admin
       .from("customers")
       .select("id", { count: "exact", head: true })
-      .eq("organization_id", ctx.organization.id)
+      .eq("organization_id", ids.organizationId)
       .eq("is_demo", false),
     admin
       .from("customers")
       .select("id", { count: "exact", head: true })
-      .eq("organization_id", ctx.organization.id)
+      .eq("organization_id", ids.organizationId)
       .eq("is_demo", true),
-    admin.from("org_users").select("user_id").eq("organization_id", ctx.organization.id),
+    admin.from("org_users").select("user_id").eq("organization_id", ids.organizationId),
     admin
       .from("location_users")
       .select("user_id, location:locations!inner(organization_id)")
-      .eq("location.organization_id", ctx.organization.id),
+      .eq("location.organization_id", ids.organizationId),
   ]);
 
   const team = new Set<string>([
@@ -196,6 +209,6 @@ export async function loadSetupChecklist(admin: Admin, ctx: StaffContext): Promi
     customers: customersRes.count ?? 0,
   };
 
-  const checklist = buildChecklist(state, tenantBookingUrl(ctx.organization.slug), (demoRes.count ?? 0) > 0);
+  const checklist = buildChecklist(state, tenantBookingUrl(ids.slug), (demoRes.count ?? 0) > 0);
   return checklist.complete ? null : checklist;
 }
