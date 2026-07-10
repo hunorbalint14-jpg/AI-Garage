@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, FileCheck2, AlertTriangle } from "lucide-react";
+import { Upload, FileCheck2, AlertTriangle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TARGET_FIELDS, type ColumnMapping, type ImportKind } from "@/lib/import-engine";
-import { analyzeImport, commitImport, type AnalyzeResult, type CommitResult } from "./wizard-actions";
+import type { MappingSuggestion } from "@/lib/ai-import-mapping";
+import { analyzeImport, commitImport, suggestMapping, type AnalyzeResult, type CommitResult } from "./wizard-actions";
 
 // Import wizard (#505 PR 2): kind + file → mapping (auto-matched, editable) →
 // dry-run preview (counts + row rejects) → commit. The file is re-submitted
@@ -38,7 +39,9 @@ export function ImportWizard() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [committed, setCommitted] = useState<Committed | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"analyze" | "commit" | null>(null);
+  const [busy, setBusy] = useState<"analyze" | "commit" | "suggest" | null>(null);
+  const [suggestions, setSuggestions] = useState<MappingSuggestion | null>(null);
+  const [suggestNote, setSuggestNote] = useState<string | null>(null);
 
   function buildForm(withMapping: ColumnMapping | null): FormData | null {
     const file = fileRef.current?.files?.[0];
@@ -65,6 +68,26 @@ export function ImportWizard() {
     if ("error" in res) return setError(res.error);
     setAnalysis(res);
     setMapping(res.mapping);
+  }
+
+  async function runSuggest() {
+    const fd = buildForm(null);
+    if (!fd) return;
+    setSuggestNote(null);
+    setBusy("suggest");
+    const res = await suggestMapping(fd);
+    setBusy(null);
+    if ("error" in res) return setSuggestNote(res.error);
+    setSuggestions(res.suggestions);
+    // Apply high/medium proposals; keep the user's picks where AI is silent.
+    setMapping((prev) => {
+      const next = { ...(prev ?? {}) };
+      for (const [target, src] of Object.entries(res.mapping)) {
+        if (src) next[target] = src;
+      }
+      return next as ColumnMapping;
+    });
+    setSuggestNote("Mapping proposed — check the chips, low-confidence guesses were left for you.");
   }
 
   async function runCommit() {
@@ -151,9 +174,27 @@ export function ImportWizard() {
           <div className="grid gap-2 sm:grid-cols-2">
             {fields.map((f) => (
               <label key={f.key} className="flex items-center justify-between gap-3 text-sm">
-                <span>
+                <span className="flex items-center gap-1.5">
                   {f.label}
                   {f.required && <span className="text-ws-red"> *</span>}
+                  {suggestions?.[f.key] && (
+                    <span
+                      className={`rounded-full border px-1.5 py-px font-mono text-[9px] uppercase tracking-wide ${
+                        suggestions[f.key].confidence === "high"
+                          ? "border-ws-green/40 bg-ws-green/10"
+                          : suggestions[f.key].confidence === "medium"
+                            ? "border-blue-500/40 bg-blue-500/10"
+                            : "border-amber-500/40 bg-amber-500/10"
+                      }`}
+                      title={
+                        suggestions[f.key].confidence === "low"
+                          ? `AI guess: "${suggestions[f.key].source}" — not applied, check it yourself`
+                          : `AI matched "${suggestions[f.key].source}"`
+                      }
+                    >
+                      AI · {suggestions[f.key].confidence}
+                    </span>
+                  )}
                 </span>
                 <select
                   value={mapping[f.key] ?? ""}
@@ -170,10 +211,14 @@ export function ImportWizard() {
               </label>
             ))}
           </div>
-          <div>
+          <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant="outline" onClick={() => void runAnalyze(mapping)} loading={busy === "analyze"} disabled={busy !== null}>
               Re-run preview with this mapping
             </Button>
+            <Button size="sm" variant="outline" onClick={() => void runSuggest()} loading={busy === "suggest"} disabled={busy !== null}>
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Suggest mapping with AI
+            </Button>
+            {suggestNote && <span className="text-xs text-muted-foreground">{suggestNote}</span>}
           </div>
         </section>
       )}
