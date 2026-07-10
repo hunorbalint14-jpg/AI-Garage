@@ -1,8 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { saveAccountSettings } from "./account-actions";
+import { raiseConsolidatedInvoice } from "./consolidated-actions";
+
+// Default billing period: the previous calendar month.
+function lastMonthValue(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthRange(value: string): { fromIso: string; toIso: string } {
+  const [y, m] = value.split("-").map(Number);
+  return {
+    fromIso: new Date(Date.UTC(y, m - 1, 1)).toISOString(),
+    toIso: new Date(Date.UTC(y, m, 1)).toISOString(),
+  };
+}
 
 // Account-customer panel (#504 PR 2): flag + terms + credit limit +
 // consolidated billing, with the live balance alongside.
@@ -34,6 +51,20 @@ export function AccountSection({
   const [pending, startTransition] = useTransition();
   const [info, setInfo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [billMonth, setBillMonth] = useState(lastMonthValue);
+  const [raising, setRaising] = useState(false);
+  const [raised, setRaised] = useState<{ invoiceId: string; invoiceNumber: string; jobCount: number; total: number } | null>(null);
+
+  async function handleRaise() {
+    setError(null);
+    setInfo(null);
+    setRaised(null);
+    setRaising(true);
+    const res = await raiseConsolidatedInvoice(customerId, monthRange(billMonth));
+    setRaising(false);
+    if ("error" in res) return setError(res.error);
+    setRaised(res);
+  }
 
   const overLimit =
     on && balance && initial.creditLimit !== null && balance.total > initial.creditLimit;
@@ -125,6 +156,33 @@ export function AccountSection({
             />
             Consolidated monthly invoice
           </label>
+        </div>
+      )}
+
+      {on && initial.consolidatedBilling && canManage && (
+        <div className="flex flex-wrap items-end gap-3 border-t pt-3">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Billing month
+            <input
+              type="month"
+              value={billMonth}
+              onChange={(e) => setBillMonth(e.target.value)}
+              disabled={raising}
+              className="rounded-md border bg-transparent px-2 py-1.5 text-sm text-foreground"
+            />
+          </label>
+          <Button size="sm" variant="outline" onClick={handleRaise} loading={raising}>
+            Raise consolidated invoice
+          </Button>
+          {raised && (
+            <p className="mb-1.5 text-sm text-ws-green">
+              {raised.invoiceNumber} · {raised.jobCount} job{raised.jobCount === 1 ? "" : "s"} ·{" "}
+              {fmtGBP(raised.total)} —{" "}
+              <Link href={`/staff/invoices/${raised.invoiceId}`} className="underline underline-offset-2">
+                open →
+              </Link>
+            </p>
+          )}
         </div>
       )}
 

@@ -3,6 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/staff/page-header";
 import { InvoiceSearch } from "./invoice-search";
+import { RunMonthEnd } from "./run-month-end";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 
@@ -106,10 +107,13 @@ export default async function InvoicesPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Invoices"
-        description={orgWide ? "All invoices across all branches." : `All invoices raised at ${branchName}.`}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader
+          title="Invoices"
+          description={orgWide ? "All invoices across all branches." : `All invoices raised at ${branchName}.`}
+        />
+        <RunMonthEnd />
+      </div>
       {ctx.orgRole && ctx.accessibleLocations.length > 1 && (
         <FinanceScopeToggle locations={ctx.accessibleLocations} />
       )}

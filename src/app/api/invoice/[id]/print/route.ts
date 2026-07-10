@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { consolidatedInvoiceLines } from "@/lib/account";
 import { buildInvoicePrintHtml } from "@/lib/invoice-print-html";
 
 export const runtime = "nodejs";
@@ -73,7 +74,8 @@ export async function GET(
         .select("description, type, quantity, unit_price")
         .eq("job_id", invoice.job_id)
         .order("created_at", { ascending: true })
-    : { data: [] };
+    : // Consolidated (#504): a line per member job.
+      { data: await consolidatedInvoiceLines(admin, invoice.id) };
   const items = (itemsRes.data ?? []) as { description: string; type: string; quantity: number; unit_price: number }[];
 
   const contactLine = [org?.phone, ctx.user.email].filter(Boolean).join(" · ");

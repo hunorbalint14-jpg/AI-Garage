@@ -20,6 +20,7 @@ import {
 } from "@/lib/service-plans";
 import { computeInvoiceVat, STANDARD_VAT_RATE } from "@/lib/vat";
 import { nextDocumentNumber } from "@/lib/document-numbers";
+import { consolidatedInvoiceLines } from "@/lib/account";
 import { logAudit } from "@/lib/audit";
 
 export type CreateInvoiceResult = { error: string } | { success: true; invoiceId: string };
@@ -284,7 +285,8 @@ export async function sendInvoice(invoiceId: string): Promise<InvoiceActionResul
 
   const itemsRes = invoice.job
     ? await admin.from("job_items").select("description, type, quantity, unit_price").eq("job_id", invoice.job.id)
-    : { data: [] };
+    : // Consolidated (#504): a line per member job.
+      { data: await consolidatedInvoiceLines(admin, invoiceId) };
 
   const org = orgRes.data as {
     name: string;
