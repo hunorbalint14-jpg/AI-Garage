@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { consolidatedInvoiceLines } from "@/lib/account";
 import { getPortalContext, requireOwnedInvoice } from "@/lib/portal-auth";
 import { getActiveFinanceConfig } from "@/lib/finance";
 import { AnimatedBackground } from "@/components/animated-background";
@@ -36,7 +37,8 @@ export default async function CustomerInvoicePage({
   const admin = createAdminClient();
   const itemsRes = invoice.job_id
     ? await admin.from("job_items").select("id, description, type, quantity, unit_price").eq("job_id", invoice.job_id).order("created_at", { ascending: true })
-    : { data: [] };
+    : // Consolidated (#504): a line per member job.
+      { data: await consolidatedInvoiceLines(admin, invoice.id) };
   const items = (itemsRes.data ?? []) as JobItem[];
 
   const org = location.organization;

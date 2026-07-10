@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { consolidatedInvoiceLines } from "@/lib/account";
 import { InvoiceActions } from "./invoice-actions";
 import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
 
@@ -75,7 +76,8 @@ export default async function InvoiceDetailPage({
   const [itemsRes, creditNotesRes] = await Promise.all([
     invoice.job_id
       ? admin.from("job_items").select("id, description, type, quantity, unit_price").eq("job_id", invoice.job_id).order("created_at", { ascending: true })
-      : Promise.resolve({ data: [] }),
+      : // Consolidated (#504): a line per member job.
+        consolidatedInvoiceLines(admin, invoice.id).then((data) => ({ data })),
     admin.from("credit_notes").select("id, credit_number, reason, total, created_at").eq("invoice_id", invoice.id).order("created_at", { ascending: true }),
   ]);
 

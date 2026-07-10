@@ -93,6 +93,37 @@ export async function accountBalance(admin: Admin, customerId: string): Promise<
   return { openInvoiced, unbilledJobs, unbilledJobCount, total: r2(openInvoiced + unbilledJobs) };
 }
 
+// Render lines for a CONSOLIDATED invoice (#504 PR 3): one line per member
+// job — date · reg — description, net amount. Shape matches job_items so
+// every existing invoice renderer takes them unchanged.
+export async function consolidatedInvoiceLines(
+  admin: Admin,
+  invoiceId: string,
+): Promise<{ id: string; description: string; type: string; quantity: number; unit_price: number }[]> {
+  const { data } = await admin
+    .from("invoice_jobs")
+    .select("id, amount, job:jobs(id, description, completed_at, vehicle:vehicles(registration))")
+    .eq("invoice_id", invoiceId)
+    .order("created_at", { ascending: true });
+  type Row = {
+    id: string;
+    amount: number;
+    job: {
+      id: string;
+      description: string | null;
+      completed_at: string | null;
+      vehicle: { registration: string | null } | null;
+    } | null;
+  };
+  return ((data ?? []) as unknown as Row[]).map((r) => {
+    const date = r.job?.completed_at
+      ? new Date(r.job.completed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+      : null;
+    const parts = [date, r.job?.vehicle?.registration, r.job?.description?.trim() || "Workshop job"].filter(Boolean);
+    return { id: r.id, description: parts.join(" · "), type: "job", quantity: 1, unit_price: Number(r.amount) };
+  });
+}
+
 // Would `newWorkValue` breach the account's credit limit? Non-account
 // customers and unlimited accounts are always ok. Never throws — a credit
 // check failure must not break booking/job creation.
