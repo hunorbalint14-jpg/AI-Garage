@@ -3,6 +3,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/safe-equal";
 import { sendEmail } from "@/lib/email";
 import { recordCronRun } from "@/lib/platform/cron-runs";
+import { fetchPeriodMargin, orgLabourCostRate } from "@/lib/margin-data";
+import { draftMarginNote } from "@/lib/ai-margin";
+import { getOrgAiBrief } from "@/lib/ai-profile";
 
 // Runs every Monday at 08:00 UTC via Vercel Cron.
 // Sends a weekly MOT/service due report to org owners and admins.
@@ -54,7 +57,17 @@ function rowColor(days: number): string {
   return "#374151";
 }
 
-function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle: string; registration: string; type: string; dueDate: string; days: number }[], windowDays: number, logoUrl: string | null): string {
+function marginSection(note: string | null, headline: string | null): string {
+  if (!note && !headline) return "";
+  return `
+<div style="margin:0 0 24px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb">
+  <p style="margin:0 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280">Profitability · last 30 days</p>
+  ${headline ? `<p style="margin:0 0 6px;font-weight:600">${headline}</p>` : ""}
+  ${note ? `<p style="margin:0;color:#374151">${note}</p>` : ""}
+</div>`;
+}
+
+function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle: string; registration: string; type: string; dueDate: string; days: number }[], windowDays: number, logoUrl: string | null, marginHtml = ""): string {
   const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   const tableRows = rows
@@ -92,6 +105,7 @@ function buildDigestHtml(orgName: string, rows: { customerName: string; vehicle:
 ${logoUrl ? `<div style="margin:0 0 12px"><img src="${logoUrl}" alt="${orgName}" style="max-height:48px;max-width:180px;object-fit:contain;display:block"></div>` : ""}
 <h2 style="margin:0 0 4px">${orgName} — Weekly Due Report</h2>
 <p style="margin:0 0 24px;color:#6b7280">${today}</p>
+${marginHtml}
 <table>
   <thead>
     <tr>
@@ -221,8 +235,52 @@ export async function GET(request: NextRequest) {
 
     if (!rows.length) continue;
 
+    // Profitability note (#502): last 30 days vs the 30 before, org-wide.
+    // Best-effort — any failure just drops the section.
+    let marginHtml = "";
+    try {
+      const rate = await orgLabourCostRate(admin, org.id);
+      const d30 = 30 * 24 * 60 * 60 * 1000;
+      const [current, previous] = await Promise.all([
+        fetchPeriodMargin(admin, {
+          scopeColumn: "organization_id",
+          scopeValue: org.id,
+          fromIso: new Date(now.getTime() - d30).toISOString(),
+          toIso: now.toISOString(),
+          labourCostRate: rate,
+        }),
+        fetchPeriodMargin(admin, {
+          scopeColumn: "organization_id",
+          scopeValue: org.id,
+          fromIso: new Date(now.getTime() - 2 * d30).toISOString(),
+          toIso: new Date(now.getTime() - d30).toISOString(),
+          labourCostRate: rate,
+        }),
+      ]);
+      if (current.jobs > 0) {
+        const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+        const headline =
+          current.grossProfit !== null
+            ? `${fmt(current.grossProfit)} gross profit${current.grossMarginPct !== null ? ` (${current.grossMarginPct}%)` : ""} · ${current.jobs} job${current.jobs === 1 ? "" : "s"}${current.effectiveLabourRate !== null ? ` · ${fmt(current.effectiveLabourRate)}/h effective labour rate` : ""}`
+            : `${fmt(current.sell)} sold across ${current.jobs} job${current.jobs === 1 ? "" : "s"}`;
+        let note: string | null = null;
+        try {
+          const aiBrief = await getOrgAiBrief(admin, org.id).catch(() => null);
+          note = await draftMarginNote(
+            { current, previous, aiBrief },
+            { locationId: locationIds[0], organizationId: org.id, feature: "digest_margin_note" },
+          );
+        } catch {
+          // plain headline still renders
+        }
+        marginHtml = marginSection(note, headline);
+      }
+    } catch (e) {
+      console.error("[cron/digest] margin section failed", e);
+    }
+
     const subject = `${org.name} — ${rows.length} vehicle${rows.length !== 1 ? "s" : ""} due in the next ${WINDOW_DAYS} days`;
-    const html = buildDigestHtml(org.name, rows, WINDOW_DAYS, org.logo_url);
+    const html = buildDigestHtml(org.name, rows, WINDOW_DAYS, org.logo_url, marginHtml);
     const text = `Weekly due report for ${org.name}. ${rows.length} vehicles due within ${WINDOW_DAYS} days.`;
 
     for (const email of staffEmails) {
