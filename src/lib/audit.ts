@@ -14,6 +14,8 @@ export type AuditAction =
   | "inspection.send"
   | "inspection.view"
   | "inspection.respond"
+  | "deferred.followup_sent"
+  | "deferred.recovered"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.special_hours_add"

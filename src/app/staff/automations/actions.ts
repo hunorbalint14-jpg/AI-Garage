@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
 import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
 
-export type TaskType = "mot_reminders" | "service_reminders" | "tax_reminders" | "weekly_digest" | "invoice_dunning" | "review_requests" | "booking_confirmations";
+export type TaskType = "mot_reminders" | "service_reminders" | "tax_reminders" | "weekly_digest" | "invoice_dunning" | "review_requests" | "booking_confirmations" | "deferred_followups";
 
 export type TaskSettings =
   | { remind_days_before: number; channels: string[] }
@@ -21,7 +21,7 @@ const REMINDER_TYPES: TaskType[] = ["mot_reminders", "service_reminders", "tax_r
 
 export async function ensureDefaultTasks(locationId: string) {
   const admin = createAdminClient();
-  const allTypes: TaskType[] = [...REMINDER_TYPES, "invoice_dunning", "review_requests", "booking_confirmations", "weekly_digest"];
+  const allTypes: TaskType[] = [...REMINDER_TYPES, "invoice_dunning", "review_requests", "booking_confirmations", "deferred_followups", "weekly_digest"];
   const defaults: Record<TaskType, { settings: object; frequency: Frequency; hour: number; day_of_week: number | null }> = {
     mot_reminders:     { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
     service_reminders: { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
@@ -29,6 +29,7 @@ export async function ensureDefaultTasks(locationId: string) {
     invoice_dunning:   { settings: { cadence_days: [1, 7, 14], channels: ["email"] },                  frequency: "daily",  hour: 9, day_of_week: null },
     review_requests:   { settings: {},                                                                  frequency: "daily",  hour: 9, day_of_week: null },
     booking_confirmations: { settings: { hours_before: 24, channels: ["email", "sms", "whatsapp"] },    frequency: "daily",  hour: 9, day_of_week: null },
+    deferred_followups: { settings: { channels: ["email", "sms"] },                                      frequency: "daily",  hour: 10, day_of_week: null },
     weekly_digest:     { settings: { window_days: 30 },                                                 frequency: "weekly", hour: 8, day_of_week: 1 },
   };
   await admin.from("scheduled_tasks").upsert(
@@ -140,6 +141,7 @@ export async function runTaskNow(taskType: TaskType): Promise<ActionResult> {
     invoice_dunning:   "/api/cron/dunning",
     review_requests:   "/api/cron/review-requests",
     booking_confirmations: "/api/cron/booking-confirmations",
+    deferred_followups: "/api/cron/deferred-followups",
     weekly_digest:     "/api/cron/digest",
   };
 
