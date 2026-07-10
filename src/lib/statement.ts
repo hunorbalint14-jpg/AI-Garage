@@ -6,11 +6,14 @@
 export type StatementInvoice = {
   id: string;
   invoice_number: string;
-  issued_at: string; // date
+  issued_at: string | null; // date; null falls back to paid_at/due_at
   due_at: string; // date
   total: number;
   amount_paid: number;
   status: string;
+  /** Needed to place the settlement credit for invoices paid OUTSIDE the
+   * ledger (Stripe, mark-paid) — see the synthetic events below. */
+  paid_at?: string | null;
 };
 
 export type StatementPayment = {
@@ -54,16 +57,33 @@ export function buildStatement(args: {
   const to = new Date(args.toIso).getTime();
   const now = args.now ?? new Date();
 
+  // A null/invalid date would make every comparison below NaN-false and the
+  // event silently land in the opening balance — fall back rather than trust
+  // issued_at alone.
+  const chargeDate = (i: StatementInvoice) => i.issued_at ?? i.paid_at ?? i.due_at;
   const invoiceEvents = args.invoices
-    .filter((i) => i.status !== "draft")
-    .map((i) => ({ date: i.issued_at, kind: "invoice" as const, ref: i.invoice_number, amount: Number(i.total) }));
+    .filter((i) => i.status !== "draft" && chargeDate(i))
+    .map((i) => ({ date: chargeDate(i)!, kind: "invoice" as const, ref: i.invoice_number, amount: Number(i.total) }));
   const paymentEvents = args.payments.map((p) => ({
     date: p.received_at,
     kind: "payment" as const,
     ref: [p.method.replace(/_/g, " "), p.reference].filter(Boolean).join(" · "),
     amount: Number(p.amount),
   }));
-  const all = [...invoiceEvents, ...paymentEvents].sort(
+  // Invoices settled outside the ledger (Stripe checkout, staff mark-paid)
+  // have no payments rows — without a synthetic settlement credit they'd
+  // inflate the running balance forever. `amount_paid` is written only by
+  // the ledger allocator, so `total − amount_paid` is exactly the share the
+  // ledger did NOT record.
+  const settlementEvents = args.invoices
+    .filter((i) => i.status === "paid" && Number(i.total) - Number(i.amount_paid ?? 0) > 0)
+    .map((i) => ({
+      date: i.paid_at ?? i.issued_at ?? i.due_at,
+      kind: "payment" as const,
+      ref: `${i.invoice_number} settled`,
+      amount: r2(Number(i.total) - Number(i.amount_paid ?? 0)),
+    }));
+  const all = [...invoiceEvents, ...paymentEvents, ...settlementEvents].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || (a.kind === "invoice" ? -1 : 1),
   );
 
