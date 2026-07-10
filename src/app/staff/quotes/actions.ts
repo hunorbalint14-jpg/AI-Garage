@@ -854,6 +854,9 @@ export async function sendManualReminder(args: {
 export type ConvertQuoteResult =
   | { error: string }
   | { outOfHours: string }
+  // Account credit control (#504) — surfaced like out-of-hours: the dialog
+  // shows it and re-submits confirmed.
+  | { creditWarning: string }
   | { success: true; bookingId: string };
 
 export async function convertQuoteToBooking(args: {
@@ -862,6 +865,7 @@ export async function convertQuoteToBooking(args: {
   durationMinutes?: number;
   sendConfirmation?: boolean;
   confirmOutOfHours?: boolean;
+  confirmCredit?: boolean;
 }): Promise<ConvertQuoteResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
@@ -900,6 +904,7 @@ export async function convertQuoteToBooking(args: {
   fd.set("fromQuoteId", q.id);
   if (args.sendConfirmation) fd.set("sendConfirmation", "on");
   if (args.confirmOutOfHours) fd.set("confirmOutOfHours", "1");
+  if (args.confirmCredit) fd.set("confirmCredit", "1");
 
   const result = await createBooking(fd);
   if (!("success" in result)) return result;

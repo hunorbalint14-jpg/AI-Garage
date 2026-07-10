@@ -62,6 +62,7 @@ export function QuoteDetailActions({
   const [duration, setDuration] = useState("60");
   const [sendConfirmation, setSendConfirmation] = useState(true);
   const [outOfHours, setOutOfHours] = useState<string | null>(null);
+  const [creditWarning, setCreditWarning] = useState<string | null>(null);
   const [reminderChannels, setReminderChannels] = useState<Record<QuoteNotifyChannel, boolean>>(() => ({
     email: !!reminder?.hasEmail && (reminder.sentChannels.length === 0 || reminder.sentChannels.includes("email")),
     sms: !!reminder?.hasPhone && (reminder?.sentChannels.length === 0 || !!reminder?.sentChannels.includes("sms")),
@@ -151,10 +152,16 @@ export function QuoteDetailActions({
         durationMinutes: parseInt(duration, 10) || 60,
         sendConfirmation,
         confirmOutOfHours,
+        confirmCredit: !!creditWarning,
       });
       if ("error" in result) {
         setOutOfHours(null);
+        setCreditWarning(null);
         setError(result.error);
+        return;
+      }
+      if ("creditWarning" in result) {
+        setCreditWarning(result.creditWarning);
         return;
       }
       if ("outOfHours" in result) {
@@ -297,7 +304,19 @@ export function QuoteDetailActions({
               Send confirmation
             </label>
           </div>
-          {outOfHours ? (
+          {creditWarning ? (
+            <div className="rounded-md border border-ws-amber-border bg-ws-amber-bg p-2 text-sm text-ws-amber flex flex-col gap-2">
+              <p>💳 {creditWarning}</p>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => handleConvert(false)} loading={pending}>
+                  Book anyway
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setCreditWarning(null)} disabled={pending}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : outOfHours ? (
             <div className="rounded-md border border-ws-amber-border bg-ws-amber-bg p-2 text-sm text-ws-amber flex flex-col gap-2">
               <p>{outOfHours}</p>
               <div className="flex gap-2">

@@ -66,6 +66,7 @@ export function BookingForm({
   // Out-of-hours warning from the server; while set, submitting again confirms
   // through. Cleared when the time changes so the server re-checks.
   const [oohWarning, setOohWarning] = useState<string | null>(null);
+  const [creditWarning, setCreditWarning] = useState<string | null>(null);
   const initialDateTime = useMemo(
     () => defaultDateTime(searchParams.get("date")),
     [searchParams],
@@ -103,10 +104,13 @@ export function BookingForm({
     setError(null);
     const formData = new FormData(e.currentTarget);
     if (oohWarning) formData.set("confirmOutOfHours", "1");
+    if (creditWarning) formData.set("confirmCredit", "1");
     startTransition(async () => {
       const result = await createBooking(formData);
       if ("error" in result) {
         setError(result.error);
+      } else if ("creditWarning" in result) {
+        setCreditWarning(result.creditWarning);
       } else if ("outOfHours" in result) {
         setOohWarning(result.outOfHours);
       } else {
@@ -245,6 +249,13 @@ export function BookingForm({
           <p>
             {oohWarning} Submit again to create it anyway, or pick a different time.
           </p>
+        </div>
+      )}
+
+      {creditWarning && (
+        <div className="flex items-start gap-2 rounded-md border border-ws-amber-border bg-ws-amber-bg px-3 py-2 text-sm text-ws-amber dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <span aria-hidden className="mt-0.5">💳</span>
+          <p>{creditWarning} Submit again to book anyway.</p>
         </div>
       )}
 

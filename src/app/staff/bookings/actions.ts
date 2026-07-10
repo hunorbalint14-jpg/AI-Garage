@@ -6,6 +6,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { releaseCoverage } from "@/lib/service-plans";
+import { checkCredit } from "@/lib/account";
 import { sendEmail, tenantPortalUrl, renderBrandedEmail, paragraphsToHtml, type EmailDetailRow } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
@@ -22,6 +23,9 @@ export type BookingStatus = "scheduled" | "in_progress" | "complete" | "cancelle
 
 export type CreateBookingResult =
   | { error: string }
+  // Account credit control (#504): over-limit is a warning staff confirm
+  // through (block mode requires owner/admin — the action refuses others).
+  | { creditWarning: string }
   // Out-of-hours is a warning, not a refusal: the form shows it and re-submits
   // with confirmOutOfHours=1 when staff choose to create the booking anyway.
   | { outOfHours: string }
@@ -147,6 +151,22 @@ export async function createBooking(formData: FormData): Promise<CreateBookingRe
   const duration = durationStr ? parseInt(durationStr, 10) : 60;
   if (Number.isNaN(duration) || duration < 15 || duration > 480) {
     return { error: "Duration must be between 15 and 480 minutes." };
+  }
+
+  // Account credit control (#504): warn (or block, per org setting) when the
+  // account is over its limit. Staff confirm through a warning; block mode
+  // only lets owners/admins proceed.
+  if (formData.get("confirmCredit") !== "1") {
+    const credit = await checkCredit(admin, customerId, ctx.organization.id);
+    if (credit.state !== "ok") {
+      const fmt = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
+      const detail = `${fmt(credit.balance)} on account against a ${fmt(credit.limit)} limit`;
+      const isManager = ctx.orgRole === "owner" || ctx.orgRole === "admin";
+      if (credit.state === "block" && !isManager) {
+        return { error: `Credit limit reached — ${detail}. An owner or admin must approve further work on account.` };
+      }
+      return { creditWarning: `${credit.state === "block" ? "Credit limit reached" : "Over credit limit"} — ${detail}.` };
+    }
   }
 
   const isoScheduled = new Date(scheduledAt).toISOString();
