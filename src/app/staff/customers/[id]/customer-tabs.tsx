@@ -7,8 +7,10 @@ export type CustomerTab = { key: string; label: string; content: ReactNode };
 // Horizontal tab bar for the customer detail page. Server-rendered section JSX
 // (including the existing client panels) is passed in as `content`; inactive
 // tabs stay mounted but hidden so panel state survives a tab switch.
-export function CustomerTabs({ tabs }: { tabs: CustomerTab[] }) {
-  const [active, setActive] = useState(tabs[0]?.key ?? "");
+export function CustomerTabs({ tabs, initialTab }: { tabs: CustomerTab[]; initialTab?: string | null }) {
+  const [active, setActive] = useState(
+    initialTab && tabs.some((t) => t.key === initialTab) ? initialTab : (tabs[0]?.key ?? ""),
+  );
 
   return (
     <div className="flex flex-col gap-6">

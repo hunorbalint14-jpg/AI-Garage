@@ -28,7 +28,7 @@ export async function ensureDefaultTasks(locationId: string) {
     service_reminders: { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
     tax_reminders:     { settings: { remind_days_before: 30, channels: ["email", "sms"] },             frequency: "daily",  hour: 9, day_of_week: null },
     invoice_dunning:   { settings: { cadence_days: [1, 7, 14], channels: ["email"] },                  frequency: "daily",  hour: 9, day_of_week: null },
-    review_requests:   { settings: {},                                                                  frequency: "daily",  hour: 9, day_of_week: null },
+    review_requests:   { settings: { channels: ["email", "sms"] },                                       frequency: "daily",  hour: 9, day_of_week: null },
     booking_confirmations: { settings: { hours_before: 24, channels: ["email", "sms", "whatsapp"] },    frequency: "daily",  hour: 9, day_of_week: null },
     deferred_followups: { settings: { channels: ["email", "sms"] },                                      frequency: "daily",  hour: 10, day_of_week: null },
     weekly_digest:     { settings: { window_days: 30 },                                                 frequency: "weekly", hour: 8, day_of_week: 1 },

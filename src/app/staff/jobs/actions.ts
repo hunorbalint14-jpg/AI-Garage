@@ -527,7 +527,7 @@ export async function completeJob(jobId: string): Promise<UpdateJobResult> {
 
   const { data: job } = await admin
     .from("jobs")
-    .select("id, location_id, booking_id, status, customer_id, customer:customers(email)")
+    .select("id, location_id, booking_id, status, customer_id, customer:customers(email, phone)")
     .eq("id", jobId)
     .maybeSingle();
 
@@ -564,15 +564,19 @@ export async function completeJob(jobId: string): Promise<UpdateJobResult> {
     await admin.from("bookings").update({ status: "complete" }).eq("id", job.booking_id);
   }
 
-  // Queue a post-job review request (emailed next morning by the
+  // Queue a post-job feedback pulse (sent next morning by the
   // review_requests cron). Fire-and-forget — never blocks completion.
-  const jobRow = job as unknown as { customer_id: string | null; customer: { email: string | null } | null };
+  const jobRow = job as unknown as {
+    customer_id: string | null;
+    customer: { email: string | null; phone: string | null } | null;
+  };
   void enqueueReviewRequest({
     jobId,
     locationId: ctx.location.id,
     organizationId: ctx.organization.id,
     customerId: jobRow.customer_id,
     customerEmail: jobRow.customer?.email ?? null,
+    customerPhone: jobRow.customer?.phone ?? null,
   });
 
   revalidatePath(`/staff/jobs/${jobId}`);

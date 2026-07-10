@@ -50,7 +50,8 @@ export function tenantReviewUrl(tenantSlug: string, token: string): string {
 }
 
 // Create a queued review request for a completed job. Fire-and-forget — never
-// throws into the caller. Skips when there's no customer email, or a request
+// throws into the caller. Skips when the customer is unreachable (no email
+// AND no phone — the cron can pulse by SMS/WhatsApp too, #508), or a request
 // already exists for this job (one ask per job).
 export async function enqueueReviewRequest(args: {
   jobId: string;
@@ -58,9 +59,10 @@ export async function enqueueReviewRequest(args: {
   organizationId: string | null;
   customerId: string | null;
   customerEmail: string | null;
+  customerPhone?: string | null;
 }): Promise<void> {
   try {
-    if (!args.customerId || !args.customerEmail) return;
+    if (!args.customerId || (!args.customerEmail && !args.customerPhone)) return;
     const admin = createAdminClient();
 
     const { data: existing } = await admin

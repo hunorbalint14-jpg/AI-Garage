@@ -108,16 +108,21 @@ export async function GET(request: NextRequest) {
     const records = (recordRows ?? []) as unknown as RecordRow[];
     if (records.length === 0) continue;
 
-    // Cap half 2: customers a reminder cron reached inside the window.
+    // Cap half 2: customers any other automated system reached inside the
+    // window — vehicle reminders AND the post-service feedback pulse (#508).
     const customerIds = [...new Set(records.map((r) => r.customer_id).filter((c): c is string => !!c))];
     const since = new Date(now.getTime() - FOLLOWUP_CAP_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentReminders } = await admin
-      .from("reminders")
-      .select("customer_id")
-      .in("customer_id", customerIds)
-      .gte("sent_at", since);
+    const [{ data: recentReminders }, { data: recentPulses }] = await Promise.all([
+      admin.from("reminders").select("customer_id").in("customer_id", customerIds).gte("sent_at", since),
+      admin
+        .from("review_requests")
+        .select("customer_id")
+        .in("customer_id", customerIds)
+        .gte("sent_at", since)
+        .in("status", ["sent", "responded"]),
+    ]);
     const recentlyContacted = new Set(
-      ((recentReminders ?? []) as { customer_id: string | null }[])
+      [...((recentReminders ?? []) as { customer_id: string | null }[]), ...((recentPulses ?? []) as { customer_id: string | null }[])]
         .map((r) => r.customer_id)
         .filter((c): c is string => !!c),
     );
