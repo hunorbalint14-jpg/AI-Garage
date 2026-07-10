@@ -14,6 +14,8 @@ import { WeeklyChart } from "@/components/staff/dashboard/weekly-chart";
 import { AttentionQueue } from "@/components/staff/dashboard/attention-queue";
 import { PriorityActions } from "@/components/staff/dashboard/priority-actions";
 import { MyDay } from "@/components/staff/dashboard/my-day";
+import { loadSetupChecklist, type SetupChecklist } from "@/lib/setup-checklist";
+import { SetupChecklistCard } from "@/components/staff/dashboard/setup-checklist";
 import {
   EMPTY_STATS_V2,
   anyWidgetVisible,
@@ -393,6 +395,13 @@ async function DashboardContent() {
 
   const showEmptyHint = !anyWidgetVisible(widgets) && !showMyDay;
 
+  // Setup checklist (#506): owners/admins of not-yet-set-up orgs. Dismissal
+  // short-circuits inside the loader before any counting.
+  let checklist: SetupChecklist | null = null;
+  if (ctx.orgRole === "owner" || ctx.orgRole === "admin") {
+    checklist = await loadSetupChecklist(admin, ctx);
+  }
+
   return (
     <div className="text-foreground">
       {/* Header */}
@@ -416,6 +425,13 @@ async function DashboardContent() {
       {showEmptyHint && (
         <div className="rounded-md border border-border bg-card px-[22px] py-8 text-center font-mono text-xs text-muted-foreground">
           {"// NO DASHBOARD MODULES ARE ENABLED FOR YOUR ROLE"}
+        </div>
+      )}
+
+      {/* Setup checklist — above everything: for a fresh org this IS the dashboard. */}
+      {checklist && (
+        <div className="mb-5">
+          <SetupChecklistCard checklist={checklist} canDismiss />
         </div>
       )}
 
