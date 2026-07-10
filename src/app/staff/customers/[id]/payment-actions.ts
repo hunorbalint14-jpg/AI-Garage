@@ -115,7 +115,7 @@ export async function loadStatementData(admin: ReturnType<typeof createAdminClie
   const [{ data: invoices }, { data: payments }] = await Promise.all([
     admin
       .from("invoices")
-      .select("id, invoice_number, issued_at, due_at, total, amount_paid, status")
+      .select("id, invoice_number, issued_at, due_at, total, amount_paid, status, paid_at")
       .eq("customer_id", customerId)
       .order("issued_at", { ascending: true }),
     admin

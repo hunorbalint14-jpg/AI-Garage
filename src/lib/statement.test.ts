@@ -51,6 +51,43 @@ describe("buildStatement", () => {
     expect(s.totalOutstanding).toBe(550);
   });
 
+  it("invoices settled outside the ledger get a synthetic settlement credit", () => {
+    // Paid via Stripe / mark-paid: status flips but no payments row exists and
+    // amount_paid stays at the ledger-allocated share (here £100 of £600).
+    const stripePaid: StatementInvoice = {
+      ...inv("INV-1", "2026-06-05", "2026-07-05", 600, 100, "paid"),
+      paid_at: "2026-06-20",
+    };
+    const s = buildStatement({
+      invoices: [stripePaid],
+      payments: [pay("p1", "2026-06-10", 100)],
+      fromIso: "2026-06-01T00:00:00Z",
+      toIso: "2026-07-01T00:00:00Z",
+      now: NOW,
+    });
+    // +600 invoice, −100 ledger payment, −500 settlement on the paid date.
+    expect(s.lines.map((l) => l.balance)).toEqual([600, 500, 0]);
+    expect(s.lines[2].reference).toBe("INV-1 settled");
+    expect(s.closing).toBe(0);
+  });
+
+  it("null issued_at never NaNs into the opening balance", () => {
+    // Regression: a paid invoice with no issued_at made every date comparison
+    // NaN-false and its total leaked into opening, permanently.
+    const s = buildStatement({
+      invoices: [
+        { ...inv("JUNK", "2026-07-10", "2026-07-10", 232.2, 0, "paid"), issued_at: null, paid_at: "2026-07-10" },
+        inv("INV-1", "2026-05-01", "2026-05-31", 150),
+      ],
+      payments: [],
+      fromIso: "2026-06-01T00:00:00Z",
+      toIso: "2026-07-01T00:00:00Z",
+      now: NOW,
+    });
+    expect(s.opening).toBe(150); // JUNK charges + settles in July, not before June
+    expect(s.closing).toBe(150);
+  });
+
   it("drafts never appear; empty period keeps opening = closing", () => {
     const s = buildStatement({
       invoices: [inv("draft", "2026-06-01", "2026-07-01", 999, 0, "draft"), inv("INV-1", "2026-05-01", "2026-05-31", 120)],
