@@ -28,11 +28,15 @@ export default async function AutomationsPage() {
 
   await ensureDefaultTasks(ctx.location.id);
 
-  const { data, error } = await admin
-    .from("scheduled_tasks")
-    .select("id, task_type, enabled, settings, last_run_at, frequency, hour, day_of_week, next_run_at")
-    .eq("location_id", ctx.location.id)
-    .order("created_at", { ascending: true });
+  const [{ data, error }, { data: orgRow }] = await Promise.all([
+    admin
+      .from("scheduled_tasks")
+      .select("id, task_type, enabled, settings, last_run_at, frequency, hour, day_of_week, next_run_at")
+      .eq("location_id", ctx.location.id)
+      .order("created_at", { ascending: true }),
+    admin.from("organizations").select("deferred_followup_days").eq("id", ctx.organization.id).maybeSingle(),
+  ]);
+  const followupDays = (orgRow as { deferred_followup_days: number[] | null } | null)?.deferred_followup_days ?? null;
 
   const tasks = (data ?? []) as ScheduledTask[];
   const sorted = TASK_ORDER.map((t) => tasks.find((r) => r.task_type === t)).filter(Boolean) as ScheduledTask[];
@@ -58,7 +62,7 @@ export default async function AutomationsPage() {
           Customer communications
         </h2>
         {customerTasks.map((t) => (
-          <TaskCard key={t.id} task={t} canEdit={canEdit} />
+          <TaskCard key={t.id} task={t} canEdit={canEdit} followupDays={t.task_type === "deferred_followups" ? followupDays : undefined} />
         ))}
       </section>
 

@@ -13,7 +13,8 @@ export type TaskSettings =
   | { remind_days_before: number; channels: string[] }
   | { window_days: number }
   | { cadence_days: number[]; channels: string[] }
-  | { hours_before: number; channels: string[] };
+  | { hours_before: number; channels: string[] }
+  | { channels: string[] };
 
 type ActionResult = { error: string } | { success: true };
 
@@ -112,6 +113,26 @@ export async function updateTaskSettings(taskId: string, settings: TaskSettings)
     .update({ settings })
     .eq("id", taskId)
     .eq("location_id", ctx.location.id);
+  if (error) return { error: error.message };
+  revalidatePath("/staff/automations");
+  return { success: true };
+}
+
+// Stage offsets for the deferred-work sequence — ORG-level (the same
+// cadence across branches), stored on organizations.deferred_followup_days.
+export async function updateDeferredFollowupDays(days: number[]): Promise<ActionResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "automations")) return { error: "Permission denied." };
+  if (!entitledTo(ctx.tenantBilling, "automations")) return { error: UPGRADE_MESSAGE.automations };
+
+  const clean = [...new Set(days.filter((d) => Number.isInteger(d) && d >= 1 && d <= 365))].sort((a, b) => a - b);
+  if (clean.length === 0 || clean.length > 3) return { error: "Between one and three offsets, each 1–365 days." };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("organizations")
+    .update({ deferred_followup_days: clean })
+    .eq("id", ctx.organization.id);
   if (error) return { error: error.message };
   revalidatePath("/staff/automations");
   return { success: true };

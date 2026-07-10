@@ -25,8 +25,13 @@ export function DeferredWorkPanel({
 
   return (
     <section className="rounded-lg border">
-      <h2 className="flex items-center gap-2 border-b px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
-        <History className="h-3.5 w-3.5" /> Previously advised
+      <h2 className="flex items-center justify-between gap-2 border-b px-4 py-2.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
+        <span className="flex items-center gap-2">
+          <History className="h-3.5 w-3.5" /> Previously advised
+        </span>
+        <Link href="/staff/deferred" className="font-sans text-xs normal-case tracking-normal text-muted-foreground underline underline-offset-2">
+          Manage →
+        </Link>
       </h2>
       <ul>
         {findings.map((f) => (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toggleTask, updateTaskSettings, updateSchedule, runTaskNow, type TaskType, type TaskSettings } from "./actions";
+import { toggleTask, updateTaskSettings, updateSchedule, runTaskNow, updateDeferredFollowupDays, type TaskType, type TaskSettings } from "./actions";
 import { formatSchedule, type Frequency } from "@/lib/cron/schedule";
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
@@ -27,20 +27,21 @@ type Task = {
   next_run_at: string | null;
 };
 
-const TASK_META: Record<TaskType, { label: string; description: string; audience: "customer" | "staff"; hasRemindDays: boolean; hasChannels: boolean; hasWindowDays: boolean; hasHoursBefore: boolean }> = {
+const TASK_META: Record<TaskType, { label: string; description: string; audience: "customer" | "staff"; hasRemindDays: boolean; hasChannels: boolean; hasWindowDays: boolean; hasHoursBefore: boolean; hasFollowupDays?: boolean }> = {
   mot_reminders:     { label: "MOT reminders",      description: "Send customers a personalised AI reminder before their MOT expires.",          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
   service_reminders: { label: "Service reminders",  description: "Remind customers when their vehicle service is due.",                          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
   tax_reminders:     { label: "Road tax reminders", description: "Alert customers when their road tax (VED) renewal is due.",                    audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
   booking_confirmations: { label: "Booking confirmations", description: "The day before each booking, ask the customer to confirm or request a new time with one tap — fewer no-shows, earlier warning when plans change.", audience: "customer", hasRemindDays: false, hasChannels: true, hasWindowDays: false, hasHoursBefore: true },
   invoice_dunning:   { label: "Overdue invoice reminders", description: "Email customers an escalating reminder (with a Pay-now link) when an invoice is overdue, until it's paid.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false, hasHoursBefore: false },
   review_requests:   { label: "Review requests", description: "After a job is completed, email the customer for feedback — happy ratings go to your Google review page, unhappy ones are flagged privately to staff.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false, hasHoursBefore: false },
-  deferred_followups: { label: "Deferred work follow-ups", description: "14 and 30 days after a customer declines or defers advised work, send a friendly nudge naming the exact items with a one-tap booking link. Capped at one message per customer per week across all reminders.", audience: "customer", hasRemindDays: false, hasChannels: true, hasWindowDays: false, hasHoursBefore: false },
+  deferred_followups: { label: "Deferred work follow-ups", description: "After a customer declines or defers advised work, send a friendly nudge naming the exact items with a one-tap booking link. Capped at one message per customer per week across all reminders.", audience: "customer", hasRemindDays: false, hasChannels: true, hasWindowDays: false, hasHoursBefore: false, hasFollowupDays: true },
   weekly_digest:     { label: "Weekly staff digest","description": "Email org owners/admins a summary of upcoming MOTs and services.",            audience: "staff",    hasRemindDays: false, hasChannels: false, hasWindowDays: true,  hasHoursBefore: false },
 };
 
-export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
+export function TaskCard({ task, canEdit, followupDays }: { task: Task; canEdit: boolean; followupDays?: number[] | null }) {
   const meta = TASK_META[task.task_type];
   const [enabled, setEnabled] = useState(task.enabled);
+  const [offsetsText, setOffsetsText] = useState((followupDays ?? [14, 30]).join(", "));
   const [remindDays, setRemindDays] = useState<number>((task.settings.remind_days_before as number) ?? 30);
   const [windowDays, setWindowDays] = useState<number>((task.settings.window_days as number) ?? 30);
   const [hoursBefore, setHoursBefore] = useState<number>((task.settings.hours_before as number) ?? 24);
@@ -77,14 +78,21 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
       ? { remind_days_before: remindDays, channels }
       : meta.hasHoursBefore
         ? { hours_before: hoursBefore, channels }
-        : { window_days: windowDays };
+        : meta.hasFollowupDays || meta.hasChannels
+          ? { channels }
+          : { window_days: windowDays };
+    const offsets = meta.hasFollowupDays
+      ? offsetsText.split(/[,\s]+/).map(Number).filter((n) => Number.isFinite(n))
+      : null;
     startTransition(async () => {
-      const [settingsRes, scheduleRes] = await Promise.all([
+      const [settingsRes, scheduleRes, offsetsRes] = await Promise.all([
         updateTaskSettings(task.id, settings),
         updateSchedule(task.id, frequency, hour, frequency === "weekly" ? dayOfWeek : null),
+        offsets ? updateDeferredFollowupDays(offsets) : Promise.resolve({ success: true as const }),
       ]);
       if ("error" in settingsRes) { setError(settingsRes.error); return; }
       if ("error" in scheduleRes) { setError(scheduleRes.error); return; }
+      if ("error" in offsetsRes) { setError(offsetsRes.error); return; }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     });
@@ -233,6 +241,19 @@ export function TaskCard({ task, canEdit }: { task: Task; canEdit: boolean }) {
                 className="w-20 rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
               />
               <span className="text-xs text-muted-foreground">days ahead</span>
+            </div>
+          )}
+          {meta.hasFollowupDays && (
+            <div className="flex items-center gap-3">
+              <label className="text-xs text-muted-foreground w-36">Follow up after</label>
+              <input
+                value={offsetsText}
+                onChange={(e) => setOffsetsText(e.target.value)}
+                disabled={!canEdit}
+                placeholder="14, 30"
+                className="w-28 rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
+              />
+              <span className="text-xs text-muted-foreground">days (1–3 stages, org-wide)</span>
             </div>
           )}
           {meta.hasChannels && (

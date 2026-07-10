@@ -96,6 +96,25 @@ async function DashboardContent() {
   });
   const stats = (statsRes.data ?? EMPTY_STATS_V2) as DashboardStatsV2;
 
+  // Deferred-work pipeline (#498): open £ + recovered £ this month. Two thin
+  // queries rather than an RPC change — the table is small per location.
+  let deferredOpen = 0;
+  let deferredRecovered = 0;
+  if (widgets.revenue) {
+    const [{ data: dOpen }, { data: dRec }] = await Promise.all([
+      admin.from("deferred_work").select("price").eq("location_id", ctx.location.id).eq("status", "open"),
+      admin
+        .from("deferred_work")
+        .select("price")
+        .eq("location_id", ctx.location.id)
+        .eq("status", "recovered")
+        .gte("recovered_at", monthStart),
+    ]);
+    const sum = (list: unknown) => ((list ?? []) as { price: number | null }[]).reduce((s, r) => s + (r.price ?? 0), 0);
+    deferredOpen = sum(dOpen);
+    deferredRecovered = sum(dRec);
+  }
+
   const totalCustomers = stats.total_customers;
   const totalVehicles = stats.total_vehicles;
   const remindersMonth = stats.reminders_month;
@@ -198,6 +217,15 @@ async function DashboardContent() {
         label="WIP · open jobs"
         value={fmtGBP(Number(stats.wip?.total ?? 0))}
         delta={`${stats.wip?.job_count ?? 0} job${(stats.wip?.job_count ?? 0) !== 1 ? "s" : ""} in progress`}
+      />,
+    );
+    tiles.push(
+      <KpiTile
+        key="deferred"
+        label="Deferred work"
+        value={fmtGBP(deferredOpen)}
+        delta={deferredRecovered > 0 ? `${fmtGBP(deferredRecovered)} recovered this month` : "none recovered yet this month"}
+        positive={deferredRecovered > 0 ? true : undefined}
       />,
     );
   }
