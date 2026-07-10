@@ -1,77 +1,74 @@
 import { describe, expect, it } from "vitest";
-import { groupDeferredRows, type RawDeferredRow } from "./deferred-work";
+import { planBankUpserts, type BankCandidate } from "./deferred-work";
 
-function row(overrides: Partial<RawDeferredRow> & { id: string }): RawDeferredRow {
+function candidate(overrides: Partial<BankCandidate> & { description: string }): BankCandidate {
   return {
-    section: "Brakes",
-    label: "Front pads & discs",
-    rag: "amber",
-    note: null,
-    customer_summary: null,
-    suggested_repair: null,
-    suggested_price: null,
-    outcome: "none",
-    created_at: "2026-07-01T00:00:00Z",
-    inspection: { id: "insp-1", vehicle_id: "veh-1", job_id: "job-1", status: "sent" },
+    locationId: "loc-1",
+    customerId: "cus-1",
+    vehicleId: "veh-1",
+    jobId: "job-1",
+    source: "quote_item",
+    quoteItemId: "qi-1",
+    inspectionItemId: null,
+    price: 100,
+    rag: null,
     ...overrides,
   };
 }
 
-describe("groupDeferredRows", () => {
-  it("groups findings by vehicle", () => {
-    const out = groupDeferredRows([
-      row({ id: "a" }),
-      row({ id: "b", label: "NSF tyre", inspection: { id: "insp-2", vehicle_id: "veh-2", job_id: "job-2", status: "sent" } }),
-    ]);
-    expect(out.get("veh-1")).toHaveLength(1);
-    expect(out.get("veh-2")).toHaveLength(1);
+describe("planBankUpserts", () => {
+  it("inserts when no open row matches", () => {
+    const { updates, inserts } = planBankUpserts([], [candidate({ description: "Replace front pads" })]);
+    expect(updates).toHaveLength(0);
+    expect(inserts).toHaveLength(1);
   });
 
-  it("dedupes on (vehicle, label) keeping the newest-first row", () => {
-    const out = groupDeferredRows([
-      row({ id: "newer", created_at: "2026-07-09T00:00:00Z" }),
-      row({ id: "older", created_at: "2026-06-01T00:00:00Z", inspection: { id: "insp-0", vehicle_id: "veh-1", job_id: "job-0", status: "sent" } }),
-    ]);
-    expect(out.get("veh-1")).toHaveLength(1);
-    expect(out.get("veh-1")![0].id).toBe("newer");
-  });
-
-  it("same label on a different vehicle is kept", () => {
-    const out = groupDeferredRows([
-      row({ id: "a" }),
-      row({ id: "b", inspection: { id: "insp-2", vehicle_id: "veh-2", job_id: "job-2", status: "sent" } }),
-    ]);
-    expect(out.get("veh-1")).toHaveLength(1);
-    expect(out.get("veh-2")).toHaveLength(1);
-  });
-
-  it("excludes the current job's own check", () => {
-    const out = groupDeferredRows(
-      [row({ id: "a" }), row({ id: "b", label: "Battery", inspection: { id: "insp-2", vehicle_id: "veh-1", job_id: "job-2", status: "sent" } })],
-      { excludeJobId: "job-1" },
+  it("updates the existing open row on a (vehicle, description) match — case-insensitive", () => {
+    const { updates, inserts } = planBankUpserts(
+      [{ id: "dw-1", vehicle_id: "veh-1", description: "replace FRONT pads" }],
+      [candidate({ description: "Replace front pads", price: 120 })],
     );
-    expect(out.get("veh-1")).toHaveLength(1);
-    expect(out.get("veh-1")![0].id).toBe("b");
+    expect(inserts).toHaveLength(0);
+    expect(updates).toEqual([{ id: "dw-1", candidate: expect.objectContaining({ price: 120 }) }]);
   });
 
-  it("caps per vehicle", () => {
-    const rows = Array.from({ length: 5 }, (_, i) => row({ id: `r${i}`, label: `Item ${i}` }));
-    const out = groupDeferredRows(rows, { limitPerVehicle: 3 });
-    expect(out.get("veh-1")).toHaveLength(3);
+  it("same description on a different vehicle inserts", () => {
+    const { updates, inserts } = planBankUpserts(
+      [{ id: "dw-1", vehicle_id: "veh-OTHER", description: "Replace front pads" }],
+      [candidate({ description: "Replace front pads" })],
+    );
+    expect(updates).toHaveLength(0);
+    expect(inserts).toHaveLength(1);
   });
 
-  it("maps fields through", () => {
-    const out = groupDeferredRows([
-      row({ id: "a", outcome: "declined", suggested_repair: "Replace pads", suggested_price: 48 }),
-    ]);
-    const f = out.get("veh-1")![0];
-    expect(f).toMatchObject({
-      outcome: "declined",
-      suggestedRepair: "Replace pads",
-      suggestedPrice: 48,
-      jobId: "job-1",
-      inspectionId: "insp-1",
-      foundAt: "2026-07-01T00:00:00Z",
-    });
+  it("null vehicle matches only null-vehicle rows", () => {
+    const { updates, inserts } = planBankUpserts(
+      [
+        { id: "dw-veh", vehicle_id: "veh-1", description: "Air-con regas" },
+        { id: "dw-null", vehicle_id: null, description: "Air-con regas" },
+      ],
+      [candidate({ description: "Air-con regas", vehicleId: null })],
+    );
+    expect(updates).toEqual([{ id: "dw-null", candidate: expect.anything() }]);
+    expect(inserts).toHaveLength(0);
+  });
+
+  it("collapses duplicate candidates, first wins", () => {
+    const { updates, inserts } = planBankUpserts(
+      [],
+      [
+        candidate({ description: "Replace front pads", price: 100 }),
+        candidate({ description: "replace front pads ", price: 999 }),
+      ],
+    );
+    expect(updates).toHaveLength(0);
+    expect(inserts).toHaveLength(1);
+    expect(inserts[0].price).toBe(100);
+  });
+
+  it("skips empty descriptions", () => {
+    const { updates, inserts } = planBankUpserts([], [candidate({ description: "   " })]);
+    expect(updates).toHaveLength(0);
+    expect(inserts).toHaveLength(0);
   });
 });

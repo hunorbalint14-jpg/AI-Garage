@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext, requireOwnedQuote } from "@/lib/portal-auth";
 import { applyApprovedItems } from "@/app/quote/[slug]/actions";
 import { getQuoteVatRate } from "@/lib/quote-service";
+import { bankQuoteLines } from "@/lib/deferred-work";
 import { logAudit } from "@/lib/audit";
 import { sendEmail } from "@/lib/email";
 import { createStaffNotification } from "@/lib/staff-notifications";
@@ -265,6 +266,14 @@ export async function declineQuoteAsOwner(quoteId: string, reason: string | null
   if (!claimed) return { error: "This quote has already been responded to." };
 
   const q = claimed as { id: string; location_id: string; total: number; created_by: string | null };
+
+  // Every declined line joins the deferred-work bank (#498).
+  try {
+    await bankQuoteLines(admin, q.id);
+  } catch (e) {
+    console.error("[deferred] bank on portal decline failed", e);
+  }
+
   const org = await loadOrg(location.id);
   const vehicleReg = await vehicleRegForQuote(quote.source, q.id, quote.job_id);
 
