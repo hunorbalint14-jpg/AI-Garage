@@ -18,6 +18,7 @@ export type AuditAction =
   | "deferred.recovered"
   | "deferred.dismissed"
   | "deferred.reopened"
+  | "authorisation.captured"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.special_hours_add"
