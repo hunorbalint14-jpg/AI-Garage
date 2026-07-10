@@ -24,6 +24,7 @@ import {
 import { getOrgAiBrief } from "@/lib/ai-profile";
 import { createQuote } from "../quote-actions";
 import { generateCheckToken, generateCheckSlug, hashCheckToken, tenantCheckUrl } from "@/lib/inspection-links";
+import { bankInspectionFindings } from "@/lib/deferred-work";
 import { generateQuoteToken, generateQuoteSlug, hashQuoteToken } from "@/lib/quote-links";
 import { encryptLinkToken } from "@/lib/quote-reminders";
 import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
@@ -882,6 +883,14 @@ export async function sendInspectionReport(
       .update({ token_hash: null, slug: null, status: "complete", sent_at: null })
       .eq("id", inspectionId);
     return { error: "Failed to send via any channel." };
+  }
+
+  // The customer has now been advised: never-quoted amber/red findings join
+  // the deferred-work bank (#498). Declined lines bank via the quote paths.
+  try {
+    await bankInspectionFindings(admin, inspectionId);
+  } catch (e) {
+    console.error("[deferred] bank on report send failed", e);
   }
 
   await logAudit({

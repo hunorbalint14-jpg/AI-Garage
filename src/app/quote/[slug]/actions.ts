@@ -8,6 +8,7 @@ import { stripe, platformFeePence, tenantOrigin, publicOrigin } from "@/lib/stri
 import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { createStaffNotification } from "@/lib/staff-notifications";
 import { getQuoteVatRate } from "@/lib/quote-service";
+import { bankQuoteLines } from "@/lib/deferred-work";
 
 // Notify staff via both email AND in-app notification. The two surfaces are
 // complementary — email reaches the mechanic when they're off the dashboard,
@@ -303,6 +304,16 @@ export async function approveQuote(
   type Claimed = { id: string; job_id: string; location_id: string; total: number; created_by: string | null };
   const q = claimed as Claimed;
 
+  // Partial approval: the unapproved lines join the deferred-work bank
+  // (#498). Never blocks the approval.
+  if (validSelectedIds.length > 0 && validSelectedIds.length < items.length) {
+    try {
+      await bankQuoteLines(admin, q.id, { excludeQuoteItemIds: validSelectedIds });
+    } catch (e) {
+      console.error("[deferred] bank on partial approval failed", e);
+    }
+  }
+
   // Check job is still open. If not, mark approved_after_close and stop.
   const { data: jobRowData } = await admin
     .from("jobs")
@@ -479,6 +490,13 @@ export async function declineQuote(
 
   type Claimed = { id: string; job_id: string; location_id: string; total: number; created_by: string | null };
   const q = claimed as Claimed;
+
+  // Every declined line joins the deferred-work bank (#498).
+  try {
+    await bankQuoteLines(admin, q.id);
+  } catch (e) {
+    console.error("[deferred] bank on decline failed", e);
+  }
 
   const { data: jobRowData } = await admin
     .from("jobs")
@@ -665,6 +683,15 @@ async function approveStandaloneQuote(
   };
   const q = claimed as unknown as ClaimedRow;
 
+  // Partial approval: unapproved lines → deferred-work bank (#498).
+  if (validSelectedIds.length > 0 && validSelectedIds.length < items.length) {
+    try {
+      await bankQuoteLines(admin, q.id, { excludeQuoteItemIds: validSelectedIds });
+    } catch (e) {
+      console.error("[deferred] bank on partial approval failed", e);
+    }
+  }
+
   // Deposit path — create Stripe Checkout. Items remain in the snapshot;
   // staff is notified after deposit_paid_at lands via webhook.
   if (depositRequired && depositAmount > 0 && org && loc) {
@@ -781,6 +808,13 @@ async function declineStandaloneQuote(
     vehicle: { registration: string | null } | null;
   };
   const q = claimed as unknown as ClaimedRow;
+
+  // Every declined line joins the deferred-work bank (#498).
+  try {
+    await bankQuoteLines(admin, q.id);
+  } catch (e) {
+    console.error("[deferred] bank on decline failed", e);
+  }
 
   await logAudit({
     organizationId: q.organization_id,
