@@ -11,6 +11,7 @@ import { PaymentsSection } from "./payments-section";
 import { VatSection } from "./vat-section";
 import { QuoteDepositSection } from "./quote-deposit-section";
 import { WorkAuthSection } from "./work-auth-section";
+import { CostingSection } from "./costing-section";
 import { QuoteValiditySection } from "./quote-validity-section";
 import { QuoteRemindersSection } from "./quote-reminders-section";
 import { XeroSection } from "./xero-section";
@@ -43,7 +44,7 @@ export default async function SettingsPage({
   const [orgRes, locationsRes, currentLocRes, passkeysRes, financeRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number, authorisation_terms, variation_threshold_pct")
+      .select("name, primary_color, logo_url, slug, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number, authorisation_terms, variation_threshold_pct, labour_cost_rate")
       .eq("id", ctx.organization.id)
       .single(),
     admin
@@ -248,6 +249,11 @@ export default async function SettingsPage({
             vatNumber={(org as { vat_number?: string | null } | null)?.vat_number ?? ""}
             activeLocationName={ctx.location.name}
             invoicePrefix={locations.find((l) => l.id === ctx.location.id)?.invoice_prefix ?? ""}
+            canManage={isOwner}
+          />
+
+          <CostingSection
+            initialRate={((org as { labour_cost_rate?: number | null } | null)?.labour_cost_rate ?? null) as number | null}
             canManage={isOwner}
           />
 

@@ -14,6 +14,9 @@ import { deferredFindingsForVehicles } from "@/lib/deferred-work";
 import { DeferredWorkPanel } from "@/components/staff/deferred-work-panel";
 import { latestAuthorisation } from "@/lib/work-auth";
 import { AuthorisePanel, type ExistingAuth } from "./authorise-panel";
+import { hasPermission } from "@/lib/permissions";
+import { computeJobMargin } from "@/lib/margin";
+import { MarginStrip } from "./margin-strip";
 
 // Work-authorisation props (#503): current org terms + threshold, the newest
 // artefact, and any live re-auth request.
@@ -81,6 +84,7 @@ type JobItem = {
   unit_price: number;
   type: string;
   vat_rate: number;
+  unit_cost: number | null;
   created_at: string;
 };
 
@@ -104,7 +108,7 @@ export default async function JobDetailPage({
       .maybeSingle(),
     admin
       .from("job_items")
-      .select("id, description, quantity, unit_price, type, vat_rate, created_at")
+      .select("id, description, quantity, unit_price, type, vat_rate, unit_cost, created_at")
       .eq("job_id", id)
       .order("created_at", { ascending: true }),
     cachedActiveProducts(ctx.location.id),
@@ -237,6 +241,29 @@ export default async function JobDetailPage({
         estimateMinutes={estimateMinutes}
         currentUserId={ctx.user.id}
       />
+
+      {/* Per-job P&L (#502) — revenue-permission roles only. */}
+      {hasPermission(ctx, "revenue") &&
+        (await (async () => {
+          const { data: orgRow } = await admin
+            .from("organizations")
+            .select("labour_cost_rate")
+            .eq("id", ctx.organization.id)
+            .maybeSingle();
+          const rate = (orgRow as { labour_cost_rate: number | null } | null)?.labour_cost_rate ?? null;
+          const clocked = timeEntries.reduce((s, t) => s + (t.minutes ?? 0), 0);
+          const margin = computeJobMargin(
+            items.map((it) => ({
+              type: it.type,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+              unit_cost: it.unit_cost,
+            })),
+            clocked,
+            rate !== null ? Number(rate) : null,
+          );
+          return <MarginStrip margin={margin} rateConfigured={rate !== null} />;
+        })())}
 
       {await (async () => {
         const settings = await orgAuthorisationSettings(admin, ctx.organization.id);

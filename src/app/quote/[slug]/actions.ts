@@ -148,7 +148,7 @@ export async function applyApprovedItems(quoteId: string): Promise<{ appliedIds:
 
   let itemsQuery = admin
     .from("quote_items")
-    .select("id, description, type, quantity, unit_price")
+    .select("id, description, type, quantity, unit_price, product_id, product:products(cost_price)")
     .eq("quote_id", q.id)
     .order("sort_order");
   if (q.approved_item_ids && q.approved_item_ids.length > 0) {
@@ -156,12 +156,24 @@ export async function applyApprovedItems(quoteId: string): Promise<{ appliedIds:
   }
   const { data: snapshot } = await itemsQuery;
 
-  const itemsToInsert = (snapshot ?? []).map((it) => ({
+  type SnapshotLine = {
+    description: string;
+    type: string;
+    quantity: number;
+    unit_price: number;
+    product_id: string | null;
+    product: { cost_price: number | null } | null;
+  };
+  const itemsToInsert = ((snapshot ?? []) as unknown as SnapshotLine[]).map((it) => ({
     job_id: q.job_id,
-    description: (it as { description: string }).description,
-    type: (it as { type: string }).type,
-    quantity: (it as { quantity: number }).quantity,
-    unit_price: (it as { unit_price: number }).unit_price,
+    description: it.description,
+    type: it.type,
+    quantity: it.quantity,
+    unit_price: it.unit_price,
+    product_id: it.product_id,
+    // Cost snapshot for the margin maths (#502) — the product's cost at
+    // apply time; null stays unknown.
+    unit_cost: it.product?.cost_price ?? null,
   }));
 
   if (itemsToInsert.length === 0) return { appliedIds: [], jobOpen: true };
