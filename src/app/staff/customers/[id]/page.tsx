@@ -18,6 +18,9 @@ import { setCustomerHomeGarage } from "../actions";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { deferredFindingsForVehicles, type DeferredFinding } from "@/lib/deferred-work";
 import { DeferredWorkPanel } from "@/components/staff/deferred-work-panel";
+import { hasPermission } from "@/lib/permissions";
+import { accountBalance } from "@/lib/account";
+import { AccountSection } from "./account-section";
 
 type Customer = {
   id: string;
@@ -31,6 +34,10 @@ type Customer = {
   marketing_sms_consent: boolean;
   consent_updated_at: string | null;
   anonymized_at: string | null;
+  account_customer: boolean;
+  payment_terms_days: number;
+  credit_limit: number | null;
+  consolidated_billing: boolean;
 };
 
 type Vehicle = {
@@ -91,7 +98,7 @@ export default async function CustomerDetailPage({
   const [customerRes, vehiclesRes, remindersRes, plansRes, membershipsRes, pulsesRes] = await Promise.all([
     admin
       .from("customers")
-      .select("id, organization_id, preferred_location_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
+      .select("id, organization_id, preferred_location_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at, account_customer, payment_terms_days, credit_limit, consolidated_billing")
       .eq("id", id)
       .maybeSingle(),
     admin
@@ -280,6 +287,18 @@ export default async function CustomerDetailPage({
                     </dd>
                   </dl>
                 </section>
+
+                <AccountSection
+                  customerId={customer.id}
+                  initial={{
+                    accountCustomer: customer.account_customer,
+                    paymentTermsDays: customer.payment_terms_days,
+                    creditLimit: customer.credit_limit !== null ? Number(customer.credit_limit) : null,
+                    consolidatedBilling: customer.consolidated_billing,
+                  }}
+                  balance={customer.account_customer ? await accountBalance(admin, customer.id) : null}
+                  canManage={hasPermission(ctx, "invoices")}
+                />
               </div>
             ),
           },

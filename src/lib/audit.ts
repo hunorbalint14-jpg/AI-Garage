@@ -21,6 +21,7 @@ export type AuditAction =
   | "authorisation.captured"
   | "authorisation.reauth_requested"
   | "authorisation.reauth_responded"
+  | "account.updated"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.special_hours_add"

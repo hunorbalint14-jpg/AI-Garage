@@ -164,7 +164,19 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
   const invoiceNumber = allocated.number;
   const today = new Date();
   const due = new Date(today);
-  due.setDate(due.getDate() + 30);
+  // Account customers (#504) get their agreed terms; everyone else the
+  // 30-day default.
+  let termsDays = 30;
+  if (job.customer_id) {
+    const { data: acct } = await admin
+      .from("customers")
+      .select("account_customer, payment_terms_days")
+      .eq("id", job.customer_id)
+      .maybeSingle();
+    const a = acct as { account_customer: boolean; payment_terms_days: number } | null;
+    if (a?.account_customer) termsDays = Number(a.payment_terms_days ?? 30);
+  }
+  due.setDate(due.getDate() + termsDays);
 
   const { data: invoice, error } = await admin
     .from("invoices")
