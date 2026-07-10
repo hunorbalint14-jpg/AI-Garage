@@ -12,6 +12,31 @@ import { JobDetail } from "./job-detail";
 import { InspectionCard, inspectionSummary } from "./inspection-card";
 import { deferredFindingsForVehicles } from "@/lib/deferred-work";
 import { DeferredWorkPanel } from "@/components/staff/deferred-work-panel";
+import { latestAuthorisation } from "@/lib/work-auth";
+import { AuthorisePanel, type ExistingAuth } from "./authorise-panel";
+
+// Work-authorisation props (#503): current org terms + the newest artefact.
+async function orgAuthorisationTerms(
+  admin: ReturnType<typeof createAdminClient>,
+  organizationId: string,
+): Promise<string | null> {
+  const { data } = await admin
+    .from("organizations")
+    .select("authorisation_terms")
+    .eq("id", organizationId)
+    .maybeSingle();
+  return (data as { authorisation_terms: string | null } | null)?.authorisation_terms ?? null;
+}
+
+async function existingAuthProp(
+  admin: ReturnType<typeof createAdminClient>,
+  jobId: string,
+): Promise<ExistingAuth> {
+  const auth = await latestAuthorisation(admin, jobId);
+  return auth
+    ? { id: auth.id, total: Number(auth.authorised_total), signedName: auth.signed_name, authorisedAt: auth.authorised_at }
+    : null;
+}
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { JobTimeTracking, type TimeEntryView } from "./job-time-tracking";
 import { HighVoltageSection } from "./high-voltage-section";
@@ -37,6 +62,7 @@ type JobItem = {
   quantity: number;
   unit_price: number;
   type: string;
+  vat_rate: number;
   created_at: string;
 };
 
@@ -60,7 +86,7 @@ export default async function JobDetailPage({
       .maybeSingle(),
     admin
       .from("job_items")
-      .select("id, description, quantity, unit_price, type, created_at")
+      .select("id, description, quantity, unit_price, type, vat_rate, created_at")
       .eq("job_id", id)
       .order("created_at", { ascending: true }),
     cachedActiveProducts(ctx.location.id),
@@ -192,6 +218,20 @@ export default async function JobDetailPage({
         entries={timeEntries}
         estimateMinutes={estimateMinutes}
         currentUserId={ctx.user.id}
+      />
+
+      <AuthorisePanel
+        jobId={job.id}
+        items={items.map((it) => ({
+          description: it.description,
+          type: it.type,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          vat_rate: it.vat_rate ?? 20,
+        }))}
+        terms={await orgAuthorisationTerms(admin, ctx.organization.id)}
+        customerName={job.customer?.full_name ?? null}
+        existing={await existingAuthProp(admin, job.id)}
       />
 
       {evhcEnabled && <InspectionCard jobId={job.id} summary={await inspectionSummary(admin, job.id)} />}
