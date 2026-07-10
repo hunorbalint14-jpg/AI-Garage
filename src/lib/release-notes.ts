@@ -27,6 +27,34 @@ export type ReleaseNote = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "2026.07.2",
+    date: "2026-07-10",
+    summary:
+      "Digital vehicle health checks: grade a car on your phone, let AI write the customer wording, and get work approved item by item.",
+    entries: [
+      {
+        kind: "new",
+        title: "Vehicle health checks on your phone (beta)",
+        body: "Open a job and tap Health check. Grade the exceptions red or amber with photos, then confirm the rest are OK in one tap — a 33-point check in under five minutes.",
+      },
+      {
+        kind: "new",
+        title: "AI turns tech shorthand into customer-friendly wording",
+        body: "“osf lower arm bush split” becomes a clear explanation of what was found and why it matters. Every line stays editable before it goes out, and the flow works without AI too.",
+      },
+      {
+        kind: "new",
+        title: "Customers approve work item by item from the report",
+        body: "Send the branded report by email, SMS or WhatsApp — photos, urgency and a price per finding. Approved items land straight on the job; deposits, reminders and expiry work exactly like quotes.",
+      },
+      {
+        kind: "new",
+        title: "Previously advised work follows the vehicle",
+        body: "Declined or unquoted advisories appear on the customer's record and on the vehicle's next job, so nothing gets forgotten.",
+      },
+    ],
+  },
+  {
     version: "2026.07",
     date: "2026-07-06",
     summary: "Help that comes to you: in-app support with an assistant that knows your garage, plus a completely rebuilt user manual.",

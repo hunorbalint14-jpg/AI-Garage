@@ -10,6 +10,8 @@ import { assignJobTechnician } from "../actions";
 import { cachedActiveProducts, cachedActiveServices } from "@/lib/location-cache";
 import { JobDetail } from "./job-detail";
 import { InspectionCard, inspectionSummary } from "./inspection-card";
+import { deferredFindingsForVehicles } from "@/lib/deferred-work";
+import { DeferredWorkPanel } from "@/components/staff/deferred-work-panel";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { JobTimeTracking, type TimeEntryView } from "./job-time-tracking";
 import { HighVoltageSection } from "./high-voltage-section";
@@ -193,6 +195,14 @@ export default async function JobDetailPage({
       />
 
       {evhcEnabled && <InspectionCard jobId={job.id} summary={await inspectionSummary(admin, job.id)} />}
+
+      {/* Outstanding advisories from EARLIER checks on this vehicle (#497
+          Phase 6) — this job's own check is excluded. */}
+      {evhcEnabled && job.vehicle && (
+        <DeferredWorkPanel
+          findings={(await deferredFindingsForVehicles(admin, [job.vehicle.id], { excludeJobId: job.id })).get(job.vehicle.id) ?? []}
+        />
+      )}
 
       <JobDetail job={job} items={items} products={productOptions} services={services} quotes={quotes} />
     </div>

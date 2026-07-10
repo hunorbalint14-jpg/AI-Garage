@@ -66,7 +66,12 @@ export function InspectionCard({ jobId, summary }: { jobId: string; summary: Ins
       <div className="flex items-center gap-3">
         <ClipboardCheck className="h-5 w-5 text-muted-foreground" />
         <div>
-          <h2 className="text-sm font-semibold">Vehicle health check</h2>
+          <h2 className="text-sm font-semibold">
+            Vehicle health check
+            <span className="ml-2 rounded border border-[#5a4218] bg-[#3a2c14] px-1 py-px align-middle font-mono text-[8px] tracking-[.1em] text-[#ffb020]">
+              BETA
+            </span>
+          </h2>
           {summary ? (
             <p className="text-xs tabular-nums text-muted-foreground mt-0.5">
               {STATUS_LABEL[summary.status] ?? summary.status} ·{" "}

@@ -15,6 +15,9 @@ import { MembershipsSection, type MembershipRow } from "./memberships-section";
 import { subscriptionStatusLabel, isSubscriptionLive } from "@/lib/service-plans";
 import { HomeGarageSelect } from "@/components/home-garage-select";
 import { setCustomerHomeGarage } from "../actions";
+import { isFeatureEnabled } from "@/lib/feature-flags";
+import { deferredFindingsForVehicles, type DeferredFinding } from "@/lib/deferred-work";
+import { DeferredWorkPanel } from "@/components/staff/deferred-work-panel";
 
 type Customer = {
   id: string;
@@ -124,6 +127,12 @@ export default async function CustomerDetailPage({
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const reminders = (remindersRes.data ?? []) as Reminder[];
+
+  // eVHC deferred-work bank (#497): outstanding advisories per vehicle.
+  const deferredByVehicle = (await isFeatureEnabled("evhc"))
+    ? await deferredFindingsForVehicles(admin, vehicles.map((v) => v.id))
+    : new Map<string, DeferredFinding[]>();
+  const deferredFindings = vehicles.flatMap((v) => deferredByVehicle.get(v.id) ?? []);
   const planOptions = (plansRes.data ?? []) as InvitePlanOption[];
   const memberships = (membershipsRes.data ?? []) as unknown as MembershipRow[];
   const liveMembership = memberships.find((m) => isSubscriptionLive(m.status)) ?? null;
@@ -350,6 +359,8 @@ export default async function CustomerDetailPage({
                     Buttons disabled if no date set or no contact details on file.
                   </p>
                 </section>
+
+                <DeferredWorkPanel findings={deferredFindings} regByVehicleId={regByVehicleId} />
 
                 {vehicles.length > 0 && (
                   <StaffDiagnostic vehicles={vehicles.map((v) => ({ id: v.id, registration: v.registration, make: v.make, model: v.model }))} />
