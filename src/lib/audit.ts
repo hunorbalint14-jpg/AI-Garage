@@ -23,6 +23,8 @@ export type AuditAction =
   | "authorisation.reauth_responded"
   | "account.updated"
   | "invoice.consolidated"
+  | "payment.recorded"
+  | "statement.sent"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.special_hours_add"
