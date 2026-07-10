@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeJobMargin, type MarginLine } from "./margin";
+import { aggregateMargins, computeJobMargin, type MarginLine, type PeriodJob } from "./margin";
 
 const line = (type: string, qty: number, sell: number, cost: number | null): MarginLine => ({
   type,
@@ -60,5 +60,54 @@ describe("computeJobMargin", () => {
     const lines = [line("part", 3, 40, 22), line("labour", 2, 70, null), line("other", 1, 15, null)];
     const m = computeJobMargin(lines, 150, 28);
     expect(m.grossProfit! + m.partsCost + m.labourCost!).toBeCloseTo(m.totalSell, 2);
+  });
+});
+
+describe("aggregateMargins", () => {
+  const job = (category: string, lines: MarginLine[], minutes: number): PeriodJob => ({
+    lines,
+    clockedMinutes: minutes,
+    category,
+  });
+
+  it("sums jobs and groups by category, biggest sell first", () => {
+    const agg = aggregateMargins(
+      [
+        job("Brakes", [line("part", 1, 100, 60), line("labour", 1, 65, null)], 60),
+        job("Brakes", [line("labour", 2, 65, null)], 120),
+        job("Servicing", [line("part", 1, 40, 25), line("labour", 3, 65, null)], 180),
+      ],
+      30,
+    );
+    expect(agg.jobs).toBe(3);
+    expect(agg.sell).toBe(530); // 165 + 130 + 235
+    expect(agg.clockedMinutes).toBe(360);
+    expect(agg.labourCost).toBe(180); // 6h × 30
+    expect(agg.effectiveLabourRate).toBe(65); // 390 labour / 6h
+    expect(agg.grossProfit).toBe(265); // 530 − 85 parts − 180 labour
+    expect(agg.byCategory.map((c) => c.category)).toEqual(["Brakes", "Servicing"]);
+    expect(agg.byCategory[0].jobs).toBe(2);
+    expect(agg.byCategory[0].grossProfit).toBe(145); // (165−60−30) + (130−60)
+  });
+
+  it("an uncosted part nulls period + category GP but not the sums", () => {
+    const agg = aggregateMargins(
+      [job("Tyres", [line("part", 1, 90, null)], 0), job("Brakes", [line("part", 1, 100, 60)], 0)],
+      30,
+    );
+    expect(agg.unknownPartCostCount).toBe(1);
+    expect(agg.grossProfit).toBeNull();
+    expect(agg.byCategory.find((c) => c.category === "Tyres")!.grossProfit).toBeNull();
+    expect(agg.byCategory.find((c) => c.category === "Brakes")!.grossProfit).toBe(40);
+    expect(agg.sell).toBe(190);
+  });
+
+  it("empty period → zeros, pct null", () => {
+    const agg = aggregateMargins([], 30);
+    expect(agg.jobs).toBe(0);
+    expect(agg.sell).toBe(0);
+    expect(agg.grossProfit).toBe(0); // costs known (nothing unknown), just nothing sold
+    expect(agg.grossMarginPct).toBeNull();
+    expect(agg.effectiveLabourRate).toBeNull();
   });
 });

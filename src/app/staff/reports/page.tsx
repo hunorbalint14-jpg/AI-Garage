@@ -26,6 +26,7 @@ import {
   type SpecialHours,
 } from "@/lib/business-hours";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
+import { fetchPeriodMargin, orgLabourCostRate } from "@/lib/margin-data";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +113,20 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
       .select("id, business_hours")
       .in("id", locationIds),
   ]);
+
+  // --- Profitability (#502) — same paid-in-period membership as the money
+  // reports, so the numbers reconcile. ---
+  const labourRate = await orgLabourCostRate(admin, ctx.organization.id);
+  const margin = await fetchPeriodMargin(admin, {
+    scopeColumn,
+    scopeValue,
+    fromIso,
+    toIso,
+    labourCostRate: labourRate,
+  });
+  const aiv = paidRes.data && paidRes.data.length > 0
+    ? (paidRes.data as { total: number }[]).reduce((s, r) => s + Number(r.total), 0) / paidRes.data.length
+    : null;
 
   // --- Aged debtors ---
   type UnpaidRow = { id: string; invoice_number: string; total: number; due_at: string | null; customer: { full_name: string | null } | null };
@@ -281,6 +296,76 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Period: {periodLabel}</h2>
         <PeriodSelector current={key} />
       </div>
+
+      {/* Profitability (#502) */}
+      <section className="flex flex-col gap-3">
+        <h3 className="text-sm font-medium">Profitability</h3>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard
+            label="Gross profit"
+            value={margin.grossProfit !== null ? fmt(margin.grossProfit) : "—"}
+            sub={
+              margin.grossMarginPct !== null
+                ? `${margin.grossMarginPct}% of ${fmt(margin.sell)} · ${margin.jobs} job${margin.jobs === 1 ? "" : "s"}`
+                : margin.unknownPartCostCount > 0
+                  ? `${margin.unknownPartCostCount} part line${margin.unknownPartCostCount === 1 ? "" : "s"} missing cost`
+                  : labourRate === null
+                    ? "set a labour cost rate in Settings"
+                    : `${margin.jobs} job${margin.jobs === 1 ? "" : "s"}`
+            }
+            accent={margin.grossProfit !== null && margin.grossProfit < 0 ? "text-ws-red" : ""}
+          />
+          <StatCard
+            label="Effective labour rate"
+            value={margin.effectiveLabourRate !== null ? `${fmt(margin.effectiveLabourRate)}/h` : "—"}
+            sub={`${fmt(margin.labourSold)} labour ÷ ${Math.round((margin.clockedMinutes / 60) * 10) / 10}h clocked`}
+          />
+          <StatCard
+            label="Parts margin"
+            value={margin.partsMarginPct !== null ? `${margin.partsMarginPct}%` : "—"}
+            sub={`${fmt(margin.partsSell)} sold · ${fmt(margin.partsCost)} known cost`}
+            accent={margin.partsMarginPct !== null && margin.partsMarginPct < 0 ? "text-ws-red" : ""}
+          />
+          <StatCard
+            label="Average invoice"
+            value={aiv !== null ? fmt(aiv) : "—"}
+            sub="paid invoices this period"
+          />
+        </div>
+        {margin.byCategory.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="w-full min-w-[560px] text-sm">
+              <thead className="bg-muted/50 text-left">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Service type</th>
+                  <th className="px-3 py-2 font-medium text-right">Jobs</th>
+                  <th className="px-3 py-2 font-medium text-right">Sold (ex VAT)</th>
+                  <th className="px-3 py-2 font-medium text-right">Gross profit</th>
+                  <th className="px-3 py-2 font-medium text-right">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {margin.byCategory.map((c) => (
+                  <tr key={c.category} className="border-t">
+                    <td className="px-3 py-2 capitalize">{c.category}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{c.jobs}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmt(c.sell)}</td>
+                    <td className={`px-3 py-2 text-right tabular-nums ${c.grossProfit !== null && c.grossProfit < 0 ? "text-ws-red" : ""}`}>
+                      {c.grossProfit !== null ? fmt(c.grossProfit) : "—"}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">{c.marginPct !== null ? `${c.marginPct}%` : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Ex-VAT margins over jobs whose invoice was paid in the period; a job&apos;s clocked time counts in
+          full. Service type is the job&apos;s largest labour line. Unknown part costs and an unset labour
+          cost rate show as — rather than a guess.
+        </p>
+      </section>
 
       {/* VAT */}
       <section className="flex flex-col gap-3">

@@ -8,6 +8,7 @@ import { utilisationSummary, workingDaysBetween } from "@/lib/reports";
 import { CardGridSkeleton, BlockSkeleton, TableSkeleton } from "@/components/staff/skeletons";
 import { KpiTile } from "@/components/staff/dashboard/kpi-tile";
 import { csatSummary } from "@/lib/csat";
+import { fetchPeriodMargin, orgLabourCostRate } from "@/lib/margin-data";
 import { BayTimeline } from "@/components/staff/workshop/bay-timeline";
 import { WeeklyChart } from "@/components/staff/dashboard/weekly-chart";
 import { AttentionQueue } from "@/components/staff/dashboard/attention-queue";
@@ -108,6 +109,20 @@ async function DashboardContent() {
       .gte("created_at", ninetyDaysAgo)
       .limit(1000);
     pulse = csatSummary((pulseRows ?? []) as { status: string; score: number | null }[]);
+  }
+
+  // Month profitability (#502): GP + effective labour rate over jobs whose
+  // invoice was paid this month. Thin queries, no RPC change.
+  let monthMargin: Awaited<ReturnType<typeof fetchPeriodMargin>> | null = null;
+  if (widgets.revenue) {
+    const rate = await orgLabourCostRate(admin, ctx.organization.id);
+    monthMargin = await fetchPeriodMargin(admin, {
+      scopeColumn: "location_id",
+      scopeValue: ctx.location.id,
+      fromIso: monthStart,
+      toIso: now.toISOString(),
+      labourCostRate: rate,
+    });
   }
 
   // Deferred-work pipeline (#498): open £ + recovered £ this month. Two thin
@@ -242,6 +257,29 @@ async function DashboardContent() {
         positive={deferredRecovered > 0 ? true : undefined}
       />,
     );
+    if (monthMargin && monthMargin.jobs > 0) {
+      tiles.push(
+        <KpiTile
+          key="gp-month"
+          label="Gross profit · month"
+          value={monthMargin.grossProfit !== null ? fmtGBP(monthMargin.grossProfit) : "—"}
+          delta={
+            monthMargin.grossMarginPct !== null
+              ? `${monthMargin.grossMarginPct}% margin · ${monthMargin.jobs} job${monthMargin.jobs === 1 ? "" : "s"}`
+              : monthMargin.unknownPartCostCount > 0
+                ? `${monthMargin.unknownPartCostCount} part line${monthMargin.unknownPartCostCount === 1 ? "" : "s"} missing cost`
+                : "set a labour cost rate in Settings"
+          }
+          positive={monthMargin.grossProfit !== null ? monthMargin.grossProfit >= 0 : undefined}
+        />,
+        <KpiTile
+          key="elr-month"
+          label="Labour rate · effective"
+          value={monthMargin.effectiveLabourRate !== null ? `${fmtGBP(monthMargin.effectiveLabourRate)}/h` : "—"}
+          delta="invoiced ÷ clocked, this month"
+        />,
+      );
+    }
   }
   if (widgets.growth) {
     tiles.push(
