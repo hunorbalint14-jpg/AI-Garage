@@ -87,7 +87,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const [unpaidRes, paidRes, entriesRes, staffArrays, hoursRes] = await Promise.all([
     admin
       .from("invoices")
-      .select("id, invoice_number, total, due_at, customer:customers(full_name)")
+      .select("id, invoice_number, total, amount_paid, due_at, customer:customers(full_name)")
       .eq(scopeColumn, scopeValue)
       .eq("status", "sent")
       .order("due_at", { ascending: true }),
@@ -129,9 +129,12 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     : null;
 
   // --- Aged debtors ---
-  type UnpaidRow = { id: string; invoice_number: string; total: number; due_at: string | null; customer: { full_name: string | null } | null };
+  // Aging is on OUTSTANDING (total − allocated payments, #504) — a
+  // part-paid invoice ages only for what's actually left.
+  type UnpaidRow = { id: string; invoice_number: string; total: number; amount_paid: number | null; due_at: string | null; customer: { full_name: string | null } | null };
   const unpaid = (unpaidRes.data ?? []) as unknown as UnpaidRow[];
-  const aged = summariseAgedDebtors(unpaid.map((i) => ({ total: i.total, due_at: i.due_at })), now);
+  const outstandingOf = (i: UnpaidRow) => Math.round((Number(i.total) - Number(i.amount_paid ?? 0)) * 100) / 100;
+  const aged = summariseAgedDebtors(unpaid.map((i) => ({ total: outstandingOf(i), due_at: i.due_at })), now);
   const totalOutstanding = AGED_BUCKETS.reduce((s, k) => s + aged[k].total, 0);
 
   // --- VAT ---
@@ -282,7 +285,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
                     <td className="px-3 py-2 font-mono text-xs">{i.invoice_number}</td>
                     <td className="px-3 py-2">{i.customer?.full_name ?? "—"}</td>
                     <td className="px-3 py-2 text-muted-foreground">{i.due_at ? new Date(i.due_at).toLocaleDateString("en-GB") : "—"}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{fmt(i.total)}</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmt(outstandingOf(i))}</td>
                   </tr>
                 ))}
               </tbody>

@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { saveAccountSettings } from "./account-actions";
 import { raiseConsolidatedInvoice } from "./consolidated-actions";
+import { recordPayment, emailStatement } from "./payment-actions";
 
 // Default billing period: the previous calendar month.
 function lastMonthValue(): string {
@@ -54,6 +55,46 @@ export function AccountSection({
   const [billMonth, setBillMonth] = useState(lastMonthValue);
   const [raising, setRaising] = useState(false);
   const [raised, setRaised] = useState<{ invoiceId: string; invoiceNumber: string; jobCount: number; total: number } | null>(null);
+
+  const [payAmount, setPayAmount] = useState("");
+  const [payMethod, setPayMethod] = useState("bank_transfer");
+  const [payRef, setPayRef] = useState("");
+  const [paying, setPaying] = useState(false);
+  const [emailing, setEmailing] = useState(false);
+
+  async function handleRecordPayment() {
+    setError(null);
+    setInfo(null);
+    setPaying(true);
+    const res = await recordPayment(customerId, {
+      amount: Number(payAmount),
+      method: payMethod,
+      reference: payRef.trim() || null,
+      receivedAt: null,
+    });
+    setPaying(false);
+    if ("error" in res) return setError(res.error);
+    setInfo(
+      `Payment recorded — allocated to ${res.allocatedTo} invoice${res.allocatedTo === 1 ? "" : "s"}` +
+        (res.unallocated > 0 ? `, ${fmtGBP(res.unallocated)} held as credit.` : "."),
+    );
+    setPayAmount("");
+    setPayRef("");
+  }
+
+  async function handleEmailStatement() {
+    setError(null);
+    setInfo(null);
+    setEmailing(true);
+    const now = new Date();
+    const res = await emailStatement(customerId, {
+      fromIso: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString(),
+      toIso: now.toISOString(),
+    });
+    setEmailing(false);
+    if ("error" in res) return setError(res.error);
+    setInfo("Statement emailed.");
+  }
 
   async function handleRaise() {
     setError(null);
@@ -156,6 +197,60 @@ export function AccountSection({
             />
             Consolidated monthly invoice
           </label>
+        </div>
+      )}
+
+      {on && canManage && (
+        <div className="flex flex-wrap items-end gap-3 border-t pt-3">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Record payment (£)
+            <input
+              type="number"
+              min={0.01}
+              step="0.01"
+              value={payAmount}
+              onChange={(e) => setPayAmount(e.target.value)}
+              disabled={paying}
+              placeholder="0.00"
+              className="w-28 rounded-md border bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Method
+            <select
+              value={payMethod}
+              onChange={(e) => setPayMethod(e.target.value)}
+              disabled={paying}
+              className="rounded-md border bg-background px-2 py-1.5 text-sm text-foreground"
+            >
+              <option value="bank_transfer">Bank transfer</option>
+              <option value="card">Card</option>
+              <option value="cash">Cash</option>
+              <option value="cheque">Cheque</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            Reference
+            <input
+              value={payRef}
+              onChange={(e) => setPayRef(e.target.value)}
+              disabled={paying}
+              placeholder="e.g. BACS 1042"
+              className="w-32 rounded-md border bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground"
+            />
+          </label>
+          <Button size="sm" variant="outline" onClick={handleRecordPayment} loading={paying} disabled={!payAmount}>
+            Record payment
+          </Button>
+          <span className="mb-1.5 flex items-center gap-3 text-sm">
+            <Link href={`/staff/customers/${customerId}/statement`} className="underline underline-offset-2 text-muted-foreground">
+              Statement →
+            </Link>
+            <Button size="sm" variant="ghost" onClick={handleEmailStatement} loading={emailing}>
+              Email statement
+            </Button>
+          </span>
         </div>
       )}
 
