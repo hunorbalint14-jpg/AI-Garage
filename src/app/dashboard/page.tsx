@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Car, CalendarDays, Receipt } from "lucide-react";
+import { Car, CalendarDays, Receipt, Wallet, ChevronRight } from "lucide-react";
 import { BookingCard } from "./booking-card";
 import { DiagnosticPanel } from "./diagnostic-panel";
 import { NextUpHero, type HeroAction } from "./next-up-hero";
 import { VehicleRow } from "./vehicle-row";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPortalContext } from "@/lib/portal-auth";
+import { accountProfile, accountBalance, type AccountBalance } from "@/lib/account";
 import { cachedActiveServices } from "@/lib/location-cache";
 import { getAvailableSlotsWeek } from "@/lib/slots-actions";
 import { APP_TZ } from "@/lib/business-hours";
@@ -100,6 +101,8 @@ export default async function CustomerDashboard() {
           .from("invoices")
           .select("id, invoice_number, total, status, issued_at, due_at")
           .eq("customer_id", customer.id)
+          // Drafts are the garage's WIP — never customer-visible.
+          .neq("status", "draft")
           .order("issued_at", { ascending: false })
           .limit(5),
         admin
@@ -124,6 +127,15 @@ export default async function CustomerDashboard() {
           .limit(5),
       ])
     : [{ data: null }, { data: null }, { data: null }, { data: null }, { data: null }];
+
+  // Trade accounts (#504 PR 5): surface the balance with a link through to
+  // /dashboard/account. One light query for everyone; the balance rollup only
+  // runs for actual account customers.
+  let acctBalance: AccountBalance | null = null;
+  if (customer) {
+    const profile = await accountProfile(admin, customer.id);
+    if (profile?.accountCustomer) acctBalance = await accountBalance(admin, customer.id);
+  }
 
   const vehicles = (vehiclesRes.data ?? []) as Vehicle[];
   const invoices = (invoicesRes.data ?? []) as unknown as InvoiceRow[];
@@ -304,6 +316,31 @@ export default async function CustomerDashboard() {
         {/* AI Diagnostic */}
         {customer && vehicles.length > 0 && (
           <DiagnosticPanel vehicles={vehicles} orgColor={orgColor} />
+        )}
+
+        {/* Trade account balance (#504) */}
+        {acctBalance && (
+          <section>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500 flex items-center gap-2">
+              <Wallet className="h-4 w-4" /> Your account
+            </h2>
+            <Link
+              href="/dashboard/account"
+              className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 backdrop-blur-sm transition-colors hover:bg-white/[0.06]"
+            >
+              <div>
+                <p className="text-xl font-bold tabular-nums">{fmt(acctBalance.total)}</p>
+                <p className="text-xs text-gray-400">
+                  on account · {fmt(acctBalance.openInvoiced)} invoiced
+                  {acctBalance.unbilledJobCount > 0 &&
+                    ` + ${acctBalance.unbilledJobCount} job${acctBalance.unbilledJobCount === 1 ? "" : "s"} awaiting invoice`}
+                </p>
+              </div>
+              <span className="flex items-center gap-1 text-sm text-gray-300">
+                Statement <ChevronRight className="h-4 w-4" />
+              </span>
+            </Link>
+          </section>
         )}
 
         {/* Invoices */}
