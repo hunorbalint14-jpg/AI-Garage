@@ -58,6 +58,15 @@ export async function submitReview(
   });
 
   if (score < 4) {
+    // The interception (#508): alert staff BEFORE any public ask, and land
+    // them on the customer's Comms tab with an AI recovery draft pre-seeded
+    // so "call them / write to them" is one click, in the org's voice.
+    const recoveryTopic =
+      `Apologise for their recent ${score}-star visit and offer to put it right` +
+      (cleanFeedback ? ` — they said: "${cleanFeedback.slice(0, 200)}"` : "");
+    const href = review.customer_id
+      ? `/staff/customers/${review.customer_id}?tab=comms&draft=${encodeURIComponent(recoveryTopic)}`
+      : `/staff/jobs/${review.job_id}`;
     void createStaffNotification({
       userId: null,
       locationId: review.location_id,
@@ -65,7 +74,7 @@ export async function submitReview(
       kind: "review.low_score",
       title: `${score}★ feedback needs attention`,
       body: cleanFeedback ? `“${cleanFeedback.slice(0, 140)}”` : `A customer left a ${score}-star rating.`,
-      href: `/staff/jobs/${review.job_id}`,
+      href,
       entityType: "review_request",
       entityId: review.id,
     });

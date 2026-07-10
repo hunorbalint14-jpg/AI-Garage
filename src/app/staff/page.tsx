@@ -7,6 +7,7 @@ import { hasPermission } from "@/lib/permissions";
 import { utilisationSummary, workingDaysBetween } from "@/lib/reports";
 import { CardGridSkeleton, BlockSkeleton, TableSkeleton } from "@/components/staff/skeletons";
 import { KpiTile } from "@/components/staff/dashboard/kpi-tile";
+import { csatSummary } from "@/lib/csat";
 import { BayTimeline } from "@/components/staff/workshop/bay-timeline";
 import { WeeklyChart } from "@/components/staff/dashboard/weekly-chart";
 import { AttentionQueue } from "@/components/staff/dashboard/attention-queue";
@@ -95,6 +96,19 @@ async function DashboardContent() {
     p_include_owner: widgets.ownerRow,
   });
   const stats = (statsRes.data ?? EMPTY_STATS_V2) as DashboardStatsV2;
+
+  // Post-service pulse (#508): rolling 90-day CSAT + response rate.
+  let pulse: ReturnType<typeof csatSummary> | null = null;
+  if (widgets.growth) {
+    const ninetyDaysAgo = new Date(now.getTime() - 90 * 86_400_000).toISOString();
+    const { data: pulseRows } = await admin
+      .from("review_requests")
+      .select("status, score")
+      .eq("location_id", ctx.location.id)
+      .gte("created_at", ninetyDaysAgo)
+      .limit(1000);
+    pulse = csatSummary((pulseRows ?? []) as { status: string; score: number | null }[]);
+  }
 
   // Deferred-work pipeline (#498): open £ + recovered £ this month. Two thin
   // queries rather than an RPC change — the table is small per location.
@@ -234,6 +248,21 @@ async function DashboardContent() {
       <KpiTile key="customers" label="Customers" value={String(totalCustomers)} delta="last 8 weeks" sparkValues={customersSpark} />,
       <KpiTile key="vehicles" label="Vehicles" value={String(totalVehicles)} delta="last 8 weeks" sparkValues={vehiclesSpark} />,
     );
+    if (pulse && pulse.delivered > 0) {
+      tiles.push(
+        <KpiTile
+          key="csat"
+          label="CSAT · 90d"
+          value={pulse.avgScore !== null ? `${pulse.avgScore}★` : "—"}
+          delta={
+            pulse.responded > 0
+              ? `${pulse.responseRatePct}% replied · ${pulse.lowScores} unhappy intercepted`
+              : `${pulse.delivered} pulse${pulse.delivered === 1 ? "" : "s"} sent · no replies yet`
+          }
+          positive={pulse.lowScores === 0 ? undefined : false}
+        />,
+      );
+    }
   }
   if (widgets.reminders) {
     tiles.push(

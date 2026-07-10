@@ -78,14 +78,17 @@ function dueDateClass(d: string | null): string {
 
 export default async function CustomerDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string; draft?: string }>;
 }) {
   const { id } = await params;
+  const { tab: initialTab, draft: draftTopic } = await searchParams;
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [customerRes, vehiclesRes, remindersRes, plansRes, membershipsRes] = await Promise.all([
+  const [customerRes, vehiclesRes, remindersRes, plansRes, membershipsRes, pulsesRes] = await Promise.all([
     admin
       .from("customers")
       .select("id, organization_id, preferred_location_id, full_name, email, phone, created_at, marketing_email_consent, marketing_sms_consent, consent_updated_at, anonymized_at")
@@ -116,6 +119,13 @@ export default async function CustomerDetailPage({
       .eq("customer_id", id)
       .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: false }),
+    admin
+      .from("review_requests")
+      .select("id, score, feedback_text, responded_at, job_id")
+      .eq("customer_id", id)
+      .eq("status", "responded")
+      .order("responded_at", { ascending: false })
+      .limit(10),
   ]);
 
   // Tenant isolation: customers are org-global now, so the row must belong to
@@ -136,6 +146,13 @@ export default async function CustomerDetailPage({
   const planOptions = (plansRes.data ?? []) as InvitePlanOption[];
   const memberships = (membershipsRes.data ?? []) as unknown as MembershipRow[];
   const liveMembership = memberships.find((m) => isSubscriptionLive(m.status)) ?? null;
+  const pulses = (pulsesRes.data ?? []) as {
+    id: string;
+    score: number | null;
+    feedback_text: string | null;
+    responded_at: string | null;
+    job_id: string;
+  }[];
 
   // Group reminder rows by vehicle + type + 5-minute bucket so all channels
   // sent in one "Send reminder" action collapse into a single row.
@@ -206,6 +223,7 @@ export default async function CustomerDetailPage({
       </div>
 
       <CustomerTabs
+        initialTab={initialTab ?? null}
         tabs={[
           {
             key: "overview",
@@ -394,7 +412,36 @@ export default async function CustomerDetailPage({
                   customerId={customer.id}
                   hasEmail={!!customer.email}
                   hasPhone={!!customer.phone}
+                  initialTopic={draftTopic ?? null}
                 />
+                {pulses.length > 0 && (
+                  <section className="flex flex-col gap-2">
+                    <h2 className="text-lg font-semibold">Feedback history</h2>
+                    <div className="rounded-lg border">
+                      <ul className="divide-y">
+                        {pulses.map((p) => (
+                          <li key={p.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
+                            <span className="min-w-0">
+                              <span className={`font-semibold tabular-nums ${(p.score ?? 0) >= 4 ? "text-ws-green" : "text-ws-red"}`}>
+                                {p.score}★
+                              </span>
+                              {p.feedback_text && (
+                                <span className="ml-2 text-muted-foreground">“{p.feedback_text.slice(0, 160)}”</span>
+                              )}
+                            </span>
+                            <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                              {p.responded_at &&
+                                new Date(p.responded_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                              <Link href={`/staff/jobs/${p.job_id}`} className="underline underline-offset-2">
+                                Job →
+                              </Link>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                )}
                 {reminderItems.length > 0 && (
                   <section className="flex flex-col gap-2">
                     <h2 className="text-lg font-semibold">Reminder history</h2>

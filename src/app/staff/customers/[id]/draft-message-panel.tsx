@@ -8,6 +8,8 @@ type Props = {
   customerId: string;
   hasEmail: boolean;
   hasPhone: boolean;
+  /** Pre-seed the topic (e.g. the low-score recovery draft from a pulse alert). */
+  initialTopic?: string | null;
 };
 
 type Step =
@@ -21,9 +23,9 @@ type Step =
 const TEXTAREA_CLASS =
   "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm resize-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
-export function DraftMessagePanel({ customerId, hasEmail, hasPhone }: Props) {
+export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic }: Props) {
   const [step, setStep] = useState<Step>({ type: "idle" });
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(initialTopic ?? "");
   const [channels, setChannels] = useState<Set<"email" | "sms" | "whatsapp">>(new Set());
   const [emailText, setEmailText] = useState("");
   const [smsText, setSmsText] = useState("");
