@@ -22,6 +22,8 @@ import {
   type RowReject,
 } from "@/lib/import-engine";
 import { detectPreset, presetMapping } from "@/lib/import-presets";
+import { suggestImportMapping, type MappingSuggestion } from "@/lib/ai-import-mapping";
+import { getOrgAiBrief } from "@/lib/ai-profile";
 
 // Import wizard actions (#505 PR 2): analyze = parse + map + validate +
 // dry-run counts (no writes); commit = re-validate then write, batch-tracked.
@@ -329,6 +331,42 @@ async function prepare(formData: FormData, ctx: Awaited<ReturnType<typeof requir
     customers,
     invoices: [],
   };
+}
+
+export type SuggestResult = { error: string } | { mapping: ColumnMapping; suggestions: MappingSuggestion };
+
+// AI mapping proposal (#505 PR 4). Sends ONLY headers + 5 sample rows to the
+// model; returns high/medium proposals as an applicable mapping and every
+// proposal (incl. low) for the confidence chips. Failure is soft — the UI
+// keeps whatever mapping it had.
+export async function suggestMapping(formData: FormData): Promise<SuggestResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "customers")) return { error: "Permission denied." };
+
+  const kindParse = kindSchema.safeParse(formData.get("kind"));
+  if (!kindParse.success) return { error: "Unknown import kind." };
+  const loaded = await loadFile(formData);
+  if ("error" in loaded) return loaded;
+  const { headers, rows } = parseCsvText(loaded.text);
+  if (rows.length === 0) return { error: "CSV is empty or has no data rows." };
+
+  try {
+    const admin = createAdminClient();
+    const suggested = await suggestImportMapping(
+      {
+        kind: kindParse.data,
+        headers,
+        sampleRows: rows.slice(0, 5),
+        aiBrief: await getOrgAiBrief(admin, ctx.organization.id),
+      },
+      { locationId: ctx.location.id, organizationId: ctx.organization.id, userId: ctx.user.id, feature: "import_mapping" },
+    );
+    if (!suggested) return { error: "The AI couldn't propose a mapping for this file — map the columns by hand." };
+    return suggested;
+  } catch (err) {
+    console.error("[import] AI mapping failed", err);
+    return { error: "AI mapping is unavailable right now — the auto-match below still works." };
+  }
 }
 
 export async function analyzeImport(formData: FormData): Promise<AnalyzeResult> {
