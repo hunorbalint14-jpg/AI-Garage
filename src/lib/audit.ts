@@ -10,6 +10,7 @@ export type AuditAction =
   | "inspection.start"
   | "inspection.complete"
   | "inspection.ai_summaries"
+  | "inspection.quote_created"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.special_hours_add"

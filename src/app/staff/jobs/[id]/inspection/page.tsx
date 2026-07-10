@@ -35,13 +35,14 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
 
   const { data: inspRow } = await admin
     .from("inspections")
-    .select("id, status, items:inspection_items(id, section, label, rag, note, customer_summary, suggested_repair, suggested_price, template_item_id, sort_order, media:inspection_media(id, storage_path, mime))")
+    .select("id, status, quote_id, items:inspection_items(id, section, label, rag, note, customer_summary, suggested_repair, suggested_price, outcome, template_item_id, sort_order, media:inspection_media(id, storage_path, mime))")
     .eq("job_id", jobId)
     .maybeSingle();
 
   type InspRow = {
     id: string;
     status: string;
+    quote_id: string | null;
     items: {
       id: string;
       section: string;
@@ -51,6 +52,7 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
       customer_summary: string | null;
       suggested_repair: string | null;
       suggested_price: number | null;
+      outcome: string;
       template_item_id: string | null;
       sort_order: number;
       media: { id: string; storage_path: string; mime: string | null }[];
@@ -101,9 +103,22 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
       customerSummary: it.customer_summary ?? "",
       suggestedRepair: it.suggested_repair,
       suggestedPrice: it.suggested_price,
+      outcome: it.outcome as CaptureItem["outcome"],
       adhoc: it.template_item_id === null,
       media: it.media.map((m) => ({ id: m.id, url: urlMap.get(m.storage_path) ?? "", path: m.storage_path })),
     }));
+
+  // The generated quote's status gates the quote panel (separate fetch — no
+  // embed, so the quotes↔inspections double-FK ambiguity never bites).
+  let initialQuote: { id: string; status: string } | null = null;
+  if (inspection.quote_id) {
+    const { data: q } = await admin
+      .from("quotes")
+      .select("id, status")
+      .eq("id", inspection.quote_id)
+      .maybeSingle();
+    initialQuote = (q as { id: string; status: string } | null) ?? null;
+  }
 
   return (
     <InspectionCapture
@@ -113,6 +128,7 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
       vehicleLine={vehicleLine || job.description || ""}
       customerName={job.customer?.full_name ?? ""}
       initialItems={items}
+      initialQuote={initialQuote}
     />
   );
 }
