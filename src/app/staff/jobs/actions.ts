@@ -401,15 +401,19 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
   if (job.status !== "open") return { error: "Cannot add items to a completed job." };
 
   // Only link a product that belongs to this location (guards cross-tenant ids).
+  // Its cost_price is SNAPSHOTTED onto the line (#502) — a later catalogue
+  // edit must not rewrite an invoiced job's margin.
   let productId: string | null = null;
+  let unitCost: number | null = null;
   if (productIdRaw) {
     const { data: prod } = await admin
       .from("products")
-      .select("id")
+      .select("id, cost_price")
       .eq("id", productIdRaw)
       .eq("location_id", ctx.location.id)
       .maybeSingle();
     productId = prod ? productIdRaw : null;
+    unitCost = prod ? ((prod as { cost_price: number | null }).cost_price ?? null) : null;
   }
 
   // Likewise only link a catalogue service from this location (lets the plan
@@ -442,7 +446,7 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
 
   const { data, error } = await admin
     .from("job_items")
-    .insert({ job_id: jobId, description, type, quantity, unit_price: effectiveUnitPrice, product_id: productId, service_id: serviceId, vat_rate: lineVatRate })
+    .insert({ job_id: jobId, description, type, quantity, unit_price: effectiveUnitPrice, product_id: productId, service_id: serviceId, vat_rate: lineVatRate, unit_cost: unitCost })
     .select("id")
     .single();
 
