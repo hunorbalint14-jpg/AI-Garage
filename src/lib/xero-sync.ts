@@ -124,10 +124,12 @@ export async function pushInvoiceToXero(invoiceId: string): Promise<string | nul
   const { data: invoice } = await admin
     .from("invoices")
     .select(
-      "id, location_id, customer_id, job_id, booking_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, membership_credit_amount, membership_credit_description, issued_at, due_at, notes, status, xero_invoice_id, location:locations(organization_id)",
+      "id, location_id, customer_id, job_id, booking_id, invoice_number, subtotal, vat_rate, vat_amount, total, discount_amount, discount_description, membership_credit_amount, membership_credit_description, issued_at, due_at, notes, status, xero_invoice_id, is_demo, location:locations(organization_id)",
     )
     .eq("id", invoiceId)
     .maybeSingle();
+  // Sandbox invoices never reach the accounts (#506).
+  if ((invoice as { is_demo?: boolean } | null)?.is_demo) return null;
 
   type InvRow = {
     id: string;

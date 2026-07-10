@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { Check, Copy, Sparkles, X } from "lucide-react";
+import { Check, Copy, FlaskConical, Sparkles, X } from "lucide-react";
 import type { SetupChecklist } from "@/lib/setup-checklist";
 import { dismissSetupChecklist } from "@/app/staff/checklist-actions";
+import { seedDemoSandbox } from "@/app/staff/sandbox-actions";
 import { useConfirm } from "@/components/confirm-provider";
 
 // Setup checklist card (#506 PR 2). Owner/admin only; every step derives from
@@ -51,7 +52,17 @@ function Ring({ done, total }: { done: number; total: number }) {
 export function SetupChecklistCard({ checklist, canDismiss }: { checklist: SetupChecklist; canDismiss: boolean }) {
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
   const confirm = useConfirm();
+
+  async function handleSeed() {
+    setSeedError(null);
+    setSeeding(true);
+    const res = await seedDemoSandbox();
+    setSeeding(false);
+    if ("error" in res) setSeedError(res.error);
+  }
 
   function handleDismiss() {
     void confirm({
@@ -154,6 +165,24 @@ export function SetupChecklistCard({ checklist, canDismiss }: { checklist: Setup
           </div>
         ))}
       </div>
+
+      {checklist.sandboxOffer && (
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-3.5">
+          <button
+            type="button"
+            onClick={() => void handleSeed()}
+            disabled={seeding}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[13px] font-semibold text-foreground hover:bg-accent disabled:opacity-60"
+          >
+            <FlaskConical className="h-3.5 w-3.5" />
+            {seeding ? "Loading sample data…" : "Explore with sample data"}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            Six customers, a week of bookings, jobs and an invoice — clearly badged, one click to wipe.
+          </span>
+          {seedError && <span className="text-xs text-red-400">{seedError}</span>}
+        </div>
+      )}
     </div>
   );
 }

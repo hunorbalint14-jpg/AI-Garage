@@ -3,6 +3,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listLocationStaff } from "@/lib/staff-directory";
 import { MicroLabel, Plate, WorkshopBadge } from "@/components/staff/workshop";
+import { DemoChip } from "@/components/staff/demo-chip";
 import { JobFilters } from "./job-filters";
 import { InvoiceButton } from "./invoice-button";
 
@@ -21,12 +22,13 @@ type JobRow = {
   completed_at: string | null;
   assigned_to: string | null;
   high_voltage: boolean | null;
+  is_demo: boolean;
   customer: { full_name: string | null } | null;
   vehicle: { registration: string; make: string | null; model: string | null } | null;
 };
 
 const JOB_SELECT =
-  "id, status, description, created_at, completed_at, assigned_to, high_voltage, customer:customers(full_name), vehicle:vehicles(registration, make, model)";
+  "id, status, description, created_at, completed_at, assigned_to, high_voltage, is_demo, customer:customers(full_name), vehicle:vehicles(registration, make, model)";
 
 const COLUMN_LIMITS = { open: 100, complete: 50, invoiced: 20 } as const;
 
@@ -298,6 +300,7 @@ function JobCard({
 
       <div className="flex items-center gap-2">
         {job.vehicle?.registration && <Plate reg={job.vehicle.registration} />}
+        {job.is_demo && <DemoChip />}
         {job.high_voltage && <WorkshopBadge tone="amber">⚡ HV</WorkshopBadge>}
         <span className="ml-auto flex items-center">
           <AgingDot days={age.days} />

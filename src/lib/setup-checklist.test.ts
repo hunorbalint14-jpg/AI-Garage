@@ -50,6 +50,12 @@ describe("buildChecklist", () => {
     expect(buildChecklist({ ...EMPTY, teamSize: 2 }, "u").steps.find((s) => s.key === "team")!.done).toBe(true);
   });
 
+  it("sandbox offered only while the org has no customers and no demo data", () => {
+    expect(buildChecklist(EMPTY, "u").sandboxOffer).toBe(true);
+    expect(buildChecklist({ ...EMPTY, customers: 1 }, "u").sandboxOffer).toBe(false);
+    expect(buildChecklist(EMPTY, "u", true).sandboxOffer).toBe(false);
+  });
+
   it("every step carries an ask-AI question", () => {
     const c = buildChecklist(EMPTY, "u");
     for (const s of c.steps) expect(s.ask.length).toBeGreaterThan(10);

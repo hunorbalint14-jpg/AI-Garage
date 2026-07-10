@@ -26,6 +26,8 @@ export type AuditAction =
   | "payment.recorded"
   | "statement.sent"
   | "setup_checklist.dismissed"
+  | "demo.seeded"
+  | "demo.wiped"
   | "settings.ai_profile_update"
   | "settings.business_hours_update"
   | "settings.special_hours_add"

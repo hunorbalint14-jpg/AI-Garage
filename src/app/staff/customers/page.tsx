@@ -20,12 +20,13 @@ type CustomerRow = {
   email: string | null;
   phone: string | null;
   created_at: string;
+  is_demo: boolean;
   vehicles: { registration: string }[] | null;
   preferred_location: { name: string | null } | null;
 };
 
 const CUSTOMER_SELECT =
-  "id, full_name, email, phone, created_at, vehicles(registration), preferred_location:locations(name)";
+  "id, full_name, email, phone, created_at, is_demo, vehicles(registration), preferred_location:locations(name)";
 
 function toListRow(c: CustomerRow): CustomerListRow {
   return {
@@ -36,6 +37,7 @@ function toListRow(c: CustomerRow): CustomerListRow {
     created_at: c.created_at,
     registrations: (c.vehicles ?? []).map((v) => v.registration),
     preferredLocationName: c.preferred_location?.name ?? null,
+    isDemo: c.is_demo,
   };
 }
 

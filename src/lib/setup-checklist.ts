@@ -38,9 +38,11 @@ export type SetupChecklist = {
   complete: boolean;
   bookingUrl: string;
   bookingLive: boolean;
+  /** Offer "explore with sample data" while the org has no customers at all. */
+  sandboxOffer: boolean;
 };
 
-export function buildChecklist(state: ChecklistState, bookingUrl: string): SetupChecklist {
+export function buildChecklist(state: ChecklistState, bookingUrl: string, hasDemo = false): SetupChecklist {
   const bookingLive = state.hoursSet && state.activeServices > 0;
   const steps: ChecklistStep[] = [
     {
@@ -127,6 +129,7 @@ export function buildChecklist(state: ChecklistState, bookingUrl: string): Setup
     complete: done === required.length,
     bookingUrl,
     bookingLive,
+    sandboxOffer: state.customers === 0 && !hasDemo,
   };
 }
 
@@ -155,11 +158,21 @@ export async function loadSetupChecklist(admin: Admin, ctx: StaffContext): Promi
   } | null;
   if (!org || org.setup_checklist_dismissed_at) return null;
 
-  const [locRes, servicesRes, baysRes, customersRes, orgUsersRes, locUsersRes] = await Promise.all([
+  const [locRes, servicesRes, baysRes, customersRes, demoRes, orgUsersRes, locUsersRes] = await Promise.all([
     admin.from("locations").select("id, business_hours").eq("id", ctx.location.id).maybeSingle(),
     admin.from("services").select("id", { count: "exact", head: true }).eq("location_id", ctx.location.id).eq("active", true),
     admin.from("bays").select("id", { count: "exact", head: true }).eq("location_id", ctx.location.id),
-    admin.from("customers").select("id", { count: "exact", head: true }).eq("organization_id", ctx.organization.id),
+    // Demo rows don't tick "first customer" — the sandbox is practice, not activation.
+    admin
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", ctx.organization.id)
+      .eq("is_demo", false),
+    admin
+      .from("customers")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", ctx.organization.id)
+      .eq("is_demo", true),
     admin.from("org_users").select("user_id").eq("organization_id", ctx.organization.id),
     admin
       .from("location_users")
@@ -183,6 +196,6 @@ export async function loadSetupChecklist(admin: Admin, ctx: StaffContext): Promi
     customers: customersRes.count ?? 0,
   };
 
-  const checklist = buildChecklist(state, tenantBookingUrl(ctx.organization.slug));
+  const checklist = buildChecklist(state, tenantBookingUrl(ctx.organization.slug), (demoRes.count ?? 0) > 0);
   return checklist.complete ? null : checklist;
 }
