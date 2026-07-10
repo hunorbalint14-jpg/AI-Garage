@@ -1,5 +1,36 @@
 import { describe, expect, it } from "vitest";
-import { authorisedTotal, decodeSignatureDataUrl, SIGNATURE_MAX_BYTES } from "./work-auth";
+import { authorisedTotal, decodeSignatureDataUrl, variationState, SIGNATURE_MAX_BYTES } from "./work-auth";
+
+describe("variationState", () => {
+  it("no artefact → none", () => {
+    expect(variationState(500, null, 10)).toEqual({ state: "none" });
+  });
+
+  it("within tolerance → ok", () => {
+    expect(variationState(440, 412, 10)).toEqual({ state: "ok", authorised: 412, live: 440 });
+    // Exactly at the limit is still ok.
+    expect(variationState(453.2, 412, 10)).toEqual({ state: "ok", authorised: 412, live: 453.2 });
+  });
+
+  it("beyond tolerance → exceeds with delta + percentage", () => {
+    expect(variationState(512, 412, 10)).toEqual({
+      state: "exceeds",
+      authorised: 412,
+      live: 512,
+      overBy: 100,
+      overPct: 24,
+    });
+  });
+
+  it("zero threshold flags any increase", () => {
+    expect(variationState(412.5, 412, 0).state).toBe("exceeds");
+    expect(variationState(412, 412, 0).state).toBe("ok");
+  });
+
+  it("zero authorised total never divides by zero", () => {
+    expect(variationState(100, 0, 10).state).toBe("ok");
+  });
+});
 
 describe("authorisedTotal", () => {
   it("sums line totals with per-line VAT", () => {

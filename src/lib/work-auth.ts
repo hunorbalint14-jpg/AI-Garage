@@ -146,6 +146,88 @@ export async function recordQuoteAuthorisation(args: {
   }
 }
 
+// ── Re-authorisation link gate (#503 PR 4) ──────────────────────────────────
+// Same hash-only recipe as quote/check links; slug prefix "wa-".
+
+import crypto from "node:crypto";
+
+export function generateReauthToken(): string {
+  return crypto.randomBytes(32).toString("base64url");
+}
+
+export function generateReauthSlug(): string {
+  return `wa-${crypto.randomBytes(5).toString("hex")}`;
+}
+
+export function hashReauthToken(token: string): string {
+  return crypto.createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+export type ReauthVerifyReason = "not_found" | "bad_token" | "responded";
+
+export type ReauthRecord = {
+  id: string;
+  location_id: string;
+  organization_id: string | null;
+  job_id: string | null;
+  customer_id: string | null;
+  status: string;
+  authorised_total: number;
+  items_snapshot: AuthItemSnapshot[];
+  terms_snapshot: string | null;
+  requested_at: string | null;
+};
+
+export async function verifyReauthAccess(
+  slug: string,
+  rawToken: string | null,
+): Promise<{ ok: true; auth: ReauthRecord } | { ok: false; reason: ReauthVerifyReason }> {
+  if (!rawToken || rawToken.length < 16) return { ok: false, reason: "bad_token" };
+  if (!slug.startsWith("wa-")) return { ok: false, reason: "not_found" };
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("work_authorisations")
+    .select(
+      "id, location_id, organization_id, job_id, customer_id, status, authorised_total, items_snapshot, terms_snapshot, requested_at, token_hash",
+    )
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!data) return { ok: false, reason: "not_found" };
+  const row = data as unknown as ReauthRecord & { token_hash: string | null };
+
+  const expected = hashReauthToken(rawToken);
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(row.token_hash ?? "", "hex");
+  if (a.length !== b.length || a.length === 0 || !crypto.timingSafeEqual(a, b)) {
+    return { ok: false, reason: "bad_token" };
+  }
+  if (row.status !== "pending") return { ok: false, reason: "responded" };
+
+  return {
+    ok: true,
+    auth: {
+      id: row.id,
+      location_id: row.location_id,
+      organization_id: row.organization_id,
+      job_id: row.job_id,
+      customer_id: row.customer_id,
+      status: row.status,
+      authorised_total: Number(row.authorised_total),
+      items_snapshot: row.items_snapshot,
+      terms_snapshot: row.terms_snapshot,
+      requested_at: row.requested_at,
+    },
+  };
+}
+
+export function tenantReauthUrl(orgSlug: string, slug: string, token: string): string {
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "ai-garage.co.uk";
+  const isLocal = rootDomain.includes("localtest") || rootDomain.includes("localhost");
+  const proto = isLocal ? "http" : "https";
+  return `${proto}://${orgSlug}.${rootDomain}/authorise/${slug}?t=${token}`;
+}
+
 // Decode a canvas PNG data URL by hand — never fetch(dataUrl), the CSP
 // connect-src trap. Returns null unless it's a plausible small PNG.
 export function decodeSignatureDataUrl(dataUrl: string): Buffer | null {

@@ -15,17 +15,35 @@ import { DeferredWorkPanel } from "@/components/staff/deferred-work-panel";
 import { latestAuthorisation } from "@/lib/work-auth";
 import { AuthorisePanel, type ExistingAuth } from "./authorise-panel";
 
-// Work-authorisation props (#503): current org terms + the newest artefact.
-async function orgAuthorisationTerms(
+// Work-authorisation props (#503): current org terms + threshold, the newest
+// artefact, and any live re-auth request.
+async function orgAuthorisationSettings(
   admin: ReturnType<typeof createAdminClient>,
   organizationId: string,
-): Promise<string | null> {
+): Promise<{ terms: string | null; thresholdPct: number }> {
   const { data } = await admin
     .from("organizations")
-    .select("authorisation_terms")
+    .select("authorisation_terms, variation_threshold_pct")
     .eq("id", organizationId)
     .maybeSingle();
-  return (data as { authorisation_terms: string | null } | null)?.authorisation_terms ?? null;
+  const row = data as { authorisation_terms: string | null; variation_threshold_pct: number | null } | null;
+  return { terms: row?.authorisation_terms ?? null, thresholdPct: Number(row?.variation_threshold_pct ?? 10) };
+}
+
+async function pendingReauthProp(
+  admin: ReturnType<typeof createAdminClient>,
+  jobId: string,
+): Promise<{ requestedAt: string | null; total: number } | null> {
+  const { data } = await admin
+    .from("work_authorisations")
+    .select("requested_at, authorised_total")
+    .eq("job_id", jobId)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const row = data as { requested_at: string | null; authorised_total: number } | null;
+  return row ? { requestedAt: row.requested_at, total: Number(row.authorised_total) } : null;
 }
 
 async function existingAuthProp(
@@ -220,19 +238,26 @@ export default async function JobDetailPage({
         currentUserId={ctx.user.id}
       />
 
-      <AuthorisePanel
-        jobId={job.id}
-        items={items.map((it) => ({
-          description: it.description,
-          type: it.type,
-          quantity: it.quantity,
-          unit_price: it.unit_price,
-          vat_rate: it.vat_rate ?? 20,
-        }))}
-        terms={await orgAuthorisationTerms(admin, ctx.organization.id)}
-        customerName={job.customer?.full_name ?? null}
-        existing={await existingAuthProp(admin, job.id)}
-      />
+      {await (async () => {
+        const settings = await orgAuthorisationSettings(admin, ctx.organization.id);
+        return (
+          <AuthorisePanel
+            jobId={job.id}
+            items={items.map((it) => ({
+              description: it.description,
+              type: it.type,
+              quantity: it.quantity,
+              unit_price: it.unit_price,
+              vat_rate: it.vat_rate ?? 20,
+            }))}
+            terms={settings.terms}
+            thresholdPct={settings.thresholdPct}
+            customerName={job.customer?.full_name ?? null}
+            existing={await existingAuthProp(admin, job.id)}
+            pendingReauth={await pendingReauthProp(admin, job.id)}
+          />
+        );
+      })()}
 
       {evhcEnabled && <InspectionCard jobId={job.id} summary={await inspectionSummary(admin, job.id)} />}
 

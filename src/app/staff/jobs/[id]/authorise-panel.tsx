@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { PenLine, ShieldCheck } from "lucide-react";
+import { PenLine, Send, ShieldAlert, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { authorisedTotal, type AuthItemSnapshot } from "@/lib/work-auth-shared";
-import { captureCounterSignature } from "./auth-actions";
+import { authorisedTotal, variationState, type AuthItemSnapshot } from "@/lib/work-auth-shared";
+import { captureCounterSignature, requestReauthorisation } from "./auth-actions";
 
 // Counter-signature sheet (#503 PR 2). Full-screen on the workshop tablet:
 // itemised estimate → org T&Cs → canvas signature (pointer events, so
@@ -29,23 +29,47 @@ export function AuthorisePanel({
   terms,
   customerName,
   existing,
+  thresholdPct,
+  pendingReauth,
 }: {
   jobId: string;
   items: AuthItemSnapshot[];
   terms: string | null;
   customerName: string | null;
   existing: ExistingAuth;
+  /** organizations.variation_threshold_pct — the warn tolerance. */
+  thresholdPct: number;
+  /** A live re-auth request is out with the customer. */
+  pendingReauth: { requestedAt: string | null; total: number } | null;
 }) {
   const [open, setOpen] = useState(false);
   const [signerName, setSignerName] = useState(customerName ?? "");
   const [busy, setBusy] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [auth, setAuth] = useState(existing);
+  const [pending, setPending] = useState(pendingReauth);
   const [hasInk, setHasInk] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
 
   const total = authorisedTotal(items);
+  const variation = variationState(total, auth ? auth.total : null, thresholdPct);
+  // A pending request covering the CURRENT total quiets the warning — the
+  // ball is with the customer.
+  const exceeds = variation.state === "exceeds" && !(pending && pending.total >= total);
+
+  async function handleRequestReauth() {
+    setRequesting(true);
+    setError(null);
+    setNotice(null);
+    const res = await requestReauthorisation(jobId);
+    setRequesting(false);
+    if ("error" in res) return setError(res.error);
+    setPending({ requestedAt: new Date().toISOString(), total: res.total });
+    setNotice(`Re-authorisation request sent via ${res.channels.join(" + ")}.`);
+  }
 
   // Plain 2D-canvas signature pad. Pointer events unify mouse/touch/stylus;
   // touch-action:none stops the tablet scrolling mid-signature.
@@ -119,7 +143,11 @@ export function AuthorisePanel({
     <section className="rounded-lg border p-4 flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <ShieldCheck className={`h-5 w-5 ${auth ? "text-ws-green" : "text-muted-foreground"}`} />
+          {exceeds ? (
+            <ShieldAlert className="h-5 w-5 text-ws-amber" />
+          ) : (
+            <ShieldCheck className={`h-5 w-5 ${auth ? "text-ws-green" : "text-muted-foreground"}`} />
+          )}
           <div>
             <h2 className="text-sm font-semibold">Work authorisation</h2>
             {auth ? (
@@ -144,10 +172,35 @@ export function AuthorisePanel({
             )}
           </div>
         </div>
-        <Button variant={auth ? "outline" : "default"} size="sm" onClick={() => setOpen(true)} disabled={items.length === 0}>
-          <PenLine className="h-3.5 w-3.5" /> {auth ? "Re-authorise" : "Authorise work"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {exceeds && (
+            <Button size="sm" onClick={handleRequestReauth} loading={requesting}>
+              <Send className="h-3.5 w-3.5" /> Request re-authorisation
+            </Button>
+          )}
+          <Button variant={auth && !exceeds ? "outline" : exceeds ? "outline" : "default"} size="sm" onClick={() => setOpen(true)} disabled={items.length === 0}>
+            <PenLine className="h-3.5 w-3.5" /> {auth ? "Re-sign at counter" : "Authorise work"}
+          </Button>
+        </div>
       </div>
+      {exceeds && variation.state === "exceeds" && (
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-ws-amber">
+          The job now totals <span className="font-semibold tabular-nums">{formatGBP(variation.live)}</span> — that
+          exceeds the authorised <span className="font-semibold tabular-nums">{formatGBP(variation.authorised)}</span> by{" "}
+          {variation.overPct}% (your tolerance is {thresholdPct}%). Get the customer&apos;s OK before the extra work.
+        </p>
+      )}
+      {pending && (
+        <p className="text-xs text-muted-foreground">
+          Re-authorisation for <span className="font-semibold tabular-nums">{formatGBP(pending.total)}</span> is with
+          the customer
+          {pending.requestedAt &&
+            ` (sent ${new Date(pending.requestedAt).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })})`}
+          . You&apos;ll get a notification when they respond.
+        </p>
+      )}
+      {notice && <p className="text-xs text-ws-green">{notice}</p>}
+      {error && !open && <p className="text-xs text-ws-red">{error}</p>}
       {items.length === 0 && !auth && (
         <p className="text-xs text-muted-foreground">Add the estimate items first — authorisation covers an itemised estimate.</p>
       )}
