@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { BranchBadge } from "@/components/staff/branch-badge";
+import { DemoChip } from "@/components/staff/demo-chip";
 
 export type CustomerListRow = {
   id: string;
@@ -12,6 +13,7 @@ export type CustomerListRow = {
   created_at: string;
   registrations: string[];
   preferredLocationName: string | null;
+  isDemo?: boolean;
 };
 
 // Clickable customer list. Whole row (desktop) / card (mobile) navigates to the
@@ -44,7 +46,9 @@ export function CustomerTable({ rows, showBranch = false }: { rows: CustomerList
                 onClick={() => go(c.id)}
                 className="border-t cursor-pointer transition-colors hover:bg-muted/40"
               >
-                <td className="px-4 py-2.5 font-medium">{c.full_name ?? "—"}</td>
+                <td className="px-4 py-2.5 font-medium">
+                  {c.full_name ?? "—"} {c.isDemo && <DemoChip />}
+                </td>
                 <td className="px-4 py-2.5">
                   <RegBadges regs={c.registrations} />
                 </td>
@@ -82,7 +86,9 @@ export function CustomerTable({ rows, showBranch = false }: { rows: CustomerList
               className="w-full rounded-lg border bg-card p-3 text-left transition-colors active:bg-muted/40"
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="font-medium">{c.full_name ?? "—"}</span>
+                <span className="font-medium">
+                  {c.full_name ?? "—"} {c.isDemo && <DemoChip />}
+                </span>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {new Date(c.created_at).toLocaleDateString("en-GB")}
                 </span>

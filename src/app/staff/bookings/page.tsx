@@ -29,7 +29,7 @@ import {
 import type { BookingSlot } from "@/lib/dashboard";
 
 const BOOKING_SELECT =
-  "id, scheduled_at, duration_minutes, type, status, notes, assigned_to, bay_id, confirmation_sent_at, confirmed_at, reschedule_requested_at, customer:customers(id, full_name), vehicle:vehicles(registration)";
+  "id, scheduled_at, duration_minutes, type, status, notes, assigned_to, bay_id, confirmation_sent_at, confirmed_at, reschedule_requested_at, is_demo, customer:customers(id, full_name), vehicle:vehicles(registration)";
 
 type BookingRowWithBay = BookingRow & { bay_id: string | null };
 

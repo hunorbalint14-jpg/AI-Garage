@@ -65,6 +65,10 @@ export async function enqueueReviewRequest(args: {
     if (!args.customerId || (!args.customerEmail && !args.customerPhone)) return;
     const admin = createAdminClient();
 
+    // Sandbox jobs never ask for reviews (#506).
+    const { data: jobRow } = await admin.from("jobs").select("is_demo").eq("id", args.jobId).maybeSingle();
+    if ((jobRow as { is_demo: boolean } | null)?.is_demo) return;
+
     const { data: existing } = await admin
       .from("review_requests")
       .select("id")

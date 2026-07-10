@@ -14,6 +14,7 @@ export type BookingRow = {
   confirmation_sent_at: string | null;
   confirmed_at: string | null;
   reschedule_requested_at: string | null;
+  is_demo?: boolean;
   customer: { id: string; full_name: string | null } | null;
   vehicle: { registration: string } | null;
 };

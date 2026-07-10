@@ -27,6 +27,8 @@ import { isOwnerMfaEnforced, mfaAppliesToRole, hasVerifiedMfa, isMfaNudgeDismiss
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { MfaNudge } from "@/components/staff/mfa-nudge";
 import { TenantBillingNudge, type BillingNudgeReason } from "@/components/staff/tenant-billing-nudge";
+import { DemoDataBanner } from "@/components/staff/demo-data-banner";
+import { hasDemoData } from "@/lib/demo-sandbox";
 import { tenantBillingState, type OrgBilling } from "@/lib/tenant-plans";
 
 type BillingNudge = { reason: BillingNudgeReason; date: string | null };
@@ -202,6 +204,10 @@ export default async function StaffLayout({
     ctx.orgRole === "owner" && !pathname.startsWith("/staff/settings/billing"),
   );
 
+  // Demo sandbox strip (#506): everyone sees it while demo rows exist; only
+  // owner/admin can wipe. One indexed head-count per render.
+  const demoActive = await hasDemoData(admin, ctx.organization.id);
+
   const brandColor = ctx.branding.primaryColor ?? "#6366f1";
   const orgLogoUrl = ctx.branding.logoUrl;
 
@@ -248,6 +254,7 @@ export default async function StaffLayout({
       >
         {showMfaNudge && <MfaNudge userId={ctx.user.id} />}
         {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} />}
+        {demoActive && <DemoDataBanner canWipe={ctx.orgRole === "owner" || ctx.orgRole === "admin"} />}
         {children}
       </StaffShell>
     </StaffFonts>

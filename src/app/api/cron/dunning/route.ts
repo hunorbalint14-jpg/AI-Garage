@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
       .select("id, invoice_number, total, amount_paid, due_at, dunning_count, last_dunned_at, customer_id, customer:customers(full_name, email, account_customer)")
       .eq("location_id", location.id)
       .eq("status", "sent")
+      // Sandbox invoices are never dunned (#506).
+      .eq("is_demo", false)
       .is("paid_at", null)
       .lt("due_at", nowIso)
       .limit(200)) as unknown as { data: InvoiceRow[] | null };

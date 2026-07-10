@@ -6,6 +6,7 @@ import { InvoiceSearch } from "./invoice-search";
 import { RunMonthEnd } from "./run-month-end";
 import { FinanceScopeToggle } from "@/components/staff/finance-scope-toggle";
 import { WorkshopBadge, type WorkshopTone } from "@/components/staff/workshop";
+import { DemoChip } from "@/components/staff/demo-chip";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ type InvoiceRow = {
   issued_at: string;
   due_at: string;
   paid_at: string | null;
+  is_demo: boolean;
   customer: { id: string; full_name: string | null } | null;
 };
 
@@ -57,7 +59,7 @@ export default async function InvoicesPage({
     const [byNumberRes, custRes] = await Promise.all([
       admin
         .from("invoices")
-        .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
+        .select("id, invoice_number, status, total, issued_at, due_at, paid_at, is_demo, customer:customers(id, full_name)")
         .eq(scopeColumn, scopeValue)
         .ilike("invoice_number", `%${query}%`)
         .order("created_at", { ascending: false })
@@ -77,7 +79,7 @@ export default async function InvoicesPage({
     if (customerIds.length > 0) {
       const { data } = await admin
         .from("invoices")
-        .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
+        .select("id, invoice_number, status, total, issued_at, due_at, paid_at, is_demo, customer:customers(id, full_name)")
         .eq(scopeColumn, scopeValue)
         .in("customer_id", customerIds)
         .order("created_at", { ascending: false })
@@ -89,7 +91,7 @@ export default async function InvoicesPage({
   } else {
     const { data } = await admin
       .from("invoices")
-      .select("id, invoice_number, status, total, issued_at, due_at, paid_at, customer:customers(id, full_name)")
+      .select("id, invoice_number, status, total, issued_at, due_at, paid_at, is_demo, customer:customers(id, full_name)")
       .eq(scopeColumn, scopeValue)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -170,7 +172,9 @@ export default async function InvoicesPage({
             <tbody>
               {rows.map((inv) => (
                 <tr key={inv.id} className="border-t">
-                  <td className="px-4 py-2 font-mono">{inv.invoice_number}</td>
+                  <td className="px-4 py-2 font-mono">
+                    {inv.invoice_number} {inv.is_demo && <DemoChip />}
+                  </td>
                   <td className="px-4 py-2">
                     {inv.customer ? (
                       <Link href={`/staff/customers/${inv.customer.id}`} className="underline">

@@ -248,6 +248,8 @@ export async function GET(request: NextRequest) {
         .from("vehicles")
         .select("id, registration, make, model, year, mot_expiry, service_due, tax_due_date, customer:customers!inner(id, full_name, email, phone)")
         .eq("customer.preferred_location_id", location.id)
+        // Sandbox rows never trigger comms (belt over the @demo.invalid braces).
+        .eq("is_demo", false)
         .or(`mot_expiry.lte.${windowEndDynStr},service_due.lte.${windowEndDynStr}`)
         .gt("mot_expiry", todayStr)
         .limit(100)) as { data: VehicleRow[] | null };
@@ -412,6 +414,7 @@ export async function GET(request: NextRequest) {
         .from("vehicles")
         .select("id, registration, tax_due_date, customer:customers!inner(id, full_name, email, phone)")
         .eq("customer.preferred_location_id", location.id)
+        .eq("is_demo", false)
         .not("tax_due_date", "is", null)
         .lte("tax_due_date", taxWindowEndStr)
         .gte("tax_due_date", todayStr)

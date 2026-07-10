@@ -10,6 +10,7 @@ import {
   CONFIRMATION_TONE,
   type BookingRow,
 } from "./booking-display";
+import { DemoChip } from "@/components/staff/demo-chip";
 import { WorkshopBadge } from "@/components/staff/workshop";
 
 export type BookingListRow = BookingRow & { technicianName: string | null };
@@ -53,7 +54,9 @@ export function BookingTable({ rows }: { rows: BookingListRow[] }) {
                 className="border-t cursor-pointer transition-colors hover:bg-muted/40"
               >
                 <td className="px-4 py-2.5 whitespace-nowrap">{fmtDateTime(b.scheduled_at)}</td>
-                <td className="px-4 py-2.5">{b.customer?.full_name ?? "—"}</td>
+                <td className="px-4 py-2.5">
+                  {b.customer?.full_name ?? "—"} {b.is_demo && <DemoChip />}
+                </td>
                 <td className="px-4 py-2.5 font-mono">{b.vehicle?.registration ?? "—"}</td>
                 <td className="px-4 py-2.5">{typeLabel(b.type)}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{b.technicianName ?? "—"}</td>
@@ -84,7 +87,9 @@ export function BookingTable({ rows }: { rows: BookingListRow[] }) {
                 </span>
               </div>
               <div className="mt-1.5 flex items-center gap-2 text-sm">
-                <span>{b.customer?.full_name ?? "—"}</span>
+                <span>
+                  {b.customer?.full_name ?? "—"} {b.is_demo && <DemoChip />}
+                </span>
                 {b.vehicle?.registration && (
                   <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs font-medium">
                     {b.vehicle.registration}
