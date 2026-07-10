@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { PageHeader } from "@/components/staff/page-header";
-import { ImportForm } from "./import-form";
+import { ImportWizard } from "./import-wizard";
 
 export default async function ImportPage() {
   await requireStaffContext();
@@ -14,10 +14,10 @@ export default async function ImportPage() {
         </Link>
       </div>
       <PageHeader
-        title="Import customers"
-        description="Bulk import customers and vehicles from a CSV file."
+        title="Import data"
+        description="Bring customers, vehicles, service history and reminder dates over from your old system. Preview first — nothing is saved until you confirm."
       />
-      <ImportForm />
+      <ImportWizard />
     </div>
   );
 }
