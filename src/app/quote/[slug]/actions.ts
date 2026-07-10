@@ -7,8 +7,25 @@ import { verifyQuoteAccess, tenantQuoteUrl, type QuoteRecord } from "@/lib/quote
 import { stripe, platformFeePence, tenantOrigin, publicOrigin } from "@/lib/stripe";
 import { effectiveFeePercent } from "@/lib/tenant-plans";
 import { createStaffNotification } from "@/lib/staff-notifications";
+import { headers } from "next/headers";
 import { getQuoteVatRate } from "@/lib/quote-service";
 import { bankQuoteLines } from "@/lib/deferred-work";
+import { recordQuoteAuthorisation } from "@/lib/work-auth";
+
+// Requester identity for the authorisation artefact (#503): first hop of
+// x-forwarded-for (Vercel) + the user agent. Best-effort.
+async function requesterIdentity(): Promise<{ ip: string | null; userAgent: string | null }> {
+  try {
+    const h = await headers();
+    const fwd = h.get("x-forwarded-for");
+    return {
+      ip: fwd ? fwd.split(",")[0].trim() : null,
+      userAgent: h.get("user-agent"),
+    };
+  } catch {
+    return { ip: null, userAgent: null };
+  }
+}
 
 // Notify staff via both email AND in-app notification. The two surfaces are
 // complementary — email reaches the mechanic when they're off the dashboard,
@@ -180,6 +197,7 @@ export async function approveQuote(
   slug: string,
   token: string,
   selectedItemIds: string[] = [],
+  authorise?: { signedName?: string | null },
 ): Promise<ApproveResult> {
   const verify = await verifyQuoteAccess(slug, token, ["pending"]);
   if (!verify.ok) {
@@ -190,7 +208,7 @@ export async function approveQuote(
 
   // Standalone (pre-job) quotes — separate flow because there's no job yet.
   if (verify.quote.source === "standalone") {
-    return approveStandaloneQuote(verify.quote, slug, token, selectedItemIds);
+    return approveStandaloneQuote(verify.quote, slug, token, selectedItemIds, authorise);
   }
 
   const admin = createAdminClient();
@@ -312,6 +330,21 @@ export async function approveQuote(
     } catch (e) {
       console.error("[deferred] bank on partial approval failed", e);
     }
+  }
+
+  // Authorisation artefact (#503): the customer just said yes — record what
+  // they saw. Best-effort inside the helper; never blocks the approval.
+  {
+    const identity = await requesterIdentity();
+    await recordQuoteAuthorisation({
+      quoteId: q.id,
+      locationId: q.location_id,
+      jobId: q.job_id,
+      approvedItemIds: validSelectedIds,
+      authorisedTotal: approvedTotal,
+      signedName: authorise?.signedName ?? null,
+      ...identity,
+    });
   }
 
   // Check job is still open. If not, mark approved_after_close and stop.
@@ -604,6 +637,7 @@ async function approveStandaloneQuote(
   slug: string,
   token: string,
   selectedItemIds: string[],
+  authorise?: { signedName?: string | null },
 ): Promise<ApproveResult> {
   const admin = createAdminClient();
 
@@ -690,6 +724,20 @@ async function approveStandaloneQuote(
     } catch (e) {
       console.error("[deferred] bank on partial approval failed", e);
     }
+  }
+
+  // Authorisation artefact (#503) — standalone quotes have no job yet.
+  {
+    const identity = await requesterIdentity();
+    await recordQuoteAuthorisation({
+      quoteId: q.id,
+      locationId: q.location_id,
+      jobId: null,
+      approvedItemIds: validSelectedIds,
+      authorisedTotal: approvedTotal,
+      signedName: authorise?.signedName ?? null,
+      ...identity,
+    });
   }
 
   // Deposit path — create Stripe Checkout. Items remain in the snapshot;

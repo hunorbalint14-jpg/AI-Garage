@@ -44,6 +44,10 @@ export function QuoteResponse({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // Work-authorisation artefact (#503): typed name + explicit tick, both
+  // required to approve. Recorded server-side with a terms snapshot + IP.
+  const [signedName, setSignedName] = useState("");
+  const [authTicked, setAuthTicked] = useState(false);
 
   // All items selected by default — partial approval is opt-out, not opt-in.
   const [selectedIds, setSelectedIds] = useState<string[]>(() => items.map((it) => it.id));
@@ -70,6 +74,14 @@ export function QuoteResponse({
       setError("Tick at least one item to approve.");
       return;
     }
+    if (!signedName.trim()) {
+      setError("Please type your name to authorise the work.");
+      return;
+    }
+    if (!authTicked) {
+      setError("Please tick the authorisation box to continue.");
+      return;
+    }
     const partial = !allSelected;
     const ok = await confirm({
       title: partial ? "Approve the ticked items?" : "Approve this quote?",
@@ -87,7 +99,7 @@ export function QuoteResponse({
     // — keeps the metadata cleaner and avoids transmitting a giant ID list.
     const ids = allSelected ? [] : selectedIds;
     startTransition(async () => {
-      const result = await approveQuote(slug, token, ids);
+      const result = await approveQuote(slug, token, ids, { signedName: signedName.trim() });
       if ("error" in result) {
         setError(result.error);
         setStage("error");
@@ -254,10 +266,34 @@ export function QuoteResponse({
         </div>
       )}
 
+      <div className="rounded-lg border bg-white p-3 flex flex-col gap-2.5">
+        <input
+          value={signedName}
+          onChange={(e) => setSignedName(e.target.value)}
+          placeholder="Type your full name to authorise"
+          autoComplete="name"
+          className="w-full rounded-md border px-3 py-2.5 text-sm"
+          disabled={pending}
+        />
+        <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={authTicked}
+            onChange={(e) => setAuthTicked(e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+            disabled={pending}
+          />
+          <span>
+            I authorise this work at the total shown. My name, the date and time, and my device details are
+            recorded with this authorisation.
+          </span>
+        </label>
+      </div>
+
       <button
         type="button"
         onClick={handleApprove}
-        disabled={pending || noneSelected}
+        disabled={pending || noneSelected || !signedName.trim() || !authTicked}
         className="w-full rounded-md text-white px-4 py-4 text-base font-semibold disabled:opacity-50"
         style={{ background: primaryColor }}
       >

@@ -56,6 +56,9 @@ export function CheckResponse({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<"approved" | "declined" | null>(null);
+  // Work-authorisation artefact (#503): typed name + explicit tick before approving.
+  const [signedName, setSignedName] = useState("");
+  const [authTicked, setAuthTicked] = useState(false);
 
   const totals = useMemo(() => {
     const subtotal = findings.filter((f) => selected.has(f.quoteItemId)).reduce((s, f) => s + f.price, 0);
@@ -97,9 +100,11 @@ export function CheckResponse({
   }
 
   async function submitApprove() {
+    if (!signedName.trim()) return setError("Please type your name to authorise the work.");
+    if (!authTicked) return setError("Please tick the authorisation box to continue.");
     setBusy(true);
     setError(null);
-    const res = await respondToCheck(slug, token, { approvedQuoteItemIds: [...selected] });
+    const res = await respondToCheck(slug, token, { approvedQuoteItemIds: [...selected], signedName: signedName.trim() });
     setBusy(false);
     if ("error" in res) return setError(res.error);
     if (res.depositUrl) {
@@ -168,10 +173,31 @@ export function CheckResponse({
       <div className="px-4 py-4 flex flex-col gap-3">
         {!declining ? (
           <>
+            <input
+              value={signedName}
+              onChange={(e) => setSignedName(e.target.value)}
+              placeholder="Type your full name to authorise"
+              autoComplete="name"
+              className="w-full rounded-lg border px-3 py-2.5 text-sm"
+              disabled={busy}
+            />
+            <label className="flex items-start gap-2 text-xs text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={authTicked}
+                onChange={(e) => setAuthTicked(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+                disabled={busy}
+              />
+              <span>
+                I authorise the ticked work at the total shown. My name, the date and time, and my
+                device details are recorded with this authorisation.
+              </span>
+            </label>
             <button
               type="button"
               onClick={submitApprove}
-              disabled={busy || selected.size === 0}
+              disabled={busy || selected.size === 0 || !signedName.trim() || !authTicked}
               className="w-full rounded-lg px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
               style={{ background: primaryColor }}
             >

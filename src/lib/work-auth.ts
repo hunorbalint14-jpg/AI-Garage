@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // Pure maths + types live in work-auth-shared.ts (client-importable);
 // re-exported here so server callers keep one import path.
 export * from "@/lib/work-auth-shared";
+import type { AuthItemSnapshot } from "@/lib/work-auth-shared";
 
 export const SIGNATURE_BUCKET = "authorisation-signatures";
 export const SIGNATURE_MAX_BYTES = 200 * 1024; // canvas PNGs are ~10–50 KB
@@ -46,6 +47,103 @@ export async function latestAuthorisation(
     .limit(1)
     .maybeSingle();
   return (data as LatestAuthorisation) ?? null;
+}
+
+// Remote authorisation artefact (#503 PR 3): written when a customer
+// approves a quote — via /quote/[slug] directly or the eVHC report, both of
+// which land in approveQuote. Snapshots the APPROVED lines + the org terms;
+// best-effort by contract (throws are caught here) — an artefact failure
+// must never block an approval.
+export async function recordQuoteAuthorisation(args: {
+  quoteId: string;
+  locationId: string;
+  jobId: string | null;
+  approvedItemIds: string[]; // empty = every line
+  authorisedTotal: number; // inc VAT — the figure the customer clicked yes to
+  signedName: string | null;
+  ip: string | null;
+  userAgent: string | null;
+}): Promise<void> {
+  const admin = createAdminClient();
+  try {
+    const [{ data: quoteRow }, { data: lineRows }] = await Promise.all([
+      admin
+        .from("quotes")
+        .select("id, organization_id, customer_id, vat_rate, job:jobs(customer_id)")
+        .eq("id", args.quoteId)
+        .maybeSingle(),
+      admin
+        .from("quote_items")
+        .select("id, description, type, quantity, unit_price")
+        .eq("quote_id", args.quoteId)
+        .order("sort_order"),
+    ]);
+    const quote = quoteRow as unknown as {
+      id: string;
+      organization_id: string | null;
+      customer_id: string | null;
+      vat_rate: number;
+      job: { customer_id: string | null } | null;
+    } | null;
+    if (!quote) return;
+
+    const approved = new Set(args.approvedItemIds);
+    const lines = ((lineRows ?? []) as { id: string; description: string; type: string; quantity: number; unit_price: number }[])
+      .filter((l) => approved.size === 0 || approved.has(l.id));
+    const items: AuthItemSnapshot[] = lines.map((l) => ({
+      description: l.description,
+      type: l.type,
+      quantity: l.quantity,
+      unit_price: l.unit_price,
+      // Quotes are single-rate; snapshot it per line so the record reads the
+      // same as counter artefacts.
+      vat_rate: Number(quote.vat_rate) || 0,
+    }));
+
+    let terms: string | null = null;
+    if (quote.organization_id) {
+      const { data: org } = await admin
+        .from("organizations")
+        .select("authorisation_terms")
+        .eq("id", quote.organization_id)
+        .maybeSingle();
+      terms = (org as { authorisation_terms: string | null } | null)?.authorisation_terms ?? null;
+    }
+
+    const kind = args.jobId && (await latestAuthorisation(admin, args.jobId)) ? "variation" : "initial";
+    const { data: inserted, error } = await admin
+      .from("work_authorisations")
+      .insert({
+        location_id: args.locationId,
+        job_id: args.jobId,
+        quote_id: args.quoteId,
+        customer_id: quote.customer_id ?? quote.job?.customer_id ?? null,
+        kind,
+        method: "quote_approval",
+        status: "authorised",
+        authorised_total: args.authorisedTotal,
+        items_snapshot: items,
+        terms_snapshot: terms,
+        signed_name: args.signedName?.trim().slice(0, 120) || null,
+        ip: args.ip,
+        user_agent: args.userAgent?.slice(0, 300) ?? null,
+        authorised_at: new Date().toISOString(),
+      })
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+
+    const { logAudit } = await import("@/lib/audit");
+    await logAudit({
+      organizationId: quote.organization_id,
+      action: "authorisation.captured",
+      entityType: "work_authorisation",
+      entityId: (inserted as { id: string } | null)?.id ?? args.quoteId,
+      metadata: { quote_id: args.quoteId, job_id: args.jobId, total: args.authorisedTotal, kind, method: "quote_approval" },
+    });
+  } catch (err) {
+    console.error("[work-auth] quote artefact failed", err);
+  }
 }
 
 // Decode a canvas PNG data URL by hand — never fetch(dataUrl), the CSP
