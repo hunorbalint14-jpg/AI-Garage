@@ -7,6 +7,8 @@ export type StaffNotificationKind =
   | "quote.rebooked"
   | "quote.deposit_paid"
   | "review.low_score"
+  | "authorisation.approved"
+  | "authorisation.declined"
   | "receptionist.booking"
   | "receptionist.handoff"
   | "ticket.reply"
