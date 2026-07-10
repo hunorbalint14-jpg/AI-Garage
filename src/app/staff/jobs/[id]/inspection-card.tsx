@@ -12,6 +12,8 @@ export type InspectionSummary = {
   amber: number;
   green: number;
   unchecked: number;
+  viewedCount: number;
+  quoteStatus: string | null;
 } | null;
 
 export async function inspectionSummary(
@@ -20,11 +22,24 @@ export async function inspectionSummary(
 ): Promise<InspectionSummary> {
   const { data } = await admin
     .from("inspections")
-    .select("id, status, items:inspection_items(rag)")
+    .select("id, status, viewed_count, quote_id, items:inspection_items(rag)")
     .eq("job_id", jobId)
     .maybeSingle();
-  const row = data as unknown as { id: string; status: string; items: { rag: string }[] } | null;
+  const row = data as unknown as {
+    id: string;
+    status: string;
+    viewed_count: number;
+    quote_id: string | null;
+    items: { rag: string }[];
+  } | null;
   if (!row) return null;
+
+  let quoteStatus: string | null = null;
+  if (row.quote_id) {
+    const { data: q } = await admin.from("quotes").select("status").eq("id", row.quote_id).maybeSingle();
+    quoteStatus = (q as { status: string } | null)?.status ?? null;
+  }
+
   const count = (rag: string) => row.items.filter((i) => i.rag === rag).length;
   return {
     id: row.id,
@@ -33,6 +48,8 @@ export async function inspectionSummary(
     amber: count("amber"),
     green: count("green"),
     unchecked: count("not_checked"),
+    viewedCount: row.viewed_count ?? 0,
+    quoteStatus,
   };
 }
 
@@ -59,6 +76,12 @@ export function InspectionCard({ jobId, summary }: { jobId: string; summary: Ins
               {" · "}
               <span className="text-ws-green font-semibold">{summary.green} green</span>
               {summary.unchecked > 0 && <> · {summary.unchecked} unchecked</>}
+              {summary.status === "sent" && (
+                <> · {summary.viewedCount > 0 ? `viewed ${summary.viewedCount}×` : "not viewed yet"}</>
+              )}
+              {summary.quoteStatus === "approved" && <> · <span className="text-ws-green font-semibold">work approved</span></>}
+              {summary.quoteStatus === "approved_after_close" && <> · <span className="text-ws-green font-semibold">approved (job closed)</span></>}
+              {summary.quoteStatus === "declined" && <> · <span className="text-ws-red font-semibold">work declined</span></>}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground mt-0.5">

@@ -6,6 +6,7 @@ import { Camera, Plus, Sparkles, Trash2, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/confirm-provider";
 import { InspectionQuotePanel } from "./quote-panel";
+import { InspectionSendPanel } from "./send-panel";
 import {
   updateInspectionItem,
   addInspectionFinding,
@@ -584,6 +585,21 @@ export function InspectionCapture({
           onQuoted={(quoteId, itemIds) => {
             setQuote({ id: quoteId, status: "draft" });
             setItems((prev) => prev.map((i) => (itemIds.includes(i.id) ? { ...i, outcome: "quoted" } : i)));
+          }}
+        />
+      )}
+
+      {/* Send the customer report (Phase 5). Sending locks the check and
+          flips a draft findings-quote to pending. */}
+      {(complete || readOnly) && (
+        <InspectionSendPanel
+          inspectionId={inspectionId}
+          status={status}
+          items={items}
+          hasQuote={!!quote && quote.status !== "cancelled"}
+          onSent={() => {
+            setStatus("sent");
+            setQuote((prev) => (prev && prev.status === "draft" ? { ...prev, status: "pending" } : prev));
           }}
         />
       )}
