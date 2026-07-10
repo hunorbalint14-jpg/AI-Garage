@@ -22,6 +22,7 @@ import { hasPermission } from "@/lib/permissions";
 import { accountBalance } from "@/lib/account";
 import { AccountSection } from "./account-section";
 import { ServiceHistorySection, type HistoryEntryRow } from "./service-history-section";
+import { ImportedInvoicesSection, type ImportedInvoiceRow } from "./imported-invoices-section";
 
 type Customer = {
   id: string;
@@ -156,6 +157,15 @@ export default async function CustomerDetailPage({
         .limit(200)
     : { data: [] };
   const historyEntries = (historyRows ?? []) as HistoryEntryRow[];
+
+  // Imported invoices (#505 PR 3): read-only pre-platform documents.
+  const { data: importedInvRows } = await admin
+    .from("imported_invoices")
+    .select("id, invoice_number, issued_on, total, status, description")
+    .eq("customer_id", customer.id)
+    .order("issued_on", { ascending: false })
+    .limit(100);
+  const importedInvoices = (importedInvRows ?? []) as ImportedInvoiceRow[];
 
   // eVHC deferred-work bank (#497): outstanding advisories per vehicle.
   const deferredByVehicle = (await isFeatureEnabled("evhc"))
@@ -311,6 +321,8 @@ export default async function CustomerDetailPage({
                   balance={customer.account_customer ? await accountBalance(admin, customer.id) : null}
                   canManage={hasPermission(ctx, "invoices")}
                 />
+
+                <ImportedInvoicesSection invoices={importedInvoices} />
               </div>
             ),
           },

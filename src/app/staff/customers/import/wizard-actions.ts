@@ -14,12 +14,14 @@ import {
   missingRequired,
   validateHistoryRows,
   validateReminderRows,
+  validateInvoiceRows,
   parseDateFlexible,
   TARGET_FIELDS,
   type ColumnMapping,
   type ImportKind,
   type RowReject,
 } from "@/lib/import-engine";
+import { detectPreset, presetMapping } from "@/lib/import-presets";
 
 // Import wizard actions (#505 PR 2): analyze = parse + map + validate +
 // dry-run counts (no writes); commit = re-validate then write, batch-tracked.
@@ -35,6 +37,8 @@ export type AnalyzeResult =
   | {
       headers: string[];
       mapping: ColumnMapping;
+      /** Detected competitor preset label (TechMan etc.), when auto-mapped. */
+      preset: string | null;
       missing: string[];
       totalRows: number;
       /** Row-level rejects with reasons (dry-run). */
@@ -47,8 +51,22 @@ export type CommitResult =
   | { error: string }
   | { batchId: string; imported: number; rejected: number; counts: Record<string, number>; rejects: RowReject[] };
 
-function readMapping(raw: string | null, headers: string[], kind: ImportKind): ColumnMapping {
-  if (!raw) return autoMap(headers, kind);
+// No explicit mapping → alias auto-match, with any detected competitor
+// preset overlaid on top (preset wins where it knows the header).
+function defaultMapping(headers: string[], kind: ImportKind): { mapping: ColumnMapping; preset: string | null } {
+  const mapping = autoMap(headers, kind);
+  const preset = detectPreset(headers);
+  const overlay = preset ? presetMapping(preset, kind, headers) : null;
+  if (overlay) {
+    for (const [target, source] of Object.entries(overlay)) {
+      if (source) mapping[target] = source;
+    }
+  }
+  return { mapping, preset: overlay ? preset!.label : null };
+}
+
+function readMapping(raw: string | null, headers: string[], kind: ImportKind): { mapping: ColumnMapping; preset: string | null } {
+  if (!raw) return defaultMapping(headers, kind);
   try {
     const parsed = JSON.parse(raw) as ColumnMapping;
     const clean: ColumnMapping = {};
@@ -56,9 +74,9 @@ function readMapping(raw: string | null, headers: string[], kind: ImportKind): C
       const src = parsed[field.key];
       clean[field.key] = typeof src === "string" && headers.includes(src) ? src : null;
     }
-    return clean;
+    return { mapping: clean, preset: null };
   } catch {
-    return autoMap(headers, kind);
+    return defaultMapping(headers, kind);
   }
 }
 
@@ -71,29 +89,30 @@ async function loadFile(formData: FormData): Promise<{ error: string } | { text:
   return { text: await file.text(), filename: file.name };
 }
 
-const kindSchema = z.enum(["customers", "history", "reminders"]);
+const kindSchema = z.enum(["customers", "history", "reminders", "invoices"]);
 
-// Resolve normalised registrations to vehicle ids. Stored registrations mix
-// formats ("AB19 CDE" vs "AB19CDE"), so match space-insensitively: page the
-// org's vehicles and normalise in JS rather than trusting an exact .in().
+// Resolve normalised registrations to vehicle (+ owning customer) ids. Stored
+// registrations mix formats ("AB19 CDE" vs "AB19CDE"), so match
+// space-insensitively: page the org's vehicles and normalise in JS rather
+// than trusting an exact .in().
 async function resolveVehicles(
   admin: ReturnType<typeof createAdminClient>,
   organizationId: string,
   regs: string[],
-): Promise<Map<string, string>> {
+): Promise<Map<string, { id: string; customerId: string | null }>> {
   const wanted = new Set(regs);
-  const map = new Map<string, string>();
+  const map = new Map<string, { id: string; customerId: string | null }>();
   const PAGE = 1000;
   for (let from = 0; from < 20_000; from += PAGE) {
     const { data } = await admin
       .from("vehicles")
-      .select("id, registration")
+      .select("id, registration, customer_id")
       .eq("organization_id", organizationId)
       .range(from, from + PAGE - 1);
-    const rows = (data ?? []) as { id: string; registration: string }[];
+    const rows = (data ?? []) as { id: string; registration: string; customer_id: string | null }[];
     for (const v of rows) {
       const norm = normalizeRegistration(v.registration);
-      if (wanted.has(norm) && !map.has(norm)) map.set(norm, v.id);
+      if (wanted.has(norm) && !map.has(norm)) map.set(norm, { id: v.id, customerId: v.customer_id });
     }
     if (rows.length < PAGE) break;
   }
@@ -109,6 +128,7 @@ type Prepared =
       filename: string;
       headers: string[];
       mapping: ColumnMapping;
+      preset: string | null;
       missing: string[];
       totalRows: number;
       rejects: RowReject[];
@@ -117,6 +137,15 @@ type Prepared =
       history: { vehicle_id: string; happened_on: string; mileage: number | null; description: string; total: number | null }[];
       reminders: { vehicle_id: string; mot_expiry: string | null; service_due: string | null; tax_due_date: string | null }[];
       customers: { full_name: string; email: string; phone: string | null; raw: Record<string, string> }[];
+      invoices: {
+        customer_id: string;
+        vehicle_id: string | null;
+        invoice_number: string;
+        issued_on: string;
+        total: number;
+        status: string | null;
+        description: string | null;
+      }[];
     };
 
 // Shared parse→map→validate→resolve pipeline for analyze AND commit, so the
@@ -132,11 +161,11 @@ async function prepare(formData: FormData, ctx: Awaited<ReturnType<typeof requir
   if (rows.length === 0) return { error: "CSV is empty or has no data rows." };
   if (rows.length > MAX_ROWS) return { error: `Too many rows (max ${MAX_ROWS}). Split the file and try again.` };
 
-  const mapping = readMapping(formData.get("mapping") as string | null, headers, kind);
+  const { mapping, preset } = readMapping(formData.get("mapping") as string | null, headers, kind);
   const missing = missingRequired(kind, mapping);
-  const base = { kind, filename: loaded.filename, headers, mapping, missing, totalRows: rows.length };
+  const base = { kind, filename: loaded.filename, headers, mapping, preset, missing, totalRows: rows.length };
   if (missing.length > 0) {
-    return { ...base, rejects: [], counts: {}, history: [], reminders: [], customers: [] };
+    return { ...base, rejects: [], counts: {}, history: [], reminders: [], customers: [], invoices: [] };
   }
 
   const admin = createAdminClient();
@@ -156,7 +185,7 @@ async function prepare(formData: FormData, ctx: Awaited<ReturnType<typeof requir
       rejects,
       counts: { entries: found.length, vehicles: new Set(found.map((r) => r.registration)).size },
       history: found.map((r) => ({
-        vehicle_id: vehicles.get(r.registration)!,
+        vehicle_id: vehicles.get(r.registration)!.id,
         happened_on: r.happened_on,
         mileage: r.mileage,
         description: r.description,
@@ -164,6 +193,7 @@ async function prepare(formData: FormData, ctx: Awaited<ReturnType<typeof requir
       })),
       reminders: [],
       customers: [],
+      invoices: [],
     };
   }
 
@@ -188,12 +218,65 @@ async function prepare(formData: FormData, ctx: Awaited<ReturnType<typeof requir
       },
       history: [],
       reminders: found.map((r) => ({
-        vehicle_id: vehicles.get(r.registration)!,
+        vehicle_id: vehicles.get(r.registration)!.id,
         mot_expiry: r.mot_expiry,
         service_due: r.service_due,
         tax_due_date: r.tax_due_date,
       })),
       customers: [],
+      invoices: [],
+    };
+  }
+
+  if (kind === "invoices") {
+    const { valid, rejects } = validateInvoiceRows(rows, mapping);
+    // Match by email first, registration second.
+    const emails = [...new Set(valid.map((r) => r.customer_email).filter(Boolean))] as string[];
+    const emailToCustomer = new Map<string, string>();
+    for (let i = 0; i < emails.length; i += 400) {
+      const { data } = await admin
+        .from("customers")
+        .select("id, email")
+        .eq("organization_id", ctx.organization.id)
+        .in("email", emails.slice(i, i + 400));
+      for (const c of (data ?? []) as { id: string; email: string | null }[]) {
+        if (c.email) emailToCustomer.set(c.email.toLowerCase(), c.id);
+      }
+    }
+    const vehicles = await resolveVehicles(
+      admin,
+      ctx.organization.id,
+      valid.map((r) => r.registration).filter(Boolean) as string[],
+    );
+
+    const payload: NonNullable<Extract<Prepared, { invoices: unknown }>["invoices"]> = [];
+    for (const r of valid) {
+      const viaEmail = r.customer_email ? emailToCustomer.get(r.customer_email) : undefined;
+      const vehicle = r.registration ? vehicles.get(r.registration) : undefined;
+      const customerId = viaEmail ?? vehicle?.customerId ?? null;
+      if (!customerId) {
+        rejects.push({ row: r.row, reason: `no matching customer for ${r.customer_email ?? r.registration} — import customers first` });
+        continue;
+      }
+      payload.push({
+        customer_id: customerId,
+        vehicle_id: vehicle?.id ?? null,
+        invoice_number: r.invoice_number,
+        issued_on: r.issued_on,
+        total: r.total,
+        status: r.status,
+        description: r.description,
+      });
+    }
+    rejects.sort((a, b) => a.row - b.row);
+    return {
+      ...base,
+      rejects,
+      counts: { invoices: payload.length, customers: new Set(payload.map((p) => p.customer_id)).size },
+      history: [],
+      reminders: [],
+      customers: [],
+      invoices: payload,
     };
   }
 
@@ -244,6 +327,7 @@ async function prepare(formData: FormData, ctx: Awaited<ReturnType<typeof requir
     history: [],
     reminders: [],
     customers,
+    invoices: [],
   };
 }
 
@@ -255,6 +339,7 @@ export async function analyzeImport(formData: FormData): Promise<AnalyzeResult> 
   return {
     headers: prep.headers,
     mapping: prep.mapping,
+    preset: prep.preset,
     missing: prep.missing,
     totalRows: prep.totalRows,
     rejects: prep.rejects,
@@ -291,6 +376,7 @@ export async function commitImport(formData: FormData): Promise<CommitResult> {
   const fail = async (message: string): Promise<CommitResult> => {
     // All-or-nothing: remove anything the batch wrote, then the batch itself.
     await admin.from("vehicle_history_entries").delete().eq("import_batch_id", batchId);
+    await admin.from("imported_invoices").delete().eq("import_batch_id", batchId);
     await admin.from("import_batches").delete().eq("id", batchId);
     return { error: `Import failed, nothing was saved: ${message}` };
   };
@@ -306,6 +392,17 @@ export async function commitImport(formData: FormData): Promise<CommitResult> {
         import_batch_id: batchId,
       }));
       const { error } = await admin.from("vehicle_history_entries").insert(chunk);
+      if (error) return fail(error.message);
+      imported += chunk.length;
+    }
+  } else if (prep.kind === "invoices") {
+    for (let i = 0; i < prep.invoices.length; i += 500) {
+      const chunk = prep.invoices.slice(i, i + 500).map((inv) => ({
+        ...inv,
+        organization_id: ctx.organization.id,
+        import_batch_id: batchId,
+      }));
+      const { error } = await admin.from("imported_invoices").insert(chunk);
       if (error) return fail(error.message);
       imported += chunk.length;
     }

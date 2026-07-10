@@ -14,6 +14,7 @@ const KINDS: { key: ImportKind; label: string; blurb: string }[] = [
   { key: "customers", label: "Customers & vehicles", blurb: "Names, contact details and their vehicles." },
   { key: "history", label: "Service history", blurb: "Past work per vehicle — date, mileage, description, total." },
   { key: "reminders", label: "Reminder dates", blurb: "MOT / service / tax due dates onto existing vehicles." },
+  { key: "invoices", label: "Past invoices", blurb: "Read-only history — never touches your numbering, VAT or reports." },
 ];
 
 type Analysis = Exclude<AnalyzeResult, { error: string }>;
@@ -26,6 +27,7 @@ const COUNT_LABEL: Record<string, string> = {
   mot_dates: "MOT dates",
   service_dates: "service dates",
   tax_dates: "tax dates",
+  invoices: "past invoices",
 };
 
 export function ImportWizard() {
@@ -87,7 +89,7 @@ export function ImportWizard() {
       {/* Step 1: kind + file */}
       <section className="rounded-lg border p-4 flex flex-col gap-3">
         <h2 className="text-sm font-semibold">1 · What are you importing?</h2>
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {KINDS.map((k) => (
             <button
               key={k.key}
@@ -135,7 +137,14 @@ export function ImportWizard() {
       {/* Step 2: mapping */}
       {analysis && mapping && (
         <section className="rounded-lg border p-4 flex flex-col gap-3">
-          <h2 className="text-sm font-semibold">2 · Column mapping</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold">2 · Column mapping</h2>
+            {analysis.preset && (
+              <span className="rounded-full border border-ws-green/40 bg-ws-green/10 px-2 py-0.5 text-xs font-medium">
+                {analysis.preset} export detected
+              </span>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             Auto-matched from your file&apos;s headers — fix anything that&apos;s wrong, then preview again.
           </p>

@@ -2,7 +2,7 @@
 // mapping, per-kind row validation, dry-run reporting. IO (vehicle lookups,
 // inserts, batches) lives in the wizard's server actions.
 
-export type ImportKind = "customers" | "history" | "reminders";
+export type ImportKind = "customers" | "history" | "reminders" | "invoices";
 
 /** targetField → source header (null = unmapped). */
 export type ColumnMapping = Record<string, string | null>;
@@ -39,6 +39,15 @@ export const TARGET_FIELDS: Record<ImportKind, TargetField[]> = {
     { key: "mot_expiry", label: "MOT expiry", required: false, aliases: ["mot_expiry", "mot_due", "mot_due_date", "mot"] },
     { key: "service_due", label: "Service due", required: false, aliases: ["service_due", "next_service", "service_due_date", "service"] },
     { key: "tax_due_date", label: "Tax due", required: false, aliases: ["tax_due_date", "tax_due", "ved_due", "tax"] },
+  ],
+  invoices: [
+    { key: "invoice_number", label: "Invoice number", required: true, aliases: ["invoice_number", "invoice_no", "inv_no", "number", "doc_no", "document_no"] },
+    { key: "issued_on", label: "Invoice date", required: true, aliases: ["issued_on", "invoice_date", "date", "doc_date"] },
+    { key: "total", label: "Total (£)", required: true, aliases: ["total", "gross", "invoice_total", "amount", "gross_total"] },
+    { key: "customer_email", label: "Customer email", required: false, aliases: ["customer_email", "email", "email_address", "e_mail"] },
+    { key: "registration", label: "Vehicle registration", required: false, aliases: ["registration", "reg", "reg_no", "vrm", "number_plate", "plate", "vehicle"] },
+    { key: "status", label: "Status", required: false, aliases: ["status", "state", "paid"] },
+    { key: "description", label: "Description", required: false, aliases: ["description", "details", "work_done", "narrative"] },
   ],
 };
 
@@ -220,6 +229,63 @@ export function validateHistoryRows(
       description: description.slice(0, 2000),
       mileage,
       total: parseMoney(mapped(row, mapping, "total")),
+    });
+  }
+  return { valid, rejects };
+}
+
+export type InvoiceImportRow = {
+  row: number;
+  invoice_number: string;
+  issued_on: string; // ISO date
+  total: number;
+  customer_email: string | null;
+  registration: string | null; // normalised
+  status: string | null;
+  description: string | null;
+};
+
+export function validateInvoiceRows(
+  rows: Record<string, string>[],
+  mapping: ColumnMapping,
+): { valid: InvoiceImportRow[]; rejects: RowReject[] } {
+  const valid: InvoiceImportRow[] = [];
+  const rejects: RowReject[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const rowNum = i + 2;
+    const number = mapped(row, mapping, "invoice_number").trim();
+    if (!number) {
+      rejects.push({ row: rowNum, reason: "invoice number is empty" });
+      continue;
+    }
+    const dateRaw = mapped(row, mapping, "issued_on");
+    const issued = parseDateFlexible(dateRaw);
+    if (!issued) {
+      rejects.push({ row: rowNum, reason: `invoice date "${dateRaw}" not recognised (use dd/mm/yyyy)` });
+      continue;
+    }
+    const totalRaw = mapped(row, mapping, "total");
+    const total = parseMoney(totalRaw);
+    if (total === null) {
+      rejects.push({ row: rowNum, reason: `total "${totalRaw}" is not an amount` });
+      continue;
+    }
+    const email = mapped(row, mapping, "customer_email").trim().toLowerCase();
+    const reg = mapped(row, mapping, "registration").trim();
+    if (!email && !reg) {
+      rejects.push({ row: rowNum, reason: "no customer email or registration to match the invoice to" });
+      continue;
+    }
+    valid.push({
+      row: rowNum,
+      invoice_number: number.slice(0, 60),
+      issued_on: issued,
+      total,
+      customer_email: email || null,
+      registration: reg ? normalizeReg(reg) : null,
+      status: mapped(row, mapping, "status").trim().slice(0, 40) || null,
+      description: mapped(row, mapping, "description").trim().slice(0, 2000) || null,
     });
   }
   return { valid, rejects };
