@@ -83,26 +83,20 @@ export default async function QuotePage({
 
   if (!quote) return renderGate("not_found");
 
-  // Fire-and-forget view counter + audit log.
-  if (verify.quote.source === "standalone") {
-    void admin.rpc("quotes_increment_view", { p_id: quote.id });
-    void logAudit({
-      organizationId: quote.org?.id ?? null,
-      action: "quote.view",
-      entityType: "standalone_quote",
-      entityId: quote.id,
-      metadata: {},
-    });
-  } else {
-    void admin.rpc("quotes_increment_view", { p_id: quote.id });
-    void logAudit({
-      organizationId: quote.org?.id ?? null,
-      action: "quote.view",
-      entityType: "job_quote",
-      entityId: quote.id,
-      metadata: {},
-    });
-  }
+  // Fire-and-forget view counter + audit log. NB: supabase-js builders are
+  // lazy — they only execute once .then() is called, so a bare `void rpc(...)`
+  // silently never runs (this counter was dead until #497 Phase 5 found it).
+  void admin.rpc("quotes_increment_view", { p_id: quote.id }).then(
+    () => undefined,
+    (err) => console.error("[quote] view counter failed", err),
+  );
+  void logAudit({
+    organizationId: quote.org?.id ?? null,
+    action: "quote.view",
+    entityType: verify.quote.source === "standalone" ? "standalone_quote" : "job_quote",
+    entityId: quote.id,
+    metadata: {},
+  });
 
   const videoUrl = quote.video_path ? await createSignedReadUrl(quote.video_path, 1800) : null;
 
