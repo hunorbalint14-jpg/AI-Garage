@@ -31,6 +31,7 @@ const TASK_ROUTE: Record<string, string> = {
   invoice_dunning: "/api/cron/dunning",
   review_requests: "/api/cron/review-requests",
   booking_confirmations: "/api/cron/booking-confirmations",
+  deferred_followups: "/api/cron/deferred-followups",
 };
 
 // Tasks dispatched in parallel. Serial dispatch meant every due task's child

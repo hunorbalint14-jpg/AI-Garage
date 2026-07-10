@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess } from "@/lib/quote-links";
+import { resolveDeferredBooking, type DeferredBookingContext } from "@/lib/deferred-followup";
 import { BookingWidgetForm } from "./booking-widget-form";
 import { parseWeeklyHours, formatWeeklySummary, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 import { cachedActiveServices, cachedLocationHours } from "@/lib/location-cache";
@@ -10,13 +11,13 @@ import { cachedActiveServices, cachedLocationHours } from "@/lib/location-cache"
 export default async function BookingWidgetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ quote?: string; t?: string }>;
+  searchParams: Promise<{ quote?: string; t?: string; dw?: string }>;
 }) {
   const headersList = await headers();
   const slug = headersList.get("x-tenant-slug");
   if (!slug) redirect("/");
 
-  const { quote: quoteSlug, t: quoteToken } = await searchParams;
+  const { quote: quoteSlug, t: quoteToken, dw: deferredToken } = await searchParams;
 
   const admin = createAdminClient();
 
@@ -194,6 +195,23 @@ export default async function BookingWidgetPage({
     }
   }
 
+  // Deferred-work follow-up link (#498): "?dw=<token>" from the recovery
+  // message. Resolves to the outstanding items for a banner + prefill; the
+  // token rides a hidden field to createBooking, which marks the covered
+  // records recovered. An invalid/spent token degrades to the plain widget.
+  let deferredContext: DeferredBookingContext | null = null;
+  if (deferredToken) {
+    deferredContext = await resolveDeferredBooking(admin, deferredToken);
+    if (deferredContext && !prefill && deferredContext.customer?.email) {
+      prefill = {
+        customerId: deferredContext.customer.id,
+        fullName: deferredContext.customer.full_name ?? "",
+        email: deferredContext.customer.email,
+        phone: deferredContext.customer.phone ?? "",
+      };
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-start justify-center p-4 pt-8">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-md border border-black/[0.06] p-7">
@@ -234,6 +252,24 @@ export default async function BookingWidgetPage({
           )}
         </div>
 
+        {deferredContext && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Advised work</div>
+            <p className="text-sm text-slate-700">
+              Booking in the work we advised
+              {deferredContext.vehicle?.registration ? ` for ${deferredContext.vehicle.registration}` : ""}.
+            </p>
+            <ul className="mt-2 text-xs text-slate-600 list-disc list-inside">
+              {deferredContext.items.map((it, i) => (
+                <li key={i}>
+                  {it.description}
+                  {it.price !== null && <span className="text-slate-400"> · £{it.price.toFixed(2)}</span>}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {quoteContext && (
           <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">From quote</div>
@@ -263,6 +299,7 @@ export default async function BookingWidgetPage({
           paymentsEnabled={paymentsEnabled}
           fromQuoteSlug={quoteContext?.slug ?? null}
           fromQuoteToken={quoteContext?.token ?? null}
+          fromDeferredToken={deferredContext ? (deferredToken ?? null) : null}
         />
       </div>
     </div>

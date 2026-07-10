@@ -36,6 +36,12 @@ export const FEATURE_FLAGS = {
       "Staged rollout of inspections (#497): the job-card health check entry, the tech capture flow, and later phases (AI rewrite, customer report). Off = no eVHC surfaces render anywhere.",
     default: false,
   },
+  deferred_followups: {
+    label: "Deferred-work follow-up sequence",
+    description:
+      "Staged rollout of the automated 14/30-day recovery messages (#498). Off = the cron route no-ops everywhere; the deferred-work bank and staff surfaces are unaffected. Each location must also enable its own Automations task.",
+    default: false,
+  },
 } as const satisfies Record<string, FeatureFlagDef>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAGS;

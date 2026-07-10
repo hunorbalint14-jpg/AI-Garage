@@ -45,6 +45,7 @@ type Props = {
   paymentsEnabled: boolean;
   fromQuoteSlug?: string | null;
   fromQuoteToken?: string | null;
+  fromDeferredToken?: string | null;
 };
 
 const INPUT =
@@ -96,6 +97,7 @@ export function BookingWidgetForm({
   paymentsEnabled,
   fromQuoteSlug,
   fromQuoteToken,
+  fromDeferredToken,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -204,6 +206,7 @@ export function BookingWidgetForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {fromDeferredToken && <input type="hidden" name="fromDeferredToken" value={fromDeferredToken} />}
       {fromQuoteSlug && fromQuoteToken && (
         <>
           <input type="hidden" name="fromQuoteSlug" value={fromQuoteSlug} />

@@ -18,6 +18,8 @@ import {
   type SpecialHours,
 } from "@/lib/business-hours";
 import { verifyQuoteAccess } from "@/lib/quote-links";
+import { markDeferredRecovered } from "@/lib/deferred-followup";
+import { logAudit } from "@/lib/audit";
 import { createStaffNotification } from "@/lib/staff-notifications";
 import {
   getCustomerPlanState,
@@ -90,6 +92,7 @@ export async function submitWidgetBooking(
   const marketingConsent = formData.get("marketingConsent") === "on";
   const fromQuoteSlug = (formData.get("fromQuoteSlug") as string | null)?.trim() || null;
   const fromQuoteToken = (formData.get("fromQuoteToken") as string | null)?.trim() || null;
+  const fromDeferredToken = (formData.get("fromDeferredToken") as string | null)?.trim() || null;
 
   if (!fullName) return { error: "Name is required." };
   if (!email || !EMAIL_RE.test(email)) return { error: "A valid email is required." };
@@ -305,6 +308,26 @@ export async function submitWidgetBooking(
   }
 
   if (bookingErr || !booking) return { error: bookingErr?.message ?? "Failed to create booking." };
+
+  // Deferred-work recovery attribution (#498): the customer arrived from a
+  // follow-up message's "Book it in" link — mark the covered records
+  // recovered by this booking. Best-effort; never blocks the booking.
+  if (fromDeferredToken) {
+    try {
+      const recovered = await markDeferredRecovered(admin, fromDeferredToken, booking.id);
+      if (recovered > 0) {
+        await logAudit({
+          organizationId: location.organization.id,
+          action: "deferred.recovered",
+          entityType: "booking",
+          entityId: booking.id,
+          metadata: { records: recovered, location_id: location.id },
+        });
+      }
+    } catch (e) {
+      console.error("[deferred] recovery attribution failed", e);
+    }
+  }
 
   // Reserve the included-service allowance against this booking (released on
   // cancel/no-show, consumed when the £0 invoice is raised).
