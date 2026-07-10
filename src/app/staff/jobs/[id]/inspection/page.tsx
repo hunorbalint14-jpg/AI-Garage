@@ -35,7 +35,7 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
 
   const { data: inspRow } = await admin
     .from("inspections")
-    .select("id, status, items:inspection_items(id, section, label, rag, note, template_item_id, sort_order, media:inspection_media(id, storage_path, mime))")
+    .select("id, status, items:inspection_items(id, section, label, rag, note, customer_summary, suggested_repair, suggested_price, template_item_id, sort_order, media:inspection_media(id, storage_path, mime))")
     .eq("job_id", jobId)
     .maybeSingle();
 
@@ -48,6 +48,9 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
       label: string;
       rag: string;
       note: string | null;
+      customer_summary: string | null;
+      suggested_repair: string | null;
+      suggested_price: number | null;
       template_item_id: string | null;
       sort_order: number;
       media: { id: string; storage_path: string; mime: string | null }[];
@@ -95,6 +98,9 @@ export default async function InspectionPage({ params }: { params: Promise<{ id:
       label: it.label,
       rag: it.rag as CaptureItem["rag"],
       note: it.note ?? "",
+      customerSummary: it.customer_summary ?? "",
+      suggestedRepair: it.suggested_repair,
+      suggestedPrice: it.suggested_price,
       adhoc: it.template_item_id === null,
       media: it.media.map((m) => ({ id: m.id, url: urlMap.get(m.storage_path) ?? "", path: m.storage_path })),
     }));
