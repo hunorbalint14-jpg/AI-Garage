@@ -23,6 +23,13 @@ import {
 } from "@/lib/ai-inspection";
 import { getOrgAiBrief } from "@/lib/ai-profile";
 import { createQuote } from "../quote-actions";
+import { generateCheckToken, generateCheckSlug, hashCheckToken, tenantCheckUrl } from "@/lib/inspection-links";
+import { generateQuoteToken, generateQuoteSlug, hashQuoteToken } from "@/lib/quote-links";
+import { encryptLinkToken } from "@/lib/quote-reminders";
+import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
+import { sendEmail } from "@/lib/email";
+import { sendSms } from "@/lib/sms";
+import { sendWhatsApp } from "@/lib/whatsapp";
 
 // eVHC Phase 2 (#497): tech capture flow server actions. Every mutation
 // re-verifies that the inspection belongs to the caller's active branch —
@@ -727,4 +734,166 @@ export async function generateInspectionQuote(
 
   revalidatePath(`/staff/jobs/${inspection.job_id}`);
   return { success: true, quoteId: result.quoteId, quotedItemIds };
+}
+
+// ── Send the customer report (Phase 5) ─────────────────────────────────────
+// Mints the /check/[slug] token (sha256 stored, raw shown once), flips a
+// draft findings-quote to pending so the report page can drive its per-item
+// approval, and notifies the customer with the BRANCH identity (multi-site
+// rule). Resend re-mints — the old link stops working.
+
+export async function sendInspectionReport(
+  inspectionId: string,
+  opts?: { sms?: boolean; whatsapp?: boolean },
+): Promise<{ error: string } | { success: true; url: string; channels: string[] }> {
+  if (!(await isFeatureEnabled("evhc"))) return { error: "Health checks are not enabled." };
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "quotes_send")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const inspection = await ownInspection(admin, ctx.location.id, inspectionId);
+  if (!inspection) return { error: "Inspection not found." };
+  if (inspection.status !== "complete" && inspection.status !== "sent") {
+    return { error: "Complete the check before sending the report." };
+  }
+
+  // Customer + vehicle + counts for the message.
+  const { data: jobRow } = await admin
+    .from("jobs")
+    .select("id, customer:customers(full_name, email, phone), vehicle:vehicles(registration, make, model)")
+    .eq("id", inspection.job_id)
+    .maybeSingle();
+  const job = jobRow as unknown as {
+    id: string;
+    customer: { full_name: string | null; email: string | null; phone: string | null } | null;
+    vehicle: VehicleRow | null;
+  } | null;
+  const customer = job?.customer;
+  if (!customer?.email && !customer?.phone) {
+    return { error: "Customer has no email or phone — cannot send the report." };
+  }
+
+  const { data: countRows } = await admin
+    .from("inspection_items")
+    .select("rag")
+    .eq("inspection_id", inspectionId);
+  const rags = ((countRows ?? []) as { rag: string }[]).map((r) => r.rag);
+  const red = rags.filter((r) => r === "red").length;
+  const amber = rags.filter((r) => r === "amber").length;
+  const green = rags.filter((r) => r === "green").length;
+
+  // Draft findings-quote goes pending now: the report page drives its
+  // per-item approval, so it needs a live token (stored encrypted for the
+  // reminder cron, like every sent quote).
+  const { data: inspFull } = await admin
+    .from("inspections")
+    .select("quote_id")
+    .eq("id", inspectionId)
+    .maybeSingle();
+  const quoteId = (inspFull as { quote_id: string | null } | null)?.quote_id ?? null;
+  if (quoteId) {
+    const { data: q } = await admin.from("quotes").select("id, status").eq("id", quoteId).maybeSingle();
+    if ((q as { status: string } | null)?.status === "draft") {
+      const { data: orgRow } = await admin
+        .from("organizations")
+        .select("quote_validity_days")
+        .eq("id", ctx.organization.id)
+        .maybeSingle();
+      const validityDays = Number((orgRow as { quote_validity_days?: number } | null)?.quote_validity_days ?? 30);
+      const qToken = generateQuoteToken();
+      const { error: qErr } = await admin
+        .from("quotes")
+        .update({
+          status: "pending",
+          token_hash: hashQuoteToken(qToken),
+          link_token_encrypted: encryptLinkToken(qToken),
+          slug: generateQuoteSlug(),
+          expires_at: new Date(Date.now() + validityDays * 24 * 60 * 60 * 1000).toISOString(),
+          sent_at: new Date().toISOString(),
+          sent_channels: ["health_check_report"],
+        })
+        .eq("id", quoteId)
+        .eq("status", "draft");
+      if (qErr) return { error: `Could not activate the quote: ${qErr.message}` };
+    }
+  }
+
+  // Mint (or re-mint) the report link and mark sent.
+  const token = generateCheckToken();
+  const slug = generateCheckSlug();
+  const { error: sendErr } = await admin
+    .from("inspections")
+    .update({
+      token_hash: hashCheckToken(token),
+      slug,
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", inspectionId);
+  if (sendErr) return { error: sendErr.message };
+
+  const url = tenantCheckUrl(ctx.organization.slug, slug, token);
+  const { data: locRow } = await admin.from("locations").select("address").eq("id", ctx.location.id).maybeSingle();
+  const identity = {
+    orgName: ctx.organization.name,
+    locationName: ctx.location.name,
+    address: (locRow as { address: string | null } | null)?.address ?? null,
+  };
+  const label = garageLabel(identity);
+  const firstName = customer.full_name?.split(" ")[0] ?? "there";
+  const reg = job?.vehicle?.registration ?? "your vehicle";
+  const vehicleDesc = vehicleLine(job?.vehicle ?? null) || reg;
+  const findingsLine =
+    red + amber > 0
+      ? `${red > 0 ? `${red} item${red === 1 ? "" : "s"} need${red === 1 ? "s" : ""} urgent attention` : ""}${red > 0 && amber > 0 ? " and " : ""}${amber > 0 ? `${amber} advisor${amber === 1 ? "y" : "ies"} to keep an eye on` : ""}.`
+      : "Everything we checked is in good order.";
+
+  const channels: string[] = [];
+
+  if (customer.email) {
+    const result = await sendEmail({
+      to: customer.email,
+      subject: `Vehicle health check for ${reg} — ${label}`,
+      text: `Hi ${firstName},\n\nWe've completed a ${green + red + amber}-point vehicle health check on ${vehicleDesc}. ${findingsLine}\n\nOpen the report to see each item with photos${quoteId ? ", and approve or decline the recommended work item by item" : ""}.\n\n${garageLocationBlock(identity)}`,
+      cta: { url, label: "View health check report" },
+    });
+    if (result.success) channels.push("email");
+  }
+  if (customer.phone && opts?.sms !== false) {
+    const result = await sendSms({
+      to: customer.phone,
+      body: `Hi ${firstName}, ${label} completed a health check on ${reg}: ${red} urgent, ${amber} advisory. Report${quoteId ? " + approval" : ""}: ${url} — ${garageLocationInline(identity)}`,
+    });
+    if (result.success) channels.push("sms");
+  }
+  if (customer.phone && opts?.whatsapp) {
+    const result = await sendWhatsApp({
+      to: customer.phone,
+      body: `Hi ${firstName}, ${label} has completed a vehicle health check on ${reg} — ${red} urgent, ${amber} advisory, ${green} OK. Full report with photos${quoteId ? " and approval" : ""}: ${url}\n${garageLocationInline(identity)}`,
+    });
+    if (result.success) channels.push("whatsapp");
+  }
+
+  if (channels.length === 0) {
+    // Roll back so the check can be re-sent cleanly.
+    await admin
+      .from("inspections")
+      .update({ token_hash: null, slug: null, status: "complete", sent_at: null })
+      .eq("id", inspectionId);
+    return { error: "Failed to send via any channel." };
+  }
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "inspection.send",
+    entityType: "inspection",
+    entityId: inspectionId,
+    metadata: { job_id: inspection.job_id, channels, red, amber, green, quote_id: quoteId },
+  });
+
+  revalidatePath(`/staff/jobs/${inspection.job_id}`);
+  return { success: true, url, channels };
 }
