@@ -84,7 +84,7 @@ async function writeOutcomes(quoteId: string, approvedQuoteItemIds: string[]): P
 export async function respondToCheck(
   slug: string,
   token: string,
-  response: { approvedQuoteItemIds: string[] } | { declineReason: string | null },
+  response: { approvedQuoteItemIds: string[]; signedName?: string | null } | { declineReason: string | null },
 ): Promise<CheckRespondResult> {
   const loaded = await loadCheckQuote(slug, token);
   if ("error" in loaded) return loaded;
@@ -93,8 +93,11 @@ export async function respondToCheck(
   const approving = "approvedQuoteItemIds" in response && response.approvedQuoteItemIds.length > 0;
 
   if (approving) {
-    const ids = (response as { approvedQuoteItemIds: string[] }).approvedQuoteItemIds;
-    const result = await approveQuote(quote.slug!, quoteToken, ids);
+    const approveArgs = response as { approvedQuoteItemIds: string[]; signedName?: string | null };
+    const ids = approveArgs.approvedQuoteItemIds;
+    // The authorisation artefact (#503) is written inside approveQuote —
+    // the report inherits it; the typed name rides through here.
+    const result = await approveQuote(quote.slug!, quoteToken, ids, { signedName: approveArgs.signedName ?? null });
     if ("error" in result) return result;
     await writeOutcomes(quote.id, ids);
     await logAudit({
