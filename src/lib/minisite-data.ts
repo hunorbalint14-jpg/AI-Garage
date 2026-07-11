@@ -6,7 +6,7 @@ import { parseWeeklyHours, type SpecialHours, type WeeklyHours } from "@/lib/bus
 // fields only, one call. Null when the org hasn't published — the tenant
 // root falls back to the splash.
 
-export type MiniSiteSectionKey = "services" | "hours" | "branches" | "reviews" | "about";
+export type MiniSiteSectionKey = "services" | "hours" | "branches" | "reviews" | "about" | "gallery";
 
 export type MiniSiteBranch = {
   id: string;
@@ -30,13 +30,22 @@ export type MiniSite = {
   strapline: string | null;
   about: string | null;
   sections: Record<MiniSiteSectionKey, boolean>;
+  /** Public URLs, render order. */
+  gallery: string[];
   branches: MiniSiteBranch[];
 };
 
 export function sectionsFrom(raw: unknown): Record<MiniSiteSectionKey, boolean> {
   const r = (raw ?? {}) as Record<string, unknown>;
   const on = (k: MiniSiteSectionKey) => r[k] !== false; // absent = shown
-  return { services: on("services"), hours: on("hours"), branches: on("branches"), reviews: on("reviews"), about: on("about") };
+  return {
+    services: on("services"),
+    hours: on("hours"),
+    branches: on("branches"),
+    reviews: on("reviews"),
+    about: on("about"),
+    gallery: on("gallery"),
+  };
 }
 
 // React-cached: generateMetadata, the page, sitemap and the OG image may all
@@ -47,7 +56,7 @@ export const loadMiniSite = cache(async (organizationId: string): Promise<MiniSi
   const [{ data: siteRow }, { data: orgRow }] = await Promise.all([
     admin
       .from("org_sites")
-      .select("published, sections, strapline, about")
+      .select("published, sections, strapline, about, gallery_paths")
       .eq("organization_id", organizationId)
       .maybeSingle(),
     admin
@@ -56,7 +65,13 @@ export const loadMiniSite = cache(async (organizationId: string): Promise<MiniSi
       .eq("id", organizationId)
       .maybeSingle(),
   ]);
-  const site = siteRow as { published: boolean; sections: unknown; strapline: string | null; about: string | null } | null;
+  const site = siteRow as {
+    published: boolean;
+    sections: unknown;
+    strapline: string | null;
+    about: string | null;
+    gallery_paths: string[] | null;
+  } | null;
   const org = orgRow as {
     name: string;
     slug: string;
@@ -121,6 +136,7 @@ export const loadMiniSite = cache(async (organizationId: string): Promise<MiniSi
     strapline: site.strapline,
     about: site.about,
     sections: sectionsFrom(site.sections),
+    gallery: (site.gallery_paths ?? []).map((p) => admin.storage.from("site-gallery").getPublicUrl(p).data.publicUrl),
     branches: locations.map((l) => ({
       id: l.id,
       slug: l.slug,

@@ -88,15 +88,20 @@ export default async function SettingsPage({
   const specialHours = (specialRows ?? []) as SpecialHoursRow[];
 
   // Mini-site row (#507) — only fetched when the Website tab is open.
-  type SiteRow = { published: boolean; sections: unknown; strapline: string | null; about: string | null };
+  type SiteRow = { published: boolean; sections: unknown; strapline: string | null; about: string | null; gallery_paths: string[] | null };
   let siteRow: SiteRow | null = null;
+  let siteGallery: { path: string; url: string }[] = [];
   if (tab === "website") {
     const { data } = await admin
       .from("org_sites")
-      .select("published, sections, strapline, about")
+      .select("published, sections, strapline, about, gallery_paths")
       .eq("organization_id", ctx.organization.id)
       .maybeSingle();
     siteRow = data as SiteRow | null;
+    siteGallery = (siteRow?.gallery_paths ?? []).map((p) => ({
+      path: p,
+      url: admin.storage.from("site-gallery").getPublicUrl(p).data.publicUrl,
+    }));
   }
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "ai-garage.co.uk";
   const siteUrl = `${rootDomain.includes("localtest") || rootDomain.includes("localhost") ? "http" : "https"}://${ctx.organization.slug}.${rootDomain}/`;
@@ -212,6 +217,7 @@ export default async function SettingsPage({
             sections: (siteRow?.sections as Record<string, boolean> | null) ?? {},
             strapline: siteRow?.strapline ?? "",
             about: siteRow?.about ?? "",
+            gallery: siteGallery,
           }}
           siteUrl={siteUrl}
           canManage={isOwner}
