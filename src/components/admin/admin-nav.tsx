@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 const NAV: { href: string; label: string; match: (p: string) => boolean }[] = [
   { href: "/admin", label: "Overview", match: (p) => p === "/admin" || p.startsWith("/admin/orgs") },
   { href: "/admin/ai", label: "AI usage", match: (p) => p.startsWith("/admin/ai") },
+  { href: "/admin/traffic", label: "Traffic", match: (p) => p.startsWith("/admin/traffic") },
   { href: "/admin/health", label: "Reliability", match: (p) => p.startsWith("/admin/health") },
   { href: "/admin/incidents", label: "Incidents", match: (p) => p.startsWith("/admin/incidents") },
   { href: "/admin/admins", label: "Admins", match: (p) => p.startsWith("/admin/admins") },

@@ -11,6 +11,7 @@ function pageTitleFor(pathname: string): string {
   if (pathname === "/admin") return "Platform overview";
   if (pathname.startsWith("/admin/orgs")) return "Organisation";
   if (pathname.startsWith("/admin/ai")) return "AI usage";
+  if (pathname.startsWith("/admin/traffic")) return "Traffic";
   if (pathname.startsWith("/admin/health")) return "Platform reliability";
   if (pathname.startsWith("/admin/incidents")) return "Incidents";
   if (pathname.startsWith("/admin/admins")) return "Platform admins";
