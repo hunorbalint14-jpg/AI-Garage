@@ -5,6 +5,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { CookieBanner } from "@/components/cookie-banner";
 import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { ConfirmProvider } from "@/components/confirm-provider";
+import { TrackPageview } from "@/components/track-pageview";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -82,6 +83,9 @@ export default function RootLayout({
         {/* Real-user TTFB/LCP/CLS per route → Vercel dashboard. Script + beacon
             are same-origin (/_vercel/speed-insights/*), so the CSP needs no change. */}
         <SpeedInsights />
+        {/* First-party traffic beacon → /api/collect (same-origin, cookieless).
+            Admin-host hits are dropped server-side. */}
+        <TrackPageview />
       </body>
     </html>
   );
