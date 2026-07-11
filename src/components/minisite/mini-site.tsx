@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { resolveHoursForDate, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 import type { MiniSite as MiniSiteData, MiniSiteBranch } from "@/lib/minisite-data";
+import { autoRepairJsonLd, tenantBaseUrl } from "@/lib/minisite-seo";
 
 // Public garage mini-site (#507 PR 2). RSC-only, no client JS beyond anchor
 // links — performance is architecture: one accent colour, system stack, no
@@ -90,8 +91,20 @@ export function MiniSitePage({ site }: { site: MiniSiteData }) {
   }
   const services = [...serviceMap.values()].slice(0, 12);
 
+  const baseUrl = tenantBaseUrl(site.org.slug);
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100">
+      {/* AutoRepair structured data, one block per branch (#507 PR 3). */}
+      {site.branches.map((b) => (
+        <script
+          key={b.id}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(autoRepairJsonLd(site, b, multi ? `${baseUrl}/b/${b.slug}` : `${baseUrl}/`)),
+          }}
+        />
+      ))}
       {/* Header */}
       <header className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
         <div className="flex items-center gap-3">

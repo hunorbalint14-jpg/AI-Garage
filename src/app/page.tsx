@@ -4,6 +4,28 @@ import { getCurrentTenant } from "@/lib/tenant-data";
 import { AnimatedBackground } from "@/components/animated-background";
 import { loadMiniSite } from "@/lib/minisite-data";
 import { MiniSitePage } from "@/components/minisite/mini-site";
+import { siteTitle, siteDescription, tenantBaseUrl } from "@/lib/minisite-seo";
+import type { Metadata } from "next";
+
+// Tenant metadata (#507 PR 3): published orgs get real local-business
+// metadata + canonical; unpublished tenant splashes are noindexed; the apex
+// marketing page inherits the layout defaults untouched.
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getCurrentTenant();
+  if (!tenant) return {};
+  const site = await loadMiniSite(tenant.organization.id);
+  if (!site) return { robots: { index: false, follow: false } };
+  const base = tenantBaseUrl(site.org.slug);
+  const title = siteTitle(site);
+  const description = siteDescription(site);
+  return {
+    title,
+    description,
+    alternates: { canonical: `${base}/` },
+    openGraph: { title, description, url: `${base}/`, type: "website" },
+    twitter: { card: "summary_large_image", title, description },
+  };
+}
 
 const FEATURES = [
   {
