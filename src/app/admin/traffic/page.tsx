@@ -8,6 +8,7 @@ import {
   type OrgTrafficRow,
 } from "@/lib/platform/traffic-stats";
 import { TrafficChart } from "@/components/admin/traffic-chart";
+import { RankPanel, Sparkline } from "@/components/admin/traffic-panels";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,6 @@ const GEO_TABS = ["city", "country"] as const;
 
 // Chart palette — validated against #15181d (dataviz six-checks).
 const CAT = ["#3987e5", "#199e70", "#c98500", "#9085e9"];
-const SPARK = "#3987e5";
 
 function fmt(n: number): string {
   return n.toLocaleString("en-GB");
@@ -58,44 +58,6 @@ function Seg({ items }: { items: { href: string; label: string; on: boolean }[] 
   );
 }
 
-function Sparkline({ points }: { points: number[] }) {
-  const w = 84, h = 22;
-  const max = Math.max(...points, 1);
-  const min = Math.min(...points);
-  const pts = points
-    .map((v, i) => `${((i / Math.max(1, points.length - 1)) * w).toFixed(1)},${(h - 2 - ((v - min) / Math.max(1, max - min)) * (h - 4)).toFixed(1)}`)
-    .join(" ");
-  return (
-    <svg width={w} height={h} aria-hidden className="inline-block align-middle">
-      <polyline points={pts} fill="none" stroke={SPARK} strokeWidth={1.5} />
-    </svg>
-  );
-}
-
-function RankPanel({ title, sub, rows, tabs }: { title: string; sub: string; rows: [string, number][]; tabs?: React.ReactNode }) {
-  const max = Math.max(...rows.map(([, v]) => v), 1);
-  return (
-    <div className="rounded-xl border border-[#23272f] bg-[#15181d] p-4">
-      <div className="flex items-baseline justify-between gap-2">
-        <div>
-          <h2 className="text-[13px] font-semibold">{title}</h2>
-          <p className="mt-0.5 mb-3 text-[11px] text-[#5a6170]">{sub}</p>
-        </div>
-        {tabs}
-      </div>
-      <div className="flex flex-col gap-1">
-        {rows.map(([label, v]) => (
-          <div key={label} className="relative flex items-center justify-between gap-3 rounded-md px-2 py-1.5">
-            <div className="absolute inset-0 rounded-md bg-[#3987e5]/[0.18]" style={{ width: `${((v / max) * 100).toFixed(1)}%` }} />
-            <span className="relative z-[1] min-w-0 truncate text-[12.5px]">{label}</span>
-            <span className="relative z-[1] flex-none font-mono text-[11.5px] tabular-nums text-[#9aa1ad]">{fmt(v)}</span>
-          </div>
-        ))}
-        {rows.length === 0 && <div className="py-5 text-center text-xs text-[#5a6170]">No data in this window yet.</div>}
-      </div>
-    </div>
-  );
-}
 
 function DeviceDonut({ rows }: { rows: [string, number][] }) {
   const total = rows.reduce((s, [, v]) => s + v, 0);
@@ -143,7 +105,7 @@ function DeviceDonut({ rows }: { rows: [string, number][] }) {
   );
 }
 
-function OrgTable({ rows }: { rows: OrgTrafficRow[] }) {
+function OrgTable({ rows, base }: { rows: OrgTrafficRow[]; base: Record<string, string> }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full border-collapse text-[12.5px]">
@@ -165,7 +127,12 @@ function OrgTable({ rows }: { rows: OrgTrafficRow[] }) {
                 <Link href={`/admin/orgs/${o.id}`} className="font-semibold text-white hover:underline">
                   {o.name}
                 </Link>
-                <div className="font-mono text-[10.5px] text-[#5a6170]">{o.slug}</div>
+                <div className="flex items-center gap-2 font-mono text-[10.5px] text-[#5a6170]">
+                  {o.slug}
+                  <Link href={qs({ org: o.id }, base)} className="text-[#3987e5] hover:underline">
+                    focus →
+                  </Link>
+                </div>
               </td>
               <td className="border-b border-[#1e2228] px-2.5 py-2 text-right tabular-nums">{fmt(o.visitors)}</td>
               <td className="border-b border-[#1e2228] px-2.5 py-2 text-right tabular-nums">{fmt(o.pageviews)}</td>
@@ -201,17 +168,28 @@ function OrgTable({ rows }: { rows: OrgTrafficRow[] }) {
 export default async function AdminTrafficPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; surface?: string; dev?: string; geo?: string }>;
+  searchParams: Promise<{ range?: string; surface?: string; dev?: string; geo?: string; org?: string }>;
 }) {
   const sp = await searchParams;
   const range: TrafficRange = RANGES.includes(sp.range as TrafficRange) ? (sp.range as TrafficRange) : "30d";
   const surface: SurfaceFilter = SURFACES.some((s) => s.key === sp.surface) ? (sp.surface as SurfaceFilter) : "all";
   const devTab = DEVICE_TABS.includes(sp.dev as (typeof DEVICE_TABS)[number]) ? (sp.dev as (typeof DEVICE_TABS)[number]) : "device";
   const geoTab = GEO_TABS.includes(sp.geo as (typeof GEO_TABS)[number]) ? (sp.geo as (typeof GEO_TABS)[number]) : "city";
+  const orgId = sp.org && /^[0-9a-f-]{36}$/i.test(sp.org) ? sp.org : null;
 
   const admin = createAdminClient();
-  const stats = await fetchTrafficStats(admin, range, surface);
-  const base = { range, surface, dev: devTab, geo: geoTab };
+  const [stats, focusedOrg] = await Promise.all([
+    fetchTrafficStats(admin, range, surface, orgId),
+    orgId
+      ? admin
+          .from("organizations")
+          .select("id, name")
+          .eq("id", orgId)
+          .maybeSingle()
+          .then((r) => (r.data as { id: string; name: string } | null) ?? null)
+      : Promise.resolve(null),
+  ]);
+  const base: Record<string, string> = { range, surface, dev: devTab, geo: geoTab, ...(orgId ? { org: orgId } : {}) };
 
   const deviceRows = devTab === "device" ? stats.devices : devTab === "browser" ? stats.browsers : stats.oses;
   const geoRows = geoTab === "city" ? stats.cities : stats.countries;
@@ -221,6 +199,15 @@ export default async function AdminTrafficPage({
       <div className="flex flex-wrap items-center gap-2.5">
         <Seg items={RANGES.map((r) => ({ href: qs({ range: r }, base), label: r, on: r === range }))} />
         <Seg items={SURFACES.map((s) => ({ href: qs({ surface: s.key }, base), label: s.label, on: s.key === surface }))} />
+        {orgId && (
+          <Link
+            href={qs({}, { range, surface, dev: devTab, geo: geoTab })}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#2a5a3a] bg-[#13301f] px-2.5 py-1.5 text-xs font-semibold text-[#5fdd9d] hover:bg-[#163a26]"
+          >
+            {focusedOrg?.name ?? "Unknown organisation"} <span aria-hidden>×</span>
+            <span className="sr-only">clear organisation filter</span>
+          </Link>
+        )}
         <span className="ml-auto font-mono text-[10.5px] tracking-wide text-[#5a6170]">
           {range === "24h" ? "LAST 24H · HOURLY" : `LAST ${RANGE_DAYS[range]} DAYS · DAILY`} · VS PREVIOUS PERIOD
         </span>
@@ -248,7 +235,7 @@ export default async function AdminTrafficPage({
           <p className="mt-0.5 mb-3 text-[11px] text-[#5a6170]">
             Visitors on tenant hosts. Conversion = bookings ÷ booking-page visitors, whatever the surface filter.
           </p>
-          <OrgTable rows={stats.orgs} />
+          <OrgTable rows={stats.orgs} base={base} />
         </div>
 
         <div className="rounded-xl border border-[#23272f] bg-[#15181d] p-4">

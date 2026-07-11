@@ -201,6 +201,8 @@ export async function fetchTrafficStats(
   admin: Admin,
   range: TrafficRange,
   surface: SurfaceFilter,
+  /** Restrict everything (series, panels, org table, bookings) to one tenant. */
+  orgId?: string | null,
 ): Promise<TrafficStats> {
   const now = new Date();
   const todayUtc = new Date(now);
@@ -228,7 +230,8 @@ export async function fetchTrafficStats(
     const prevRows = rows.filter((r) => r.occurred_at < curStart.toISOString());
     curSlices = foldRawRows(curRows, hourOf);
     prevSlices = foldRawRows(prevRows, hourOf);
-    for (const r of curRows) if (surfaceMatch(r.surface, surface)) osCounts[r.os] = (osCounts[r.os] ?? 0) + 1;
+    for (const r of curRows)
+      if (surfaceMatch(r.surface, surface) && (!orgId || r.organization_id === orgId)) osCounts[r.os] = (osCounts[r.os] ?? 0) + 1;
   } else {
     // Completed days from rollups (cur + prev windows in one query)…
     const curStart = new Date(todayUtc.getTime() - (days - 1) * 86_400_000);
@@ -258,9 +261,15 @@ export async function fetchTrafficStats(
     const all = [...rollups, ...rawSlices];
     curSlices = all.filter((s) => s.bucket >= curKey);
     prevSlices = all.filter((s) => s.bucket < curKey);
-    for (const r of rawRows) if (r.occurred_at >= curKey && surfaceMatch(r.surface, surface)) osCounts[r.os] = (osCounts[r.os] ?? 0) + 1;
+    for (const r of rawRows)
+      if (r.occurred_at >= curKey && surfaceMatch(r.surface, surface) && (!orgId || r.organization_id === orgId))
+        osCounts[r.os] = (osCounts[r.os] ?? 0) + 1;
   }
 
+  if (orgId) {
+    curSlices = curSlices.filter((s) => s.organizationId === orgId);
+    prevSlices = prevSlices.filter((s) => s.organizationId === orgId);
+  }
   const cur = curSlices.filter((s) => surfaceMatch(s.surface, surface));
   const prev = prevSlices.filter((s) => surfaceMatch(s.surface, surface));
 
@@ -305,10 +314,10 @@ export async function fetchTrafficStats(
   let bookingsTotal = 0;
   let bookingsPrevTotal = 0;
   for (const b of (bookingsRes.data ?? []) as { location_id: string; created_at: string }[]) {
-    const orgId = locOrg.get(b.location_id);
-    if (!orgId) continue;
+    const bOrg = locOrg.get(b.location_id);
+    if (!bOrg || (orgId && bOrg !== orgId)) continue;
     if (b.created_at >= windowStartIso) {
-      bookingsByOrg[orgId] = (bookingsByOrg[orgId] ?? 0) + 1;
+      bookingsByOrg[bOrg] = (bookingsByOrg[bOrg] ?? 0) + 1;
       bookingsTotal++;
     } else {
       bookingsPrevTotal++;
