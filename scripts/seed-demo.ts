@@ -658,6 +658,169 @@ async function main() {
     }
   });
 
+  // ── 2026.07.3 wave (#497–#508): rows the new manual sections shoot ─────────
+
+  await step("trade account on Charlie + statement history", async () => {
+    if (!customerId) throw new Error("no customer");
+    must(
+      await db
+        .from("customers")
+        .update({ account_customer: true, payment_terms_days: 30, credit_limit: 2000, consolidated_billing: true })
+        .eq("id", customerId)
+        .select("id"),
+    );
+    // One open account invoice + a part-payment so the panel/statement shots
+    // show a real balance (idempotent by invoice number).
+    const existing = await db.from("invoices").select("id").eq("invoice_number", "SMI-ACC-0001").maybeSingle();
+    if (!existing.data) {
+      const inv = must(
+        await db
+          .from("invoices")
+          .insert({
+            location_id: locId,
+            organization_id: orgId,
+            customer_id: customerId,
+            invoice_number: "SMI-ACC-0001",
+            status: "sent",
+            subtotal: 400,
+            vat_rate: 20,
+            vat_amount: 80,
+            total: 480,
+            amount_paid: 200,
+            issued_at: isoDate(daysFromNow(-20)),
+            due_at: isoDate(daysFromNow(10)),
+          })
+          .select("id")
+          .single(),
+      );
+      const pay = must(
+        await db
+          .from("payments")
+          .insert({
+            location_id: locId,
+            organization_id: orgId,
+            customer_id: customerId,
+            amount: 200,
+            method: "bank_transfer",
+            reference: "BACS 2201",
+            received_at: isoDate(daysFromNow(-6)),
+          })
+          .select("id")
+          .single(),
+      );
+      must(await db.from("payment_allocations").insert({ payment_id: pay.id, invoice_id: inv.id, amount: 200 }).select("id"));
+    }
+  });
+
+  await step("deferred-work bank rows", async () => {
+    if (!customerId) throw new Error("no customer");
+    const { data: veh } = await db.from("vehicles").select("id").eq("customer_id", customerId).limit(1).maybeSingle();
+    const rows = [
+      { description: "Rear brake pads at 3mm — replace soon", price: 138, rag: "amber" as const },
+      { description: "Front tyres on the legal limit", price: 210, rag: "red" as const },
+    ];
+    for (const r of rows) {
+      const existing = await db.from("deferred_work").select("id").eq("description", r.description).maybeSingle();
+      if (existing.data) continue;
+      must(
+        await db
+          .from("deferred_work")
+          .insert({
+            location_id: locId,
+            organization_id: orgId,
+            customer_id: customerId,
+            vehicle_id: veh?.id ?? null,
+            source: "quote_item",
+            status: "open",
+            followup_count: 1,
+            last_followup_at: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+            ...r,
+          })
+          .select("id"),
+      );
+    }
+  });
+
+  await step("signed work authorisation", async () => {
+    if (!customerId) throw new Error("no customer");
+    const { data: job } = await db.from("jobs").select("id").eq("customer_id", customerId).limit(1).maybeSingle();
+    const existing = await db.from("work_authorisations").select("id").eq("signed_name", "Charlie Customer").maybeSingle();
+    if (existing.data) return;
+    must(
+      await db
+        .from("work_authorisations")
+        .insert({
+          location_id: locId,
+          organization_id: orgId,
+          job_id: job?.id ?? null,
+          customer_id: customerId,
+          kind: "initial",
+          method: "quote_approval",
+          status: "authorised",
+          authorised_total: 228,
+          items_snapshot: [
+            { description: "Front brake discs (pair)", total: 120 },
+            { description: "Front brake pads + fitting", total: 108 },
+          ],
+          signed_name: "Charlie Customer",
+          authorised_at: new Date(Date.now() - 2 * 86_400_000).toISOString(),
+        })
+        .select("id"),
+    );
+  });
+
+  await step("imported service history + past invoice", async () => {
+    if (!customerId) throw new Error("no customer");
+    const { data: veh } = await db.from("vehicles").select("id").eq("customer_id", customerId).limit(1).maybeSingle();
+    if (!veh) throw new Error("no vehicle");
+    const entries = [
+      { happened_on: "2024-03-05", mileage: 41200, description: "Full service, oil & filters (previous system)", total: 189.5 },
+      { happened_on: "2024-11-12", mileage: 47810, description: "Cambelt & water pump replaced (previous system)", total: 486 },
+    ];
+    for (const e of entries) {
+      const existing = await db.from("vehicle_history_entries").select("id").eq("description", e.description).maybeSingle();
+      if (existing.data) continue;
+      must(
+        await db
+          .from("vehicle_history_entries")
+          .insert({ organization_id: orgId, vehicle_id: veh.id, source: "import", ...e })
+          .select("id"),
+      );
+    }
+    const inv = await db.from("imported_invoices").select("id").eq("invoice_number", "TM-4471").maybeSingle();
+    if (!inv.data) {
+      must(
+        await db
+          .from("imported_invoices")
+          .insert({
+            organization_id: orgId,
+            customer_id: customerId,
+            vehicle_id: veh.id,
+            invoice_number: "TM-4471",
+            issued_on: "2023-05-14",
+            total: 312.4,
+            status: "Paid",
+            description: "Clutch replacement (previous system)",
+          })
+          .select("id"),
+      );
+    }
+  });
+
+  await step("mini-site settings row (unpublished — root stays the splash)", async () => {
+    must(
+      await db
+        .from("org_sites")
+        .upsert({
+          organization_id: orgId,
+          published: false,
+          strapline: "Colindale's honest garage — MOTs while you wait.",
+          about: "Family-run since 1998. DVSA-approved MOT centre with four bays.",
+        })
+        .select("organization_id"),
+    );
+  });
+
   summary();
 }
 
