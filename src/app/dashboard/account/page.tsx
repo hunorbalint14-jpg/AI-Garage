@@ -6,6 +6,7 @@ import { getPortalContext } from "@/lib/portal-auth";
 import { accountProfile, accountBalance } from "@/lib/account";
 import { buildStatement } from "@/lib/statement";
 import { PortalShell } from "../portal-shell";
+import { PayBalanceButton } from "./pay-balance-button";
 
 // Fleet / trade account view (#504 PR 5): the account contact's open balance,
 // aging, open invoices and a monthly statement — the portal twin of the staff
@@ -38,7 +39,7 @@ function shiftMonth(value: string, delta: number): string {
 export default async function PortalAccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; paid?: string }>;
 }) {
   const { location, customer } = await getPortalContext();
   const org = location.organization;
@@ -48,7 +49,7 @@ export default async function PortalAccountPage({
   const profile = await accountProfile(admin, customer.id);
   if (!profile?.accountCustomer) notFound();
 
-  const { month } = await searchParams;
+  const { month, paid } = await searchParams;
   const now = new Date();
   const thisMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
   const selected = month && /^\d{4}-\d{2}$/.test(month) ? month : thisMonth;
@@ -121,6 +122,15 @@ export default async function PortalAccountPage({
             </div>
           ))}
         </div>
+        {paid === "1" && (
+          <p className="mt-4 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-400">
+            Payment received — thank you. Your balance and statement update as soon as the payment is confirmed
+            (usually within a minute).
+          </p>
+        )}
+        {statement.totalOutstanding > 0 && paid !== "1" && (
+          <PayBalanceButton amountLabel={fmt(statement.totalOutstanding)} accent={org.primary_color} />
+        )}
       </section>
 
       {/* Open invoices */}

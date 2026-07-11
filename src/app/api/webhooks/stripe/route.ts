@@ -12,6 +12,8 @@ import { recordTenantSubscription } from "@/lib/tenant-plans";
 import { sendTenantSubscriptionReceipt, sendServicePlanReceipt } from "@/lib/subscription-receipts";
 import { recordWebhookDelivery } from "@/lib/platform/webhooks";
 import { decidePlanFunding } from "@/lib/plan-funding";
+import { applyAccountPayment } from "@/lib/account-payments";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -213,6 +215,64 @@ async function handleStripeEvent(
             });
           }
         }
+        break;
+      }
+
+      // Account balance payments (#504 follow-up): one card payment covering
+      // the customer's open invoices. Recorded through the same applier the
+      // staff form uses, so allocation and `paid` semantics are identical.
+      if (session.metadata?.kind === "account_balance") {
+        if (session.payment_status !== "paid") break;
+        const custId = session.metadata.customer_id;
+        const orgId = session.metadata.organization_id;
+        const locId = session.metadata.location_id;
+        const amount = (session.amount_total ?? 0) / 100;
+        if (!custId || !orgId || !locId || amount <= 0) {
+          console.error("[stripe-webhook] account_balance missing metadata", { id: session.id });
+          break;
+        }
+        // Idempotency: Stripe retries webhooks — the session id in the
+        // reference is the dedupe key.
+        const reference = `Stripe ${session.id}`;
+        const { data: dupe } = await admin
+          .from("payments")
+          .select("id")
+          .eq("customer_id", custId)
+          .eq("reference", reference)
+          .maybeSingle();
+        if (dupe) break;
+
+        const applied = await applyAccountPayment(admin, {
+          organizationId: orgId,
+          customerId: custId,
+          locationId: locId,
+          amount,
+          method: "card",
+          reference,
+        });
+        if ("error" in applied) {
+          console.error("[stripe-webhook] account_balance apply failed", { id: session.id, error: applied.error });
+          break;
+        }
+        await logAudit({
+          organizationId: orgId,
+          action: "payment.recorded",
+          entityType: "payment",
+          entityId: applied.paymentId,
+          metadata: {
+            customer_id: custId,
+            amount,
+            method: "card",
+            source: "stripe_balance_checkout",
+            allocations: applied.allocatedTo,
+            unallocated: applied.unallocated,
+          },
+        });
+        console.log("[stripe-webhook] account_balance recorded", {
+          session: session.id,
+          amount,
+          allocations: applied.allocatedTo,
+        });
         break;
       }
 
