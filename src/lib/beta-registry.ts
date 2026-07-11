@@ -19,32 +19,11 @@ export type BetaSurface = {
   aiFeatures: string[];
 };
 
+// Graduated with the #456 gate call (this PR): deferred work, AI
+// receptionist, support assistant — their chips are gone, so their entries
+// go too (the lockstep test enforces it). eVHC stays: its beta framing is
+// the feature-flag rollout, not a nav chip.
 export const BETA_SURFACES: BetaSurface[] = [
-  {
-    key: "deferred",
-    label: "Deferred work (bank + follow-ups)",
-    chip: { navKey: "deferred" },
-    launchedOn: "2026-07-10",
-    auditActions: ["deferred.followup_sent", "deferred.recovered", "deferred.dismissed", "deferred.reopened"],
-    aiFeatures: ["deferred_followup_draft"],
-  },
-  {
-    key: "receptionist",
-    label: "AI receptionist",
-    chip: { navKey: "receptionist" },
-    launchedOn: "2026-07-06", // beta framing from the release-notes launch (#441)
-    // config_update deliberately excluded — setting it up isn't using it.
-    auditActions: ["receptionist.booking_created", "receptionist.handed_off", "receptionist.number_provisioned"],
-    aiFeatures: ["receptionist"],
-  },
-  {
-    key: "support_assist",
-    label: "Support assistant (widget)",
-    chip: { note: "BETA chip in the support widget header" },
-    launchedOn: "2026-07-06",
-    auditActions: [],
-    aiFeatures: ["support_assist"],
-  },
   {
     key: "evhc",
     label: "eVHC — vehicle health checks",
