@@ -198,7 +198,11 @@ export function BookingWidgetForm({
     );
   }
 
-  const lockContact = !!prefill;
+  // Only lock the contact block when the prefill is actually usable — a
+  // signed-in user with no customer record (e.g. staff trying their own
+  // widget) or a record missing its name must still get the fields, or the
+  // submit fails "Name is required" with nothing visible to fill.
+  const lockContact = !!prefill && prefill.fullName.trim() !== "" && prefill.email.trim() !== "";
   const vehicleDesc = vehicle
     ? [vehicle.colour, vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") ||
       vehicle.registration
@@ -394,16 +398,38 @@ export function BookingWidgetForm({
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-gray-600">Full name *</label>
-                  <input name="fullName" required placeholder="John Smith" disabled={pending} className={INPUT} />
+                  <input
+                    name="fullName"
+                    required
+                    defaultValue={prefill?.fullName ?? ""}
+                    placeholder="John Smith"
+                    disabled={pending}
+                    className={INPUT}
+                  />
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-gray-600">Email *</label>
-                  <input name="email" type="email" required placeholder="john@example.com" disabled={pending} className={INPUT} />
+                  <input
+                    name="email"
+                    type="email"
+                    required
+                    defaultValue={prefill?.email ?? ""}
+                    placeholder="john@example.com"
+                    disabled={pending}
+                    className={INPUT}
+                  />
                 </div>
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold text-gray-600">Phone</label>
-                <input name="phone" type="tel" placeholder="07700 900000" disabled={pending} className={INPUT} />
+                <input
+                  name="phone"
+                  type="tel"
+                  defaultValue={prefill?.phone ?? ""}
+                  placeholder="07700 900000"
+                  disabled={pending}
+                  className={INPUT}
+                />
               </div>
             </>
           )}
