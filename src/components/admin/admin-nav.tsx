@@ -14,6 +14,7 @@ const NAV: { href: string; label: string; match: (p: string) => boolean }[] = [
   { href: "/admin/incidents", label: "Incidents", match: (p) => p.startsWith("/admin/incidents") },
   { href: "/admin/admins", label: "Admins", match: (p) => p.startsWith("/admin/admins") },
   { href: "/admin/feature-flags", label: "Feature flags", match: (p) => p.startsWith("/admin/feature-flags") },
+  { href: "/admin/beta", label: "Beta", match: (p) => p.startsWith("/admin/beta") },
   { href: "/admin/doc-shares", label: "Doc shares", match: (p) => p.startsWith("/admin/doc-shares") },
   { href: "/admin/support", label: "Support", match: (p) => p.startsWith("/admin/support") },
 ];
