@@ -116,9 +116,6 @@ export function SupportPanel(props: PanelProps) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 text-[13.5px] font-semibold leading-tight text-[#e6e8eb]">
               Support
-              <span className="rounded border border-[#5a4218] bg-[#3a2c14] px-1 py-px font-mono text-[8px] tracking-[.1em] text-[#ffb020]">
-                BETA
-              </span>
             </div>
             <div className="mt-0.5 font-mono text-[9px] tracking-[.1em] text-[#5a6170]">
               ANSWERS FIRST · HUMANS ON STANDBY

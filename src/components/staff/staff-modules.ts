@@ -79,8 +79,8 @@ export const NAV_MODULES: NavModule[] = [
     items: [
       { key: "campaigns",   href: "/staff/campaigns",   label: "Campaigns",   icon: Megaphone, permission: "campaigns" },
       { key: "win-back",    href: "/staff/win-back",    label: "Win-back",    icon: RotateCcw, permission: "campaigns" },
-      { key: "deferred",    href: "/staff/deferred",    label: "Deferred work", icon: History, permission: "quotes_draft", beta: true },
-      { key: "receptionist", href: "/staff/receptionist", label: "Receptionist", icon: PhoneCall, permission: "bookings", beta: true },
+      { key: "deferred",    href: "/staff/deferred",    label: "Deferred work", icon: History, permission: "quotes_draft" },
+      { key: "receptionist", href: "/staff/receptionist", label: "Receptionist", icon: PhoneCall, permission: "bookings" },
       { key: "automations", href: "/staff/automations", label: "Automations", icon: Zap,       permission: "automations" },
     ],
   },

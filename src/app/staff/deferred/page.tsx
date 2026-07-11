@@ -86,12 +86,7 @@ export default async function DeferredWorkPage({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">
-            Deferred work
-            <span className="ml-2 rounded border border-[#5a4218] bg-[#3a2c14] px-1 py-px align-middle font-mono text-[8px] tracking-[.1em] text-[#ffb020]">
-              BETA
-            </span>
-          </h1>
+          <h1 className="text-2xl font-bold">Deferred work</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Work customers declined or were advised of but never booked. The follow-up sequence chases it —
             configure it under <Link href="/staff/automations" className="underline underline-offset-2">Automations</Link>.
