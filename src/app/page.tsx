@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Car, Bell, Users, ShieldCheck, Zap, MapPin } from "lucide-react";
 import { getCurrentTenant } from "@/lib/tenant-data";
 import { AnimatedBackground } from "@/components/animated-background";
+import { loadMiniSite } from "@/lib/minisite-data";
+import { MiniSitePage } from "@/components/minisite/mini-site";
 
 const FEATURES = [
   {
@@ -249,6 +251,12 @@ function TenantPage({
 export default async function Home() {
   const tenant = await getCurrentTenant();
   if (!tenant) return <MarketingPage />;
+
+  // Garage mini-site (#507): published orgs get the full marketing page;
+  // everyone else keeps the splash below, unchanged.
+  const site = await loadMiniSite(tenant.organization.id);
+  if (site) return <MiniSitePage site={site} />;
+
   return (
     <TenantPage
       orgName={tenant.organization.name}
