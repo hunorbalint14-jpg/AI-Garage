@@ -121,18 +121,19 @@ export async function GET(request: NextRequest) {
     console.error("[cron/tick] finance reconcile failed", e);
   }
 
-  // First-week activation emails (#506): platform-level, once per UTC day on
-  // the 09:00 tick. The route is stage-idempotent, so a double fire is safe
-  // and a missed hour just sends on the next day's tick.
+  // Daily platform-level passes on the 09:00 tick — both routes are
+  // idempotent, so a double fire is safe and a missed hour runs next day.
   if (now.getUTCHours() === 9) {
-    try {
-      const res = await fetch(`${origin}/api/cron/activation`, {
-        headers: { authorization: `Bearer ${secret}` },
-        cache: "no-store",
-      });
-      if (!res.ok) results.errors.push(`activation: HTTP ${res.status}`);
-    } catch (e) {
-      results.errors.push(`activation: ${(e as Error).message}`);
+    for (const path of ["/api/cron/activation", "/api/cron/overage-reconcile"]) {
+      try {
+        const res = await fetch(`${origin}${path}`, {
+          headers: { authorization: `Bearer ${secret}` },
+          cache: "no-store",
+        });
+        if (!res.ok) results.errors.push(`${path}: HTTP ${res.status}`);
+      } catch (e) {
+        results.errors.push(`${path}: ${(e as Error).message}`);
+      }
     }
   }
 
