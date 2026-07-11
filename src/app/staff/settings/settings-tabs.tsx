@@ -4,6 +4,7 @@ import Link from "next/link";
 // section grouping in page.tsx.
 export const SETTINGS_TABS = [
   { key: "business", label: "Business" },
+  { key: "website", label: "Website" },
   { key: "booking", label: "Booking" },
   { key: "payments", label: "Payments & Quotes" },
   { key: "integrations", label: "Integrations" },

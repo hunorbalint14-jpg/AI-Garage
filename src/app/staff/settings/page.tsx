@@ -24,6 +24,7 @@ import { parseWeeklyHours, APP_TZ } from "@/lib/business-hours";
 import { isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import type { FinanceConfigView } from "./finance-actions";
 import { SettingsTabs, isSettingsTab } from "./settings-tabs";
+import { SiteSection } from "./site-section";
 
 type LocationRow = { id: string; slug: string; name: string; address: string | null; invoice_prefix: string | null; created_at: string };
 
@@ -85,6 +86,20 @@ export default async function SettingsPage({
     .gte("date", todayKey)
     .order("date", { ascending: true });
   const specialHours = (specialRows ?? []) as SpecialHoursRow[];
+
+  // Mini-site row (#507) — only fetched when the Website tab is open.
+  type SiteRow = { published: boolean; sections: unknown; strapline: string | null; about: string | null };
+  let siteRow: SiteRow | null = null;
+  if (tab === "website") {
+    const { data } = await admin
+      .from("org_sites")
+      .select("published, sections, strapline, about")
+      .eq("organization_id", ctx.organization.id)
+      .maybeSingle();
+    siteRow = data as SiteRow | null;
+  }
+  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "ai-garage.co.uk";
+  const siteUrl = `${rootDomain.includes("localtest") || rootDomain.includes("localhost") ? "http" : "https"}://${ctx.organization.slug}.${rootDomain}/`;
 
   const stripeAccountId = (org as { stripe_account_id?: string | null } | null)?.stripe_account_id;
   const stripeChargesEnabled = !!(org as { stripe_charges_enabled?: boolean } | null)?.stripe_charges_enabled;
@@ -187,6 +202,20 @@ export default async function SettingsPage({
             </section>
           )}
         </>
+      )}
+
+      {/* ── Website (#507) ───────────────────────────────────────── */}
+      {tab === "website" && (
+        <SiteSection
+          initial={{
+            published: siteRow?.published ?? false,
+            sections: (siteRow?.sections as Record<string, boolean> | null) ?? {},
+            strapline: siteRow?.strapline ?? "",
+            about: siteRow?.about ?? "",
+          }}
+          siteUrl={siteUrl}
+          canManage={isOwner}
+        />
       )}
 
       {/* ── Booking ──────────────────────────────────────────────── */}
