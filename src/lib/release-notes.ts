@@ -27,6 +27,64 @@ export type ReleaseNote = {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: "2026.07.3",
+    date: "2026-07-11",
+    summary:
+      "A big one: trade accounts with monthly invoicing and statements, work you can prove was authorised, job profit on every screen, deferred work that chases itself, and moving in from your old system in minutes.",
+    entries: [
+      {
+        kind: "new",
+        title: "Trade accounts: one monthly invoice, statements and credit limits",
+        body: "Mark a customer as an account customer with payment terms and an optional credit limit. Completed jobs roll into one month-end invoice, part-payments spread oldest-first, and statements with aging print or email in a click. Fleet contacts see their balance in the portal.",
+      },
+      {
+        kind: "new",
+        title: "Signed authorisation for every approval",
+        body: "When a customer approves a quote, a tamper-proof authorisation record is kept — what they approved, when, from where. If work grows mid-job, a one-tap re-authorisation keeps you covered before the extra work starts.",
+      },
+      {
+        kind: "new",
+        title: "Profit on the job, the dashboard and the weekly digest",
+        body: "Parts cost and labour rate turn every job into a mini P&L. Reports show gross profit and your effective labour rate; the weekly digest calls out what's dragging margin.",
+      },
+      {
+        kind: "new",
+        title: "Deferred work chases itself",
+        body: "Declined and advised-but-unbooked work sits in one pipeline with its value, and an automated 14/30-day follow-up brings it back with a booking link. What comes back is tracked as recovered revenue.",
+      },
+      {
+        kind: "new",
+        title: "Move in from TechMan, Garage Hive or Autowork Online",
+        body: "Import customers, vehicles, service history, reminder dates and past invoices from CSV — preview first, nothing partial ever saved. Known exports map themselves, and AI can propose the mapping for anything else.",
+      },
+      {
+        kind: "new",
+        title: "A garage website, written for you",
+        body: "Publish a fast one-page site at your booking address: services with prices, live opening hours, branches, reviews and a Book now button. AI drafts the wording from your setup answers; you stay in control of every word.",
+      },
+      {
+        kind: "new",
+        title: "Getting-started checklist and sample data",
+        body: "New teams see a setup checklist that ticks itself as real things get done, with an Ask-AI shortcut on every step. Explore safely with clearly-badged sample data and wipe it in one click.",
+      },
+      {
+        kind: "new",
+        title: "How was it? — a pulse after every job",
+        body: "A one-tap satisfaction question goes out after each visit. Happy customers get pointed at your Google reviews; unhappy ones come straight to you before they go public.",
+      },
+      {
+        kind: "improved",
+        title: "Growth plans can add sites beyond seven, self-serve",
+        body: "Adding an eighth location shows the £25/month price up front and bills it automatically — no need to contact us.",
+      },
+      {
+        kind: "fixed",
+        title: "Account statements now credit invoices paid by card",
+        body: "Invoices settled through Stripe or marked paid showed as outstanding on statements — they now show a settlement line on the day they were paid.",
+      },
+    ],
+  },
+  {
     version: "2026.07.2",
     date: "2026-07-10",
     summary:
