@@ -56,3 +56,8 @@ next-env.d.ts
 .claude/worktrees/
 coverage/
 /docs/internal/help-videos/
+
+# Per-PR live-drive artefacts (playwright.pr.config.ts is the committed harness;
+# the specs are throwaway per-PR and screenshots publish to assets/pr-screenshots)
+/.pr-shots/
+/e2e/screenshots/pr-*.spec.ts
