@@ -5,6 +5,7 @@ import { addLocation } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useConfirm } from "@/components/confirm-provider";
 
 export function AddLocationForm() {
   const [open, setOpen] = useState(false);
@@ -12,13 +13,28 @@ export function AddLocationForm() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
+  const confirm = useConfirm();
+
   function handleSubmit(formData: FormData) {
     setError(null);
     startTransition(async () => {
-      const result = await addLocation(formData);
+      let result = await addLocation(formData);
+      // Growth beyond the included sites (#461): show the price, then
+      // re-submit with the confirmation flag.
+      if ("overageConfirmRequired" in result) {
+        const price = `£${Math.round(result.pricePence / 100)}`;
+        const ok = await confirm({
+          title: `Add this site for ${price}/month?`,
+          description: `Your Growth plan includes ${result.included} locations. Each site beyond that adds ${price}/month to your subscription, prorated from today. Removing it later removes the charge.`,
+          confirmLabel: `Add site · ${price}/mo`,
+        });
+        if (!ok) return;
+        formData.set("confirm_overage", "true");
+        result = await addLocation(formData);
+      }
       if ("error" in result) {
         setError(result.error);
-      } else {
+      } else if ("success" in result) {
         setDone(result.name);
         setOpen(false);
       }

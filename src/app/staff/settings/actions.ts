@@ -10,6 +10,8 @@ import { logAudit } from "@/lib/audit";
 import { invalidateTenantCacheForOrg } from "@/lib/tenant-data";
 import { invalidateStaffLocationCacheForOrg } from "@/lib/staff-context";
 import { tierFor, tenantBillingActive, TIERS } from "@/lib/tenant-plans";
+import { syncLocationOverage } from "@/lib/tenant-overage";
+import { stripe } from "@/lib/stripe";
 import { APP_TZ, instantMinuteOfDay, minutesToLabel, type WeeklyHours } from "@/lib/business-hours";
 import { instantDayKey, instantTimeLabel } from "@/app/staff/bookings/calendar-grid";
 
@@ -282,6 +284,9 @@ export async function removeSpecialHours(formData: FormData): Promise<SpecialHou
 
 export type AddLocationResult =
   | { error: string }
+  // Growth beyond the included sites (#461): the client must re-submit with
+  // confirm_overage after showing the price.
+  | { overageConfirmRequired: true; pricePence: number; included: number }
   | { success: true; name: string };
 
 // Derive a URL-safe slug fragment from a branch name.
@@ -332,13 +337,23 @@ export async function addLocation(
     .select("id", { count: "exact", head: true })
     .eq("organization_id", ctx.organization.id);
   if ((locationCount ?? 0) >= maxLocations) {
-    const allowed = maxLocations === Number.POSITIVE_INFINITY ? "unlimited" : maxLocations;
-    // Top tier (Growth) has no higher plan — extra sites are priced per-location
-    // by arrangement until the metered overage lands, so point them at support.
-    const more = tier.perExtraLocationPence
-      ? `Contact us to add more sites (£${Math.round(tier.perExtraLocationPence / 100)}/site).`
-      : "Upgrade in Settings → Billing to add more.";
-    return { error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. ${more}` };
+    // Growth meters extra sites (#461): allow past the included count once
+    // the owner has confirmed the per-site price. Other tiers upgrade.
+    if (tier.perExtraLocationPence) {
+      if (formData.get("confirm_overage") !== "true") {
+        return {
+          overageConfirmRequired: true,
+          pricePence: tier.perExtraLocationPence,
+          included: maxLocations,
+        };
+      }
+      // fall through to create; the overage item syncs after the insert
+    } else {
+      const allowed = maxLocations === Number.POSITIVE_INFINITY ? "unlimited" : maxLocations;
+      return {
+        error: `Your plan includes ${allowed} location${maxLocations === 1 ? "" : "s"}. Upgrade in Settings → Billing to add more.`,
+      };
+    }
   }
 
   const slug = await generateLocationSlug(admin, ctx.organization.slug, name);
@@ -355,6 +370,10 @@ export async function addLocation(
 
   if (error) return { error: error.message };
 
+  // Keep the Stripe overage item in step with the new count (#461). Soft —
+  // the reconcile cron repairs any miss.
+  const overage = await syncLocationOverage(admin, stripe, ctx.organization.id);
+
   await logAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
@@ -362,7 +381,7 @@ export async function addLocation(
     action: "settings.location_add",
     entityType: "location",
     entityId: created?.id ?? null,
-    metadata: { slug, name },
+    metadata: { slug, name, overage: overage.status === "synced" ? overage.quantity : overage.status },
   });
 
   revalidatePath("/staff/settings");

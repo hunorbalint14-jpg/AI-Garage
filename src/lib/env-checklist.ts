@@ -31,6 +31,7 @@ export const ENV_VARS: EnvVar[] = [
   { name: "STRIPE_TENANT_PRICE_PRO_ANNUAL", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Pro annual checkout can't price (must be the Stripe Price for £490/yr)." },
   { name: "STRIPE_TENANT_PRICE_GROWTH_MONTHLY", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Growth monthly checkout can't price (must be the Stripe Price for £149/mo)." },
   { name: "STRIPE_TENANT_PRICE_GROWTH_ANNUAL", level: "feature", group: "Payments (Stripe)", ifMissing: "Tenant Growth annual checkout can't price (must be the Stripe Price for £1,490/yr)." },
+  { name: "STRIPE_TENANT_PRICE_GROWTH_OVERAGE", level: "feature", group: "Payments (Stripe)", ifMissing: "Growth per-location overage (#461) isn't metered — 8+ site chains bill by arrangement (per-unit £25/mo Price)." },
 
   // ── AI (Anthropic) — read implicitly by the SDK ───────────────────────────
   { name: "ANTHROPIC_API_KEY", level: "feature", group: "AI (Anthropic)", ifMissing: "Support assist, message drafting, diagnostics and the receptionist all fail." },

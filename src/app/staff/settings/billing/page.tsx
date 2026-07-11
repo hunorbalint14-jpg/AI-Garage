@@ -84,6 +84,20 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   // work is never affected.
   const billingState = tenantBillingState(org);
   const effectiveFee = effectiveFeePercent(org);
+
+  // Growth per-location overage (#461): show the metered breakdown.
+  let overageLine: string | null = null;
+  if (current.key === "growth" && current.perExtraLocationPence) {
+    const { count: locationCount } = await admin
+      .from("locations")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", ctx.organization.id);
+    const extra = Math.max(0, (locationCount ?? 0) - current.maxLocations);
+    overageLine =
+      extra > 0
+        ? `Locations: ${current.maxLocations} included + ${extra} × £${Math.round(current.perExtraLocationPence / 100)}/mo (${locationCount} total)`
+        : `Locations: ${locationCount ?? 0} of ${current.maxLocations} included · beyond that £${Math.round(current.perExtraLocationPence / 100)}/site/mo`;
+  }
   const stateLine =
     billingState.state === "grace"
       ? `Your last payment failed. Your ${current.name} features continue until ${fmtDate(billingState.until)} — update your card in the billing portal to keep them.`
@@ -122,6 +136,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 ? ` · renews ${fmtDate(org.tenant_current_period_end)}`
                 : ""}
             </p>
+            {overageLine && <p className="mt-1 text-xs text-muted-foreground">{overageLine}</p>}
           </div>
           <ManageBillingButton />
         </div>
