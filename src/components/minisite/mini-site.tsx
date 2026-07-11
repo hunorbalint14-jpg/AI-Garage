@@ -230,6 +230,25 @@ export function MiniSitePage({ site }: { site: MiniSiteData }) {
         </section>
       )}
 
+      {/* Gallery */}
+      {site.sections.gallery && site.gallery.length > 0 && (
+        <section className="mx-auto max-w-4xl px-5 pb-14">
+          <h2 className="mb-4 text-xl font-semibold">The workshop</h2>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {site.gallery.map((url) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={url}
+                src={url}
+                alt={`${site.org.name} workshop photo`}
+                loading="lazy"
+                className="aspect-square w-full rounded-lg border border-neutral-800 object-cover"
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Reviews */}
       {site.sections.reviews && site.org.googleReviewUrl && (
         <section className="mx-auto max-w-4xl px-5 pb-14">

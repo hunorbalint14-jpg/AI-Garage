@@ -22,7 +22,8 @@ const SITE: MiniSite = {
   },
   strapline: null,
   about: null,
-  sections: { services: true, hours: true, branches: true, reviews: true, about: true },
+  sections: { services: true, hours: true, branches: true, reviews: true, about: true, gallery: true },
+  gallery: [],
   branches: [
     {
       id: "b1",
