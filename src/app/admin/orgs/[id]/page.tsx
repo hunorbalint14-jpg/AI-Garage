@@ -10,6 +10,8 @@ import {
 } from "@/lib/platform-stats";
 import { OrgSlugEditor } from "./org-slug-editor";
 import { ReceptionistNumbers, type ReceptionistLoc } from "./receptionist-numbers";
+import { fetchTrafficStats } from "@/lib/platform/traffic-stats";
+import { RankPanel, Sparkline } from "@/components/admin/traffic-panels";
 
 export const dynamic = "force-dynamic";
 
@@ -63,12 +65,17 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
   // AI usage for the org over the last 30 days, aggregated in TS.
   // eslint-disable-next-line react-hooks/purity -- server component: a 30-day window boundary; freshness is the point
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: aiEvents } = (await admin
-    .from("ai_usage_events")
-    .select("feature, model, input_tokens, output_tokens, cost_pence")
-    .eq("organization_id", id)
-    .gte("created_at", since)
-    .limit(10000)) as { data: AiRow[] | null };
+  const [{ data: aiEvents }, traffic] = await Promise.all([
+    admin
+      .from("ai_usage_events")
+      .select("feature, model, input_tokens, output_tokens, cost_pence")
+      .eq("organization_id", id)
+      .gte("created_at", since)
+      .limit(10000) as unknown as Promise<{ data: AiRow[] | null }>,
+    // Org-scoped web traffic, last 30 days (#admin/traffic PR 3).
+    fetchTrafficStats(admin, "30d", "all", id),
+  ]);
+  const orgTraffic = traffic.orgs[0] ?? null;
 
   const byFeature = new Map<string, { calls: number; tokens: number; pence: number }>();
   for (const e of aiEvents ?? []) {
@@ -126,6 +133,41 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
         <Stat label="Reminders sent" value={Number(orgRow.reminder_sent_count).toLocaleString("en-GB")} />
         <Stat label="AI spend (30d)" value={formatGbp(Number(orgRow.ai_cost_pence_30d), { minor: true })} />
         <Stat label="AI calls (30d)" value={Number(orgRow.ai_events_30d).toLocaleString("en-GB")} />
+      </div>
+
+      {/* Web traffic — org-scoped slice of /admin/traffic */}
+      <div>
+        <div className="mb-2 flex items-baseline justify-between gap-3">
+          <h2 className="text-sm font-semibold">Web traffic (30 days)</h2>
+          <Link href={`/admin/traffic?org=${id}`} className="text-xs font-semibold text-[#3987e5] hover:underline">
+            Open in traffic dashboard →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Stat label="Visitors" value={traffic.kpis.visitors.toLocaleString("en-GB")} />
+          <Stat label="Page views" value={traffic.kpis.pageviews.toLocaleString("en-GB")} />
+          <Stat label="Bookings" value={traffic.kpis.bookings.toLocaleString("en-GB")} />
+          <Stat label="Booking conversion" value={traffic.kpis.convPct !== null ? `${traffic.kpis.convPct}%` : "—"} />
+        </div>
+        {orgTraffic && orgTraffic.visitors > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-4 rounded-lg border border-[#23272f] bg-[#15181d] px-3 py-2.5">
+            <span className="text-[11px] uppercase tracking-wide text-[#5a6170]">Daily visitors</span>
+            <Sparkline points={orgTraffic.spark} w={320} h={34} />
+            <span
+              className={`text-xs tabular-nums ${
+                orgTraffic.deltaPct === null ? "text-[#5a6170]" : orgTraffic.deltaPct >= 0 ? "text-[#5fdd9d]" : "text-[#ff7b7b]"
+              }`}
+            >
+              {orgTraffic.deltaPct === null
+                ? "no previous period"
+                : `${orgTraffic.deltaPct >= 0 ? "▲" : "▼"} ${Math.abs(orgTraffic.deltaPct)}% vs previous 30 days`}
+            </span>
+          </div>
+        )}
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <RankPanel title="Top pages" sub="Tokens & ids stripped before storage." rows={traffic.paths.slice(0, 6)} />
+          <RankPanel title="Top cities" sub="From edge geo headers — IPs never stored." rows={traffic.cities.slice(0, 6)} />
+        </div>
       </div>
 
       {/* AI usage by feature */}
