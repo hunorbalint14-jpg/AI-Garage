@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseWeeklyHours, type SpecialHours, type WeeklyHours } from "@/lib/business-hours";
 
@@ -38,7 +39,9 @@ export function sectionsFrom(raw: unknown): Record<MiniSiteSectionKey, boolean> 
   return { services: on("services"), hours: on("hours"), branches: on("branches"), reviews: on("reviews"), about: on("about") };
 }
 
-export async function loadMiniSite(organizationId: string): Promise<MiniSite | null> {
+// React-cached: generateMetadata, the page, sitemap and the OG image may all
+// ask within one request.
+export const loadMiniSite = cache(async (organizationId: string): Promise<MiniSite | null> => {
   const admin = createAdminClient();
 
   const [{ data: siteRow }, { data: orgRow }] = await Promise.all([
@@ -128,4 +131,4 @@ export async function loadMiniSite(organizationId: string): Promise<MiniSite | n
       services: servicesByLoc.get(l.id) ?? [],
     })),
   };
-}
+});
