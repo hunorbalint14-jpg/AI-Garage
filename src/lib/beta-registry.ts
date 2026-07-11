@@ -33,12 +33,8 @@ export const BETA_SURFACES: BetaSurface[] = [
     label: "AI receptionist",
     chip: { navKey: "receptionist" },
     launchedOn: "2026-07-06", // beta framing from the release-notes launch (#441)
-    auditActions: [
-      "receptionist.booking_created",
-      "receptionist.handed_off",
-      "receptionist.number_provisioned",
-      "receptionist.config_update",
-    ],
+    // config_update deliberately excluded — setting it up isn't using it.
+    auditActions: ["receptionist.booking_created", "receptionist.handed_off", "receptionist.number_provisioned"],
     aiFeatures: ["receptionist"],
   },
   {
