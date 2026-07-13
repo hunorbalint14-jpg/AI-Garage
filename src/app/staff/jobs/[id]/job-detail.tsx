@@ -8,6 +8,7 @@ import { addJobItem, removeJobItem, completeJob, reopenJob, deleteJob, updateJob
 import { createInvoiceFromJob, sendInvoice } from "../../invoices/actions";
 import { VoiceNotes } from "./voice-notes";
 import { ItemRow } from "./item-row";
+import { PartsSuggest } from "./parts-suggest";
 import { QuoteBuilder } from "./quote-builder";
 import { QuoteList, type QuoteSummary } from "./quote-list";
 import { Button } from "@/components/ui/button";
@@ -421,6 +422,8 @@ export function JobDetail({
             </tfoot>
           </table>
         )}
+
+        {isOpen && <PartsSuggest jobId={job.id} />}
 
         {isOpen && (
           <form onSubmit={handleAddItem} className="p-4 border-t flex flex-col gap-3 bg-muted/10">
