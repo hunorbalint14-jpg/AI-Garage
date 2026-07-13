@@ -107,7 +107,9 @@ RLS: financial pattern (branch members OR org finance) for `payments`/
 
 - Automated month-end cron (manual run ships first; task type reserved).
 - Credit application workflow / approval chains.
-- Interest on overdue balances; multi-currency.
+- Interest on overdue balances; multi-currency. **NB: the no-interest cut is
+  load-bearing for consumer-credit law, not just scope — see
+  `docs/trade-credit-position.md` before ever building it.**
 - Xero: consolidated invoices sync as normal invoices (line detail flattened)
   — deeper mapping later.
 
