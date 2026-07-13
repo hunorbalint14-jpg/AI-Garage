@@ -10,6 +10,8 @@ import { sendEmail } from "@/lib/email";
 import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import { estimateLabourTime } from "@/lib/ai-labour";
+import { suggestParts, matchProduct } from "@/lib/ai-parts";
+import { parseMarkupRules, sellFromCost, marginPct, underTarget } from "@/lib/parts-pricing";
 import { enforceRateLimit, tooManyAttemptsError } from "@/lib/rate-limit";
 import { enqueueReviewRequest } from "@/lib/review-links";
 import { listLocationStaff } from "@/lib/staff-directory";
@@ -363,6 +365,100 @@ export async function suggestLabourTime(
   } catch {
     return { error: "Could not estimate — try a more specific description." };
   }
+}
+
+// AI parts suggestion (#567): propose parts for the job, matched to the
+// branch catalogue and priced by the org markup rule, with a per-line margin
+// and an under-target flag. Never writes — the one-tap add goes through
+// addJobItem. Best-effort: AI failure returns an error the UI degrades from.
+export type SuggestedPart = {
+  name: string;
+  category: string;
+  quantity: number;
+  caveat: string;
+  /** Matched catalogue product, or null (addable as a free-type line). */
+  productId: string | null;
+  productName: string | null;
+  /** Ex-VAT cost snapshot from the matched product; null = no cost known. */
+  cost: number | null;
+  /** Ex-VAT sell: markup-from-cost when matched, else the product's list price, else null. */
+  sell: number | null;
+  marginPct: number | null;
+  underTarget: boolean;
+};
+
+export type SuggestPartsResult = { error: string } | { parts: SuggestedPart[]; targetPct: number | null };
+
+export async function suggestPartsForJob(jobId: string, descriptionOverride?: string): Promise<SuggestPartsResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
+  const admin = createAdminClient();
+
+  const { data: job } = await admin
+    .from("jobs")
+    .select("id, location_id, description, vehicle:vehicles(make, model, year)")
+    .eq("id", jobId)
+    .maybeSingle();
+  const j = job as unknown as {
+    id: string;
+    location_id: string;
+    description: string | null;
+    vehicle: { make: string | null; model: string | null; year: number | null } | null;
+  } | null;
+  if (!j || j.location_id !== ctx.location.id) return { error: "Job not found." };
+
+  const description = (descriptionOverride ?? j.description ?? "").trim();
+  if (!description) return { error: "Add a job description first — the suggestion works from it." };
+
+  const limited = await enforceRateLimit("ai", ctx.user.id);
+  if (!limited.ok) return tooManyAttemptsError(limited.retryAfter);
+
+  const vehicleDesc = [j.vehicle?.year, j.vehicle?.make, j.vehicle?.model].filter(Boolean).join(" ") || undefined;
+
+  let suggestions;
+  try {
+    suggestions = await suggestParts(description, vehicleDesc, {
+      locationId: ctx.location.id,
+      organizationId: ctx.organization.id,
+      userId: ctx.user.id,
+      feature: "parts_suggest",
+    });
+  } catch {
+    return { error: "Couldn't suggest parts this time — add them by hand or try again." };
+  }
+  if (suggestions.length === 0) return { error: "No parts suggested — add them by hand." };
+
+  const [{ data: prodRows }, { data: orgRow }] = await Promise.all([
+    admin.from("products").select("id, name, category, cost_price, unit_price").eq("location_id", ctx.location.id).eq("active", true),
+    admin.from("organizations").select("parts_markup_rules, parts_target_margin_pct").eq("id", ctx.organization.id).maybeSingle(),
+  ]);
+  const products = (prodRows ?? []) as { id: string; name: string; category: string | null; cost_price: number | null; unit_price: number | null }[];
+  const org = orgRow as { parts_markup_rules: unknown; parts_target_margin_pct: number | null } | null;
+  const rules = parseMarkupRules(org?.parts_markup_rules);
+  const targetPct = org?.parts_target_margin_pct ?? null;
+
+  const parts: SuggestedPart[] = suggestions.map((s) => {
+    const matched = matchProduct(s, products);
+    const cost = matched?.cost_price ?? null;
+    // Sell: markup from a known cost; else the matched product's list price;
+    // else unknown (added as a free line, flagged missing-cost like #502).
+    const sell = cost !== null ? sellFromCost(cost, rules) : matched?.unit_price ?? null;
+    const margin = cost !== null && sell !== null ? marginPct(cost, sell) : null;
+    return {
+      name: s.name,
+      category: s.category,
+      quantity: s.quantity,
+      caveat: s.caveat,
+      productId: matched?.id ?? null,
+      productName: matched?.name ?? null,
+      cost,
+      sell,
+      marginPct: margin,
+      underTarget: underTarget(margin, targetPct),
+    };
+  });
+
+  return { parts, targetPct };
 }
 
 export type JobItemType = "part" | "labour" | "other";

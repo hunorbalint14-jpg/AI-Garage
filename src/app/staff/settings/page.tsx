@@ -12,6 +12,8 @@ import { VatSection } from "./vat-section";
 import { QuoteDepositSection } from "./quote-deposit-section";
 import { WorkAuthSection } from "./work-auth-section";
 import { CostingSection } from "./costing-section";
+import { PartsPricingSection } from "./parts-pricing-section";
+import { parseMarkupRules } from "@/lib/parts-pricing";
 import { QuoteValiditySection } from "./quote-validity-section";
 import { QuoteRemindersSection } from "./quote-reminders-section";
 import { XeroSection } from "./xero-section";
@@ -45,7 +47,7 @@ export default async function SettingsPage({
   const [orgRes, locationsRes, currentLocRes, passkeysRes, financeRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number, authorisation_terms, variation_threshold_pct, labour_cost_rate")
+      .select("name, primary_color, logo_url, slug, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number, authorisation_terms, variation_threshold_pct, labour_cost_rate, parts_markup_rules, parts_target_margin_pct")
       .eq("id", ctx.organization.id)
       .single(),
     admin
@@ -290,6 +292,12 @@ export default async function SettingsPage({
           <CostingSection
             initialRate={((org as { labour_cost_rate?: number | null } | null)?.labour_cost_rate ?? null) as number | null}
             canManage={isOwner}
+          />
+
+          <PartsPricingSection
+            initialBands={parseMarkupRules((org as { parts_markup_rules?: unknown } | null)?.parts_markup_rules)}
+            initialTarget={(org as { parts_target_margin_pct?: number | null } | null)?.parts_target_margin_pct ?? null}
+            canEdit={isOwner}
           />
 
           <WorkAuthSection
