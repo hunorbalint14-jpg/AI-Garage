@@ -16,8 +16,8 @@ export type AccountingHealthView = {
 };
 
 export type AccountingConnectionView = {
-  provider: "xero" | "quickbooks";
-  label: string; // "Xero" | "QuickBooks"
+  provider: "xero" | "quickbooks" | "sage";
+  label: string; // "Xero" | "QuickBooks" | "Sage"
   displayName: string | null;
   connectedAt: string;
 };
@@ -43,7 +43,7 @@ export function AccountingSection({ connection, health, canManage }: Props) {
   const [pending, startTransition] = useTransition();
   const [retryNote, setRetryNote] = useState<string | null>(null);
 
-  function handleConnect(provider: "xero" | "quickbooks") {
+  function handleConnect(provider: "xero" | "quickbooks" | "sage") {
     window.location.href = `/api/${provider}/connect/begin`;
   }
 
@@ -143,8 +143,8 @@ export function AccountingSection({ connection, health, canManage }: Props) {
             <Button onClick={() => handleConnect("quickbooks")} disabled={!canManage || pending}>
               Connect QuickBooks
             </Button>
-            <Button variant="outline" disabled title="Coming soon">
-              Sage — coming soon
+            <Button onClick={() => handleConnect("sage")} disabled={!canManage || pending}>
+              Connect Sage
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">One accounting connection per organisation.</p>

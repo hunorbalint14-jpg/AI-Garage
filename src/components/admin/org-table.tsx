@@ -131,9 +131,9 @@ export function OrgTable({ rows }: { rows: AdminOrgRow[] }) {
                 {" · "}
                 <span
                   className={r.accountingProvider ? "text-[#5fdd9d]" : "text-[#3a3f47]"}
-                  title={r.accountingProvider === "quickbooks" ? "QuickBooks" : r.accountingProvider === "xero" ? "Xero" : "Accounting"}
+                  title={r.accountingProvider === "quickbooks" ? "QuickBooks" : r.accountingProvider === "sage" ? "Sage" : r.accountingProvider === "xero" ? "Xero" : "Accounting"}
                 >
-                  {r.accountingProvider === "quickbooks" ? "Q" : "X"}
+                  {r.accountingProvider === "quickbooks" ? "Q" : r.accountingProvider === "sage" ? "S" : "X"}
                 </span>
               </td>
               <td className="px-3 py-2 text-right text-xs text-[#9aa1ad]">

@@ -63,6 +63,8 @@ export const ENV_VARS: EnvVar[] = [
   { name: "QUICKBOOKS_CLIENT_ID", level: "feature", group: "Accounting", ifMissing: "QuickBooks OAuth connect fails — no QuickBooks sync." },
   { name: "QUICKBOOKS_CLIENT_SECRET", level: "feature", group: "Accounting", ifMissing: "QuickBooks OAuth connect fails." },
   { name: "QUICKBOOKS_ENVIRONMENT", level: "feature", group: "Accounting", ifMissing: "Defaults to sandbox outside production builds; set 'production' explicitly for live." },
+  { name: "SAGE_CLIENT_ID", level: "feature", group: "Accounting", ifMissing: "Sage OAuth connect fails — no Sage sync." },
+  { name: "SAGE_CLIENT_SECRET", level: "feature", group: "Accounting", ifMissing: "Sage OAuth connect fails." },
 
   // ── Passkeys (WebAuthn) ───────────────────────────────────────────────────
   { name: "WEBAUTHN_RP_ID", level: "feature", group: "Passkeys", ifMissing: "Passkey registration/login fails (relying-party id)." },

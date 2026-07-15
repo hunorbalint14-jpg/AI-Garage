@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { decrypt, encrypt } from "@/lib/encryption";
 import { refreshXeroTokens, xeroProvider } from "./xero-provider";
 import { refreshQuickBooksTokens, quickBooksProvider } from "./quickbooks-provider";
+import { refreshSageTokens, sageProvider } from "./sage-provider";
 import type {
   AccountingConnection,
   AccountingProvider,
@@ -12,11 +13,13 @@ import type {
 export const PROVIDERS: Record<AccountingProviderId, AccountingProvider> = {
   xero: xeroProvider,
   quickbooks: quickBooksProvider,
+  sage: sageProvider,
 };
 
 const REFRESHERS: Record<AccountingProviderId, (refreshToken: string) => Promise<RefreshedTokens>> = {
   xero: refreshXeroTokens,
   quickbooks: refreshQuickBooksTokens,
+  sage: refreshSageTokens,
 };
 
 type ConnectionRow = {

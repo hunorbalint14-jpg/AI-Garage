@@ -10,11 +10,12 @@
 //   4. Add a card in the settings Integrations tab + env-checklist rows.
 // See docs/accounting-providers.md.
 
-export type AccountingProviderId = "xero" | "quickbooks";
+export type AccountingProviderId = "xero" | "quickbooks" | "sage";
 
 export const PROVIDER_LABELS: Record<AccountingProviderId, string> = {
   xero: "Xero",
   quickbooks: "QuickBooks",
+  sage: "Sage",
 };
 
 // A connection with tokens already decrypted and refreshed — produced by
