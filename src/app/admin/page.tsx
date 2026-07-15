@@ -38,7 +38,7 @@ export default async function AdminOverviewPage() {
     mrrPence: orgMrrPence(r),
     aiCostPence30d: Number(r.ai_cost_pence_30d),
     stripe: r.stripe_charges_enabled,
-    xero: r.xero_connected,
+    accountingProvider: r.accounting_provider,
     lastActivity: r.last_activity_at,
   }));
 

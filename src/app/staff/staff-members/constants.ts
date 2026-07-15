@@ -77,7 +77,9 @@ export const PERMISSION_LABELS: Record<PermissionKey, { label: string; desc: str
   audit_log:          { label: "Audit log",                desc: "View the append-only action trail" },
   gdpr_actions:       { label: "GDPR actions",             desc: "Anonymise, hard-delete or export customer data" },
   stripe_connect:     { label: "Stripe / banking",         desc: "Connect and manage the Stripe account" },
-  xero_integration:   { label: "Xero integration",         desc: "Connect and manage Xero" },
+  // Key predates QuickBooks — kept as xero_integration because it's
+  // stored in role-permission JSON; it now gates ALL accounting providers.
+  xero_integration:   { label: "Accounting integration",   desc: "Connect and manage Xero / QuickBooks" },
   mot_records:        { label: "MOT records",              desc: "View MOT history (DVSA MTS data is external)" },
 };
 

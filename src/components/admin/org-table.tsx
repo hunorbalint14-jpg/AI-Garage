@@ -17,7 +17,7 @@ export type AdminOrgRow = {
   mrrPence: number;
   aiCostPence30d: number;
   stripe: boolean;
-  xero: boolean;
+  accountingProvider: string | null;
   lastActivity: string | null;
 };
 
@@ -129,7 +129,12 @@ export function OrgTable({ rows }: { rows: AdminOrgRow[] }) {
               <td className="px-3 py-2 text-center font-mono text-[10px]">
                 <span className={r.stripe ? "text-[#5fdd9d]" : "text-[#3a3f47]"} title="Stripe">S</span>
                 {" · "}
-                <span className={r.xero ? "text-[#5fdd9d]" : "text-[#3a3f47]"} title="Xero">X</span>
+                <span
+                  className={r.accountingProvider ? "text-[#5fdd9d]" : "text-[#3a3f47]"}
+                  title={r.accountingProvider === "quickbooks" ? "QuickBooks" : r.accountingProvider === "xero" ? "Xero" : "Accounting"}
+                >
+                  {r.accountingProvider === "quickbooks" ? "Q" : "X"}
+                </span>
               </td>
               <td className="px-3 py-2 text-right text-xs text-[#9aa1ad]">
                 {r.lastActivity ? new Date(r.lastActivity).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "—"}

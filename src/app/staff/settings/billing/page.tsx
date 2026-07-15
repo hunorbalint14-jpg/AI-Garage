@@ -18,7 +18,7 @@ import { UpgradeSuccessModal } from "./upgrade-success-modal";
 const LIVE_STATUSES = ["active", "trialing", "past_due"];
 
 const FEATURE_LABELS: Record<string, string> = {
-  xero: "Xero accounting sync",
+  accounting: "Accounting sync (Xero / QuickBooks)",
   campaigns: "Marketing campaigns",
   automations: "Automations",
 };

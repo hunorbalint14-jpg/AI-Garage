@@ -115,7 +115,10 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
         <Stat label="MRR (est.)" value={formatGbp(orgMrrPence(orgRow))} />
         <Stat
           label="Integrations"
-          value={[orgRow.stripe_charges_enabled ? "Stripe" : null, orgRow.xero_connected ? "Xero" : null].filter(Boolean).join(" + ") || "None"}
+          value={[
+            orgRow.stripe_charges_enabled ? "Stripe" : null,
+            orgRow.accounting_provider === "quickbooks" ? "QuickBooks" : orgRow.accounting_provider === "xero" ? "Xero" : null,
+          ].filter(Boolean).join(" + ") || "None"}
         />
       </div>
 

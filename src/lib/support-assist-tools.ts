@@ -10,6 +10,8 @@ import {
 } from "@/lib/business-hours";
 import { canUseTool, type AssistToolName, type AssistRoleInfo } from "@/lib/support-assist";
 import { shortTicketRef, STATUS_LABELS } from "@/lib/support-tickets-shared";
+import { getConnectionStatus } from "@/lib/accounting/connection";
+import { PROVIDER_LABELS } from "@/lib/accounting/types";
 
 // Read-only org-data tools for the support widget's assistant. Every executor
 // runs on the caller's RLS-scoped client (ctx.supabase) so the database is a
@@ -53,7 +55,7 @@ export const ASSIST_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_integration_status",
     description:
-      "Whether Stripe (card payments) and Xero (accounting) are connected for this organisation. Owner/admin only. Call when troubleshooting payments or accounting sync.",
+      "Whether Stripe (card payments) and an accounting provider (Xero or QuickBooks) are connected for this organisation. Owner/admin only. Call when troubleshooting payments or accounting sync.",
     input_schema: { type: "object", properties: {} },
   },
   {
@@ -204,21 +206,26 @@ async function getTodaysSnapshot(ctx: StaffContext): Promise<string> {
 }
 
 async function getIntegrationStatus(ctx: StaffContext): Promise<string> {
-  const { data } = await ctx.supabase
-    .from("organizations")
-    .select("stripe_account_id, stripe_charges_enabled, xero_connected_at, xero_tenant_name")
-    .eq("id", ctx.organization.id)
-    .maybeSingle();
+  const [{ data }, accounting] = await Promise.all([
+    ctx.supabase
+      .from("organizations")
+      .select("stripe_account_id, stripe_charges_enabled")
+      .eq("id", ctx.organization.id)
+      .maybeSingle(),
+    // Connections table is service-role only (it holds tokens); this
+    // helper returns only provider + display name.
+    getConnectionStatus(ctx.organization.id),
+  ]);
   if (!data) return "Could not read integration status.";
   const stripe = data.stripe_account_id
     ? data.stripe_charges_enabled
       ? "connected, charges enabled"
       : "connected, but charges NOT yet enabled (finish Stripe onboarding)"
     : "not connected";
-  const xero = data.xero_connected_at
-    ? `connected${data.xero_tenant_name ? ` (${data.xero_tenant_name})` : ""}`
+  const books = accounting
+    ? `${PROVIDER_LABELS[accounting.provider]} connected${accounting.displayName ? ` (${accounting.displayName})` : ""}`
     : "not connected";
-  return `Stripe: ${stripe}\nXero: ${xero}`;
+  return `Stripe: ${stripe}\nAccounting: ${books}`;
 }
 
 async function getTeamOverview(ctx: StaffContext): Promise<string> {

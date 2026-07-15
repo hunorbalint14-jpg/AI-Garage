@@ -6,7 +6,11 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/email", () => ({ sendEmail: vi.fn() }));
 vi.mock("@/lib/stripe", () => ({ tenantPayUrl: vi.fn(() => "https://pay") }));
 vi.mock("@/lib/invoice-html", () => ({ buildInvoiceHtml: vi.fn(() => "<html/>") }));
-vi.mock("@/lib/xero-sync", () => ({ pushInvoiceToXero: vi.fn(), pushPaymentToXero: vi.fn() }));
+vi.mock("@/lib/accounting/sync", () => ({
+  pushInvoiceToAccounting: vi.fn(),
+  pushPaymentToAccounting: vi.fn(),
+  pushCreditNoteToAccounting: vi.fn(),
+}));
 vi.mock("@/lib/audit", () => ({ logAudit: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: vi.fn() }));

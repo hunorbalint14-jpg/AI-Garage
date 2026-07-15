@@ -45,9 +45,11 @@ export type AuditAction =
   | "stripe.connect_complete"
   | "stripe.dashboard_open"
   | "stripe.status_refresh"
-  // Xero
-  | "xero.connect_complete"
-  | "xero.disconnect"
+  // Accounting (Xero / QuickBooks). Older rows carry the legacy
+  // xero.connect_complete / xero.disconnect action names.
+  | "accounting.connect_complete"
+  | "accounting.disconnect"
+  | "accounting.retry_sync"
   // Compliance
   | "dpa.accept"
   | "impersonation.start"

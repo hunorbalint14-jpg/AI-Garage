@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { makeXeroClient } from "@/lib/accounting/xero-provider";
+import {
+  exchangeQuickBooksCode,
+  fetchQuickBooksCompanyName,
+} from "@/lib/accounting/quickbooks-provider";
 import { saveAccountingConnection } from "@/lib/accounting/connection";
 import { verifyOAuthState } from "@/lib/oauth-state";
 import { logAudit } from "@/lib/audit";
@@ -8,14 +11,15 @@ import { logAudit } from "@/lib/audit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Step 2 of Xero OAuth. Xero redirects here on the apex domain with
-// ?code=...&state=<signed-token>. The state token carries the orgId +
-// userId that started the flow on a tenant subdomain — we don't have
-// the user's session cookie here because cookies are host-scoped, so
-// the signed state is the trust anchor instead.
+// Step 2 of QuickBooks OAuth. Intuit redirects here on the apex domain
+// with ?code=...&state=<signed-token>&realmId=<company-id>. The signed
+// state carries the orgId + userId that started the flow on a tenant
+// subdomain (sessions are host-scoped, so no cookie here).
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const state = url.searchParams.get("state");
+  const code = url.searchParams.get("code");
+  const realmId = url.searchParams.get("realmId");
   const errParam = url.searchParams.get("error");
   if (errParam) {
     return NextResponse.redirect(
@@ -28,10 +32,13 @@ export async function GET(request: NextRequest) {
 
   const verified = verifyOAuthState(state);
   if (!verified.ok) {
-    console.error("[xero/callback] invalid state", { reason: verified.reason });
+    console.error("[quickbooks/callback] invalid state", { reason: verified.reason });
     return NextResponse.redirect(
       new URL(`/staff/settings?accounting=bad-state&reason=${verified.reason}`, request.url),
     );
+  }
+  if (!code || !realmId) {
+    return NextResponse.redirect(new URL("/staff/settings?accounting=exchange-failed", request.url));
   }
 
   const admin = createAdminClient();
@@ -47,47 +54,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/staff/settings?accounting=forbidden", request.url));
   }
 
-  // Resolve email for the audit log. Apex callback has no session
-  // context — fetch from auth.users via the admin client.
+  // Resolve email for the audit log (no session context on the apex).
   let actorEmail: string | null = null;
   try {
     const { data: authUser } = await admin.auth.admin.getUserById(verified.userId);
     actorEmail = authUser.user?.email ?? null;
   } catch (err) {
-    console.error("[xero/callback] getUserById failed", err);
+    console.error("[quickbooks/callback] getUserById failed", err);
   }
 
-  // Pass the URL state to the SDK so its internal state-mismatch check
-  // sees the same value we sent — otherwise xero-node throws RPError
-  // "state mismatch" before we even read the verified payload.
-  const client = makeXeroClient(state);
   try {
-    const tokenSet = await client.apiCallback(request.url);
-    await client.updateTenants();
-    const tenant = client.tenants[0];
-    if (!tenant) {
-      return NextResponse.redirect(
-        new URL("/staff/settings?accounting=no-tenants", request.url),
-      );
-    }
-    if (!tokenSet.access_token || !tokenSet.refresh_token) {
-      return NextResponse.redirect(
-        new URL("/staff/settings?accounting=exchange-failed", request.url),
-      );
-    }
-
-    const expiresAt = new Date(
-      (tokenSet.expires_at ?? Math.floor(Date.now() / 1000) + 1800) * 1000,
-    ).toISOString();
+    const tokens = await exchangeQuickBooksCode(code);
+    const companyName = await fetchQuickBooksCompanyName(tokens.accessToken, realmId);
 
     await saveAccountingConnection({
       organizationId: verified.orgId,
-      provider: "xero",
-      externalId: tenant.tenantId,
-      displayName: tenant.tenantName ?? null,
-      accessToken: tokenSet.access_token,
-      refreshToken: tokenSet.refresh_token,
-      tokenExpiresAt: expiresAt,
+      provider: "quickbooks",
+      externalId: realmId,
+      displayName: companyName,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      tokenExpiresAt: tokens.expiresAt,
       connectedBy: verified.userId,
     });
 
@@ -97,18 +84,17 @@ export async function GET(request: NextRequest) {
       actorEmail,
       action: "accounting.connect_complete",
       entityType: "accounting_connection",
-      entityId: tenant.tenantId,
-      metadata: { provider: "xero", tenantName: tenant.tenantName },
+      entityId: realmId,
+      metadata: { provider: "quickbooks", companyName },
     });
   } catch (err) {
-    console.error("[xero/callback] exchange failed", err);
+    console.error("[quickbooks/callback] exchange failed", err);
     return NextResponse.redirect(
       new URL("/staff/settings?accounting=exchange-failed", request.url),
     );
   }
 
-  // Send the user back to their tenant settings page, not the apex —
-  // the tenant subdomain is the organization slug.
+  // Back to the tenant settings page — subdomain is the org slug.
   const { data: org } = await admin
     .from("organizations")
     .select("slug")

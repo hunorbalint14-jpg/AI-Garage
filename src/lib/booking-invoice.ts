@@ -4,7 +4,7 @@ import { vatRateFor, isVatTreatment } from "@/lib/vat";
 import { sendEmail } from "@/lib/email";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
 import { garageLabel } from "@/lib/garage-identity";
-import { pushInvoiceToXero, pushPaymentToXero } from "@/lib/xero-sync";
+import { pushInvoiceToAccounting, pushPaymentToAccounting } from "@/lib/accounting/sync";
 
 type GenerateArgs = {
   bookingId: string;
@@ -191,11 +191,11 @@ export async function generateInvoiceForPaidBooking({
     html,
   });
 
-  // Push invoice + payment to Xero (fire-and-forget).
+  // Push invoice + payment to the org's accounting provider (best-effort).
   try {
-    const xeroInvoiceId = await pushInvoiceToXero(invoice.id);
-    if (xeroInvoiceId) {
-      await pushPaymentToXero({
+    const externalInvoiceId = await pushInvoiceToAccounting(invoice.id);
+    if (externalInvoiceId) {
+      await pushPaymentToAccounting({
         invoiceId: invoice.id,
         amountPence,
         paymentDate: new Date().toISOString(),
@@ -203,6 +203,6 @@ export async function generateInvoiceForPaidBooking({
       });
     }
   } catch (err) {
-    console.error("[booking-invoice] xero sync failed", err);
+    console.error("[booking-invoice] accounting sync failed", err);
   }
 }

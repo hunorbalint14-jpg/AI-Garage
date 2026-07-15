@@ -22,7 +22,8 @@ const ACTION_GROUPS: { label: string; actions: string[] }[] = [
   },
   {
     label: "Integrations",
-    actions: ["xero.connect_complete", "xero.disconnect"],
+    // Legacy xero.* names kept so pre-rename rows stay filterable.
+    actions: ["accounting.connect_complete", "accounting.disconnect", "accounting.retry_sync", "xero.connect_complete", "xero.disconnect"],
   },
   {
     label: "Auth",
