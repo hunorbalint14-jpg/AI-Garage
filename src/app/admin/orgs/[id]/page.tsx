@@ -117,7 +117,7 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
           label="Integrations"
           value={[
             orgRow.stripe_charges_enabled ? "Stripe" : null,
-            orgRow.accounting_provider === "quickbooks" ? "QuickBooks" : orgRow.accounting_provider === "xero" ? "Xero" : null,
+            orgRow.accounting_provider === "quickbooks" ? "QuickBooks" : orgRow.accounting_provider === "sage" ? "Sage" : orgRow.accounting_provider === "xero" ? "Xero" : null,
           ].filter(Boolean).join(" + ") || "None"}
         />
       </div>
