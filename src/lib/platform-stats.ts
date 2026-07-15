@@ -15,7 +15,7 @@ export type OrgOverviewRow = {
   tenant_current_period_end: string | null;
   stripe_charges_enabled: boolean;
   stripe_payouts_enabled: boolean;
-  xero_connected: boolean;
+  accounting_provider: string | null;
   location_count: number;
   staff_count: number;
   customer_count: number;

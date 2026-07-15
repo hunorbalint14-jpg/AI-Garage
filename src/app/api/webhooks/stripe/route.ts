@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { generateInvoiceForPaidBooking } from "@/lib/booking-invoice";
-import { pushPaymentToXero, pushPayoutToXero } from "@/lib/xero-sync";
+import { pushPaymentToAccounting, pushPayoutToAccounting } from "@/lib/accounting/sync";
 import { applyQuoteDeposit } from "@/lib/quote-deposit";
 import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
@@ -326,17 +326,18 @@ async function handleStripeEvent(
           error: error?.message,
         });
 
-        // Push payment to Xero so the invoice is marked paid there too.
+        // Push payment to the accounting provider so the invoice is
+        // marked paid there too.
         if (count && count > 0) {
           try {
-            await pushPaymentToXero({
+            await pushPaymentToAccounting({
               invoiceId,
               amountPence: session.amount_total ?? 0,
               paymentDate: new Date().toISOString(),
               reference: paymentIntentId ?? `Checkout ${session.id}`,
             });
           } catch (err) {
-            console.error("[stripe-webhook] xero payment push failed", err);
+            console.error("[stripe-webhook] accounting payment push failed", err);
           }
         }
       }
@@ -582,8 +583,9 @@ async function handleStripeEvent(
 
     case "payout.paid": {
       // Fires on the connected account when Stripe pays the garage's
-      // balance out to their real bank. We post a matching Receive Money
-      // bank transaction to their Xero so their accountant can reconcile.
+      // balance out to their real bank. We post a matching bank-side
+      // transaction to their accounting provider (Xero Receive Money /
+      // QuickBooks Deposit) so their accountant can reconcile.
       const payout = event.data.object as Stripe.Payout;
       const stripeAccountId = event.account;
       if (!stripeAccountId) {
@@ -594,14 +596,14 @@ async function handleStripeEvent(
         .toISOString()
         .split("T")[0];
       try {
-        await pushPayoutToXero({
+        await pushPayoutToAccounting({
           stripePayoutId: payout.id,
           stripeAccountId,
           amountPence: payout.amount,
           arrivalDate,
         });
       } catch (err) {
-        console.error("[stripe-webhook] payout.paid xero push failed", err);
+        console.error("[stripe-webhook] payout.paid accounting push failed", err);
       }
       break;
     }

@@ -56,10 +56,13 @@ export const ENV_VARS: EnvVar[] = [
   { name: "TWILIO_FROM_NUMBER", level: "feature", group: "SMS/WhatsApp (Twilio)", ifMissing: "No SMS sender number." },
   { name: "TWILIO_WHATSAPP_FROM", level: "feature", group: "SMS/WhatsApp (Twilio)", ifMissing: "No WhatsApp sender." },
 
-  // ── Xero (accounting) ─────────────────────────────────────────────────────
-  { name: "XERO_CLIENT_ID", level: "feature", group: "Xero", ifMissing: "Xero OAuth connect fails — no accounting sync." },
-  { name: "XERO_CLIENT_SECRET", level: "feature", group: "Xero", ifMissing: "Xero OAuth connect fails." },
-  { name: "XERO_SALES_ACCOUNT_CODE", level: "feature", group: "Xero", ifMissing: "Synced invoices land in the wrong/no account code." },
+  // ── Accounting (Xero / QuickBooks) ────────────────────────────────────────
+  { name: "XERO_CLIENT_ID", level: "feature", group: "Accounting", ifMissing: "Xero OAuth connect fails — no Xero sync." },
+  { name: "XERO_CLIENT_SECRET", level: "feature", group: "Accounting", ifMissing: "Xero OAuth connect fails." },
+  { name: "XERO_SALES_ACCOUNT_CODE", level: "feature", group: "Accounting", ifMissing: "Xero-synced invoices land in the wrong/no account code." },
+  { name: "QUICKBOOKS_CLIENT_ID", level: "feature", group: "Accounting", ifMissing: "QuickBooks OAuth connect fails — no QuickBooks sync." },
+  { name: "QUICKBOOKS_CLIENT_SECRET", level: "feature", group: "Accounting", ifMissing: "QuickBooks OAuth connect fails." },
+  { name: "QUICKBOOKS_ENVIRONMENT", level: "feature", group: "Accounting", ifMissing: "Defaults to sandbox outside production builds; set 'production' explicitly for live." },
 
   // ── Passkeys (WebAuthn) ───────────────────────────────────────────────────
   { name: "WEBAUTHN_RP_ID", level: "feature", group: "Passkeys", ifMissing: "Passkey registration/login fails (relying-party id)." },

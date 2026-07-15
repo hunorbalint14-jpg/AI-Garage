@@ -23,7 +23,7 @@ type Admin = ReturnType<typeof createAdminClient>;
 // Price — if the two diverge, the page and the receipt disagree.
 
 export type TierKey = "starter" | "pro" | "growth";
-export type FeatureKey = "xero" | "campaigns" | "automations" | "receptionist";
+export type FeatureKey = "accounting" | "campaigns" | "automations" | "receptionist";
 
 export type TierConfig = {
   key: TierKey;
@@ -49,7 +49,7 @@ export const TIERS: Record<TierKey, TierConfig> = {
     feePercent: 2.0,
     priceMonthlyEnv: null,
     priceAnnualEnv: null,
-    features: { xero: false, campaigns: false, automations: false, receptionist: false },
+    features: { accounting: false, campaigns: false, automations: false, receptionist: false },
     maxLocations: 1,
   },
   pro: {
@@ -60,7 +60,7 @@ export const TIERS: Record<TierKey, TierConfig> = {
     feePercent: 1.0,
     priceMonthlyEnv: "STRIPE_TENANT_PRICE_PRO_MONTHLY",
     priceAnnualEnv: "STRIPE_TENANT_PRICE_PRO_ANNUAL",
-    features: { xero: true, campaigns: true, automations: true, receptionist: false },
+    features: { accounting: true, campaigns: true, automations: true, receptionist: false },
     maxLocations: 3,
   },
   growth: {
@@ -71,7 +71,7 @@ export const TIERS: Record<TierKey, TierConfig> = {
     feePercent: 0,
     priceMonthlyEnv: "STRIPE_TENANT_PRICE_GROWTH_MONTHLY",
     priceAnnualEnv: "STRIPE_TENANT_PRICE_GROWTH_ANNUAL",
-    features: { xero: true, campaigns: true, automations: true, receptionist: true },
+    features: { accounting: true, campaigns: true, automations: true, receptionist: true },
     maxLocations: 7,
     perExtraLocationPence: 2500,
   },
@@ -115,7 +115,7 @@ export function entitledTo(org: OrgBilling, key: FeatureKey, now: Date = new Dat
 }
 
 export const UPGRADE_MESSAGE: Record<FeatureKey, string> = {
-  xero: "Xero sync is a Pro feature. Upgrade your plan in Settings → Billing.",
+  accounting: "Accounting sync (Xero / QuickBooks) is a Pro feature. Upgrade your plan in Settings → Billing.",
   campaigns: "Campaigns are a Pro feature. Upgrade your plan in Settings → Billing.",
   automations: "Automations are a Pro feature. Upgrade your plan in Settings → Billing.",
   receptionist: "The AI receptionist is a Growth feature. Upgrade your plan in Settings → Billing.",

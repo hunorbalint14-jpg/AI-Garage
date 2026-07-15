@@ -9,7 +9,7 @@ import { sendEmail } from "@/lib/email";
 import { garageLabel } from "@/lib/garage-identity";
 import { tenantPayUrl, stripe } from "@/lib/stripe";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
-import { pushInvoiceToXero, pushPaymentToXero, pushCreditNoteToXero } from "@/lib/xero-sync";
+import { pushInvoiceToAccounting, pushPaymentToAccounting, pushCreditNoteToAccounting } from "@/lib/accounting/sync";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 import {
   getMemberBenefits,
@@ -225,10 +225,10 @@ export async function createInvoiceFromJob(jobId: string): Promise<CreateInvoice
     await finalizeCoverage(admin, job.booking_id, invoice.id);
   }
 
-  // Fire-and-forget: push to Xero. Logs internally, never blocks the
-  // staff response.
-  pushInvoiceToXero(invoice.id).catch((err) =>
-    console.error("[invoices/createInvoiceFromJob] xero push failed", err),
+  // Fire-and-forget: push to the accounting provider. Logs internally,
+  // never blocks the staff response.
+  pushInvoiceToAccounting(invoice.id).catch((err) =>
+    console.error("[invoices/createInvoiceFromJob] accounting push failed", err),
   );
 
   await logAudit({
@@ -385,14 +385,14 @@ export async function markInvoicePaid(invoiceId: string): Promise<InvoiceActionR
 
   if (error) return { error: error.message };
 
-  // Sync the payment to Xero, fire-and-forget.
-  pushPaymentToXero({
+  // Sync the payment to the accounting provider, fire-and-forget.
+  pushPaymentToAccounting({
     invoiceId,
     amountPence: Math.round(Number(invoice.total) * 100),
     paymentDate: paidAt,
     reference: "Manual mark-as-paid",
   }).catch((err) =>
-    console.error("[invoices/markInvoicePaid] xero push failed", err),
+    console.error("[invoices/markInvoicePaid] accounting push failed", err),
   );
 
   await logAudit({
@@ -414,7 +414,8 @@ export async function markInvoicePaid(invoiceId: string): Promise<InvoiceActionR
 // Refund a paid invoice (full or partial). If it was paid online, issues a
 // Stripe refund on the org's Connect account; otherwise records a cash credit
 // note. Either way a credit_notes row is written, the invoice status moves to
-// part_refunded / refunded, and (online) a Xero credit note is pushed.
+// part_refunded / refunded, and a credit note is pushed to the
+// accounting provider.
 export async function refundInvoice(
   invoiceId: string,
   args: { amountPence?: number; reason?: string },
@@ -490,8 +491,8 @@ export async function refundInvoice(
   await recomputeInvoiceRefundStatus(admin, invoiceId);
 
   if (creditNoteId) {
-    pushCreditNoteToXero(creditNoteId).catch((err) =>
-      console.error("[invoices/refundInvoice] xero credit note push failed", err),
+    pushCreditNoteToAccounting(creditNoteId).catch((err) =>
+      console.error("[invoices/refundInvoice] accounting credit note push failed", err),
     );
   }
 

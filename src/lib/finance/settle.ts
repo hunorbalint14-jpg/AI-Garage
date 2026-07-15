@@ -1,10 +1,11 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
-import { pushPaymentToXero } from "@/lib/xero-sync";
+import { pushPaymentToAccounting } from "@/lib/accounting/sync";
 import { logAudit } from "@/lib/audit";
 
 // A completed Bumper application means Bumper has funded the garage upfront,
 // so an invoice subject is now settled. Mark it paid (which also stops
-// dunning), audit it, and push the payment to Xero — mirroring the Stripe
+// dunning), audit it, and push the payment to the accounting provider —
+// mirroring the Stripe
 // paid path, just sourced from finance instead of a card.
 //
 // Both the return route (customer bounces back) and the reconcile cron fire
@@ -44,13 +45,13 @@ export async function settleInvoiceFromFinance(
   });
 
   try {
-    await pushPaymentToXero({
+    await pushPaymentToAccounting({
       invoiceId: app.subject_id,
       amountPence: Math.round(Number(app.amount) * 100),
       paymentDate: now,
       reference: `Bumper ${app.token}`,
     });
   } catch (err) {
-    console.error("[finance] xero payment push failed", err);
+    console.error("[finance] accounting payment push failed", err);
   }
 }

@@ -30,8 +30,8 @@ describe("tierFor / tierFeePercent / tenantHasFeature", () => {
     expect(tierFeePercent({ tenant_plan: "starter" })).toBe(2.0);
     expect(tierFeePercent({ tenant_plan: "pro" })).toBe(1.0);
     expect(tierFeePercent({ tenant_plan: "growth" })).toBe(0);
-    expect(tenantHasFeature({ tenant_plan: "starter" }, "xero")).toBe(false);
-    expect(tenantHasFeature({ tenant_plan: "pro" }, "xero")).toBe(true);
+    expect(tenantHasFeature({ tenant_plan: "starter" }, "accounting")).toBe(false);
+    expect(tenantHasFeature({ tenant_plan: "pro" }, "accounting")).toBe(true);
   });
 });
 
@@ -157,7 +157,7 @@ describe("lapsed tenant end-to-end invariants", () => {
 
   it("loses premium entitlements but keeps the tier's config intact", () => {
     expect(tenantBillingState(lapsed, now).state).toBe("lapsed");
-    for (const key of ["xero", "campaigns", "automations", "receptionist"] as const) {
+    for (const key of ["accounting", "campaigns", "automations", "receptionist"] as const) {
       expect(entitledTo(lapsed, key, now)).toBe(false);
       expect(tenantHasFeature(lapsed, key)).toBe(true); // config survives → instant restore on payment
     }

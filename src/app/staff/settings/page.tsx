@@ -16,7 +16,10 @@ import { PartsPricingSection } from "./parts-pricing-section";
 import { parseMarkupRules } from "@/lib/parts-pricing";
 import { QuoteValiditySection } from "./quote-validity-section";
 import { QuoteRemindersSection } from "./quote-reminders-section";
-import { XeroSection } from "./xero-section";
+import { AccountingSection, type AccountingConnectionView, type AccountingHealthView } from "./accounting-section";
+import { getConnectionStatus } from "@/lib/accounting/connection";
+import { getBooksHealth } from "@/lib/accounting/health";
+import { PROVIDER_LABELS } from "@/lib/accounting/types";
 import { FinanceSection } from "./finance-section";
 import { NoShowFeeSection } from "./no-show-fee-section";
 import { SermiCard, type SermiView } from "./sermi-card";
@@ -47,7 +50,7 @@ export default async function SettingsPage({
   const [orgRes, locationsRes, currentLocRes, passkeysRes, financeRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, xero_tenant_id, xero_tenant_name, xero_connected_at, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number, authorisation_terms, variation_threshold_pct, labour_cost_rate, parts_markup_rules, parts_target_margin_pct")
+      .select("name, primary_color, logo_url, slug, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number, authorisation_terms, variation_threshold_pct, labour_cost_rate, parts_markup_rules, parts_target_margin_pct")
       .eq("id", ctx.organization.id)
       .single(),
     admin
@@ -107,6 +110,23 @@ export default async function SettingsPage({
   }
   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "ai-garage.co.uk";
   const siteUrl = `${rootDomain.includes("localtest") || rootDomain.includes("localhost") ? "http" : "https"}://${ctx.organization.slug}.${rootDomain}/`;
+
+  // Accounting connection + books health (#501) — only fetched when the
+  // Integrations tab is open.
+  let accountingConnection: AccountingConnectionView | null = null;
+  let accountingHealth: AccountingHealthView | null = null;
+  if (tab === "integrations") {
+    const status = await getConnectionStatus(ctx.organization.id);
+    if (status) {
+      accountingConnection = {
+        provider: status.provider,
+        label: PROVIDER_LABELS[status.provider],
+        displayName: status.displayName,
+        connectedAt: status.connectedAt,
+      };
+      accountingHealth = await getBooksHealth(ctx.organization.id, status.connectedAt);
+    }
+  }
 
   const stripeAccountId = (org as { stripe_account_id?: string | null } | null)?.stripe_account_id;
   const stripeChargesEnabled = !!(org as { stripe_charges_enabled?: boolean } | null)?.stripe_charges_enabled;
@@ -336,10 +356,9 @@ export default async function SettingsPage({
 
       {/* ── Integrations ─────────────────────────────────────────── */}
       {tab === "integrations" && (
-        <XeroSection
-          connected={!!(org as { xero_tenant_id?: string | null } | null)?.xero_tenant_id}
-          tenantName={(org as { xero_tenant_name?: string | null } | null)?.xero_tenant_name ?? null}
-          connectedAt={(org as { xero_connected_at?: string | null } | null)?.xero_connected_at ?? null}
+        <AccountingSection
+          connection={accountingConnection}
+          health={accountingHealth}
           canManage={isOwner}
         />
       )}

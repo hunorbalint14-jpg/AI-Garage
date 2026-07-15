@@ -64,7 +64,7 @@ export async function sendOrgWelcomeEmail(input: {
     const monthly = (pence: number) => (pence === 0 ? "free" : `£${pence / 100}/mo`);
     const tierBullets = [
       `Starter (your plan) — ${monthly(TIERS.starter.monthlyPence)} · 1 branch, core tools`,
-      `Pro — ${monthly(TIERS.pro.monthlyPence)} · up to ${TIERS.pro.maxLocations} branches, plus Xero, campaigns & automations`,
+      `Pro — ${monthly(TIERS.pro.monthlyPence)} · up to ${TIERS.pro.maxLocations} branches, plus accounting sync (Xero/QuickBooks), campaigns & automations`,
       `Growth — ${monthly(TIERS.growth.monthlyPence)} · up to ${TIERS.growth.maxLocations} branches, plus the AI receptionist and no payment fee`,
     ];
 

@@ -8,7 +8,7 @@ const EMPTY: ChecklistState = {
   teamSize: 1,
   stripeChargesEnabled: false,
   logoSet: false,
-  xeroConnected: false,
+  accountingConnected: false,
   customers: 0,
 };
 
@@ -19,7 +19,7 @@ const DONE: ChecklistState = {
   teamSize: 4,
   stripeChargesEnabled: true,
   logoSet: true,
-  xeroConnected: false, // optional — must not block
+  accountingConnected: false, // optional — must not block
   customers: 12,
 };
 
@@ -35,7 +35,7 @@ describe("buildChecklist", () => {
     const c = buildChecklist(DONE, "https://x.ai-garage.co.uk/book");
     expect(c.done).toBe(c.total);
     expect(c.complete).toBe(true);
-    expect(c.steps.find((s) => s.key === "xero")!.done).toBe(false);
+    expect(c.steps.find((s) => s.key === "accounting")!.done).toBe(false);
   });
 
   it("booking page goes live from hours + one active service", () => {

@@ -14,7 +14,7 @@ export type ChecklistState = {
   teamSize: number; // distinct users across org + branch grants
   stripeChargesEnabled: boolean;
   logoSet: boolean;
-  xeroConnected: boolean;
+  accountingConnected: boolean;
   customers: number;
 };
 
@@ -110,13 +110,13 @@ export function buildChecklist(state: ChecklistState, bookingUrl: string, hasDem
       ask: "How do I add customers, and can I import my existing customer list?",
     },
     {
-      key: "xero",
+      key: "accounting",
       label: "Connect accounting",
-      detail: "Xero sync for invoices — optional.",
-      done: state.xeroConnected,
+      detail: "Xero or QuickBooks sync for invoices — optional.",
+      done: state.accountingConnected,
       optional: true,
       href: "/staff/settings?tab=integrations",
-      ask: "How does the Xero integration work and what gets synced?",
+      ask: "How do the accounting integrations work and what gets synced?",
     },
   ];
 
@@ -159,7 +159,7 @@ export async function loadSetupChecklistByIds(
 ): Promise<SetupChecklist | null> {
   const { data: orgRow } = await admin
     .from("organizations")
-    .select("setup_checklist_dismissed_at, stripe_account_id, stripe_charges_enabled, logo_url, xero_connected_at")
+    .select("setup_checklist_dismissed_at, stripe_account_id, stripe_charges_enabled, logo_url")
     .eq("id", ids.organizationId)
     .maybeSingle();
   const org = orgRow as {
@@ -167,11 +167,10 @@ export async function loadSetupChecklistByIds(
     stripe_account_id: string | null;
     stripe_charges_enabled: boolean | null;
     logo_url: string | null;
-    xero_connected_at: string | null;
   } | null;
   if (!org || org.setup_checklist_dismissed_at) return null;
 
-  const [locRes, servicesRes, baysRes, customersRes, demoRes, orgUsersRes, locUsersRes] = await Promise.all([
+  const [locRes, servicesRes, baysRes, customersRes, demoRes, orgUsersRes, locUsersRes, accountingRes] = await Promise.all([
     admin.from("locations").select("id, business_hours").eq("id", ids.locationId).maybeSingle(),
     admin.from("services").select("id", { count: "exact", head: true }).eq("location_id", ids.locationId).eq("active", true),
     admin.from("bays").select("id", { count: "exact", head: true }).eq("location_id", ids.locationId),
@@ -191,6 +190,10 @@ export async function loadSetupChecklistByIds(
       .from("location_users")
       .select("user_id, location:locations!inner(organization_id)")
       .eq("location.organization_id", ids.organizationId),
+    admin
+      .from("accounting_connections")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", ids.organizationId),
   ]);
 
   const team = new Set<string>([
@@ -205,7 +208,7 @@ export async function loadSetupChecklistByIds(
     teamSize: team.size,
     stripeChargesEnabled: !!org.stripe_account_id && !!org.stripe_charges_enabled,
     logoSet: !!org.logo_url,
-    xeroConnected: !!org.xero_connected_at,
+    accountingConnected: (accountingRes.count ?? 0) > 0,
     customers: customersRes.count ?? 0,
   };
 
