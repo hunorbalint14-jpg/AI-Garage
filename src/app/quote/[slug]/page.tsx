@@ -13,8 +13,8 @@ type Org = { id: string; name: string; logo_url: string | null; primary_color: s
 type Customer = { full_name: string | null };
 type Vehicle = { registration: string | null; make: string | null; model: string | null; year: number | null };
 
-// Normalised shape — both job_quotes and standalone_quotes are reduced to this
-// before the render so the JSX doesn't have to branch on source.
+// Normalised shape — both job and standalone quote_type rows are reduced to
+// this before the render so the JSX doesn't have to branch on source.
 type NormalisedQuote = {
   id: string;
   source: QuoteSource;

@@ -18,7 +18,7 @@ export const maxDuration = 60;
 
 // Sweeps pending quotes that passed their expires_at and flips them to
 // "expired" + audit-logs each one. Covers BOTH the DVI mid-job quotes
-// (job_quotes) and the pre-job standalone quotes (standalone_quotes).
+// (quote_type='job') and the pre-job standalone quotes (quote_type='standalone').
 // Then runs the automated reminder pass (Phase 6, #246) over the quotes that
 // are still pending, per each org's reminder schedule.
 

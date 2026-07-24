@@ -53,9 +53,9 @@ async function loadOrg(locationId: string): Promise<OrgRow | null> {
   return ((data as { organization: OrgRow | null } | null)?.organization ?? null);
 }
 
-// Registration for the quote's vehicle. job_quotes reach the vehicle via the
-// parent job; standalone_quotes carry vehicle_id directly. Used only to
-// enrich the staff notification, so a null reg is fine.
+// Registration for the quote's vehicle. quote_type='job' rows reach the
+// vehicle via the parent job; 'standalone' rows carry vehicle_id directly.
+// Used only to enrich the staff notification, so a null reg is fine.
 async function vehicleRegForQuote(source: "job" | "standalone", quoteId: string, jobId: string | null): Promise<string | null> {
   const admin = createAdminClient();
   if (source === "standalone") {

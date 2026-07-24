@@ -836,7 +836,7 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <div class="tag">postgres · rls</div>
       </div>
 
-      <p class="lede2">42 tables, most tenant-scoped via <code>location_id</code>. Org-scoped tables: <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> (required <code>organization_id</code>) plus <code>role_templates</code> + <code>staff_notifications</code> (nullable <code>organization_id</code>). <code>standalone_quotes</code> carries both <code>location_id</code> and a denormalised <code>organization_id</code>. The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
+      <p class="lede2">42 tables, most tenant-scoped via <code>location_id</code>. Org-scoped tables: <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> (required <code>organization_id</code>) plus <code>role_templates</code> + <code>staff_notifications</code> (nullable <code>organization_id</code>). The unified <code>quotes</code> table (job + standalone, see domain 4) carries both <code>location_id</code> and a denormalised <code>organization_id</code>. The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
 
       <div class="bp">
         <div class="caption"><span class="ref">FIG&nbsp;05·A</span><span>entity relationship diagram</span></div>
@@ -868,8 +868,8 @@ graph LR
     job_time_entries
   end
   subgraph QUOTES["4 Quotes"]
-    job_quotes
-    standalone_quotes
+    quotes
+    quote_items
   end
   subgraph MONEY["5 Invoicing and payments"]
     invoices
@@ -950,15 +950,15 @@ erDiagram
   services |o--o{ job_items : "from"
         </div>
 
-        <p><strong>4 &middot; Quotes</strong> — video quotes attached to a job and standalone quotes raised for a customer/vehicle; both have line items, a standalone can convert to a booking.</p>
+        <p><strong>4 &middot; Quotes</strong> — one unified <code>quotes</code> table with a <code>quote_type</code> discriminator (<code>job</code> = video quote attached to a job · <code>standalone</code> = raised for a customer/vehicle). Both share <code>quote_items</code>; edits after send are journalled in <code>quote_revisions</code>; a quote can convert to a booking. The legacy <code>job_quotes</code>/<code>standalone_quotes</code> archive tables were retired in Phase 10 (#252).</p>
         <div class="mermaid">
 erDiagram
-  jobs ||--o{ job_quotes : "video quote"
-  job_quotes ||--o{ job_quote_items : "lines"
-  customers ||--o{ standalone_quotes : "for"
-  vehicles |o--o{ standalone_quotes : "for"
-  standalone_quotes ||--o{ standalone_quote_items : "lines"
-  standalone_quotes |o--o| bookings : "converts to"
+  jobs ||--o{ quotes : "job quote"
+  customers ||--o{ quotes : "standalone quote"
+  vehicles |o--o{ quotes : "for"
+  quotes ||--o{ quote_items : "lines"
+  quotes ||--o{ quote_revisions : "revisions"
+  quotes |o--o| bookings : "converts to"
         </div>
 
         <p><strong>5 &middot; Invoicing &amp; payments</strong> — an invoice bills a job or prepaid booking; credit notes record refunds; reviews/reminders/tasks drive comms; Xero payouts reconcile settlements.</p>
@@ -1027,7 +1027,7 @@ erDiagram
         <tr><td>Xero</td><td><code>organizations</code> · <code>customers</code> · <code>invoices</code> · <code>xero_payouts</code></td><td><code>xero_tenant_id · xero_access_token · xero_refresh_token · xero_token_expires_at</code> (tokens encrypted at app layer via <code>lib/encryption.ts</code>) · <code>xero_contact_id</code> · <code>xero_invoice_id · xero_payment_id · xero_synced_at</code> · <code>stripe_payout_id · xero_bank_transaction_id · arrival_date</code></td></tr>
         <tr><td>Email tracking</td><td><code>reminders</code></td><td><code>resend_email_id · delivered_at · opened_at · clicked_at</code></td></tr>
         <tr><td>Forensic audit</td><td><code>audit_log</code> · <code>doc_shares</code></td><td><code>actor_user_id · actor_email · action · entity_type · entity_id · metadata · ip_address · user_agent</code> · <code>token_hash · view_count · revoked_at · revoked_by</code></td></tr>
-        <tr><td>Quote lifecycle</td><td><code>job_quotes</code> · <code>standalone_quotes</code></td><td><code>status · token_hash · slug · expires_at · sent_at · viewed_at · viewed_count · responded_at · approved_item_ids · decline_reason · deposit_pct · deposit_amount · deposit_required · deposit_paid_at · stripe_checkout_session_id · stripe_payment_intent_id</code> · standalone adds <code>organization_id · customer_message · converted_booking_id</code>; DVI adds <code>job_id · applied_job_item_ids</code></td></tr>
+        <tr><td>Quote lifecycle</td><td><code>quotes</code> · <code>quote_items</code> · <code>quote_revisions</code></td><td><code>quote_type (job&nbsp;|&nbsp;standalone) · status · token_hash · slug · expires_at · sent_at · viewed_at · viewed_count · responded_at · approved_item_ids · decline_reason · vat_rate (per-row) · deposit_pct · deposit_amount · deposit_required · deposit_paid_at · stripe_checkout_session_id · stripe_payment_intent_id · revision_number · revision_note</code> · standalone rows add <code>customer_id · customer_message · converted_booking_id</code>; job rows add <code>job_id · applied_job_item_ids</code></td></tr>
         <tr><td>RBAC</td><td><code>location_users</code> · <code>role_templates</code></td><td><code>role · permissions (jsonb) · template_id · mot_tester · mot_qc_reviewer</code> · <code>key · label · permissions · is_system · sort_order</code> (system rows have <code>organization_id IS NULL</code>)</td></tr>
         <tr><td>In-app notifications</td><td><code>staff_notifications</code></td><td><code>user_id · location_id · organization_id · kind · title · body · href · entity_type · entity_id · read_at</code></td></tr>
         <tr><td>Platform billing</td><td><code>organizations</code></td><td><code>tenant_plan · tenant_subscription_status · tenant_stripe_customer_id · tenant_stripe_subscription_id · tenant_current_period_end · tenant_trial_end</code> (the garage's own AI Garage subscription — see §17)</td></tr>
@@ -1657,9 +1657,9 @@ erDiagram
         <div>
           <h3>Data model</h3>
           <ul>
-            <li><code>job_quotes</code> — lifecycle row (pending / approved / declined / expired / cancelled / approved_after_close), token hash, expiry, totals.</li>
-            <li><code>job_quote_items</code> — frozen item snapshot — preserves what the customer agreed to even if products change later.</li>
-            <li><code>job_quotes_increment_view</code> RPC — atomic view counter + first-view stamp.</li>
+            <li><code>quotes</code> (<code>quote_type = 'job'</code>) — lifecycle row (draft / pending / approved / declined / rebooked / expired / cancelled / approved_after_close), token hash, expiry, totals. Unified with standalone quotes since the Quote Management epic (#253); the legacy <code>job_quotes</code> table was dropped in Phase 10 (#252).</li>
+            <li><code>quote_items</code> — frozen item snapshot — preserves what the customer agreed to even if products change later.</li>
+            <li><code>quotes_increment_view</code> RPC — atomic view counter + first-view stamp.</li>
             <li>Storage bucket <code>job-quote-videos</code> (private) — path format <code>{location_id}/{job_id}/{quote_id}.{ext}</code>, max 80&nbsp;MB, MP4/MOV/WebM only.</li>
           </ul>
         </div>
@@ -1779,10 +1779,10 @@ erDiagram
         <div>
           <h3>Data model</h3>
           <ul>
-            <li><code>standalone_quotes</code> — superset of DVI lifecycle (<code>draft / pending / approved / declined / rebooked / expired / cancelled / approved_after_close</code>). Nullable <code>token_hash</code> + <code>slug</code> while in draft.</li>
-            <li><code>standalone_quote_items</code> — frozen line-item snapshot, cascade-delete with parent.</li>
-            <li><code>standalone_quotes_increment_view</code> RPC — atomic view counter.</li>
-            <li>Slug format: <code>sq-&lt;10 hex&gt;</code> (DVI uses <code>q-</code>) so <code>verifyQuoteAccess</code> in <code>src/lib/quote-links.ts</code> routes to the right table.</li>
+            <li><code>quotes</code> (<code>quote_type = 'standalone'</code>) — full lifecycle (<code>draft / pending / approved / declined / rebooked / expired / cancelled / approved_after_close</code>). Nullable <code>token_hash</code> + <code>slug</code> while in draft. Shares the table with job quotes since the Quote Management epic (#253); the legacy <code>standalone_quotes</code> table was dropped in Phase 10 (#252).</li>
+            <li><code>quote_items</code> — frozen line-item snapshot, cascade-delete with parent.</li>
+            <li><code>quotes_increment_view</code> RPC — atomic view counter.</li>
+            <li>Slug format: <code>sq-&lt;10 hex&gt;</code> (job quotes use <code>q-</code>) so <code>verifyQuoteAccess</code> in <code>src/lib/quote-links.ts</code> distinguishes the two quote types.</li>
             <li><code>converted_booking_id</code> FK to <code>bookings</code> — populated when staff later schedules an approved quote.</li>
           </ul>
         </div>
