@@ -1,9 +1,9 @@
 import crypto from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// Quote token gating. Two source tables share the same /quote/[slug]?t=...
-// customer route — DVI mid-job (job_quotes, slug "q-...") and standalone
-// pre-job (standalone_quotes, slug "sq-..."). Tokens are random 32-byte
+// Quote token gating. Both quote_type rows share the same /quote/[slug]?t=...
+// customer route — DVI mid-job (quote_type='job', slug "q-...") and standalone
+// pre-job (quote_type='standalone', slug "sq-..."). Tokens are random 32-byte
 // values shown only via the generated link; DB only stores the sha256 hash.
 
 export type QuoteVerifyReason =
@@ -150,7 +150,7 @@ export async function verifyQuoteAccess(
     return { ok: false, reason: "not_found" };
   }
   if (!data) {
-    console.warn("[verifyQuoteAccess] no job_quotes row for slug", { slug });
+    console.warn("[verifyQuoteAccess] no quotes row for slug", { slug });
     return { ok: false, reason: "not_found" };
   }
   const row = data as {

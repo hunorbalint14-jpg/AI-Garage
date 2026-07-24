@@ -38,8 +38,8 @@ function fmt(n: number) {
 }
 
 // Where a row points and how to label it. Invoices get enriched with their
-// number; job_quotes have no id-addressable detail route (the list is the
-// best we can do), standalone_quotes do.
+// number; job-type quotes have no id-addressable detail route (the list is
+// the best we can do), standalone-type quotes do.
 function subjectTarget(a: AppRow): string | null {
   if (a.subject_type === "invoice") return `/staff/invoices/${a.subject_id}`;
   if (a.subject_type === "standalone") return `/staff/quotes/${a.subject_id}`;
