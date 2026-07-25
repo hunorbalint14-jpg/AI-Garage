@@ -9,6 +9,7 @@ import { sendSms } from "@/lib/sms";
 import { sendWhatsApp } from "@/lib/whatsapp";
 import Anthropic from "@anthropic-ai/sdk";
 import { fallbackReminderMessage, fallbackSmsReminderMessage } from "@/lib/ai-messages";
+import { aiBriefSystemBlock } from "@/lib/ai-profile";
 import { recordAiUsage } from "@/lib/ai-usage";
 
 const anthropic = new Anthropic();
@@ -58,7 +59,11 @@ export async function draftReminderPreview(
       )
       .eq("id", vehicleId)
       .maybeSingle(),
-    admin.from("organizations").select("name, phone").eq("id", ctx.organization.id).maybeSingle(),
+    admin
+      .from("organizations")
+      .select("name, phone, ai_brief")
+      .eq("id", ctx.organization.id)
+      .maybeSingle(),
   ]);
 
   type VehicleRow = {
@@ -93,6 +98,7 @@ export async function draftReminderPreview(
   const garagePhone = org?.phone ?? null;
   const subject = `${label.toUpperCase()} reminder — ${vehicle.registration} due ${formattedDate}`;
   const toneNote = TONE_NOTES[tone];
+  const briefBlock = aiBriefSystemBlock(org?.ai_brief);
 
   const draftInput = {
     garageName,
@@ -109,7 +115,7 @@ export async function draftReminderPreview(
       anthropic.messages.create({
         model: MODEL,
         max_tokens: 300,
-        system: [{ type: "text", text: EMAIL_SYSTEM, cache_control: { type: "ephemeral" } }],
+        system: [{ type: "text", text: EMAIL_SYSTEM + briefBlock, cache_control: { type: "ephemeral" } }],
         messages: [
           {
             role: "user",
@@ -120,7 +126,7 @@ export async function draftReminderPreview(
       anthropic.messages.create({
         model: MODEL,
         max_tokens: 80,
-        system: [{ type: "text", text: SMS_SYSTEM, cache_control: { type: "ephemeral" } }],
+        system: [{ type: "text", text: SMS_SYSTEM + briefBlock, cache_control: { type: "ephemeral" } }],
         messages: [
           {
             role: "user",
