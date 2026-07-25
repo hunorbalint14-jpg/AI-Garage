@@ -41,7 +41,7 @@ Grouped; see `npm run check:env` output for the per-var failure mode.
 - **Ops alerting** — `SLACK_OPS_WEBHOOK_URL` (optional; alerts fall back to email). Alerts email `PLATFORM_SUPPORT_EMAIL` / `PLATFORM_ADMIN_EMAILS`, so with **neither** Slack nor an ops email set, a firing alert reaches nobody. Verify with `/admin/health` → **Send test alert** — see [ops-escalation.md](ops-escalation.md) (#450).
 - **Supplier ordering** — none today: the launch (manual) connector reuses the Resend email path and `APP_ENCRYPTION_KEY`. A trade-API connector adds its credentials here — see [supplier-connectivity-spike.md](supplier-connectivity-spike.md) (#568).
 - **Observability (Sentry)** — `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN` (+ `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` for sourcemaps & admin issue fetch).
-- **Ops alerting** — `SLACK_OPS_WEBHOOK_URL` (see issue #449).
+- **Synthetic monitoring** — `CANARY_ORG_SLUG` (missing → the golden-path check skips every run, so nothing exercises booking→invoice→payment), optional `GOLDEN_PATH_BUDGET_MS` (default 5000).
 
 ## Set automatically — do not set by hand
 
@@ -55,6 +55,8 @@ Grouped; see `npm run check:env` output for the per-var failure mode.
 
 - [ ] **Storage bucket:** the `support-shots` bucket migration (`20260706000000_support_shots_bucket.sql`) is applied to prod, or ticket screenshot uploads fail (tickets still send, just no image).
 - [ ] **All migrations applied** to prod (`supabase migration list` clean).
+- [ ] **Canary org exists** — a dedicated organisation whose slug matches `CANARY_ORG_SLUG`, with an active service and opening hours, so the golden-path cron has something to book. It deletes everything it creates each run (#452).
+- [ ] **Platform admin access** — at least one address in `PLATFORM_ADMIN_EMAILS` or a `platform_admins` row, or `/admin` is unreachable (and so is the alert test).
 
 ## Runtime verifications (do these against the deployed app)
 

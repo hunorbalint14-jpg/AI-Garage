@@ -24,6 +24,22 @@ describe("checkEnv", () => {
     expect(checkEnv(envWith(full)).coreMissing).toEqual([]);
   });
 
+  it("warns about the synthetic-monitoring vars — a silent skip is the failure mode (#445)", () => {
+    // CANARY_ORG_SLUG unset makes the golden-path cron no-op with a success
+    // response, so nothing surfaces the fact that the money path is untested.
+    const r = checkEnv(envWith({}));
+    expect(r.featureMissing.map((v) => v.name)).toContain("CANARY_ORG_SLUG");
+    const canary = ENV_VARS.find((v) => v.name === "CANARY_ORG_SLUG");
+    expect(canary?.group).toBe("Synthetic monitoring");
+    expect(canary?.level).toBe("feature");
+  });
+
+  it("every var carries a failure mode — a checklist row with no 'so what' is noise", () => {
+    for (const v of ENV_VARS) {
+      expect(v.ifMissing, `${v.name} has no ifMissing`).toBeTruthy();
+    }
+  });
+
   it("accepts either Upstash pair for the rate-limit one-of", () => {
     expect(checkEnv(envWith({})).oneOfMissing.some((g) => g.group.includes("Upstash"))).toBe(true);
     const redis = checkEnv(envWith({ UPSTASH_REDIS_REST_URL: "u", UPSTASH_REDIS_REST_TOKEN: "t" }));

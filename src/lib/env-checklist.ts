@@ -78,6 +78,14 @@ export const ENV_VARS: EnvVar[] = [
   { name: "NEXT_PUBLIC_SENTRY_DSN", level: "feature", group: "Observability (Sentry)", ifMissing: "Browser errors aren't captured." },
   { name: "SENTRY_DSN", level: "feature", group: "Observability (Sentry)", ifMissing: "Server errors aren't captured." },
 
+  // ── Synthetic monitoring ──────────────────────────────────────────────────
+  // The golden-path cron books → invoices → pays against a dedicated canary
+  // org every run and deletes what it made. Unset, it no-ops silently, which
+  // is right for local/preview and wrong for production: the check that proves
+  // the money path still works would never run and nothing would say so.
+  { name: "CANARY_ORG_SLUG", level: "feature", group: "Synthetic monitoring", ifMissing: "The golden-path check skips every run — the booking→invoice→payment path is never exercised (#452)." },
+  { name: "GOLDEN_PATH_BUDGET_MS", level: "feature", group: "Synthetic monitoring", ifMissing: "Per-step latency budget defaults to 5000ms — fine unless you want it tighter." },
+
   // ── Ops alerting ──────────────────────────────────────────────────────────
   // Alerts fall back to email when Slack isn't set, so the real failure is
   // having NEITHER — then a firing rule reaches nobody (#450). Verify with
