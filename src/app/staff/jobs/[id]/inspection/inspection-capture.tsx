@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { Camera, Plus, Sparkles, Trash2, Wrench, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AiAssistMenu } from "@/components/staff/ai-assist-menu";
 import { useConfirm } from "@/components/confirm-provider";
 import { InspectionQuotePanel } from "./quote-panel";
 import { InspectionSendPanel } from "./send-panel";
@@ -209,10 +210,9 @@ export function InspectionCapture({
     const result = await completeInspection(inspectionId);
     setCompleting(false);
     if ("error" in result) return setError(result.error);
-    // Stay on the page: the customer-wording review appears below, with the
-    // AI drafts filling in as they arrive.
+    // Stay on the page: the customer-wording review appears below. AI drafting
+    // is opt-in — the "Write with AI" button and per-finding controls own it.
     setStatus("complete");
-    void handleGenerate();
   }
 
   // Batch AI drafts for every amber/red finding still missing a summary.
@@ -486,8 +486,9 @@ export function InspectionCapture({
       </div>
 
       {/* Customer wording review (Phase 3) — appears once the check is
-          complete. Claude drafts a customer-friendly summary per amber/red
-          finding; everything stays editable until the report is sent. */}
+          complete. Staff write the summaries; Claude helps only on request
+          (batch "Write with AI" fills empty ones, per-finding controls do the
+          rest). Everything stays editable until the report is sent. */}
       {(complete || readOnly) && (
         <section className="rounded-lg border">
           <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
@@ -555,15 +556,23 @@ export function InspectionCapture({
                         <span />
                       )}
                       {!readOnly && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRewrite(item.id)}
-                          loading={rewriting === item.id}
-                          disabled={generating || (rewriting !== null && rewriting !== item.id)}
-                        >
-                          <Sparkles className="h-3.5 w-3.5" /> Rewrite with AI
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <AiAssistMenu
+                            channel="generic"
+                            getText={() => item.customerSummary}
+                            onText={(t) => setSummary(item.id, t)}
+                            disabled={generating || rewriting !== null}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRewrite(item.id)}
+                            loading={rewriting === item.id}
+                            disabled={generating || (rewriting !== null && rewriting !== item.id)}
+                          >
+                            <Sparkles className="h-3.5 w-3.5" /> Regenerate from note
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>

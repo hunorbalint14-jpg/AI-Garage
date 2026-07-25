@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
+import { AiAssistMenu } from "@/components/staff/ai-assist-menu";
 import { draftWinBackPreview, sendWinBack, dismissWinBack } from "./actions";
 
 const TEXTAREA_CLASS =
@@ -26,7 +27,9 @@ export type WinBackVehicle = {
 
 type ComposerState = {
   vehicleId: string;
-  phase: "drafting" | "ready" | "sending";
+  phase: "ready" | "sending";
+  /** True while an opt-in "Write it for me" draft is in flight. */
+  drafting: boolean;
   subject: string;
   emailText: string;
   smsText: string;
@@ -53,25 +56,36 @@ export function WinBackList({ vehicles }: { vehicles: WinBackVehicle[] }) {
     );
   }
 
+  // Opens straight into an empty, editable composer — AI only runs if the
+  // staff member picks "Write it for me" from the assist menu.
   function openComposer(v: WinBackVehicle) {
     setNotice(null);
     setComposer({
       vehicleId: v.vehicleId,
-      phase: "drafting",
+      phase: "ready",
+      drafting: false,
       subject: "",
       emailText: "",
       smsText: "",
       error: null,
     });
     setChannels(new Set([v.emailConsent && v.hasEmail ? "email" : "sms"]));
+  }
+
+  // "Write it for me" — fills subject + email + SMS from the AI draft,
+  // overwriting whatever is in the fields.
+  function handleDraft() {
+    if (!composer || composer.phase !== "ready" || composer.drafting) return;
+    const { vehicleId } = composer;
+    setComposer({ ...composer, drafting: true, error: null });
     startTransition(async () => {
-      const result = await draftWinBackPreview(v.vehicleId);
+      const result = await draftWinBackPreview(vehicleId);
       setComposer((prev) => {
-        if (!prev || prev.vehicleId !== v.vehicleId) return prev;
-        if ("error" in result) return { ...prev, phase: "ready", error: result.error };
+        if (!prev || prev.vehicleId !== vehicleId) return prev;
+        if ("error" in result) return { ...prev, drafting: false, error: result.error };
         return {
           ...prev,
-          phase: "ready",
+          drafting: false,
           subject: result.subject,
           emailText: result.email,
           smsText: result.sms,
@@ -193,68 +207,89 @@ export function WinBackList({ vehicles }: { vehicles: WinBackVehicle[] }) {
             </Button>
           </div>
 
-          {composer.phase === "drafting" ? (
-            <p className="text-sm text-muted-foreground">Drafting with AI…</p>
-          ) : (
-            <>
-              {composer.error && <p className="text-sm text-destructive">{composer.error}</p>}
+          {composer.error && <p className="text-sm text-destructive">{composer.error}</p>}
 
-              <label className="text-xs font-medium text-muted-foreground">
-                Subject (email)
-                <input
-                  className="mt-1 w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={composer.subject}
-                  onChange={(e) => setComposer({ ...composer, subject: e.target.value })}
-                  disabled={composer.phase === "sending"}
+          <label className="text-xs font-medium text-muted-foreground">
+            Subject (email)
+            <input
+              className="mt-1 w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+              value={composer.subject}
+              onChange={(e) => setComposer({ ...composer, subject: e.target.value })}
+              placeholder="Leave blank to use the standard subject"
+              disabled={composer.phase === "sending"}
+            />
+          </label>
+
+          <div className="text-xs font-medium text-muted-foreground">
+            <div className="flex items-center justify-between gap-2">
+              <span>Email body</span>
+              <div className="flex items-center gap-2">
+                {composer.drafting && <span className="font-normal">Drafting with AI…</span>}
+                <AiAssistMenu
+                  channel="email"
+                  getText={() => composer.emailText}
+                  onText={(t) => setComposer((prev) => (prev ? { ...prev, emailText: t } : prev))}
+                  onDraft={handleDraft}
+                  disabled={composer.phase === "sending" || composer.drafting}
                 />
-              </label>
-
-              <label className="text-xs font-medium text-muted-foreground">
-                Email body
-                <textarea
-                  className={`${TEXTAREA_CLASS} mt-1`}
-                  rows={6}
-                  value={composer.emailText}
-                  onChange={(e) => setComposer({ ...composer, emailText: e.target.value })}
-                  disabled={composer.phase === "sending"}
-                />
-              </label>
-
-              <label className="text-xs font-medium text-muted-foreground">
-                SMS / WhatsApp body
-                <textarea
-                  className={`${TEXTAREA_CLASS} mt-1`}
-                  rows={3}
-                  value={composer.smsText}
-                  onChange={(e) => setComposer({ ...composer, smsText: e.target.value })}
-                  disabled={composer.phase === "sending"}
-                />
-              </label>
-
-              <div className="flex items-center gap-4 text-sm">
-                {(["email", "sms", "whatsapp"] as const).map((ch) => (
-                  <label key={ch} className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={channels.has(ch)}
-                      onChange={() => toggleChannel(ch)}
-                      disabled={composer.phase === "sending"}
-                    />
-                    {ch === "sms" ? "SMS" : ch === "whatsapp" ? "WhatsApp" : "Email"}
-                  </label>
-                ))}
-                <span className="ml-auto">
-                  <Button size="sm" onClick={handleSend} disabled={composer.phase === "sending" || channels.size === 0}>
-                    {composer.phase === "sending" ? "Sending…" : "Send"}
-                  </Button>
-                </span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Channels without marketing consent are skipped automatically. Sending removes the
-                vehicle from this list.
-              </p>
-            </>
-          )}
+            </div>
+            <textarea
+              className={`${TEXTAREA_CLASS} mt-1`}
+              rows={6}
+              value={composer.emailText}
+              onChange={(e) => setComposer({ ...composer, emailText: e.target.value })}
+              placeholder="Write your message — the “Book your appointment” button is added automatically"
+              disabled={composer.phase === "sending"}
+            />
+          </div>
+
+          <div className="text-xs font-medium text-muted-foreground">
+            <div className="flex items-center justify-between gap-2">
+              <span>SMS / WhatsApp body</span>
+              <div className="flex items-center gap-2">
+                {composer.drafting && <span className="font-normal">Drafting with AI…</span>}
+                <AiAssistMenu
+                  channel="sms"
+                  getText={() => composer.smsText}
+                  onText={(t) => setComposer((prev) => (prev ? { ...prev, smsText: t } : prev))}
+                  onDraft={handleDraft}
+                  disabled={composer.phase === "sending" || composer.drafting}
+                />
+              </div>
+            </div>
+            <textarea
+              className={`${TEXTAREA_CLASS} mt-1`}
+              rows={3}
+              value={composer.smsText}
+              onChange={(e) => setComposer({ ...composer, smsText: e.target.value })}
+              placeholder="Write your text — the booking link is added automatically"
+              disabled={composer.phase === "sending"}
+            />
+          </div>
+
+          <div className="flex items-center gap-4 text-sm">
+            {(["email", "sms", "whatsapp"] as const).map((ch) => (
+              <label key={ch} className="flex items-center gap-1.5">
+                <input
+                  type="checkbox"
+                  checked={channels.has(ch)}
+                  onChange={() => toggleChannel(ch)}
+                  disabled={composer.phase === "sending"}
+                />
+                {ch === "sms" ? "SMS" : ch === "whatsapp" ? "WhatsApp" : "Email"}
+              </label>
+            ))}
+            <span className="ml-auto">
+              <Button size="sm" onClick={handleSend} disabled={composer.phase === "sending" || channels.size === 0}>
+                {composer.phase === "sending" ? "Sending…" : "Send"}
+              </Button>
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Channels without marketing consent are skipped automatically. Sending removes the
+            vehicle from this list.
+          </p>
         </div>
       )}
     </div>

@@ -182,6 +182,11 @@ export async function sendWinBack(
   if (!vehicle || !vehicle.customer) return { error: "Vehicle or customer not found." };
   if (vehicle.customer.anonymized_at) return { error: "Customer has been anonymised." };
 
+  // The composer lets staff leave the subject blank — never send an email
+  // without one. Same deterministic template as draftWinBackPreview.
+  subject =
+    subject.trim() || `We'd love to see your ${vehicle.make ?? "vehicle"} again — ${ctx.organization.name}`;
+
   const customer = vehicle.customer;
   const sentChannels: string[] = [];
   const bookingUrl = tenantBookingUrl(ctx.location.slug);

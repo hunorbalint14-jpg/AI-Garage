@@ -447,7 +447,9 @@ export async function sendDraftedMessage(
   if (!customer) return { error: "Customer not found." };
 
   const garageName = org?.name ?? ctx.organization.name;
-  const subject = `Message from ${garageName} — ${topic.slice(0, 60)}`;
+  const subject = topic.trim()
+    ? `Message from ${garageName} — ${topic.trim().slice(0, 60)}`
+    : `Message from ${garageName}`;
   const results: string[] = [];
 
   if (emailText && customer.email) {

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CustomerVehiclePicker } from "@/components/staff/customer-vehicle-picker";
+import { AiAssistMenu } from "@/components/staff/ai-assist-menu";
 import type { PickerCustomer } from "@/app/staff/customer-picker-actions";
 import {
   prepareStandaloneQuoteUpload,
@@ -402,7 +403,15 @@ export function QuoteBuilder({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="customer-message" className="text-xs">Message to customer (optional)</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="customer-message" className="text-xs">Message to customer (optional)</Label>
+            <AiAssistMenu
+              channel="generic"
+              getText={() => customerMessage}
+              onText={setCustomerMessage}
+              disabled={pending}
+            />
+          </div>
           <textarea
             id="customer-message"
             rows={3}

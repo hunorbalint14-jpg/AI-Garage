@@ -1,35 +1,34 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { draftMessagePreview, sendDraftedMessage, type DraftMessagePreviewResult } from "../actions";
+import { draftMessagePreview, sendDraftedMessage } from "../actions";
 import { Button } from "@/components/ui/button";
+import { AiAssistMenu } from "@/components/staff/ai-assist-menu";
 
 type Props = {
   customerId: string;
   hasEmail: boolean;
   hasPhone: boolean;
-  /** Pre-seed the topic (e.g. the low-score recovery draft from a pulse alert). */
+  /** Pre-seed the AI topic (e.g. the low-score recovery draft from a pulse alert). Never auto-drafts. */
   initialTopic?: string | null;
 };
-
-type Step =
-  | { type: "idle" }
-  | { type: "drafting" }
-  | { type: "preview"; email: string | null; sms: string | null }
-  | { type: "sending" }
-  | { type: "done"; summary: string }
-  | { type: "error"; message: string };
 
 const TEXTAREA_CLASS =
   "w-full rounded-md border border-black/20 dark:border-white/25 bg-transparent px-3 py-2 text-sm shadow-sm resize-none placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50";
 
+const LABEL_CLASS =
+  "font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3";
+
 export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic }: Props) {
-  const [step, setStep] = useState<Step>({ type: "idle" });
   const [topic, setTopic] = useState(initialTopic ?? "");
+  const [topicOpen, setTopicOpen] = useState(Boolean(initialTopic?.trim()));
   const [channels, setChannels] = useState<Set<"email" | "sms" | "whatsapp">>(new Set());
   const [emailText, setEmailText] = useState("");
   const [smsText, setSmsText] = useState("");
-  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+  const [drafting, startDrafting] = useTransition();
+  const [sending, startSending] = useTransition();
 
   function toggleChannel(ch: "email" | "sms" | "whatsapp") {
     setChannels((prev) => {
@@ -41,22 +40,21 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
 
   function handleDraft() {
     if (!topic.trim() || channels.size === 0) return;
-    setStep({ type: "drafting" });
-    startTransition(async () => {
+    setError(null);
+    startDrafting(async () => {
       const result = await draftMessagePreview(customerId, topic.trim(), [...channels]);
       if ("error" in result) {
-        setStep({ type: "error", message: result.error });
+        setError(result.error);
       } else {
-        setEmailText(result.email ?? "");
-        setSmsText(result.sms ?? "");
-        setStep({ type: "preview", email: result.email, sms: result.sms });
+        if (result.email !== null) setEmailText(result.email);
+        if (result.sms !== null) setSmsText(result.sms);
       }
     });
   }
 
   function handleSend() {
-    setStep({ type: "sending" });
-    startTransition(async () => {
+    setError(null);
+    startSending(async () => {
       const result = await sendDraftedMessage(
         customerId,
         topic,
@@ -65,42 +63,43 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
         channels.has("whatsapp") ? (emailText || null) : null,
       );
       if ("error" in result) {
-        setStep({ type: "error", message: result.error });
+        setError(result.error);
       } else {
-        setStep({ type: "done", summary: result.summary });
+        setDone(result.summary);
       }
     });
   }
 
   function reset() {
-    setStep({ type: "idle" });
     setTopic("");
+    setTopicOpen(false);
     setChannels(new Set());
     setEmailText("");
     setSmsText("");
+    setError(null);
+    setDone(null);
   }
 
-  const isIdle = step.type === "idle" || step.type === "error";
-  const isPreview = step.type === "preview";
-  const isDrafting = step.type === "drafting";
-  const isSending = step.type === "sending";
+  const busy = drafting || sending;
+  const showEmailField = channels.has("email") || channels.has("whatsapp");
+  const showSmsField = channels.has("sms");
+  const canSend =
+    (showEmailField && emailText.trim() !== "") ||
+    (showSmsField && smsText.trim() !== "");
 
   return (
     <section className="rounded-lg border p-4 flex flex-col gap-3">
-      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
-        AI Message
-      </h2>
+      <h2 className={LABEL_CLASS}>Message customer</h2>
 
-      {/* Step 1 — compose */}
-      {(isIdle || isDrafting) && (
+      {done !== null ? (
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-ws-green">{done}</span>
+          <Button type="button" size="sm" variant="outline" onClick={reset}>
+            New message
+          </Button>
+        </div>
+      ) : (
         <>
-          <textarea
-            className={TEXTAREA_CLASS + " min-h-[80px]"}
-            placeholder="What do you want to communicate? e.g. 'Follow up on the brake job quote from last week'"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            disabled={isDrafting}
-          />
           <div className="flex items-center gap-4 text-sm">
             {hasEmail && (
               <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -108,7 +107,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
                   type="checkbox"
                   checked={channels.has("email")}
                   onChange={() => toggleChannel("email")}
-                  disabled={isDrafting}
+                  disabled={busy}
                 />
                 Email
               </label>
@@ -119,7 +118,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
                   type="checkbox"
                   checked={channels.has("sms")}
                   onChange={() => toggleChannel("sms")}
-                  disabled={isDrafting}
+                  disabled={busy}
                 />
                 SMS
               </label>
@@ -130,7 +129,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
                   type="checkbox"
                   checked={channels.has("whatsapp")}
                   onChange={() => toggleChannel("whatsapp")}
-                  disabled={isDrafting}
+                  disabled={busy}
                 />
                 WhatsApp
               </label>
@@ -141,82 +140,109 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              size="sm"
-              disabled={!topic.trim() || channels.size === 0 || isDrafting}
-              onClick={handleDraft}
-            >
-              {isDrafting ? "Drafting…" : "Draft with AI"}
-            </Button>
-            {step.type === "error" && (
-              <span className="text-sm text-ws-red">{step.message}</span>
-            )}
-          </div>
-        </>
-      )}
 
-      {/* Step 2 — preview & edit */}
-      {isPreview && (
-        <>
-          <p className="text-xs text-muted-foreground">
-            Review and edit before sending.
-          </p>
-          {step.email !== null && (
+          {showEmailField && (
             <div className="flex flex-col gap-1">
-              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Email</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className={LABEL_CLASS}>
+                  Email
+                  {channels.has("whatsapp") && (
+                    <span className="normal-case font-normal tracking-normal text-muted-foreground">
+                      {" "}— also sent as the WhatsApp message
+                    </span>
+                  )}
+                </label>
+                <AiAssistMenu
+                  channel="email"
+                  getText={() => emailText}
+                  onText={setEmailText}
+                  onDraft={() => setTopicOpen(true)}
+                  disabled={busy}
+                />
+              </div>
               <textarea
                 className={TEXTAREA_CLASS + " min-h-[140px]"}
+                placeholder="Write your message to the customer…"
                 value={emailText}
                 onChange={(e) => setEmailText(e.target.value)}
-                disabled={isSending}
+                disabled={busy}
               />
             </div>
           )}
-          {step.sms !== null && (
+
+          {showSmsField && (
             <div className="flex flex-col gap-1">
-              <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
-                SMS <span className="normal-case font-normal">({smsText.length} chars)</span>
-              </label>
+              <div className="flex items-center justify-between gap-2">
+                <label className={LABEL_CLASS}>
+                  SMS <span className="normal-case font-normal">({smsText.length} chars)</span>
+                </label>
+                <AiAssistMenu
+                  channel="sms"
+                  getText={() => smsText}
+                  onText={setSmsText}
+                  onDraft={() => setTopicOpen(true)}
+                  disabled={busy}
+                />
+              </div>
               <textarea
                 className={TEXTAREA_CLASS + " min-h-[80px]"}
+                placeholder="Write a short text message…"
                 value={smsText}
                 onChange={(e) => setSmsText(e.target.value)}
-                disabled={isSending}
+                disabled={busy}
               />
             </div>
           )}
+
+          {/* Shared "write it for me" topic row — only ever opened by the staff member */}
+          {topicOpen && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                className="h-8 flex-1 rounded-md border border-black/20 dark:border-white/25 bg-transparent px-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50"
+                placeholder="What should the message say?"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && topic.trim() && channels.size > 0 && !busy) handleDraft();
+                }}
+                disabled={busy}
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!topic.trim() || channels.size === 0 || sending}
+                loading={drafting}
+                onClick={handleDraft}
+              >
+                Draft
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => setTopicOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <Button
               type="button"
               size="sm"
-              disabled={isSending}
+              disabled={!canSend || drafting}
+              loading={sending}
               onClick={handleSend}
             >
-              {isSending ? "Sending…" : "Send"}
+              Send
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={isSending}
-              onClick={reset}
-            >
-              Back
-            </Button>
+            {error && <span className="text-sm text-ws-red">{error}</span>}
           </div>
         </>
-      )}
-
-      {/* Done */}
-      {step.type === "done" && (
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-ws-green">{step.summary}</span>
-          <Button type="button" size="sm" variant="outline" onClick={reset}>
-            New message
-          </Button>
-        </div>
       )}
     </section>
   );

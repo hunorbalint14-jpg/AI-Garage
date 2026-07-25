@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import Link from "next/link";
+import { AiAssistMenu } from "@/components/staff/ai-assist-menu";
 import { draftReminderPreview, sendReminderDraft } from "./actions";
 
 export type QueueVehicle = {
@@ -39,19 +40,16 @@ export type SentReminder = {
 };
 
 type DraftState =
-  | { type: "idle" }
-  | { type: "loading" }
-  | { type: "ready"; email: string; sms: string; subject: string }
+  | { type: "compose" }
   | { type: "sending" }
-  | { type: "sent"; channels: string[] }
-  | { type: "error"; message: string };
+  | { type: "sent"; channels: string[] };
 
 type Tone = "friendly" | "direct" | "warm";
 
-const TONES: { id: Tone; label: string; n: string }[] = [
-  { id: "friendly", label: "FRIENDLY", n: "01" },
-  { id: "direct", label: "DIRECT", n: "02" },
-  { id: "warm", label: "WARM", n: "03" },
+const TONES: { id: Tone; label: string }[] = [
+  { id: "friendly", label: "FRIENDLY" },
+  { id: "direct", label: "DIRECT" },
+  { id: "warm", label: "WARM" },
 ];
 
 function Plate({ reg }: { reg: string }) {
@@ -80,6 +78,16 @@ function dueDaysLabel(days: number | null): string {
   if (days === null) return "—";
   if (days < 0) return `${Math.abs(days)}d ago`;
   return `+${days}d`;
+}
+
+// Mirrors the subject built server-side in sendReminderDraft — deterministic, no AI.
+function reminderSubject(v: QueueVehicle): string {
+  const label = v.primaryReminderType === "mot" ? "MOT" : "SERVICE";
+  const dueDate = v.primaryReminderType === "mot" ? v.motExpiry : v.serviceDue;
+  const formattedDate = dueDate
+    ? new Date(dueDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : "soon";
+  return `${label} reminder — ${v.registration} due ${formattedDate}`;
 }
 
 function dueDaysColor(days: number | null, accent: string): string {
@@ -119,7 +127,8 @@ export function ReminderComposer({
   const [selectedHistory, setSelectedHistory] = useState<SentReminder | null>(null);
   const [selected, setSelected] = useState<QueueVehicle | null>(null);
   const [tone, setTone] = useState<Tone>("friendly");
-  const [draft, setDraft] = useState<DraftState>({ type: "idle" });
+  const [draft, setDraft] = useState<DraftState>({ type: "compose" });
+  const [actionError, setActionError] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState("");
   const [editSms, setEditSms] = useState("");
   const [channels, setChannels] = useState<{ email: boolean; sms: boolean; whatsapp: boolean }>({
@@ -144,9 +153,12 @@ export function ReminderComposer({
   function selectVehicle(v: QueueVehicle) {
     setSelected(v);
     setTone("friendly");
-    // Stay idle — no AI call until the user presses "Generate". Opening a
-    // record should never spend tokens on its own.
-    setDraft({ type: "idle" });
+    // Compose-first: empty editable fields straight away. No AI call — the
+    // assist menu is strictly opt-in, so opening a record never spends tokens.
+    setEditEmail("");
+    setEditSms("");
+    setActionError(null);
+    setDraft({ type: "compose" });
     setChannels({
       email: !!v.customerEmail,
       sms: !!v.customerPhone,
@@ -155,29 +167,22 @@ export function ReminderComposer({
   }
 
   function triggerDraft(v: QueueVehicle, t: Tone) {
-    setDraft({ type: "loading" });
+    setActionError(null);
     startDraft(async () => {
       const result = await draftReminderPreview(v.vehicleId, v.primaryReminderType, t);
       if ("error" in result) {
-        setDraft({ type: "error", message: result.error });
+        setActionError(result.error);
       } else {
+        // "Draft reminder for me" fills both channels, overwriting what's there.
         setEditEmail(result.email);
         setEditSms(result.sms);
-        setDraft({ type: "ready", email: result.email, sms: result.sms, subject: result.subject });
       }
     });
   }
 
-  function changeTone(t: Tone) {
-    if (!selected) return;
-    setTone(t);
-    // Before the first draft exists, a tone click is just a choice — no AI
-    // call. Once a draft is on screen, switching tone regenerates it.
-    if (draft.type !== "idle") triggerDraft(selected, t);
-  }
-
   function handleSend() {
-    if (!selected || draft.type !== "ready") return;
+    if (!selected || draft.type !== "compose") return;
+    setActionError(null);
     setDraft({ type: "sending" });
     const emailToSend = channels.email ? editEmail : null;
     const smsToSend = channels.sms || channels.whatsapp ? editSms : null;
@@ -190,7 +195,8 @@ export function ReminderComposer({
         channels,
       );
       if ("error" in result) {
-        setDraft({ type: "error", message: result.error });
+        setDraft({ type: "compose" });
+        setActionError(result.error);
       } else {
         setDraft({ type: "sent", channels: result.channels });
         setSentVehicleIds((prev) => new Set([...prev, selected.vehicleId]));
@@ -207,7 +213,8 @@ export function ReminderComposer({
       selectVehicle(remaining[0]);
     } else {
       setSelected(null);
-      setDraft({ type: "idle" });
+      setActionError(null);
+      setDraft({ type: "compose" });
     }
   }
 
@@ -217,7 +224,8 @@ export function ReminderComposer({
       selectVehicle(remaining[0]);
     } else {
       setSelected(null);
-      setDraft({ type: "idle" });
+      setActionError(null);
+      setDraft({ type: "compose" });
     }
   }
 
@@ -225,7 +233,7 @@ export function ReminderComposer({
   const draftIndex = selected
     ? pendingQueue.findIndex((v) => v.vehicleId === selected.vehicleId) + 1
     : 0;
-  const isLoading = draft.type === "loading" || draftPending;
+  const isDrafting = draftPending;
   const isSending = draft.type === "sending" || sendPending;
 
   const mono = "var(--font-geist-mono, monospace)";
@@ -614,8 +622,8 @@ export function ReminderComposer({
               </span>
             </div>
 
-            {/* Tone selector */}
-            {draft.type !== "sent" && (
+            {/* Compose area — always editable; AI only via the opt-in assist menus */}
+            {(draft.type === "compose" || draft.type === "sending") && (
               <>
                 <div
                   style={{
@@ -626,156 +634,91 @@ export function ReminderComposer({
                     marginBottom: 10,
                   }}
                 >
-                  {"// TONE · PICK A STARTING POINT"}
+                  {"// COMPOSE · WRITE YOUR OWN OR USE AI ASSIST"}
                 </div>
+
+                {/* Tone chips — only parameterise "Draft reminder for me" */}
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: 1,
-                    background: "var(--border)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 4,
-                    overflow: "hidden",
-                    marginBottom: 20,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    flexWrap: "wrap",
+                    marginBottom: 14,
                   }}
                 >
+                  <span
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 10,
+                      color: "var(--muted-foreground)",
+                      letterSpacing: "0.12em",
+                    }}
+                  >
+                    TONE
+                  </span>
                   {TONES.map((t) => {
                     const isActive = tone === t.id;
                     return (
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => changeTone(t.id)}
-                        disabled={isLoading || isSending}
+                        onClick={() => setTone(t.id)}
+                        disabled={isDrafting || isSending}
                         style={{
-                          background: isActive ? accentBg : "var(--card)",
-                          borderTop: `2px solid ${isActive ? accent : "transparent"}`,
-                          padding: "10px 12px",
+                          fontFamily: mono,
+                          fontSize: 10,
+                          padding: "3px 8px",
+                          borderRadius: 2,
+                          border: `1px solid ${isActive ? accent : "var(--border)"}`,
+                          background: isActive ? accentBg : "transparent",
+                          color: isActive ? accent : "var(--muted-foreground)",
+                          letterSpacing: "0.1em",
                           cursor: "pointer",
-                          textAlign: "left",
-                          opacity: isLoading || isSending ? 0.5 : 1,
+                          opacity: isDrafting || isSending ? 0.5 : 1,
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontFamily: mono, fontSize: 10, color: accent }}>
-                            {t.n}
-                          </span>
-                          <span
-                            style={{
-                              fontFamily: mono,
-                              fontSize: 11,
-                              color: isActive ? "var(--foreground)" : "var(--muted-foreground)",
-                              letterSpacing: "0.1em",
-                            }}
-                          >
-                            {t.label}
-                          </span>
-                          {isActive && (
-                            <span
-                              style={{
-                                fontFamily: mono,
-                                fontSize: 9,
-                                color: "var(--background)",
-                                background: accent,
-                                padding: "1px 5px",
-                                borderRadius: 2,
-                              }}
-                            >
-                              {isLoading ? "..." : "ACTIVE"}
-                            </span>
-                          )}
-                        </div>
+                        {t.label}
                       </button>
                     );
                   })}
+                  <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)" }}>
+                    · used by “Draft reminder for me”
+                  </span>
                 </div>
-              </>
-            )}
 
-            {/* Idle — explicit generate (no AI call on open) */}
-            {draft.type === "idle" && (
-              <div style={{ marginBottom: 16 }}>
-                <button
-                  type="button"
-                  onClick={() => triggerDraft(selected, tone)}
-                  style={{
-                    fontFamily: mono,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    padding: "10px 18px",
-                    borderRadius: 4,
-                    border: `1px solid ${accent}`,
-                    background: accentBg,
-                    color: accent,
-                    cursor: "pointer",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  Generate draft with AI →
-                </button>
-                <div
-                  style={{
-                    fontFamily: mono,
-                    fontSize: 10,
-                    color: "var(--muted-foreground)",
-                    marginTop: 8,
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  {"// PICK A TONE ABOVE, THEN GENERATE"}
-                </div>
-              </div>
-            )}
+                {/* Drafting indicator — fields refill when Claude replies */}
+                {isDrafting && (
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 11,
+                      color: accent,
+                      letterSpacing: "0.1em",
+                      marginBottom: 12,
+                    }}
+                  >
+                    {"// CLAUDE IS DRAFTING — WILL FILL BOTH FIELDS…"}
+                  </div>
+                )}
 
-            {/* Loading state */}
-            {isLoading && draft.type === "loading" && (
-              <div
-                style={{
-                  padding: "40px 0",
-                  textAlign: "center",
-                  fontFamily: mono,
-                  fontSize: 12,
-                  color: accent,
-                  letterSpacing: "0.1em",
-                }}
-              >
-                {"// CLAUDE IS DRAFTING…"}
-              </div>
-            )}
-
-            {/* Error */}
-            {draft.type === "error" && (
-              <div
-                style={{
-                  padding: "12px 16px",
-                  background: "#3a1a1a",
-                  border: "1px solid #5a2424",
-                  borderRadius: 4,
-                  fontFamily: mono,
-                  fontSize: 12,
-                  color: "#ff5b5b",
-                  marginBottom: 16,
-                }}
-              >
-                {draft.message}
-              </div>
-            )}
-
-            {/* Draft ready — edit area */}
-            {(draft.type === "ready" || draft.type === "sending") && (
-              <>
-                <div
-                  style={{
-                    fontFamily: mono,
-                    fontSize: 10,
-                    color: "var(--muted-foreground)",
-                    letterSpacing: "0.14em",
-                    marginBottom: 10,
-                  }}
-                >
-                  {"// EDIT BEFORE SEND"}
-                </div>
+                {/* Error (draft or send) */}
+                {actionError && (
+                  <div
+                    style={{
+                      padding: "12px 16px",
+                      background: "#3a1a1a",
+                      border: "1px solid #5a2424",
+                      borderRadius: 4,
+                      fontFamily: mono,
+                      fontSize: 12,
+                      color: "#ff5b5b",
+                      marginBottom: 16,
+                    }}
+                  >
+                    {actionError}
+                  </div>
+                )}
 
                 {/* Channel tabs */}
                 <div style={{ display: "flex", gap: 1, marginBottom: 12 }}>
@@ -814,21 +757,50 @@ export function ReminderComposer({
                   <div style={{ marginBottom: 12 }}>
                     <div
                       style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: mono,
+                          fontSize: 10,
+                          color: "var(--muted-foreground)",
+                          letterSpacing: "0.12em",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        Email
+                      </span>
+                      <AiAssistMenu
+                        channel="email"
+                        getText={() => editEmail}
+                        onText={setEditEmail}
+                        onDraft={() => triggerDraft(selected, tone)}
+                        draftLabel="Draft reminder for me"
+                        disabled={isDrafting || isSending}
+                        className="items-end"
+                      />
+                    </div>
+                    <div
+                      style={{
                         fontFamily: mono,
-                        fontSize: 10,
+                        fontSize: 11,
                         color: "var(--muted-foreground)",
-                        letterSpacing: "0.12em",
-                        textTransform: "uppercase",
                         marginBottom: 6,
                       }}
                     >
-                      Email
+                      Subject · <span style={{ color: "var(--foreground)" }}>{reminderSubject(selected)}</span>
                     </div>
                     <textarea
                       value={editEmail}
                       onChange={(e) => setEditEmail(e.target.value)}
-                      disabled={isSending}
+                      disabled={isDrafting || isSending}
                       rows={6}
+                      placeholder="Write your email here — or use AI assist to draft it for you"
                       style={{
                         width: "100%",
                         fontFamily: sans,
@@ -855,7 +827,8 @@ export function ReminderComposer({
                         display: "flex",
                         justifyContent: "space-between",
                         alignItems: "center",
-                        marginBottom: 6,
+                        gap: 8,
+                        marginBottom: 4,
                       }}
                     >
                       <span
@@ -869,18 +842,30 @@ export function ReminderComposer({
                       >
                         SMS{channels.whatsapp ? " / WhatsApp" : ""}
                       </span>
-                      <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)" }}>
-                        {editSms.length} chars
-                        {editSms.length > 160 && (
-                          <span style={{ color: accent }}> · {Math.ceil(editSms.length / 160)} segments</span>
-                        )}
-                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontFamily: mono, fontSize: 10, color: "var(--muted-foreground)" }}>
+                          {editSms.length} chars
+                          {editSms.length > 160 && (
+                            <span style={{ color: accent }}> · {Math.ceil(editSms.length / 160)} segments</span>
+                          )}
+                        </span>
+                        <AiAssistMenu
+                          channel="sms"
+                          getText={() => editSms}
+                          onText={setEditSms}
+                          onDraft={() => triggerDraft(selected, tone)}
+                          draftLabel="Draft reminder for me"
+                          disabled={isDrafting || isSending}
+                          className="items-end"
+                        />
+                      </div>
                     </div>
                     <textarea
                       value={editSms}
                       onChange={(e) => setEditSms(e.target.value)}
-                      disabled={isSending}
+                      disabled={isDrafting || isSending}
                       rows={3}
+                      placeholder="Write your SMS here — keep it short, the booking link is added automatically"
                       style={{
                         width: "100%",
                         fontFamily: sans,
@@ -940,7 +925,14 @@ export function ReminderComposer({
                       onClick={handleSend}
                       disabled={
                         isSending ||
-                        (!channels.email && !channels.sms && !channels.whatsapp)
+                        isDrafting ||
+                        // At least one enabled channel must have text — hand-written is fine.
+                        !(
+                          (channels.email && !!selected.customerEmail && editEmail.trim().length > 0) ||
+                          ((channels.sms || channels.whatsapp) &&
+                            !!selected.customerPhone &&
+                            editSms.trim().length > 0)
+                        )
                       }
                       style={{
                         fontFamily: mono,
