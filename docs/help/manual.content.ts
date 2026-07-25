@@ -750,10 +750,28 @@ const staff: Section[] = [
     title: "Suppliers",
     persona: "staff",
     route: "/staff/suppliers",
-    purpose: "The address book behind purchase orders.",
+    purpose: "The address book behind purchase orders, and how orders reach each supplier.",
     steps: [
       "Keep each parts supplier's contact details and notes in one place.",
       "Suppliers feed the purchase-order form — pick one instead of retyping details.",
+      "The Ordering badge shows how orders reach that supplier: Order email, Punch-out, Email + link, Off, or Not set up. Click it to set it up.",
+      "Order email — where the parts desk receives the order. Leave it blank to use the supplier's contact email.",
+      "Catalogue link — the supplier's own search page. {reg} and {query} are filled in with the vehicle and the part you're looking for.",
+      "Trade account number — printed on the order so the factor can price it against your account.",
+    ],
+    notes: [
+      "Ordering is per branch: each branch sets up its own suppliers and its own trade accounts.",
+      "Any credentials you enter are encrypted and never shown again — you can replace them, but not read them back.",
+    ],
+    troubleshooting: [
+      {
+        problem: "The Ordering badge says \"Incomplete\".",
+        fix: "The supplier is switched on but has neither an order email nor a catalogue link. Add one of the two and save.",
+      },
+      {
+        problem: "Saving the catalogue link is rejected.",
+        fix: "It must be a full web address starting http:// or https:// — copy it from your browser's address bar on the supplier's search page.",
+      },
     ],
   },
   {
@@ -761,11 +779,36 @@ const staff: Section[] = [
     title: "Purchase orders",
     persona: "staff",
     route: "/staff/purchase-orders",
-    purpose: "Order parts from suppliers and receive them into stock.",
+    purpose: "Order parts from suppliers, send the order, and receive them into stock.",
     steps: [
       "Raise a PO against a supplier; add product lines and quantities.",
-      "Send it, then mark lines received when the parts arrive — stock levels update automatically.",
+      "Send to supplier appears once that supplier has ordering set up. With an order email the order is sent for you and the PO becomes Ordered.",
+      "If the supplier only has a catalogue link, you get an Open supplier basket link instead — nothing has been sent, so finish the order on their site and then use Mark ordered.",
+      "Import confirmation — paste the supplier's confirmation email or printout. We read their order reference and update the line costs to the prices they confirmed.",
+      "Mark lines received when the parts arrive — stock levels update automatically.",
       "Part-receipts are fine: receive what turned up, the rest stays on order.",
+    ],
+    notes: [
+      "The order email names the branch that placed it, your trade account number and your PO reference, so the parts desk can price and match it.",
+      "Importing a confirmation only changes the costs it can match with confidence — anything it can't place is reported so you can check it by hand.",
+    ],
+    troubleshooting: [
+      {
+        problem: "There's no \"Send to supplier\" button.",
+        fix: "Either the PO has no supplier, it isn't a draft any more, or that supplier has no ordering set up — check the Ordering badge on the Suppliers page.",
+      },
+      {
+        problem: "The order was sent but the PO still shows as a draft.",
+        fix: "Rare, and it means the send succeeded but the status didn't save. Don't send again — use Mark ordered.",
+      },
+      {
+        problem: "\"Couldn't read an order reference or any part lines from that text.\"",
+        fix: "Paste the part of the confirmation that lists the parts, one per line, with quantity and price. Headed totals like Subtotal/VAT are ignored on purpose.",
+      },
+      {
+        problem: "The import matched fewer lines than the confirmation shows.",
+        fix: "It matches on SKU first, then on the description. Lines it can't place are counted separately — update those costs by hand.",
+      },
     ],
   },
   {

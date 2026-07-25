@@ -59,6 +59,29 @@ const ACTIONS: Record<string, SectionAction> = {
       },
     ],
   },
+  // Purchase orders: expand the seeded draft so the supplier-ordering actions
+  // (Send to supplier / Import confirmation) are in the shot (#568).
+  "staff/purchase-orders": {
+    base: async (page) => {
+      const draft = page.getByText("PO-DEMO-002");
+      if (await draft.count()) {
+        await draft.first().click();
+        await page.waitForSelector("text=Send to supplier", { timeout: 10_000 }).catch(() => {});
+        await page.waitForTimeout(400);
+      }
+    },
+  },
+  // Suppliers: open the ordering panel so the setup fields are visible.
+  "staff/suppliers": {
+    base: async (page) => {
+      const badge = page.getByText("Email + link");
+      if (await badge.count()) {
+        await badge.first().click();
+        await page.waitForSelector("text=How purchase orders reach", { timeout: 10_000 }).catch(() => {});
+        await page.waitForTimeout(400);
+      }
+    },
+  },
   // Bookings list reads best in list view for the register shot… keep month for
   // the calendar feel; no action needed.
 };
