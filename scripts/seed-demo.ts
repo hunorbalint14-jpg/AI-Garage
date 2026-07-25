@@ -187,13 +187,16 @@ async function main() {
   // LIVE (#585) — otherwise every manual screenshot would carry a prelive
   // banner and the reminder flows couldn't be demonstrated. A real new branch
   // starts prelive.
-  await step("branches live", async () => {
+  // The main branch is an established garage, so it's LIVE — otherwise every
+  // manual screenshot would carry a prelive banner and the reminder flows
+  // couldn't be demonstrated. Eastside is deliberately left PRELIVE (#585) as
+  // the "second site still being set up" example the Go-live section needs.
+  await step("main branch live", async () => {
     must(
       await db
         .from("locations")
-        .update({ live_at: new Date().toISOString() })
-        .eq("organization_id", orgId)
-        .is("live_at", null)
+        .update({ live_at: new Date().toISOString(), first_run_cap: 25, chase_prelive_debt: false })
+        .eq("id", locId)
         .select("id"),
     );
   });
@@ -319,6 +322,39 @@ async function main() {
       );
       vehicleIds.push(row.id as string);
     }
+  });
+
+  // Held comms on the PRELIVE second branch (#586), so the Go-live section of
+  // the manual shows a populated "what will send" list rather than an empty
+  // state. On a real branch these are written by the cron runs.
+  await step("held comms on the prelive branch", async () => {
+    const eastside = await db.from("locations").select("id").eq("slug", `${DEMO_TENANT_SLUG}-eastside`).maybeSingle();
+    if (!eastside.data || vehicleIds.length === 0 || !customerId) return;
+    const nowIso = new Date().toISOString();
+    const rows = [
+      { kind: "mot_reminder", ref: vehicleIds[0], summary: "AB19 CDE — MOT due in 18 days (Charlie Customer)" },
+      { kind: "service_reminder", ref: vehicleIds[0], summary: "AB19 CDE — service due in 40 days (Charlie Customer)" },
+      { kind: "tax_reminder", ref: vehicleIds[0], summary: "AB19 CDE — road tax due in 12 days (Charlie Customer)" },
+      { kind: "mot_reminder", ref: vehicleIds[1] ?? vehicleIds[0], summary: "LD68 KMV — MOT due in 210 days (Charlie Customer)" },
+    ].filter((r, i, all) => all.findIndex((x) => x.kind === r.kind && x.ref === r.ref) === i);
+    must(
+      await db
+        .from("held_comms")
+        .upsert(
+          rows.map((r) => ({
+            location_id: eastside.data!.id,
+            kind: r.kind,
+            customer_id: customerId,
+            ref_table: "vehicles",
+            ref_id: r.ref,
+            summary: r.summary,
+            would_have_sent_at: nowIso,
+            last_seen_at: nowIso,
+          })),
+          { onConflict: "location_id,kind,ref_id" },
+        )
+        .select("id"),
+    );
   });
 
   const motId = serviceIds["MOT Test"];
