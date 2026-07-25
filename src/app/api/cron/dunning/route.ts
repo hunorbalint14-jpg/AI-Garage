@@ -8,6 +8,7 @@ import { recordCronRun } from "@/lib/platform/cron-runs";
 import { dunningStage, daysOverdue, DEFAULT_DUNNING_CADENCE } from "@/lib/dunning";
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 import { isPrelive } from "@/lib/prelive";
+import { recordHeld, type HeldRow } from "@/lib/held-comms";
 
 // Overdue-invoice dunning. Dispatched per-location by /api/cron/tick when the
 // `invoice_dunning` scheduled_task is due. For each unpaid, past-due invoice it
@@ -73,15 +74,14 @@ export async function GET(request: NextRequest) {
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, prelive: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, prelive: 0, held: 0, failed: 0, errors: [] as string[] };
+  const held: HeldRow[] = [];
 
   for (const location of locations ?? []) {
-    // Prelive branches (#585) chase nobody — imported history and practice
-    // invoices must never turn into a dunning email.
-    if (isPrelive(location)) {
-      results.prelive++;
-      continue;
-    }
+    // Prelive branches (#585) chase nobody. The selection still runs so the
+    // Go-live screen can list what's waiting (#586); nothing is sent and no
+    // dunning_count / last_dunned_at is stamped.
+    const prelive = isPrelive(location);
 
     const orgName = location.organization?.name ?? location.name;
     // Identify the issuing branch (+ address) on the reminder, not just the org.
@@ -143,6 +143,20 @@ export async function GET(request: NextRequest) {
       }
 
       const totalOutstanding = Math.round(group.reduce((s, i) => s + outstandingOf(i), 0) * 100) / 100;
+
+      if (prelive) {
+        held.push({
+          locationId: location.id,
+          kind: "invoice_dunning",
+          customerId: oldest.customer_id,
+          refTable: "invoices",
+          refId: oldest.id,
+          summary: `${group[0].customer?.full_name ?? "Account customer"} — ${fmtGBP(totalOutstanding)} across ${group.length} invoice${group.length === 1 ? "" : "s"}, oldest ${overdue} days overdue`,
+        });
+        results.prelive++;
+        continue;
+      }
+
       const firstName = group[0].customer?.full_name?.split(" ")[0] ?? "there";
       const isFinal = stage >= cadence.length;
       const lines = group
@@ -195,6 +209,19 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
+      if (prelive) {
+        held.push({
+          locationId: location.id,
+          kind: "invoice_dunning",
+          customerId: inv.customer_id,
+          refTable: "invoices",
+          refId: inv.id,
+          summary: `${inv.invoice_number} — ${fmtGBP(outstandingOf(inv))} outstanding, ${overdue} days overdue${inv.customer?.full_name ? ` (${inv.customer.full_name})` : ""}`,
+        });
+        results.prelive++;
+        continue;
+      }
+
       const firstName = inv.customer?.full_name?.split(" ")[0] ?? "there";
       const isFinal = stage >= cadence.length;
       const subject = `${isFinal ? "Final reminder" : "Reminder"}: invoice ${inv.invoice_number} is overdue`;
@@ -231,6 +258,8 @@ export async function GET(request: NextRequest) {
       }
     }
   }
+
+  results.held = await recordHeld(admin, held);
 
   console.log("[cron/dunning]", results);
   await recordCronRun(admin, "cron/dunning", results.failed === 0, Date.now() - __t0, `sent ${results.sent}, failed ${results.failed}`);

@@ -17,10 +17,10 @@ export function PreliveBanner({ locationName }: { locationName: string }) {
         <p className="mt-0.5 text-sm text-ws-text-2">{PRELIVE_EXPLAINER}</p>
       </div>
       <Link
-        href="/staff/automations"
+        href="/staff/go-live"
         className="shrink-0 text-sm font-medium text-ws-blue underline underline-offset-2"
       >
-        What&apos;s paused
+        What&apos;s waiting
       </Link>
     </div>
   );

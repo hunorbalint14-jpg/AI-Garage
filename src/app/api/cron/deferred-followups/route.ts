@@ -19,6 +19,7 @@ import {
 } from "@/lib/deferred-followup";
 import { draftDeferredFollowup, fallbackFollowupEmail, fallbackFollowupSms, type FollowupDraftInput } from "@/lib/ai-deferred";
 import { isPrelive } from "@/lib/prelive";
+import { recordHeld, type HeldRow } from "@/lib/held-comms";
 
 // Deferred-work follow-up sequence (#498 PR 3). Dispatched per-location by
 // /api/cron/tick when the `deferred_followups` scheduled task is due (the
@@ -67,7 +68,8 @@ export async function GET(request: NextRequest) {
   const __t0 = Date.now();
   const now = new Date();
   const nowIso = now.toISOString();
-  const results = { sent: 0, skipped: 0, prelive: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, prelive: 0, held: 0, failed: 0, errors: [] as string[] };
+  const held: HeldRow[] = [];
 
   let locationsQuery = admin
     .from("locations")
@@ -78,11 +80,9 @@ export async function GET(request: NextRequest) {
   const { data: locations } = (await locationsQuery) as unknown as { data: LocationRow[] | null };
 
   for (const location of locations ?? []) {
-    // Prelive branches (#585) chase no deferred work.
-    if (isPrelive(location)) {
-      results.prelive++;
-      continue;
-    }
+    // Prelive branches (#585) chase no deferred work; the due batches are still
+    // worked out so the Go-live screen can list them (#586).
+    const prelive = isPrelive(location);
 
     const org = location.organization;
     if (!org) continue;
@@ -137,6 +137,27 @@ export async function GET(request: NextRequest) {
 
     const batches = groupDueRecords(records, offsets, recentlyContacted, now);
     if (batches.length === 0) continue;
+
+    // Held (#586): record the due batches and stop before the AI draft, so a
+    // prelive branch accrues no Claude spend and no followup_count is bumped.
+    if (prelive) {
+      const byIdPre = new Map(records.map((r) => [r.id, r]));
+      for (const batch of batches) {
+        const first = byIdPre.get(batch.records[0].id);
+        const customer = first?.customer;
+        if (!first || !customer || (!customer.email && !customer.phone)) continue;
+        held.push({
+          locationId: location.id,
+          kind: "deferred_followup",
+          customerId: customer.id,
+          refTable: "deferred_work",
+          refId: first.id,
+          summary: `${customer.full_name ?? "Customer"} — ${batch.records.length} deferred item${batch.records.length === 1 ? "" : "s"}${first.vehicle?.registration ? ` on ${first.vehicle.registration}` : ""}`,
+        });
+        results.prelive++;
+      }
+      continue;
+    }
 
     const aiBrief = await getOrgAiBrief(admin, org.id).catch(() => null);
     const identity = { orgName: org.name, locationName: location.name, address: location.address };
@@ -276,6 +297,8 @@ export async function GET(request: NextRequest) {
       results.sent++;
     }
   }
+
+  results.held = await recordHeld(admin, held);
 
   console.log("[cron/deferred-followups]", results);
   await recordCronRun(

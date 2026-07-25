@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { FeatureGateBanner } from "@/components/staff/feature-gate-banner";
@@ -69,7 +70,11 @@ export default async function AutomationsPage() {
           </p>
           <p className="mt-1 text-sm text-ws-text-2">
             The weekly digest still reaches owners and admins, and anything you send by hand — a quote, an invoice, a
-            campaign — goes out normally.
+            campaign — goes out normally.{" "}
+            <Link href="/staff/go-live" className="underline">
+              See what&apos;s waiting and go live
+            </Link>
+            .
           </p>
         </div>
       )}
