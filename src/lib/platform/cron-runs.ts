@@ -16,6 +16,54 @@ const SCHEDULES: Record<string, string> = {
 };
 const KNOWN_JOBS = Object.keys(SCHEDULES);
 
+// How long a job may go without a run before it counts as dead (#450).
+//
+// Only the Vercel-scheduled jobs are watched: the "via tick" jobs run when some
+// location's scheduled_tasks fall due, so a quiet day is normal for them and
+// watching them would alert constantly.
+//
+// Caveat worth knowing: this check runs inside cron/uptime, so it cannot detect
+// its own death. If the platform's cron scheduler stops entirely, nothing here
+// fires — that needs an EXTERNAL dead-man's switch (see docs/ops-escalation.md).
+// What it does catch is one job dying while the scheduler keeps running, which
+// is the far more common failure.
+const MAX_AGE_MINS: Record<string, number> = {
+  "cron/tick": 90, // hourly
+  "cron/uptime": 20, // every 3 min
+  "cron/quote-expiry": 90, // every 30 min
+};
+
+export type StaleCron = { job: string; ageMins: number; maxMins: number; overdueMins: number };
+
+/**
+ * Watched jobs that haven't run inside their allowance, worst first.
+ *
+ * A job with no run at all in the retention window is reported as stale with
+ * its age measured from the window start — a job that has never run is exactly
+ * as broken as one that stopped.
+ *
+ * Pure, so the rules are unit-tested without a database.
+ */
+export function staleCronJobs(jobs: CronJob[], now: Date = new Date()): StaleCron[] {
+  const stale: StaleCron[] = [];
+  for (const job of jobs) {
+    const maxMins = MAX_AGE_MINS[job.job];
+    if (!maxMins) continue;
+    const ageMins = job.lastRunAt
+      ? Math.floor((now.getTime() - new Date(job.lastRunAt).getTime()) / 60_000)
+      : 7 * 24 * 60;
+    if (ageMins > maxMins) {
+      stale.push({ job: job.job, ageMins, maxMins, overdueMins: ageMins - maxMins });
+    }
+  }
+  return stale.sort((a, b) => b.overdueMins - a.overdueMins);
+}
+
+/** staleCronJobs over the live run history. */
+export async function fetchStaleCronJobs(now: Date = new Date()): Promise<StaleCron[]> {
+  return staleCronJobs(await fetchCronJobs(), now);
+}
+
 // Record one completed cron run. Fire-and-forget — never throws.
 export async function recordCronRun(
   admin: Admin,
