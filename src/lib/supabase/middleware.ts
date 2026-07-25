@@ -5,7 +5,14 @@ import { logAudit } from "@/lib/audit";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const SESSION_STARTED_COOKIE = "ai_session_started_at";
-const MAX_SESSION_MS = 12 * 60 * 60 * 1000; // 12 hours
+const MAX_SESSION_MS = 12 * 60 * 60 * 1000; // 12 hours (absolute cap)
+// The start-stamp cookie must OUTLIVE the window it guards. If its maxAge
+// equalled MAX_SESSION_MS the cookie self-deleted at exactly the cap, so the
+// next request (no cookie) re-stamped a fresh window instead of expiring —
+// degrading the absolute cap into an unbounded rolling timeout. A longer TTL
+// keeps the cookie present past the cap so the expiry branch below actually
+// fires. GoTrue's [auth.sessions] timebox is the server-authoritative backstop.
+const SESSION_COOKIE_MAX_AGE_S = 7 * 24 * 60 * 60; // 7 days
 
 export async function updateSession(
   request: NextRequest,
@@ -75,7 +82,7 @@ export async function updateSession(
           secure: process.env.NODE_ENV === "production",
           sameSite: "lax",
           path: "/",
-          maxAge: Math.floor(MAX_SESSION_MS / 1000),
+          maxAge: SESSION_COOKIE_MAX_AGE_S,
         },
       );
     } else {
