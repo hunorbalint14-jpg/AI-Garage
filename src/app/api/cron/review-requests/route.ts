@@ -9,6 +9,7 @@ import { generateReviewToken, hashReviewToken, tenantReviewUrl } from "@/lib/rev
 import { recordCronRun } from "@/lib/platform/cron-runs";
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 import { isPrelive } from "@/lib/prelive";
+import { recordHeld, type HeldRow } from "@/lib/held-comms";
 
 // Sends queued post-job feedback pulses (#508). Dispatched per-location by
 // /api/cron/tick when the `review_requests` scheduled_task is due. Mints a
@@ -57,14 +58,14 @@ export async function GET(request: NextRequest) {
   const { data: locations } = (await locationsQuery) as unknown as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, suppressed: 0, prelive: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, suppressed: 0, prelive: 0, held: 0, failed: 0, errors: [] as string[] };
+  const held: HeldRow[] = [];
 
   for (const location of locations ?? []) {
-    // Prelive branches (#585) send no feedback pulses.
-    if (isPrelive(location)) {
-      results.prelive++;
-      continue;
-    }
+    // Prelive branches (#585) send no feedback pulses. The queue is still read
+    // so the Go-live screen can show what's waiting (#586) — the rows stay
+    // `queued`, no token is minted and nothing is marked sent or suppressed.
+    const prelive = isPrelive(location);
 
     const { data: task } = await admin
       .from("scheduled_tasks")
@@ -106,6 +107,22 @@ export async function GET(request: NextRequest) {
     const recentlyPulsed = new Set(
       ((recent ?? []) as { customer_id: string | null }[]).map((r) => r.customer_id).filter((c): c is string => !!c),
     );
+
+    if (prelive) {
+      for (const row of rows) {
+        if (row.customer_id && recentlyPulsed.has(row.customer_id)) continue;
+        held.push({
+          locationId: location.id,
+          kind: "review_request",
+          customerId: row.customer_id,
+          refTable: "review_requests",
+          refId: row.id,
+          summary: `Feedback request for ${row.customer?.full_name ?? "a customer"}`,
+        });
+        results.prelive++;
+      }
+      continue;
+    }
 
     for (const row of rows) {
       if (row.customer_id && recentlyPulsed.has(row.customer_id)) {
@@ -179,6 +196,8 @@ export async function GET(request: NextRequest) {
       }
     }
   }
+
+  results.held = await recordHeld(admin, held);
 
   console.log("[cron/review-requests]", results);
   await recordCronRun(

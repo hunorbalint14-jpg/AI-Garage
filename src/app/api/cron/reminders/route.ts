@@ -14,6 +14,7 @@ import {
 } from "@/lib/reminder-templates";
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 import { isPrelive } from "@/lib/prelive";
+import { recordHeld, type HeldRow } from "@/lib/held-comms";
 
 // Runs daily at 09:00 UTC via Vercel Cron (configured in vercel.json).
 // Finds all vehicles with MOT or service due within REMIND_DAYS_BEFORE days,
@@ -165,8 +166,10 @@ export async function GET(request: NextRequest) {
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, prelive: 0, failed: 0, truncated: false, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, prelive: 0, held: 0, failed: 0, truncated: false, errors: [] as string[] };
   const outOfTime = () => Date.now() - __t0 > DEADLINE_MS;
+  // Holds for prelive branches, flushed once at the end of the run (#586).
+  const held: HeldRow[] = [];
 
   for (const location of locations ?? []) {
     if (outOfTime()) {
@@ -174,13 +177,11 @@ export async function GET(request: NextRequest) {
       break;
     }
 
-    // Prelive branches (#585) send nothing unattended. A new branch commonly
-    // holds freshly imported vehicles whose MOT dates would otherwise blast
-    // every customer the morning after the import.
-    if (isPrelive(location)) {
-      results.prelive++;
-      continue;
-    }
+    // Prelive branches (#585) send nothing unattended. The selection work still
+    // runs so the Go-live screen can say exactly what is waiting (#586) — we
+    // stop at the send, before any AI drafting, and write nothing to the
+    // `reminders` dedup table.
+    const prelive = isPrelive(location);
 
     const org = location.organization;
     const orgName = org?.name ?? location.name;
@@ -320,6 +321,23 @@ export async function GET(request: NextRequest) {
           if (wantWhatsApp && !needWhatsApp) results.skipped++;
           if (wantSms && !needSms) results.skipped++;
 
+          // Held: record what this vehicle WOULD get and move on — before any
+          // template drafting, so a prelive branch costs no AI spend.
+          if (prelive) {
+            if (needEmail || needWhatsApp || needSms) {
+              held.push({
+                locationId: location.id,
+                kind: reminderType === "mot" ? "mot_reminder" : "service_reminder",
+                customerId: customer.id,
+                refTable: "vehicles",
+                refId: vehicle.id,
+                summary: `${vehicle.registration} — ${label} due ${formattedDate}${customer.full_name ? ` (${customer.full_name})` : ""}`,
+              });
+              results.prelive++;
+            }
+            continue;
+          }
+
           // One short text shared by WhatsApp AND SMS — both channels send the
           // same message.
           let shortText: string | null = null;
@@ -449,6 +467,24 @@ export async function GET(request: NextRequest) {
         const subject = `Road tax reminder — ${v.registration} due ${formattedDate}`;
         const body = `Hi ${firstName},\n\nThis is a friendly reminder that the road tax for your vehicle ${v.registration} is due on ${formattedDate}.\n\nYou can renew online at gov.uk/renew-vehicle-tax or at your local Post Office.\n\nThank you,\n${garageName}${locationFooter}`;
 
+        if (prelive) {
+          const wouldSend =
+            (customer.email && taxChannels.includes("email") && !taxSentSet.has(`${v.id}:tax:email`)) ||
+            (customer.phone && taxChannels.includes("sms") && !taxSentSet.has(`${v.id}:tax:sms`));
+          if (wouldSend) {
+            held.push({
+              locationId: location.id,
+              kind: "tax_reminder",
+              customerId: customer.id,
+              refTable: "vehicles",
+              refId: v.id,
+              summary: `${v.registration} — road tax due ${formattedDate}${customer.full_name ? ` (${customer.full_name})` : ""}`,
+            });
+            results.prelive++;
+          }
+          return;
+        }
+
         if (customer.email && taxChannels.includes("email")) {
           if (!taxSentSet.has(`${v.id}:tax:email`)) {
             const emailResult = await sendEmail({ to: customer.email, subject, text: body, cta: bookingCta });
@@ -467,6 +503,8 @@ export async function GET(request: NextRequest) {
       });
     }
   }
+
+  results.held = await recordHeld(admin, held);
 
   console.log("[cron/reminders]", results);
   await recordCronRun(

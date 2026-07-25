@@ -132,6 +132,7 @@ export type AuditAction =
   | "supplier.create"
   | "supplier.update"
   | "supplier.delete"
+  | "location.go_live"
   | "supplier_integration.update"
   | "supplier_integration.delete"
   | "purchase_order.create"

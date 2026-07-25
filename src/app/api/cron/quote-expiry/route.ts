@@ -6,6 +6,7 @@ import { recordCronRun } from "@/lib/platform/cron-runs";
 import { decrypt } from "@/lib/encryption";
 import { tenantQuoteUrl } from "@/lib/quote-links";
 import { isPrelive } from "@/lib/prelive";
+import { recordHeld, type HeldRow } from "@/lib/held-comms";
 import {
   dueReminderDay,
   dispatchQuoteReminder,
@@ -90,7 +91,7 @@ export async function GET(request: NextRequest) {
 // org's max (manual reminders count toward it), never after expiry. The
 // customer link is rebuilt from the encrypted raw token, so the original
 // link keeps working. Quotes sent before that column existed are skipped.
-type PersonRef = { full_name: string | null; email: string | null; phone: string | null } | null;
+type PersonRef = { id: string | null; full_name: string | null; email: string | null; phone: string | null } | null;
 
 type ReminderCandidate = {
   id: string;
@@ -108,7 +109,7 @@ type ReminderCandidate = {
   customer: PersonRef;
   vehicle: { registration: string | null } | null;
   job: { customer: PersonRef; vehicle: { registration: string | null } | null } | null;
-  location: { slug: string; name: string; address: string | null; live_at: string | null } | null;
+  location: { id: string; slug: string; name: string; address: string | null; live_at: string | null } | null;
   organization: {
     slug: string;
     name: string;
@@ -129,7 +130,7 @@ async function processQuoteReminders(
   const { data, error } = await admin
     .from("quotes")
     .select(
-      "id, quote_type, organization_id, slug, title, total, expires_at, sent_at, last_reminder_at, reminder_count, sent_channels, link_token_encrypted, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration)), location:locations(slug, name, address, live_at), organization:organizations!organization_id(slug, name, quote_reminders_enabled, quote_reminder_days, quote_reminder_max)",
+      "id, quote_type, organization_id, slug, title, total, expires_at, sent_at, last_reminder_at, reminder_count, sent_channels, link_token_encrypted, customer:customers(id, full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(id, full_name, email, phone), vehicle:vehicles(registration)), location:locations(id, slug, name, address, live_at), organization:organizations!organization_id(slug, name, quote_reminders_enabled, quote_reminder_days, quote_reminder_max)",
     )
     .eq("status", "pending")
     .gt("expires_at", nowIso)
@@ -143,6 +144,7 @@ async function processQuoteReminders(
   }
 
   let reminded = 0;
+  const held: HeldRow[] = [];
   for (const q of (data ?? []) as unknown as ReminderCandidate[]) {
     if (reminded >= REMINDER_BATCH) break;
     const org = q.organization;
@@ -168,9 +170,25 @@ async function processQuoteReminders(
     const customer = q.quote_type === "job" ? q.job?.customer ?? null : q.customer;
     if (!customer || (!customer.email && !customer.phone)) continue;
     if (!q.slug || !q.link_token_encrypted || !q.location) continue;
-    // Prelive branches (#585) send no unattended chasers. Expiry itself still
-    // runs — that's a status change on our side, not a message to anyone.
-    if (isPrelive(q.location)) continue;
+    // Prelive branches (#585) send no unattended chasers — the quote is
+    // recorded as held (#586) instead, with reminder_count left alone so the
+    // real chaser still runs after go-live. Expiry itself is unaffected: that's
+    // a status change on our side, not a message to anyone.
+    if (isPrelive(q.location)) {
+      held.push({
+        locationId: q.location.id,
+        kind: "quote_reminder",
+        customerId: customer.id ?? null,
+        refTable: "quotes",
+        refId: q.id,
+        summary: `${q.title ?? "Quote"} for ${customer.full_name ?? "a customer"}${
+          q.expires_at
+            ? ` — expires ${new Date(q.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+            : ""
+        }`,
+      });
+      continue;
+    }
 
     // Reuse the channels of the original send; fall back to email+SMS for
     // rows from before sent_channels existed.
@@ -219,6 +237,8 @@ async function processQuoteReminders(
     });
     reminded++;
   }
+
+  await recordHeld(admin, held);
 
   return reminded;
 }

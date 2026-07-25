@@ -12,6 +12,7 @@ import {
 } from "@/lib/booking-confirm";
 import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
 import { isPrelive, PRELIVE_SKIP } from "@/lib/prelive";
+import { recordHeld } from "@/lib/held-comms";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -78,10 +79,9 @@ export async function GET(request: NextRequest) {
   if (!location) return NextResponse.json({ error: "location not found" }, { status: 404 });
 
   // Prelive branches (#585) send no confirmations — a booking taken while
-  // learning the system is practice, not a commitment to a customer.
-  if (isPrelive(location)) {
-    return NextResponse.json({ success: true, skipped: PRELIVE_SKIP });
-  }
+  // learning the system is practice, not a commitment to a customer. The
+  // window is still read so the Go-live screen can list them (#586).
+  const prelive = isPrelive(location);
 
   const settings = (task?.settings ?? {}) as { hours_before?: number; channels?: string[] };
   const hoursBefore = settings.hours_before ?? HOURS_BEFORE_DEFAULT;
@@ -113,6 +113,23 @@ export async function GET(request: NextRequest) {
 
   let sent = 0;
   let skippedNoContact = 0;
+
+  if (prelive) {
+    const held = bookings
+      .filter((b) => b.customer?.email || b.customer?.phone)
+      .map((b) => ({
+        locationId: location.id,
+        kind: "booking_confirmation" as const,
+        customerId: b.customer?.id ?? null,
+        refTable: "bookings",
+        refId: b.id,
+        summary: `${b.customer?.full_name ?? "Customer"} — ${new Date(b.scheduled_at).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}${b.vehicle?.registration ? ` (${b.vehicle.registration})` : ""}`,
+      }));
+    // No token minted and confirmation_sent_at left null, so the real send
+    // still happens for these bookings once the branch goes live.
+    const recorded = await recordHeld(admin, held);
+    return NextResponse.json({ success: true, skipped: PRELIVE_SKIP, prelive: held.length, held: recorded });
+  }
 
   for (const booking of bookings) {
     const customer = booking.customer!;
