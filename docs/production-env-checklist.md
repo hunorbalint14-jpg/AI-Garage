@@ -38,6 +38,7 @@ Grouped; see `npm run check:env` output for the per-var failure mode.
 - **Xero** — `XERO_CLIENT_ID`, `XERO_CLIENT_SECRET`, `XERO_SALES_ACCOUNT_CODE`.
 - **Passkeys** — `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`.
 - **Support** — `PLATFORM_SUPPORT_EMAIL` (missing → ticket devops email skipped), `PLATFORM_ADMIN_EMAILS`.
+- **Supplier ordering** — none today: the launch (manual) connector reuses the Resend email path and `APP_ENCRYPTION_KEY`. A trade-API connector adds its credentials here — see [supplier-connectivity-spike.md](supplier-connectivity-spike.md) (#568).
 - **Observability (Sentry)** — `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN` (+ `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` for sourcemaps & admin issue fetch).
 - **Ops alerting** — `SLACK_OPS_WEBHOOK_URL` (see issue #449).
 
