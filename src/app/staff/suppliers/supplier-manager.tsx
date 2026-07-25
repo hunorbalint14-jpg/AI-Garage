@@ -272,8 +272,8 @@ function OrderingForm({ supplier, canEdit, onDone }: { supplier: Supplier; canEd
             onChange={(e) => setPunchout(e.target.value)}
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Optional. <code>{"{reg}"}</code> and <code>{"{query}"}</code> are filled in with the vehicle and the part
-            you&apos;re looking for.
+            Optional. <code>{"{reg}"}</code> and <code>{"{query}"}</code>{" "}
+            are filled in with the vehicle and the part you&apos;re looking for.
           </p>
         </div>
         <div>

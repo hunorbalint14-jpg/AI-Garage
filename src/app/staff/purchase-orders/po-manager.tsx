@@ -147,6 +147,7 @@ function POCard({ po, canEdit, canSend }: { po: PORow; canEdit: boolean; canSend
       ].filter(Boolean);
       setImportNote(parts.join(" · "));
       setConfirmationText("");
+      setShowImport(false);
       router.refresh();
     });
   }
