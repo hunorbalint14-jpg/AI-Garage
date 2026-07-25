@@ -7,6 +7,7 @@ import { logAudit } from "@/lib/audit";
 import { recordCronRun } from "@/lib/platform/cron-runs";
 import { dunningStage, daysOverdue, DEFAULT_DUNNING_CADENCE } from "@/lib/dunning";
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
+import { isPrelive } from "@/lib/prelive";
 
 // Overdue-invoice dunning. Dispatched per-location by /api/cron/tick when the
 // `invoice_dunning` scheduled_task is due. For each unpaid, past-due invoice it
@@ -21,6 +22,7 @@ type LocationRow = {
   slug: string;
   name: string;
   address: string | null;
+  live_at: string | null;
   organization: { id: string; name: string } | null;
 };
 
@@ -66,14 +68,21 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, address, organization:organizations!organization_id(id, name)");
+    .select("id, slug, name, address, live_at, organization:organizations!organization_id(id, name)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, prelive: 0, failed: 0, errors: [] as string[] };
 
   for (const location of locations ?? []) {
+    // Prelive branches (#585) chase nobody — imported history and practice
+    // invoices must never turn into a dunning email.
+    if (isPrelive(location)) {
+      results.prelive++;
+      continue;
+    }
+
     const orgName = location.organization?.name ?? location.name;
     // Identify the issuing branch (+ address) on the reminder, not just the org.
     const garageName = garageLabel({ orgName, locationName: location.name });

@@ -5,6 +5,7 @@ import { logAudit } from "@/lib/audit";
 import { recordCronRun } from "@/lib/platform/cron-runs";
 import { decrypt } from "@/lib/encryption";
 import { tenantQuoteUrl } from "@/lib/quote-links";
+import { isPrelive } from "@/lib/prelive";
 import {
   dueReminderDay,
   dispatchQuoteReminder,
@@ -107,7 +108,7 @@ type ReminderCandidate = {
   customer: PersonRef;
   vehicle: { registration: string | null } | null;
   job: { customer: PersonRef; vehicle: { registration: string | null } | null } | null;
-  location: { slug: string; name: string; address: string | null } | null;
+  location: { slug: string; name: string; address: string | null; live_at: string | null } | null;
   organization: {
     slug: string;
     name: string;
@@ -128,7 +129,7 @@ async function processQuoteReminders(
   const { data, error } = await admin
     .from("quotes")
     .select(
-      "id, quote_type, organization_id, slug, title, total, expires_at, sent_at, last_reminder_at, reminder_count, sent_channels, link_token_encrypted, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration)), location:locations(slug, name, address), organization:organizations!organization_id(slug, name, quote_reminders_enabled, quote_reminder_days, quote_reminder_max)",
+      "id, quote_type, organization_id, slug, title, total, expires_at, sent_at, last_reminder_at, reminder_count, sent_channels, link_token_encrypted, customer:customers(full_name, email, phone), vehicle:vehicles(registration), job:jobs(customer:customers(full_name, email, phone), vehicle:vehicles(registration)), location:locations(slug, name, address, live_at), organization:organizations!organization_id(slug, name, quote_reminders_enabled, quote_reminder_days, quote_reminder_max)",
     )
     .eq("status", "pending")
     .gt("expires_at", nowIso)
@@ -167,6 +168,9 @@ async function processQuoteReminders(
     const customer = q.quote_type === "job" ? q.job?.customer ?? null : q.customer;
     if (!customer || (!customer.email && !customer.phone)) continue;
     if (!q.slug || !q.link_token_encrypted || !q.location) continue;
+    // Prelive branches (#585) send no unattended chasers. Expiry itself still
+    // runs — that's a status change on our side, not a message to anyone.
+    if (isPrelive(q.location)) continue;
 
     // Reuse the channels of the original send; fall back to email+SMS for
     // rows from before sent_channels existed.

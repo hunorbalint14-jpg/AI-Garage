@@ -18,6 +18,7 @@ import {
   type FollowupRecord,
 } from "@/lib/deferred-followup";
 import { draftDeferredFollowup, fallbackFollowupEmail, fallbackFollowupSms, type FollowupDraftInput } from "@/lib/ai-deferred";
+import { isPrelive } from "@/lib/prelive";
 
 // Deferred-work follow-up sequence (#498 PR 3). Dispatched per-location by
 // /api/cron/tick when the `deferred_followups` scheduled task is due (the
@@ -35,6 +36,7 @@ type LocationRow = {
   slug: string;
   name: string;
   address: string | null;
+  live_at: string | null;
   organization: {
     id: string;
     slug: string;
@@ -65,17 +67,23 @@ export async function GET(request: NextRequest) {
   const __t0 = Date.now();
   const now = new Date();
   const nowIso = now.toISOString();
-  const results = { sent: 0, skipped: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, prelive: 0, failed: 0, errors: [] as string[] };
 
   let locationsQuery = admin
     .from("locations")
     .select(
-      "id, slug, name, address, organization:organizations!organization_id(id, slug, name, deferred_followup_days)",
+      "id, slug, name, address, live_at, organization:organizations!organization_id(id, slug, name, deferred_followup_days)",
     );
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as unknown as { data: LocationRow[] | null };
 
   for (const location of locations ?? []) {
+    // Prelive branches (#585) chase no deferred work.
+    if (isPrelive(location)) {
+      results.prelive++;
+      continue;
+    }
+
     const org = location.organization;
     if (!org) continue;
 

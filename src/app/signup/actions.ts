@@ -63,6 +63,8 @@ export async function signUpGarage(formData: FormData): Promise<SignupResult> {
 
   // First location uses the same slug as the org. Multi-location chains will
   // pick distinct slugs for additional branches via the (future) add-location flow.
+  // `live_at` is deliberately unset — a new branch starts PRELIVE so the owner
+  // can import and learn without messaging anyone (#585). Do not default it.
   const { data: location, error: locErr } = await admin
     .from("locations")
     .insert({

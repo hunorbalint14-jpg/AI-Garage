@@ -11,6 +11,7 @@ import {
   tenantBookingConfirmUrl,
 } from "@/lib/booking-confirm";
 import { garageLabel, garageLocationBlock, garageLocationInline } from "@/lib/garage-identity";
+import { isPrelive, PRELIVE_SKIP } from "@/lib/prelive";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -56,7 +57,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
     admin
       .from("locations")
-      .select("id, slug, name, address, organization:organizations!organization_id(name, slug)")
+      .select("id, slug, name, address, live_at, organization:organizations!organization_id(name, slug)")
       .eq("id", locationId)
       .maybeSingle(),
   ]);
@@ -65,9 +66,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, skipped: "disabled" });
   }
   const location = locationData as
-    | { id: string; slug: string; name: string; address: string | null; organization: { name: string; slug: string } | null }
+    | {
+        id: string;
+        slug: string;
+        name: string;
+        address: string | null;
+        live_at: string | null;
+        organization: { name: string; slug: string } | null;
+      }
     | null;
   if (!location) return NextResponse.json({ error: "location not found" }, { status: 404 });
+
+  // Prelive branches (#585) send no confirmations — a booking taken while
+  // learning the system is practice, not a commitment to a customer.
+  if (isPrelive(location)) {
+    return NextResponse.json({ success: true, skipped: PRELIVE_SKIP });
+  }
 
   const settings = (task?.settings ?? {}) as { hours_before?: number; channels?: string[] };
   const hoursBefore = settings.hours_before ?? HOURS_BEFORE_DEFAULT;

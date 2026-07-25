@@ -3,8 +3,19 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setActiveLocation } from "@/app/staff/active-location-actions";
+import { isPrelive, PRELIVE_BADGE_LABEL } from "@/lib/prelive";
 
-type Location = { id: string; slug: string; name: string };
+// Marks a branch that isn't live yet, so an owner running several sites can see
+// at a glance which ones are still silenced (#585).
+function PreliveDot() {
+  return (
+    <span className="ml-1.5 rounded-[2px] border border-ws-blue-border bg-ws-blue-bg px-1 py-px font-mono text-[9px] font-semibold uppercase tracking-[0.08em] text-ws-blue">
+      {PRELIVE_BADGE_LABEL}
+    </span>
+  );
+}
+
+type Location = { id: string; slug: string; name: string; live_at: string | null };
 
 // The subdomain is the ORGANISATION; the active branch is a cookie. Switching
 // posts the chosen location id to setActiveLocation (which re-checks membership)
@@ -55,7 +66,12 @@ export function LocationSwitcher({
         onClick={() => setOpen((o) => !o)}
         className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-sm transition-colors disabled:opacity-50 ${btnCls}`}
       >
-        <span className="truncate">{current?.name ?? "Select branch"}</span>
+        {/* Chip sits OUTSIDE the truncating span — a long branch name must not
+            clip the one badge that says nothing is being sent. */}
+        <span className="flex min-w-0 items-center">
+          <span className="truncate">{current?.name ?? "Select branch"}</span>
+          {current && isPrelive(current) && <PreliveDot />}
+        </span>
         <span className="ml-1 opacity-50">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
@@ -68,6 +84,7 @@ export function LocationSwitcher({
               className={`block w-full px-3 py-2 text-left text-sm transition-colors ${dropItemCls}`}
             >
               {l.name}
+              {isPrelive(l) && <PreliveDot />}
             </button>
           ))}
         </div>
