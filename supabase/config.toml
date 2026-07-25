@@ -269,10 +269,14 @@ max_frequency = "5s"
 # 4152127777 = "123456"
 
 # Configure logged in session timeouts.
-# [auth.sessions]
-# Force log out after the specified duration.
-# timebox = "24h"
-# Force log out if the user has been inactive longer than the specified duration.
+[auth.sessions]
+# Absolute session cap. GoTrue invalidates the refresh-token chain this long
+# after sign-in, server-side — the authoritative enforcement of the 12-hour
+# policy that src/lib/supabase/middleware.ts mirrors for UX/audit. Unlike the
+# client cookie, a deleted/tampered cookie cannot push this forward.
+timebox = "12h"
+# Optional idle timeout (defense-in-depth). Left disabled to preserve current
+# UX (policy is absolute-only); enable if idle logout is desired.
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.

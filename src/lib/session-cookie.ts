@@ -4,8 +4,10 @@
 // runs in the Edge runtime. A tampered or legacy-unsigned value reads back as
 // null and the caller treats it as expired.
 //
-// Note: deleting the cookie still re-stamps a fresh window — fully closing that
-// requires a server-authoritative start time (tracked as a Phase-4 follow-up).
+// Note: deleting the cookie re-stamps a fresh window client-side, but the
+// server-authoritative absolute cap is GoTrue's [auth.sessions] timebox
+// (supabase/config.toml): it invalidates the refresh-token chain at the cap
+// regardless of this cookie, so a cookie delete cannot extend the real session.
 
 const enc = new TextEncoder();
 
