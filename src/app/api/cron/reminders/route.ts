@@ -15,6 +15,7 @@ import {
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 import { isPrelive } from "@/lib/prelive";
 import { recordHeld, type HeldRow } from "@/lib/held-comms";
+import { firstRunCap } from "@/lib/first-run";
 
 // Runs daily at 09:00 UTC via Vercel Cron (configured in vercel.json).
 // Finds all vehicles with MOT or service due within REMIND_DAYS_BEFORE days,
@@ -74,6 +75,8 @@ type LocationRow = {
   name: string;
   address: string | null;
   live_at: string | null;
+  first_run_cap: number | null;
+  chase_prelive_debt: boolean | null;
   organization: {
     id: string;
     name: string;
@@ -160,13 +163,13 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, address, live_at, organization:organizations!organization_id(id, name, phone, ai_brief)");
+    .select("id, slug, name, address, live_at, first_run_cap, chase_prelive_debt, organization:organizations!organization_id(id, name, phone, ai_brief)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
 
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, prelive: 0, held: 0, failed: 0, truncated: false, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, prelive: 0, held: 0, deferred: 0, failed: 0, truncated: false, errors: [] as string[] };
   const outOfTime = () => Date.now() - __t0 > DEADLINE_MS;
   // Holds for prelive branches, flushed once at the end of the run (#586).
   const held: HeldRow[] = [];
@@ -182,6 +185,14 @@ export async function GET(request: NextRequest) {
     // stop at the send, before any AI drafting, and write nothing to the
     // `reminders` dedup table.
     const prelive = isPrelive(location);
+
+    // First-run cap (#587): for the branch's first 24 hours live, only this
+    // many customer-facing messages leave in one run. Nothing is marked sent
+    // beyond it, so the remainder is picked up by the next run rather than
+    // dropped. Null outside the window or when the branch has no cap set.
+    const capForRun = firstRunCap(location);
+    let capUsed = 0;
+    const capReached = () => capForRun !== null && capUsed >= capForRun;
 
     const org = location.organization;
     const orgName = org?.name ?? location.name;
@@ -321,6 +332,13 @@ export async function GET(request: NextRequest) {
           if (wantWhatsApp && !needWhatsApp) results.skipped++;
           if (wantSms && !needSms) results.skipped++;
 
+          // First-run cap reached: leave this one for the next run. Counted so
+          // the run reports what it deferred rather than looking idle.
+          if (!prelive && (needEmail || needWhatsApp || needSms) && capReached()) {
+            results.deferred++;
+            continue;
+          }
+
           // Held: record what this vehicle WOULD get and move on — before any
           // template drafting, so a prelive branch costs no AI spend.
           if (prelive) {
@@ -337,6 +355,9 @@ export async function GET(request: NextRequest) {
             }
             continue;
           }
+
+          // Past the gates — this vehicle is getting a message this run.
+          if (needEmail || needWhatsApp || needSms) capUsed++;
 
           // One short text shared by WhatsApp AND SMS — both channels send the
           // same message.
@@ -467,10 +488,19 @@ export async function GET(request: NextRequest) {
         const subject = `Road tax reminder — ${v.registration} due ${formattedDate}`;
         const body = `Hi ${firstName},\n\nThis is a friendly reminder that the road tax for your vehicle ${v.registration} is due on ${formattedDate}.\n\nYou can renew online at gov.uk/renew-vehicle-tax or at your local Post Office.\n\nThank you,\n${garageName}${locationFooter}`;
 
+        const wouldSend = !!(
+          (customer.email && taxChannels.includes("email") && !taxSentSet.has(`${v.id}:tax:email`)) ||
+          (customer.phone && taxChannels.includes("sms") && !taxSentSet.has(`${v.id}:tax:sms`))
+        );
+
+        // Same first-run cap as the MOT/service pass — the two share one
+        // allowance, since to the customer they're the same day's post.
+        if (!prelive && wouldSend && capReached()) {
+          results.deferred++;
+          return;
+        }
+
         if (prelive) {
-          const wouldSend =
-            (customer.email && taxChannels.includes("email") && !taxSentSet.has(`${v.id}:tax:email`)) ||
-            (customer.phone && taxChannels.includes("sms") && !taxSentSet.has(`${v.id}:tax:sms`));
           if (wouldSend) {
             held.push({
               locationId: location.id,
@@ -484,6 +514,8 @@ export async function GET(request: NextRequest) {
           }
           return;
         }
+
+        if (wouldSend) capUsed++;
 
         if (customer.email && taxChannels.includes("email")) {
           if (!taxSentSet.has(`${v.id}:tax:email`)) {

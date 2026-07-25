@@ -13,10 +13,13 @@ import { goLive } from "./actions";
 export function GoLiveButton({
   locationName,
   pending,
+  firstDayCap,
   canGoLive,
 }: {
   locationName: string;
   pending: number;
+  /** Null = no first-day limit. */
+  firstDayCap: number | null;
   canGoLive: boolean;
 }) {
   const router = useRouter();
@@ -29,7 +32,11 @@ export function GoLiveButton({
       title: `Take ${locationName} live?`,
       description:
         pending > 0
-          ? `${pending} message${pending === 1 ? "" : "s"} will start going to real customers from the next scheduled run. This can't be undone from here.`
+          ? `${pending} message${pending === 1 ? "" : "s"} will start going to real customers from the next scheduled run` +
+            (firstDayCap != null && pending > firstDayCap
+              ? `, up to ${firstDayCap} on the first day and the rest over the following runs.`
+              : ".") +
+            " This can't be undone from here."
           : "Automatic messages to customers start from the next scheduled run. This can't be undone from here.",
       confirmLabel: "Go live",
     });

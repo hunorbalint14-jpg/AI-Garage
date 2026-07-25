@@ -133,6 +133,7 @@ export type AuditAction =
   | "supplier.update"
   | "supplier.delete"
   | "location.go_live"
+  | "location.first_run_policy"
   | "supplier_integration.update"
   | "supplier_integration.delete"
   | "purchase_order.create"

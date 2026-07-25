@@ -10,6 +10,48 @@ import { isLocationLive } from "@/lib/prelive";
 type ActionResult = { error: string } | { success: true; sending: number };
 
 /**
+ * The two first-run choices (#587), made before the flip rather than
+ * discovered after it. Owner-only, same as going live.
+ */
+export async function saveFirstRunPolicy(input: {
+  cap: number | null;
+  chasePreliveDebt: boolean;
+}): Promise<{ error: string } | { success: true }> {
+  const ctx = await requireStaffContext();
+  if (ctx.orgRole !== "owner") {
+    return { error: "Only the account owner can change the go-live settings." };
+  }
+
+  let cap: number | null = null;
+  if (input.cap != null) {
+    if (!Number.isFinite(input.cap) || input.cap < 1) {
+      return { error: "The first-day limit must be at least 1, or blank for no limit." };
+    }
+    cap = Math.floor(input.cap);
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("locations")
+    .update({ first_run_cap: cap, chase_prelive_debt: input.chasePreliveDebt })
+    .eq("id", ctx.activeLocation.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "location.first_run_policy",
+    entityType: "location",
+    entityId: ctx.activeLocation.id,
+    metadata: { first_run_cap: cap, chase_prelive_debt: input.chasePreliveDebt },
+  });
+
+  revalidatePath("/staff/go-live");
+  return { success: true };
+}
+
+/**
  * Take the active branch live (#586).
  *
  * Owner-only: this is the moment real customers start being messaged, and it
