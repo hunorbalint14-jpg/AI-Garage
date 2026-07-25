@@ -9,6 +9,7 @@ import { dunningStage, daysOverdue, DEFAULT_DUNNING_CADENCE } from "@/lib/dunnin
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 import { isPrelive } from "@/lib/prelive";
 import { recordHeld, type HeldRow } from "@/lib/held-comms";
+import { mayChaseInvoice } from "@/lib/first-run";
 
 // Overdue-invoice dunning. Dispatched per-location by /api/cron/tick when the
 // `invoice_dunning` scheduled_task is due. For each unpaid, past-due invoice it
@@ -24,6 +25,8 @@ type LocationRow = {
   name: string;
   address: string | null;
   live_at: string | null;
+  first_run_cap: number | null;
+  chase_prelive_debt: boolean | null;
   organization: { id: string; name: string } | null;
 };
 
@@ -69,12 +72,12 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, address, live_at, organization:organizations!organization_id(id, name)");
+    .select("id, slug, name, address, live_at, first_run_cap, chase_prelive_debt, organization:organizations!organization_id(id, name)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, prelive: 0, held: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, prelive: 0, held: 0, prelive_debt: 0, failed: 0, errors: [] as string[] };
   const held: HeldRow[] = [];
 
   for (const location of locations ?? []) {
@@ -135,6 +138,13 @@ export async function GET(request: NextRequest) {
       // Stage/cadence keyed to the OLDEST overdue invoice; one send bumps
       // every member so the group stays in step.
       const oldest = group.reduce((a, b) => (a.due_at < b.due_at ? a : b));
+      // Debt that predates go-live (#587): the whole group is skipped when the
+      // oldest is pre-live, because one message covers them all and it would
+      // read as a chase for the historic balance.
+      if (!mayChaseInvoice(location, oldest.due_at)) {
+        results.prelive_debt++;
+        continue;
+      }
       const overdue = daysOverdue(oldest.due_at, now);
       const { send, stage } = dunningStage(overdue, oldest.dunning_count ?? 0, cadence);
       if (!send || (oldest.last_dunned_at && sameUtcDay(new Date(oldest.last_dunned_at), now))) {
@@ -194,6 +204,14 @@ export async function GET(request: NextRequest) {
       const email = inv.customer?.email;
       if (!email) {
         results.skipped++;
+        continue;
+      }
+
+      // Invoices already overdue when the branch went live are never chased
+      // automatically (#587) — historic debt is collected by hand unless the
+      // owner opted in on the Go-live screen.
+      if (!mayChaseInvoice(location, inv.due_at)) {
+        results.prelive_debt++;
         continue;
       }
 

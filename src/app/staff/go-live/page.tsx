@@ -8,6 +8,7 @@ import { loadSetupChecklist } from "@/lib/setup-checklist";
 import { fetchHeldSummary, STALE_AFTER_HOURS } from "@/lib/held-comms";
 import { isLocationLive } from "@/lib/prelive";
 import { GoLiveButton } from "./go-live-button";
+import { FirstRunForm } from "./first-run-form";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,31 @@ export default async function GoLivePage() {
   const admin = createAdminClient();
   const live = isLocationLive(ctx.activeLocation);
 
-  const [checklist, held] = await Promise.all([
+  const [checklist, held, policyRes, debtRes] = await Promise.all([
     loadSetupChecklist(admin, ctx),
     fetchHeldSummary(admin, ctx.activeLocation.id),
+    admin
+      .from("locations")
+      .select("first_run_cap, chase_prelive_debt")
+      .eq("id", ctx.activeLocation.id)
+      .maybeSingle(),
+    // Invoices that would count as pre-live debt the moment this branch goes
+    // live — context for the opt-in below.
+    admin
+      .from("invoices")
+      .select("id", { count: "exact", head: true })
+      .eq("location_id", ctx.activeLocation.id)
+      .eq("status", "sent")
+      .eq("is_demo", false)
+      .is("paid_at", null)
+      .lt("due_at", new Date().toISOString()),
   ]);
+
+  const policy = (policyRes.data ?? { first_run_cap: null, chase_prelive_debt: false }) as {
+    first_run_cap: number | null;
+    chase_prelive_debt: boolean | null;
+  };
+  const preliveDebtCount = debtRes.count ?? 0;
 
   // loadSetupChecklist returns null once the card is complete or dismissed —
   // either way there's nothing outstanding to show here.
@@ -96,6 +118,12 @@ export default async function GoLivePage() {
                 </li>
               ))}
             </ul>
+            {policy.first_run_cap != null && held.total > policy.first_run_cap && (
+              <p className="text-xs text-ws-amber">
+                Your first-day limit is {policy.first_run_cap}, so roughly {policy.first_run_cap} go out on day one and
+                the remaining {held.total - policy.first_run_cap} follow on the runs after.
+              </p>
+            )}
             {held.oldestAt && (
               <p className="text-xs text-muted-foreground">
                 Oldest held since {fmtDate(held.oldestAt)}. Counts cover what the scheduled runs have confirmed in the
@@ -104,6 +132,19 @@ export default async function GoLivePage() {
             )}
           </>
         )}
+      </section>
+
+      <section className="rounded-lg border p-4 flex flex-col gap-3">
+        <MicroLabel>How it&apos;s released</MicroLabel>
+        <p className="text-sm text-muted-foreground">
+          Going live doesn&apos;t have to mean everything at once. These two decide how the backlog comes out.
+        </p>
+        <FirstRunForm
+          cap={policy.first_run_cap}
+          chasePreliveDebt={!!policy.chase_prelive_debt}
+          preliveDebtCount={preliveDebtCount}
+          canEdit={ctx.orgRole === "owner"}
+        />
       </section>
 
       <section className="rounded-lg border p-4 flex flex-col gap-3">
@@ -147,6 +188,7 @@ export default async function GoLivePage() {
         <GoLiveButton
           locationName={ctx.activeLocation.name}
           pending={held.total}
+          firstDayCap={policy.first_run_cap}
           canGoLive={ctx.orgRole === "owner"}
         />
       </section>
