@@ -533,6 +533,51 @@ async function main() {
     }
   });
 
+  // Ordering config per supplier (#568) — one on the full manual route (order
+  // email + catalogue link), one punch-out only, so the Suppliers page shows
+  // both Ordering states.
+  await step("supplier ordering setup", async () => {
+    const ordering = [
+      {
+        name: "MotorParts Direct",
+        punchout_url_template: "https://catalogue.motorparts.example/search?vrm={reg}&q={query}",
+        order_email: "parts@motorparts.example",
+        account_number: "SM-4471",
+      },
+      {
+        name: "TyreHub Wholesale",
+        punchout_url_template: "https://trade.tyrehub.example/basket?add={query}",
+        order_email: null,
+        account_number: "TH-9902",
+      },
+    ];
+    for (const o of ordering) {
+      const supplier = await db.from("suppliers").select("id").eq("location_id", locId).eq("name", o.name).maybeSingle();
+      if (!supplier.data) continue;
+      const existing = await db
+        .from("supplier_integrations")
+        .select("supplier_id")
+        .eq("supplier_id", supplier.data.id)
+        .maybeSingle();
+      if (existing.data) continue;
+      must(
+        await db
+          .from("supplier_integrations")
+          .insert({
+            supplier_id: supplier.data.id,
+            location_id: locId,
+            kind: "manual",
+            enabled: true,
+            punchout_url_template: o.punchout_url_template,
+            order_email: o.order_email,
+            account_number: o.account_number,
+          })
+          .select("supplier_id")
+          .single(),
+      );
+    }
+  });
+
   await step("purchase order + items", async () => {
     if (!supplierId) throw new Error("no supplier");
     const existing = await db.from("purchase_orders").select("id").eq("location_id", locId).eq("reference", "PO-DEMO-001").maybeSingle();
@@ -557,6 +602,36 @@ async function main() {
       await db.from("purchase_order_items").insert([
         { purchase_order_id: po.id, product_id: pads.data?.id ?? null, description: "Brake pads (front)", quantity: 10, unit_cost: 22, sort_order: 0 },
         { purchase_order_id: po.id, product_id: null, description: "Brake discs (pair)", quantity: 4, unit_cost: 55, sort_order: 1 },
+      ]).select("id"),
+    );
+  });
+
+  // A second PO left as a draft, so the Purchase orders page shows the
+  // supplier-ordering actions (Send to supplier / Import confirmation) that
+  // only a draft against an ordering-enabled supplier gets (#568).
+  await step("draft purchase order", async () => {
+    const existing = await db.from("purchase_orders").select("id").eq("location_id", locId).eq("reference", "PO-DEMO-002").maybeSingle();
+    if (existing.data) return;
+    const motorparts = await db.from("suppliers").select("id").eq("location_id", locId).eq("name", "MotorParts Direct").maybeSingle();
+    const filter = await db.from("products").select("id").eq("location_id", locId).eq("name", "Oil filter").maybeSingle();
+    const po = must(
+      await db
+        .from("purchase_orders")
+        .insert({
+          location_id: locId,
+          supplier_id: motorparts.data?.id ?? supplierId,
+          reference: "PO-DEMO-002",
+          status: "draft",
+          notes: "Collection before 4pm please.",
+          created_by: staffUserId,
+        })
+        .select("id")
+        .single(),
+    );
+    must(
+      await db.from("purchase_order_items").insert([
+        { purchase_order_id: po.id, product_id: filter.data?.id ?? null, description: "Oil filter", quantity: 6, unit_cost: 5.2, sort_order: 0 },
+        { purchase_order_id: po.id, product_id: null, description: "Screenwash 5L", quantity: 4, unit_cost: 3.4, sort_order: 1 },
       ]).select("id"),
     );
   });
