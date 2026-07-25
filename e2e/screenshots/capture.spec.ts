@@ -82,6 +82,24 @@ const ACTIONS: Record<string, SectionAction> = {
       }
     },
   },
+  // Go live: the interesting state is a PRELIVE branch, and the seed leaves
+  // Eastside prelive for exactly this. Switch to it through the real branch
+  // picker (which sets the cookie server-side), then come back to the page.
+  "staff/go-live": {
+    base: async (page) => {
+      await page.goto(page.url().replace("/staff/go-live", "/staff/select-branch"), {
+        waitUntil: "domcontentloaded",
+      });
+      const eastside = page.getByRole("button", { name: /Eastside/ }).first();
+      if (await eastside.count()) {
+        await eastside.click();
+        await page.waitForURL(/\/staff$/, { timeout: 20_000 }).catch(() => {});
+      }
+      await page.goto(page.url().replace(/\/staff.*$/, "/staff/go-live"), { waitUntil: "domcontentloaded" });
+      await page.waitForSelector("text=What will send", { timeout: 15_000 }).catch(() => {});
+      await page.waitForTimeout(500);
+    },
+  },
   // Bookings list reads best in list view for the register shot… keep month for
   // the calendar feel; no action needed.
 };

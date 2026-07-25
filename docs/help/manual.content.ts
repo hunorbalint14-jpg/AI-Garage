@@ -1128,6 +1128,46 @@ const staff: Section[] = [
     notes: ["Brand-new with no customers yet? 'Explore with sample data' loads a clearly-badged demo dataset — customers, a week of bookings, jobs and an invoice — and one click wipes it all. Sample rows never email anyone and never count as real activity."],
   },
   {
+    id: "go-live",
+    title: "Prelive and going live",
+    persona: "staff",
+    route: "/staff/go-live",
+    roles: "Owner",
+    capture: { waitFor: "text=Go live" },
+    purpose: "Set the branch up on your real data without a single message reaching a customer, then release it on your terms.",
+    steps: [
+      "A new branch starts PRELIVE. Import your customers, load your history, raise practice jobs — nothing automatic goes out. A blue strip across the top says so, and the branch shows a PRELIVE chip in the branch switcher.",
+      "Held while prelive: MOT, service and tax reminders, booking confirmations, overdue invoice chasers, feedback requests, deferred-work follow-ups and quote reminders.",
+      "Still sent: anything you press send on yourself (a quote, an invoice, a campaign), plus the weekly owner digest, password resets and staff invites — so you can test as you go.",
+      "This screen lists exactly what is waiting, grouped by type with examples, so you see the first day's post before you commit to it.",
+      "Messages on your first day — a limit for the 24 hours after you go live. Anything over it isn't dropped; it goes on the next run, so a big import drains over a few days instead of landing at once.",
+      "Invoices that were already overdue before you went live are never chased automatically. Tick the box if you do want them chased.",
+      "Press Go live when you're happy. Only the account owner can, and it can't be undone from here — afterwards, switch individual automations off in Automations instead.",
+    ],
+    notes: [
+      "Prelive is per branch, so opening a second site never disturbs the first one's customers.",
+      "Nothing is lost by waiting: what's held is recorded, not discarded, and the counts on this screen are what the next scheduled run will actually do.",
+    ],
+    troubleshooting: [
+      {
+        problem: "Nothing is listed as waiting.",
+        fix: "The scheduled runs check about once a day. If you've just imported, give it until tomorrow — or there may simply be no vehicle due a reminder yet.",
+      },
+      {
+        problem: "I turned an automation on but nothing sends.",
+        fix: "Prelive overrides every toggle on the Automations page. Your settings are kept and take effect the moment you go live.",
+      },
+      {
+        problem: "There's no Go live button.",
+        fix: "Only the account owner can take a branch live. Ask them, or have them make you an owner.",
+      },
+      {
+        problem: "We went live and customers got fewer messages than expected on day one.",
+        fix: "That's the first-day limit doing its job — the rest go out on the following runs. Raise or clear the limit on this screen.",
+      },
+    ],
+  },
+  {
     id: "csat-pulse",
     title: "The post-service pulse",
     persona: "staff",
