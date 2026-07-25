@@ -2,11 +2,19 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ChevronDown, ChevronRight, PackageCheck } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronRight, PackageCheck, Send, ClipboardPaste, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createPurchaseOrder, markPurchaseOrderOrdered, receivePurchaseOrder, deletePurchaseOrder, type NewPOItem } from "./actions";
+import {
+  createPurchaseOrder,
+  markPurchaseOrderOrdered,
+  receivePurchaseOrder,
+  deletePurchaseOrder,
+  sendPurchaseOrderToSupplier,
+  importSupplierConfirmation,
+  type NewPOItem,
+} from "./actions";
 import { useConfirm, type ConfirmOptions } from "@/components/confirm-provider";
 
 export type POProduct = { id: string; name: string; cost_price: number | null; unit_price: number };
@@ -19,7 +27,12 @@ export type PORow = {
   orderedAt: string | null;
   receivedAt: string | null;
   createdAt: string;
+  supplierId: string | null;
   supplierName: string | null;
+  sentAt: string | null;
+  sentChannel: string | null;
+  supplierOrderRef: string | null;
+  confirmationImportedAt: string | null;
   items: POItem[];
 };
 
@@ -42,12 +55,16 @@ export function PurchaseOrderManager({
   suppliers,
   products,
   canEdit,
+  orderableSupplierIds = [],
 }: {
   orders: PORow[];
   suppliers: POSupplier[];
   products: POProduct[];
   canEdit: boolean;
+  /** Suppliers with ordering set up and switched on. */
+  orderableSupplierIds?: string[];
 }) {
+  const orderable = new Set(orderableSupplierIds);
   const [showNew, setShowNew] = useState(false);
 
   return (
@@ -70,7 +87,7 @@ export function PurchaseOrderManager({
       ) : (
         <div className="flex flex-col gap-2">
           {orders.map((po) => (
-            <POCard key={po.id} po={po} canEdit={canEdit} />
+            <POCard key={po.id} po={po} canEdit={canEdit} canSend={!!po.supplierId && orderable.has(po.supplierId)} />
           ))}
         </div>
       )}
@@ -78,12 +95,61 @@ export function PurchaseOrderManager({
   );
 }
 
-function POCard({ po, canEdit }: { po: PORow; canEdit: boolean }) {
+function POCard({ po, canEdit, canSend }: { po: PORow; canEdit: boolean; canSend: boolean }) {
   const router = useRouter();
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  // Punch-out hand-off: the order hasn't been sent, the supplier's basket is
+  // just a click away — rendered as a link rather than auto-opened so the
+  // browser doesn't swallow it as a popup.
+  const [punchoutUrl, setPunchoutUrl] = useState<string | null>(null);
+  const [sentNote, setSentNote] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const [confirmationText, setConfirmationText] = useState("");
+  const [importNote, setImportNote] = useState<string | null>(null);
+
+  function send() {
+    setError(null);
+    setPunchoutUrl(null);
+    setSentNote(null);
+    startTransition(async () => {
+      const r = await sendPurchaseOrderToSupplier(po.id);
+      if ("error" in r) {
+        setError(r.error);
+        return;
+      }
+      if (r.channel === "punchout") {
+        setPunchoutUrl(r.url);
+        setSentNote("Nothing sent yet — finish the order in the supplier's basket, then mark it ordered.");
+      } else {
+        setSentNote(`Order emailed to ${r.sentTo}.`);
+      }
+      router.refresh();
+    });
+  }
+
+  function importConfirmation() {
+    setError(null);
+    setImportNote(null);
+    startTransition(async () => {
+      const r = await importSupplierConfirmation(po.id, confirmationText);
+      if ("error" in r) {
+        setError(r.error);
+        return;
+      }
+      const parts = [
+        r.supplierOrderRef ? `Reference ${r.supplierOrderRef}` : null,
+        `${r.matched} line${r.matched === 1 ? "" : "s"} matched`,
+        r.costsChanged > 0 ? `${r.costsChanged} cost${r.costsChanged === 1 ? "" : "s"} updated` : "no cost changes",
+        r.unmatched > 0 ? `${r.unmatched} line${r.unmatched === 1 ? "" : "s"} couldn't be matched` : null,
+      ].filter(Boolean);
+      setImportNote(parts.join(" · "));
+      setConfirmationText("");
+      router.refresh();
+    });
+  }
 
   async function run(fn: () => Promise<{ error: string } | { success: true }>, confirmOpts?: ConfirmOptions) {
     if (confirmOpts && !(await confirm(confirmOpts))) return;
@@ -127,8 +193,27 @@ function POCard({ po, canEdit }: { po: PORow; canEdit: boolean }) {
             </tbody>
           </table>
 
+          {(po.supplierOrderRef || po.sentAt) && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              {po.sentAt && `Sent ${fmtDate(po.sentAt)}${po.sentChannel ? ` by ${po.sentChannel === "email" ? "email" : "punch-out"}` : ""}`}
+              {po.sentAt && po.supplierOrderRef && " · "}
+              {po.supplierOrderRef && `Supplier ref ${po.supplierOrderRef}`}
+              {po.confirmationImportedAt && ` · Confirmed ${fmtDate(po.confirmationImportedAt)}`}
+            </p>
+          )}
+
           {canEdit && (
             <div className="mt-3 flex flex-wrap gap-2">
+              {po.status === "draft" && canSend && (
+                <Button size="sm" variant="outline" disabled={pending} onClick={send}>
+                  <Send className="mr-1.5 h-4 w-4" /> Send to supplier
+                </Button>
+              )}
+              {po.status !== "received" && (
+                <Button size="sm" variant="outline" disabled={pending} onClick={() => setShowImport((v) => !v)}>
+                  <ClipboardPaste className="mr-1.5 h-4 w-4" /> Import confirmation
+                </Button>
+              )}
               {po.status === "draft" && (
                 <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => markPurchaseOrderOrdered(po.id))}>
                   Mark ordered
@@ -147,6 +232,46 @@ function POCard({ po, canEdit }: { po: PORow; canEdit: boolean }) {
               {po.receivedAt && <span className="self-center text-xs text-muted-foreground">Received {fmtDate(po.receivedAt)}</span>}
             </div>
           )}
+
+          {sentNote && <p className="mt-2 text-sm text-ws-green">{sentNote}</p>}
+          {punchoutUrl && (
+            <a
+              href={punchoutUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1.5 text-sm text-ws-blue underline"
+            >
+              Open supplier basket <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )}
+
+          {showImport && canEdit && (
+            <div className="mt-3 rounded-lg border p-3">
+              <Label htmlFor={`confirmation-${po.id}`}>Supplier confirmation</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Paste the confirmation email or order printout. We read the supplier&apos;s reference and update line
+                costs where a line matches — anything we can&apos;t match is reported, not guessed.
+              </p>
+              <textarea
+                id={`confirmation-${po.id}`}
+                value={confirmationText}
+                onChange={(e) => setConfirmationText(e.target.value)}
+                rows={6}
+                disabled={pending}
+                className="w-full rounded border bg-background p-2 font-mono text-xs"
+                placeholder={"Our order reference: GSF-889321\n2 x Brake Disc Pair Front (BD-9921) £42.50 each"}
+              />
+              <div className="mt-2 flex gap-2">
+                <Button size="sm" onClick={importConfirmation} loading={pending} disabled={!confirmationText.trim()}>
+                  Import
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setShowImport(false)} disabled={pending}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+          {importNote && <p className="mt-2 text-sm text-ws-green">{importNote}</p>}
           {error && <p className="mt-2 text-sm text-ws-red">{error}</p>}
         </div>
       )}
