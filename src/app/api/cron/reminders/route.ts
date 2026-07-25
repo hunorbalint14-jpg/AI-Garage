@@ -13,6 +13,7 @@ import {
   fallbackSmsReminderTemplate,
 } from "@/lib/reminder-templates";
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
+import { isPrelive } from "@/lib/prelive";
 
 // Runs daily at 09:00 UTC via Vercel Cron (configured in vercel.json).
 // Finds all vehicles with MOT or service due within REMIND_DAYS_BEFORE days,
@@ -71,6 +72,7 @@ type LocationRow = {
   slug: string;
   name: string;
   address: string | null;
+  live_at: string | null;
   organization: {
     id: string;
     name: string;
@@ -157,19 +159,27 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, address, organization:organizations!organization_id(id, name, phone, ai_brief)");
+    .select("id, slug, name, address, live_at, organization:organizations!organization_id(id, name, phone, ai_brief)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
 
   const { data: locations } = (await locationsQuery) as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, failed: 0, truncated: false, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, prelive: 0, failed: 0, truncated: false, errors: [] as string[] };
   const outOfTime = () => Date.now() - __t0 > DEADLINE_MS;
 
   for (const location of locations ?? []) {
     if (outOfTime()) {
       results.truncated = true;
       break;
+    }
+
+    // Prelive branches (#585) send nothing unattended. A new branch commonly
+    // holds freshly imported vehicles whose MOT dates would otherwise blast
+    // every customer the morning after the import.
+    if (isPrelive(location)) {
+      results.prelive++;
+      continue;
     }
 
     const org = location.organization;

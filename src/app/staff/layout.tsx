@@ -28,6 +28,8 @@ import { isFeatureEnabled } from "@/lib/feature-flags";
 import { MfaNudge } from "@/components/staff/mfa-nudge";
 import { TenantBillingNudge, type BillingNudgeReason } from "@/components/staff/tenant-billing-nudge";
 import { DemoDataBanner } from "@/components/staff/demo-data-banner";
+import { PreliveBanner } from "@/components/staff/prelive-banner";
+import { isPrelive } from "@/lib/prelive";
 import { hasDemoData } from "@/lib/demo-sandbox";
 import { tenantBillingState, type OrgBilling } from "@/lib/tenant-plans";
 
@@ -254,6 +256,7 @@ export default async function StaffLayout({
       >
         {showMfaNudge && <MfaNudge userId={ctx.user.id} />}
         {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} />}
+        {isPrelive(ctx.activeLocation) && <PreliveBanner locationName={ctx.activeLocation.name} />}
         {demoActive && <DemoDataBanner canWipe={ctx.orgRole === "owner" || ctx.orgRole === "admin"} />}
         {children}
       </StaffShell>

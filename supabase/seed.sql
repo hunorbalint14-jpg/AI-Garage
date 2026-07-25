@@ -8,8 +8,10 @@ values
   ('green-auto', 'Green Auto Centre', '#15803d')
 on conflict (slug) do nothing;
 
-insert into public.locations (organization_id, slug, name)
-select id, slug, name
+-- live_at: the base dev tenants are LIVE so local behaviour matches production.
+-- Real new branches start prelive (null) — see 20260725120000_prelive_locations.
+insert into public.locations (organization_id, slug, name, live_at)
+select id, slug, name, now()
 from public.organizations
 where slug in ('smith-motors', 'green-auto')
 on conflict (slug) do nothing;

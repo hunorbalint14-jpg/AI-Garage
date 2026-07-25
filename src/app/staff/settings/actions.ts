@@ -358,6 +358,8 @@ export async function addLocation(
 
   const slug = await generateLocationSlug(admin, ctx.organization.slug, name);
 
+  // `live_at` unset on purpose: a new branch starts PRELIVE, so opening a
+  // second site can't message the first site's customers mid-setup (#585).
   const { data: created, error } = await admin
     .from("locations")
     .insert({

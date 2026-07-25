@@ -43,7 +43,7 @@ function NavChips({ item }: { item: NavItem }) {
   );
 }
 
-type Location = { id: string; slug: string; name: string };
+type Location = { id: string; slug: string; name: string; live_at: string | null };
 
 export function StaffShell({
   brandColor,

@@ -2,6 +2,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { FeatureGateBanner } from "@/components/staff/feature-gate-banner";
 import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
+import { isPrelive } from "@/lib/prelive";
 import { ensureDefaultTasks, type TaskType } from "./actions";
 import { TaskCard } from "./task-card";
 
@@ -54,6 +55,24 @@ export default async function AutomationsPage() {
       </div>
 
       {!entitledTo(ctx.tenantBilling, "automations") && <FeatureGateBanner message={UPGRADE_MESSAGE.automations} />}
+
+      {/* Prelive (#585) overrides every toggle below — say so here rather than
+          letting an owner switch things on and wonder why nothing sends. */}
+      {isPrelive(ctx.activeLocation) && (
+        <div className="rounded-lg border border-ws-blue-border bg-ws-blue-bg px-4 py-3">
+          <p className="text-sm font-medium text-ws-blue">{ctx.activeLocation.name} is prelive</p>
+          <p className="mt-1 text-sm text-ws-text-2">
+            Everything under <strong>Customer communications</strong> is held while this branch is prelive, whatever
+            its toggle says — MOT, service and tax reminders, booking confirmations, invoice chasers, feedback
+            requests, deferred-work follow-ups and quote reminders. Your settings here are kept and take effect the
+            moment you go live.
+          </p>
+          <p className="mt-1 text-sm text-ws-text-2">
+            The weekly digest still reaches owners and admins, and anything you send by hand — a quote, an invoice, a
+            campaign — goes out normally.
+          </p>
+        </div>
+      )}
 
       {error && <p className="text-sm text-ws-red">Failed to load: {error.message}</p>}
 

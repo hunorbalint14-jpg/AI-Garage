@@ -27,7 +27,9 @@ const STAFF_CACHE_TTL_SEC = 60;
 const orgKey = (slug: string) => `stafforg:${slug}`;
 const membershipKey = (userId: string, orgId: string) => `staffmem:${userId}:${orgId}`;
 
-type StaffLocation = { id: string; slug: string; name: string };
+// `live_at` null = prelive: the branch holds real data but sends nothing
+// unattended (#585). Carried on the context so the shell can badge it.
+type StaffLocation = { id: string; slug: string; name: string; live_at: string | null };
 
 type StaffMembership = {
   orgRole: "owner" | "admin" | "accountant" | null;
@@ -153,7 +155,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     const { data } = (await admin
       .from("organizations")
       .select(
-        "id, slug, name, primary_color, logo_url, dpa_version, primary_location_id, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, slug, name)",
+        "id, slug, name, primary_color, logo_url, dpa_version, primary_location_id, tenant_plan, tenant_subscription_status, tenant_current_period_end, tenant_trial_end, locations:locations!organization_id(id, slug, name, live_at)",
       )
       .eq("slug", slug)
       .maybeSingle()) as { data: OrgWithLocations | null };

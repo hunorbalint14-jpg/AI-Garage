@@ -173,7 +173,27 @@ async function main() {
     must(
       await db
         .from("locations")
-        .insert({ organization_id: orgId, slug: `${DEMO_TENANT_SLUG}-eastside`, name: "Smith Motors — Eastside" })
+        .insert({
+          organization_id: orgId,
+          slug: `${DEMO_TENANT_SLUG}-eastside`,
+          name: "Smith Motors — Eastside",
+          live_at: new Date().toISOString(),
+        })
+        .select("id"),
+    );
+  });
+
+  // The demo tenant represents an established garage, so both branches are
+  // LIVE (#585) — otherwise every manual screenshot would carry a prelive
+  // banner and the reminder flows couldn't be demonstrated. A real new branch
+  // starts prelive.
+  await step("branches live", async () => {
+    must(
+      await db
+        .from("locations")
+        .update({ live_at: new Date().toISOString() })
+        .eq("organization_id", orgId)
+        .is("live_at", null)
         .select("id"),
     );
   });

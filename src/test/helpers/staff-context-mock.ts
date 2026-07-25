@@ -6,9 +6,10 @@ export function mockStaffContext(overrides: Partial<StaffContext> = {}): StaffCo
   return {
     user: { id: "u_test", email: "test@garage.test", fullName: "Test User" },
     organization: { id: "o_test", slug: "test-garage", name: "Test Garage", primary_location_id: "l_test" },
-    location: { id: "l_test", slug: "test-garage", name: "Test Garage" },
-    activeLocation: { id: "l_test", slug: "test-garage", name: "Test Garage" },
-    accessibleLocations: [{ id: "l_test", slug: "test-garage", name: "Test Garage" }],
+    // Live by default — tests that care about prelive override live_at to null.
+    location: { id: "l_test", slug: "test-garage", name: "Test Garage", live_at: "2026-01-01T00:00:00Z" },
+    activeLocation: { id: "l_test", slug: "test-garage", name: "Test Garage", live_at: "2026-01-01T00:00:00Z" },
+    accessibleLocations: [{ id: "l_test", slug: "test-garage", name: "Test Garage", live_at: "2026-01-01T00:00:00Z" }],
     branding: { primaryColor: null, logoUrl: null, dpaVersion: null },
     tenantBilling: {
       tenant_plan: "growth",

@@ -8,6 +8,7 @@ import { logAudit } from "@/lib/audit";
 import { generateReviewToken, hashReviewToken, tenantReviewUrl } from "@/lib/review-links";
 import { recordCronRun } from "@/lib/platform/cron-runs";
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
+import { isPrelive } from "@/lib/prelive";
 
 // Sends queued post-job feedback pulses (#508). Dispatched per-location by
 // /api/cron/tick when the `review_requests` scheduled_task is due. Mints a
@@ -26,6 +27,7 @@ type LocationRow = {
   slug: string;
   name: string;
   address: string | null;
+  live_at: string | null;
   organization: { id: string; slug: string; name: string } | null;
 };
 
@@ -50,14 +52,20 @@ export async function GET(request: NextRequest) {
 
   let locationsQuery = admin
     .from("locations")
-    .select("id, slug, name, address, organization:organizations!organization_id(id, slug, name)");
+    .select("id, slug, name, address, live_at, organization:organizations!organization_id(id, slug, name)");
   if (filterLocationId) locationsQuery = locationsQuery.eq("id", filterLocationId);
   const { data: locations } = (await locationsQuery) as unknown as { data: LocationRow[] | null };
 
   const __t0 = Date.now();
-  const results = { sent: 0, skipped: 0, suppressed: 0, failed: 0, errors: [] as string[] };
+  const results = { sent: 0, skipped: 0, suppressed: 0, prelive: 0, failed: 0, errors: [] as string[] };
 
   for (const location of locations ?? []) {
+    // Prelive branches (#585) send no feedback pulses.
+    if (isPrelive(location)) {
+      results.prelive++;
+      continue;
+    }
+
     const { data: task } = await admin
       .from("scheduled_tasks")
       .select("enabled, settings")
