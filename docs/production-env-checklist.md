@@ -38,6 +38,7 @@ Grouped; see `npm run check:env` output for the per-var failure mode.
 - **Xero** — `XERO_CLIENT_ID`, `XERO_CLIENT_SECRET`, `XERO_SALES_ACCOUNT_CODE`.
 - **Passkeys** — `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`.
 - **Support** — `PLATFORM_SUPPORT_EMAIL` (missing → ticket devops email skipped), `PLATFORM_ADMIN_EMAILS`.
+- **Ops alerting** — `SLACK_OPS_WEBHOOK_URL` (optional; alerts fall back to email). Alerts email `PLATFORM_SUPPORT_EMAIL` / `PLATFORM_ADMIN_EMAILS`, so with **neither** Slack nor an ops email set, a firing alert reaches nobody. Verify with `/admin/health` → **Send test alert** — see [ops-escalation.md](ops-escalation.md) (#450).
 - **Supplier ordering** — none today: the launch (manual) connector reuses the Resend email path and `APP_ENCRYPTION_KEY`. A trade-API connector adds its credentials here — see [supplier-connectivity-spike.md](supplier-connectivity-spike.md) (#568).
 - **Observability (Sentry)** — `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_DSN` (+ `SENTRY_AUTH_TOKEN`/`SENTRY_ORG`/`SENTRY_PROJECT` for sourcemaps & admin issue fetch).
 - **Ops alerting** — `SLACK_OPS_WEBHOOK_URL` (see issue #449).
@@ -62,3 +63,4 @@ Grouped; see `npm run check:env` output for the per-var failure mode.
 - [ ] **Auth rate limiting** — hammer the login endpoint with bad credentials; confirm you get throttled (429). If not, the Upstash vars are missing.
 - [ ] **Stripe webhook** — a test payment produces a `stripe_webhook_events` row and flips the invoice to paid (see #442).
 - [ ] **Email deliverability** — a real send passes SPF/DKIM/DMARC, and a hard bounce / complaint lands in `email_suppressions` (see [email-deliverability.md](email-deliverability.md), #444).
+- [ ] **Ops alerts reach a human** — `/admin/health` → Alert rules → **Send test alert**; confirm it arrives in Slack and/or the ops inbox. No rule should show `reached nobody` in the Delivered column (#450, [ops-escalation.md](ops-escalation.md)).

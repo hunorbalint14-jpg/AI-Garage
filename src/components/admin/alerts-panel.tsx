@@ -3,7 +3,49 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { AlertRuleView } from "@/lib/platform/alerts";
-import { setAlertRuleEnabled } from "@/app/admin/health/alert-actions";
+import { useState } from "react";
+import { setAlertRuleEnabled, sendTestAlert } from "@/app/admin/health/alert-actions";
+
+// Answers "would an alert actually reach a human?" without causing an outage —
+// it goes down the same deliverAlert() path a real firing rule uses (#450).
+function TestAlertButton() {
+  const [pending, startTransition] = useTransition();
+  const [result, setResult] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  function run() {
+    setResult(null);
+    setFailed(false);
+    startTransition(async () => {
+      const res = await sendTestAlert();
+      if ("error" in res) {
+        setFailed(true);
+        setResult(res.error);
+        return;
+      }
+      const via = [res.slack ? "Slack" : null, res.email ? `email (${res.recipients.length})` : null]
+        .filter(Boolean)
+        .join(" + ");
+      setResult(`Sent via ${via} — check it arrived.`);
+    });
+  }
+
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={run}
+        disabled={pending}
+        className="rounded border border-[#2a2f37] bg-[#171b21] px-2 py-1 font-mono text-[11px] text-[#9aa1ad] transition-colors hover:text-white disabled:opacity-50"
+      >
+        {pending ? "Sending…" : "Send test alert"}
+      </button>
+      {result && (
+        <span className={`text-[11px] ${failed ? "text-[#ff7b7b]" : "text-[#22c55e]"}`}>{result}</span>
+      )}
+    </span>
+  );
+}
 
 const SEV_BADGE: Record<string, string> = {
   "SEV-1": "text-[#ff7b7b] bg-[#3a1a1a] border-[#5a2424]",
@@ -48,6 +90,16 @@ function RuleRow({ rule }: { rule: AlertRuleView }) {
       <td className="px-3 py-2 text-center">
         {rule.firing ? <span className="font-mono text-[11px] font-semibold text-[#ff7b7b]">● firing</span> : <span className="text-[11px] text-[#5a6170]">—</span>}
       </td>
+      <td className="px-3 py-2 text-center">
+        {rule.last_delivery === "none" ? (
+          // The one state worth shouting about: it fired and nobody was told.
+          <span className="font-mono text-[11px] font-semibold text-[#ff7b7b]">reached nobody</span>
+        ) : rule.last_delivery ? (
+          <span className="font-mono text-[11px] text-[#9aa1ad]">{rule.last_delivery}</span>
+        ) : (
+          <span className="text-[11px] text-[#5a6170]">—</span>
+        )}
+      </td>
       <td className="px-3 py-2 text-right">
         <button
           type="button"
@@ -70,9 +122,10 @@ export function AlertsPanel({ rules }: { rules: AlertRuleView[] }) {
   const firing = rules.filter((r) => r.firing && r.enabled).length;
   return (
     <div>
-      <div className="mb-2 flex items-center gap-3">
+      <div className="mb-2 flex flex-wrap items-center gap-3">
         <h2 className="text-sm font-semibold">Alert rules</h2>
         {firing > 0 && <span className="rounded border border-[#5a2424] bg-[#3a1a1a] px-2 py-0.5 font-mono text-[11px] text-[#ff7b7b]">{firing} firing</span>}
+        <TestAlertButton />
       </div>
       <div className="overflow-x-auto rounded-xl border border-[#23272f]">
         <table className="w-full border-collapse text-sm">
@@ -83,6 +136,7 @@ export function AlertsPanel({ rules }: { rules: AlertRuleView[] }) {
               <th className="px-3 py-2 text-left font-medium">Sev</th>
               <th className="px-3 py-2 text-left font-medium">Channels</th>
               <th className="px-3 py-2 text-center font-medium">State</th>
+              <th className="px-3 py-2 text-center font-medium">Delivered</th>
               <th className="px-3 py-2 text-right font-medium">Enabled</th>
             </tr>
           </thead>
@@ -92,7 +146,7 @@ export function AlertsPanel({ rules }: { rules: AlertRuleView[] }) {
             ))}
             {rules.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-sm text-[#5a6170]">
+                <td colSpan={7} className="px-3 py-6 text-center text-sm text-[#5a6170]">
                   No alert rules. Apply the seed migration.
                 </td>
               </tr>
@@ -101,7 +155,9 @@ export function AlertsPanel({ rules }: { rules: AlertRuleView[] }) {
         </table>
       </div>
       <p className="mt-2 text-xs text-[#5a6170]">
-        Synthetic rules evaluate every uptime run. Sentry/Stripe/Supabase rules stay dormant until those adapters land.
+        Synthetic and cron rules evaluate every uptime run. Sentry/Stripe/Supabase rules stay dormant until those
+        adapters land. Email is the delivery floor: if a firing rule can&apos;t reach Slack it emails ops anyway, and
+        the Delivered column shows what actually got through last time.
       </p>
     </div>
   );

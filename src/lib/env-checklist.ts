@@ -79,7 +79,10 @@ export const ENV_VARS: EnvVar[] = [
   { name: "SENTRY_DSN", level: "feature", group: "Observability (Sentry)", ifMissing: "Server errors aren't captured." },
 
   // ── Ops alerting ──────────────────────────────────────────────────────────
-  { name: "SLACK_OPS_WEBHOOK_URL", level: "feature", group: "Ops alerting", ifMissing: "Ops alerts have nowhere to go (see issue #449)." },
+  // Alerts fall back to email when Slack isn't set, so the real failure is
+  // having NEITHER — then a firing rule reaches nobody (#450). Verify with
+  // /admin/health → "Send test alert"; see docs/ops-escalation.md.
+  { name: "SLACK_OPS_WEBHOOK_URL", level: "feature", group: "Ops alerting", ifMissing: "Ops alerts fall back to email; with no ops email either they reach nobody." },
 ];
 
 export const ENV_ONE_OF: EnvOneOf[] = [
