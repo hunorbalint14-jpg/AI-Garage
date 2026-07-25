@@ -69,6 +69,13 @@ Total,,,130.80
     expect(result.supplierOrderRef).toBeNull();
   });
 
+  it("doesn't read a size in the description as the price", () => {
+    const result = parseConfirmation("2 x Engine oil 5.00L semi-synthetic £24.99 each");
+    expect(result.lines).toEqual([
+      { sku: null, description: "Engine oil 5.00L semi-synthetic", quantity: 2, unitCost: 24.99 },
+    ]);
+  });
+
   it("handles comma decimal separators and thousands separators", () => {
     const result = parseConfirmation("1 x Turbocharger assembly £1,249.99");
     expect(result.lines[0].unitCost).toBe(1249.99);

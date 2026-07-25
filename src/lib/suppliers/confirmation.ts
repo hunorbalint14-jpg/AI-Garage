@@ -86,15 +86,16 @@ function parseQuantityPrefixed(line: string): ConfirmedLine | null {
   if (!(qty > 0)) return null;
 
   const rest = m[2];
-  const monies: number[] = [];
   const moneyRe = /[£$€]\s*\d[\d,.]*|\b\d+[.,]\d{2}\b/g;
-  let firstMoneyAt = rest.length;
-  for (const hit of rest.matchAll(moneyRe)) {
-    const value = parseMoney(hit[0]);
-    if (value == null) continue;
-    monies.push(value);
-    firstMoneyAt = Math.min(firstMoneyAt, hit.index ?? rest.length);
-  }
+  const hits = [...rest.matchAll(moneyRe)]
+    .map((h) => ({ value: parseMoney(h[0]), symbol: /[£$€]/.test(h[0]), index: h.index ?? 0 }))
+    .filter((h): h is { value: number; symbol: boolean; index: number } => h.value != null);
+
+  // When anything on the row is marked with a currency symbol, only those are
+  // prices — otherwise a size in the description ("Oil 5.00L") reads as one.
+  const priced = hits.some((h) => h.symbol) ? hits.filter((h) => h.symbol) : hits;
+  const monies = priced.map((h) => h.value);
+  const firstMoneyAt = priced.length > 0 ? priced[0].index : rest.length;
   const unitCost = pickUnitCost(monies, qty, rest);
   if (unitCost == null || unitCost <= 0) return null;
 
@@ -117,18 +118,20 @@ function parseDelimited(line: string): ConfirmedLine | null {
   const fields = splitFields(line);
   if (fields.length < 3) return null;
 
-  const monies: number[] = [];
-  const moneyIdx = new Set<number>();
+  const candidates: { value: number; symbol: boolean; index: number }[] = [];
   fields.forEach((f, i) => {
     // A bare integer is a quantity, not money — only decimals or £-marked
     // values count as prices here.
-    if (!/[£$€]/.test(f) && !/\d[.,]\d/.test(f)) return;
+    const symbol = /[£$€]/.test(f);
+    if (!symbol && !/\d[.,]\d/.test(f)) return;
     const v = parseMoney(f);
-    if (v != null) {
-      monies.push(v);
-      moneyIdx.add(i);
-    }
+    if (v != null) candidates.push({ value: v, symbol, index: i });
   });
+  // Same rule as the freeform path: a currency symbol beats an unmarked
+  // decimal when the row mixes the two.
+  const priced = candidates.some((c) => c.symbol) ? candidates.filter((c) => c.symbol) : candidates;
+  const monies = priced.map((c) => c.value);
+  const moneyIdx = new Set(priced.map((c) => c.index));
   if (monies.length === 0) return null;
 
   const qtyIdx = fields.findIndex((f, i) => !moneyIdx.has(i) && /^\d{1,4}$/.test(f.trim()));
