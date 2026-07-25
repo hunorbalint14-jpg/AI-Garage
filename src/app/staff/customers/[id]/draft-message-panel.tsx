@@ -83,9 +83,11 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
   const busy = drafting || sending;
   const showEmailField = channels.has("email") || channels.has("whatsapp");
   const showSmsField = channels.has("sms");
-  const canSend =
-    (showEmailField && emailText.trim() !== "") ||
-    (showSmsField && smsText.trim() !== "");
+  // Every ticked channel must have its message — never silently skip one.
+  const missing: string[] = [];
+  if (showEmailField && !emailText.trim()) missing.push(channels.has("email") ? "email needs a message" : "WhatsApp needs a message");
+  if (showSmsField && !smsText.trim()) missing.push("SMS needs a message");
+  const canSend = channels.size > 0 && missing.length === 0;
 
   return (
     <section className="rounded-lg border p-4 flex flex-col gap-3">
@@ -240,6 +242,9 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
             >
               Send
             </Button>
+            {!canSend && missing.length > 0 && (emailText.trim() || smsText.trim()) && (
+              <span className="text-sm text-muted-foreground">To send: {missing.join("; ")}.</span>
+            )}
             {error && <span className="text-sm text-ws-red">{error}</span>}
           </div>
         </>

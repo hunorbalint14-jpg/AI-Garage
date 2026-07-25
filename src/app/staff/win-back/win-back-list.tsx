@@ -281,7 +281,17 @@ export function WinBackList({ vehicles }: { vehicles: WinBackVehicle[] }) {
               </label>
             ))}
             <span className="ml-auto">
-              <Button size="sm" onClick={handleSend} disabled={composer.phase === "sending" || channels.size === 0}>
+              <Button
+                size="sm"
+                onClick={handleSend}
+                disabled={
+                  composer.phase === "sending" ||
+                  channels.size === 0 ||
+                  // Every ticked channel must have its message — never silently skip one.
+                  (channels.has("email") && !composer.emailText.trim()) ||
+                  ((channels.has("sms") || channels.has("whatsapp")) && !composer.smsText.trim())
+                }
+              >
                 {composer.phase === "sending" ? "Sending…" : "Send"}
               </Button>
             </span>

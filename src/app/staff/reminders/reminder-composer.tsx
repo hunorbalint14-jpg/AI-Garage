@@ -141,6 +141,9 @@ export function ReminderComposer({
   const [sendPending, startSend] = useTransition();
 
   const composerRef = useRef<HTMLElement>(null);
+  // Guards the async draft callback: a reply for vehicle A must not fill the
+  // fields after the user has moved on to vehicle B.
+  const selectedIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (typeof window === "undefined") return;
     // Only on mobile (single-column stack)
@@ -152,6 +155,7 @@ export function ReminderComposer({
 
   function selectVehicle(v: QueueVehicle) {
     setSelected(v);
+    selectedIdRef.current = v.vehicleId;
     setTone("friendly");
     // Compose-first: empty editable fields straight away. No AI call — the
     // assist menu is strictly opt-in, so opening a record never spends tokens.
@@ -170,6 +174,7 @@ export function ReminderComposer({
     setActionError(null);
     startDraft(async () => {
       const result = await draftReminderPreview(v.vehicleId, v.primaryReminderType, t);
+      if (selectedIdRef.current !== v.vehicleId) return;
       if ("error" in result) {
         setActionError(result.error);
       } else {
