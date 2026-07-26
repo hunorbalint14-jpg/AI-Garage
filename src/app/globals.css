@@ -209,6 +209,17 @@
   to   { width: 0%; }
 }
 
+/* Courtesy-car check-out wizard entrance. */
+@keyframes coFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes coPopIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 /* ── Utility classes ──────────────────────────────────── */
 .animate-blob {
   animation: blob 8s infinite;
@@ -227,6 +238,13 @@
 .animate-gradient-x {
   background-size: 200% 200%;
   animation: gradient-x 6s ease infinite;
+}
+
+.animate-co-fade-in {
+  animation: coFadeIn 0.2s ease;
+}
+.animate-co-pop-in {
+  animation: coPopIn 0.22s ease;
 }
 
 .animate-shimmer {
