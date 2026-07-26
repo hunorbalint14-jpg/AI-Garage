@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { draftMessagePreview, sendDraftedMessage } from "../actions";
 import { Button } from "@/components/ui/button";
 import { AiAssistMenu } from "@/components/staff/ai-assist-menu";
@@ -29,6 +29,20 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
   const [done, setDone] = useState<string | null>(null);
   const [drafting, startDrafting] = useTransition();
   const [sending, startSending] = useTransition();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const seededTopic = useRef<string | null>(null);
+
+  // A `?draft=` deep link (the copilot band, or the low-score recovery link on
+  // /review/[token]) lands mid-page — bring the composer into view and put the
+  // topic in the box. It still never drafts or sends on its own.
+  useEffect(() => {
+    const next = initialTopic?.trim() ?? "";
+    if (!next || seededTopic.current === next) return;
+    seededTopic.current = next;
+    setTopic(next);
+    setTopicOpen(true);
+    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [initialTopic]);
 
   function toggleChannel(ch: "email" | "sms" | "whatsapp") {
     setChannels((prev) => {
@@ -90,9 +104,7 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
   const canSend = channels.size > 0 && missing.length === 0;
 
   return (
-    <section className="rounded-lg border p-4 flex flex-col gap-3">
-      <h2 className={LABEL_CLASS}>Message customer</h2>
-
+    <div ref={rootRef} className="flex flex-col gap-3">
       {done !== null ? (
         <div className="flex items-center gap-3">
           <span className="text-sm text-ws-green">{done}</span>
@@ -249,6 +261,6 @@ export function DraftMessagePanel({ customerId, hasEmail, hasPhone, initialTopic
           </div>
         </>
       )}
-    </section>
+    </div>
   );
 }

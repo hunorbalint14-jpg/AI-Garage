@@ -50,21 +50,23 @@ export function PlanInvitePanel({
   }
 
   return (
-    <section className="rounded-lg border p-4 flex flex-col gap-3">
-      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">Invite to a plan</h2>
+    <div className="flex flex-col gap-3 border-t border-ws-border pt-4">
+      <h3 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
+        Invite to a plan
+      </h3>
 
       {!hasEmail && !hasPhone ? (
-        <p className="text-xs text-muted-foreground">Add an email or phone number to this customer to send an invite.</p>
+        <p className="text-[12px] text-ws-text-3">Add an email or phone number to this customer to send an invite.</p>
       ) : (
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
-            <label htmlFor="invite-plan" className="text-xs text-muted-foreground">Plan</label>
+            <label htmlFor="invite-plan" className="text-[11px] text-ws-text-3">Plan</label>
             <select
               id="invite-plan"
               value={planId}
               onChange={(e) => setPlanId(e.target.value)}
               disabled={pending}
-              className="rounded-md border bg-transparent px-3 py-2 text-sm"
+              className="rounded-[8px] border border-ws-border bg-ws-page px-2 py-1.5 text-[13px] text-ws-text outline-none focus:border-ws-text-3"
             >
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -73,7 +75,7 @@ export function PlanInvitePanel({
               ))}
             </select>
           </div>
-          <label className={`flex items-center gap-1.5 text-sm ${hasEmail ? "" : "opacity-50"}`}>
+          <label className={`mb-1.5 flex items-center gap-1.5 text-[13px] text-ws-text-2 ${hasEmail ? "" : "opacity-50"}`}>
             <input
               type="checkbox"
               checked={email}
@@ -82,7 +84,7 @@ export function PlanInvitePanel({
             />
             Email
           </label>
-          <label className={`flex items-center gap-1.5 text-sm ${hasPhone ? "" : "opacity-50"}`}>
+          <label className={`mb-1.5 flex items-center gap-1.5 text-[13px] text-ws-text-2 ${hasPhone ? "" : "opacity-50"}`}>
             <input
               type="checkbox"
               checked={sms}
@@ -91,28 +93,33 @@ export function PlanInvitePanel({
             />
             SMS
           </label>
-          <Button onClick={send} loading={pending}>
+          <Button size="sm" variant="outline" onClick={send} loading={pending} className="mb-1">
             Send invite
           </Button>
         </div>
       )}
 
-      {error && <p className="text-sm text-ws-red">{error}</p>}
+      {error && <p className="text-[12px] text-ws-red">{error}</p>}
 
       {result && (
-        <div className="flex flex-col gap-2 text-sm">
+        <div className="flex flex-col gap-2 text-[13px]">
           <p className="text-ws-green">
-            Invite created{result.sent.email ? " · emailed" : ""}
+            ✓ Invite created{result.sent.email ? " · emailed" : ""}
             {result.sent.sms ? " · texted" : ""}.
           </p>
           <div className="flex items-center gap-2">
-            <input readOnly value={result.url} className="flex-1 rounded-md border bg-muted/30 px-2 py-1 text-xs" />
-            <Button variant="outline" onClick={copy} disabled={pending}>
+            <input
+              readOnly
+              value={result.url}
+              aria-label="Invite link"
+              className="min-w-0 flex-1 rounded-[8px] border border-ws-border bg-ws-page px-2 py-1 text-[11px] text-ws-text-2"
+            />
+            <Button size="sm" variant="outline" onClick={copy} disabled={pending}>
               {copied ? "Copied" : "Copy link"}
             </Button>
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 }

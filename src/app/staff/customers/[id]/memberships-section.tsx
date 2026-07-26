@@ -28,11 +28,7 @@ function perk(sp: { discount_type: string; discount_value: number } | null): str
 
 export function MembershipsSection({ memberships }: { memberships: MembershipRow[] }) {
   if (memberships.length === 0) {
-    return (
-      <div className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-        No memberships yet. Invite this customer to a plan below.
-      </div>
-    );
+    return <p className="text-[13px] text-ws-text-2">No membership yet.</p>;
   }
 
   const live = memberships.filter((m) => isSubscriptionLive(m.status));
@@ -46,31 +42,34 @@ export function MembershipsSection({ memberships }: { memberships: MembershipRow
         const intervalLabel = m.interval === "year" ? "Annual" : m.interval === "month" ? "Monthly" : "—";
         const gateFuture = gateInFuture(m.benefits_start_at);
         return (
-          <div key={m.id} className={`rounded-lg border p-4 ${active ? "" : "opacity-60"}`}>
+          <div
+            key={m.id}
+            className={`rounded-[10px] border border-ws-border bg-ws-page px-3 py-2.5 ${active ? "" : "opacity-60"}`}
+          >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-medium">{m.service_plan?.name ?? "Plan"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {subscriptionStatusLabel(m.status)} · {intervalLabel}
+                <p className="text-sm font-semibold text-ws-text">{m.service_plan?.name ?? "Plan"}</p>
+                <p className="mt-0.5 text-[12px] text-ws-text-2">
+                  {intervalLabel}
                   {m.current_period_end
-                    ? ` · ${m.cancel_at_period_end ? "Ends" : "Renews"} ${fmtDate(m.current_period_end)}`
+                    ? ` · ${m.cancel_at_period_end ? "ends" : "renews"} ${fmtDate(m.current_period_end)}`
                     : ""}
                 </p>
-                {p && <p className="mt-1 text-xs font-medium text-ws-green">{p}</p>}
+                {p && <p className="mt-1 text-[12px] font-medium text-ws-green">{p}</p>}
                 {active && gateFuture && (
                   <div className="mt-2 flex flex-col gap-1">
-                    <p className="text-xs text-ws-amber">
+                    <p className="text-[12px] text-ws-amber">
                       Plan benefits start {fmtDate(m.benefits_start_at)} (onboarding gate).
                     </p>
                     <StartBenefitsNowButton subscriptionId={m.id} />
                   </div>
                 )}
               </div>
-              <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs ${active ? "bg-ws-green-bg text-ws-green" : "bg-ws-hover text-ws-text-2"}`}
-              >
-                {active ? "Active" : subscriptionStatusLabel(m.status)}
-              </span>
+              {!active && (
+                <span className="flex-none rounded-full border border-ws-border bg-ws-hover px-2 py-0.5 text-[11px] text-ws-text-2">
+                  {subscriptionStatusLabel(m.status)}
+                </span>
+              )}
             </div>
           </div>
         );

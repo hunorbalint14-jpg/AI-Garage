@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { saveAccountSettings } from "./account-actions";
 import { raiseConsolidatedInvoice } from "./consolidated-actions";
 import { recordPayment, emailStatement } from "./payment-actions";
+import { MONO_LABEL_CLASS } from "../customers-ui";
 
 // Default billing period: the previous calendar month.
 function lastMonthValue(): string {
@@ -23,11 +24,17 @@ function monthRange(value: string): { fromIso: string; toIso: string } {
 }
 
 // Account-customer panel (#504 PR 2): flag + terms + credit limit +
-// consolidated billing, with the live balance alongside.
+// consolidated billing, with the live balance alongside. The command-deck
+// redesign leads with the balance-against-limit read the owner actually scans
+// for; the settings and the month-end run stay one disclosure away rather than
+// filling the rail with inputs.
 
 function fmtGBP(n: number): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n);
 }
+
+const FIELD_CLASS =
+  "rounded-[8px] border border-ws-border bg-ws-page px-2 py-1.5 text-[13px] text-ws-text outline-none transition-colors placeholder:text-ws-text-3 focus:border-ws-text-3 disabled:opacity-50";
 
 export function AccountSection({
   customerId,
@@ -109,6 +116,11 @@ export function AccountSection({
 
   const overLimit =
     on && balance && initial.creditLimit !== null && balance.total > initial.creditLimit;
+  // Bar only means something against a limit; unlimited accounts get no bar.
+  const usedPct =
+    balance && initial.creditLimit && initial.creditLimit > 0
+      ? Math.min(100, (balance.total / initial.creditLimit) * 100)
+      : null;
 
   function handleSave() {
     setError(null);
@@ -126,84 +138,87 @@ export function AccountSection({
   }
 
   return (
-    <section className="rounded-lg border p-4 flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold">Trade account</h2>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Account customers get payment terms, an optional credit limit, and (optionally) one
-            consolidated invoice at month end instead of per-job invoices.
-          </p>
-        </div>
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className={MONO_LABEL_CLASS}>{"// TRADE ACCOUNT"}</h2>
         <button
           type="button"
           onClick={() => setOn((v) => !v)}
           disabled={!canManage || pending}
           aria-label={on ? "Disable account billing" : "Enable account billing"}
-          className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed ${on ? "bg-primary" : "bg-muted"}`}
+          aria-pressed={on}
+          className={`relative inline-flex h-[18px] w-8 flex-none items-center rounded-full border-2 border-transparent transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+            on ? "bg-ws-green" : "bg-ws-border"
+          }`}
         >
-          <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-ws-card shadow-sm transition-transform ${on ? "translate-x-4" : "translate-x-0"}`} />
+          <span
+            className={`pointer-events-none inline-block h-3.5 w-3.5 rounded-full bg-ws-page transition-transform ${
+              on ? "translate-x-3.5" : "translate-x-0"
+            }`}
+          />
         </button>
       </div>
 
+      {!on && (
+        <p className="text-[13px] text-ws-text-2">
+          Not a trade account. Enable to set payment terms, a credit limit and consolidated billing.
+        </p>
+      )}
+
       {on && balance && (
-        <div className={`rounded-md border px-3 py-2 text-sm ${overLimit ? "border-amber-500/40 bg-amber-500/10" : ""}`}>
-          <span className="font-semibold tabular-nums">{fmtGBP(balance.total)}</span>{" "}
-          <span className="text-muted-foreground">
-            on account · {fmtGBP(balance.openInvoiced)} invoiced
+        <div>
+          <p className="text-[18px] font-bold tabular-nums text-ws-text">
+            {fmtGBP(balance.total)}{" "}
+            <span className="text-[12px] font-normal text-ws-text-2">
+              {initial.creditLimit !== null ? `of ${fmtGBP(initial.creditLimit)} limit` : "on account · no limit set"}
+            </span>
+          </p>
+          {usedPct !== null && (
+            <div className="my-2 h-1.5 overflow-hidden rounded-full bg-ws-border">
+              <div
+                className={`h-full rounded-full ${overLimit ? "bg-ws-red" : "bg-ws-amber"}`}
+                style={{ width: `${usedPct}%` }}
+              />
+            </div>
+          )}
+          <p className="mt-1.5 text-[12px] text-ws-text-2">
+            {initial.paymentTermsDays}-day terms
+            {initial.consolidatedBilling ? " · consolidated monthly invoice" : " · invoiced per job"}
+          </p>
+          <p className="mt-1 text-[12px] text-ws-text-3">
+            {fmtGBP(balance.openInvoiced)} invoiced
             {balance.unbilledJobCount > 0 &&
               ` + ${fmtGBP(balance.unbilledJobs)} across ${balance.unbilledJobCount} unbilled job${balance.unbilledJobCount === 1 ? "" : "s"}`}
-          </span>
+          </p>
           {overLimit && initial.creditLimit !== null && (
-            <span className="ml-1 font-semibold text-ws-amber">— over the {fmtGBP(initial.creditLimit)} limit</span>
+            <p className="mt-1 text-[12px] font-semibold text-ws-amber">
+              Over the {fmtGBP(initial.creditLimit)} limit.
+            </p>
           )}
         </div>
       )}
 
-      {on && (
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Payment terms (days)
-            <input
-              type="number"
-              min={0}
-              max={120}
-              value={terms}
-              onChange={(e) => setTerms(e.target.value)}
-              disabled={!canManage || pending}
-              className="w-24 rounded-md border bg-transparent px-2 py-1.5 text-sm text-foreground"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Credit limit (£, empty = none)
-            <input
-              type="number"
-              min={0}
-              step="50"
-              value={limit}
-              onChange={(e) => setLimit(e.target.value)}
-              disabled={!canManage || pending}
-              placeholder="no limit"
-              className="w-32 rounded-md border bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground"
-            />
-          </label>
-          <label className="mb-1.5 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={consolidated}
-              onChange={(e) => setConsolidated(e.target.checked)}
-              disabled={!canManage || pending}
-              className="h-4 w-4 accent-current"
-            />
-            Consolidated monthly invoice
-          </label>
+      {on && canManage && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Button size="sm" variant="outline" onClick={handleRecordPayment} loading={paying} disabled={!payAmount}>
+            Record payment
+          </Button>
+          <Link
+            href={`/staff/customers/${customerId}/statement`}
+            className="text-[12.5px] text-ws-text-2 underline underline-offset-2 hover:text-ws-text"
+          >
+            Statement →
+          </Link>
+          <Button size="sm" variant="ghost" onClick={handleEmailStatement} loading={emailing}>
+            Email statement
+          </Button>
         </div>
       )}
 
       {on && canManage && (
-        <div className="flex flex-wrap items-end gap-3 border-t pt-3">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Record payment (£)
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-[11px] text-ws-text-3">
+            Payment (£)
             <input
               type="number"
               min={0.01}
@@ -212,16 +227,16 @@ export function AccountSection({
               onChange={(e) => setPayAmount(e.target.value)}
               disabled={paying}
               placeholder="0.00"
-              className="w-28 rounded-md border bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground"
+              className={`${FIELD_CLASS} w-24`}
             />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label className="flex flex-col gap-1 text-[11px] text-ws-text-3">
             Method
             <select
               value={payMethod}
               onChange={(e) => setPayMethod(e.target.value)}
               disabled={paying}
-              className="rounded-md border bg-background px-2 py-1.5 text-sm text-foreground"
+              className={FIELD_CLASS}
             >
               <option value="bank_transfer">Bank transfer</option>
               <option value="card">Card</option>
@@ -230,67 +245,102 @@ export function AccountSection({
               <option value="other">Other</option>
             </select>
           </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label className="flex flex-col gap-1 text-[11px] text-ws-text-3">
             Reference
             <input
               value={payRef}
               onChange={(e) => setPayRef(e.target.value)}
               disabled={paying}
               placeholder="e.g. BACS 1042"
-              className="w-32 rounded-md border bg-transparent px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground"
+              className={`${FIELD_CLASS} w-28`}
             />
           </label>
-          <Button size="sm" variant="outline" onClick={handleRecordPayment} loading={paying} disabled={!payAmount}>
-            Record payment
-          </Button>
-          <span className="mb-1.5 flex items-center gap-3 text-sm">
-            <Link href={`/staff/customers/${customerId}/statement`} className="underline underline-offset-2 text-muted-foreground">
-              Statement →
-            </Link>
-            <Button size="sm" variant="ghost" onClick={handleEmailStatement} loading={emailing}>
-              Email statement
-            </Button>
-          </span>
-        </div>
-      )}
-
-      {on && initial.consolidatedBilling && canManage && (
-        <div className="flex flex-wrap items-end gap-3 border-t pt-3">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            Billing month
-            <input
-              type="month"
-              value={billMonth}
-              onChange={(e) => setBillMonth(e.target.value)}
-              disabled={raising}
-              className="rounded-md border bg-transparent px-2 py-1.5 text-sm text-foreground"
-            />
-          </label>
-          <Button size="sm" variant="outline" onClick={handleRaise} loading={raising}>
-            Raise consolidated invoice
-          </Button>
-          {raised && (
-            <p className="mb-1.5 text-sm text-ws-green">
-              {raised.invoiceNumber} · {raised.jobCount} job{raised.jobCount === 1 ? "" : "s"} ·{" "}
-              {fmtGBP(raised.total)} —{" "}
-              <Link href={`/staff/invoices/${raised.invoiceId}`} className="underline underline-offset-2">
-                open →
-              </Link>
-            </p>
-          )}
         </div>
       )}
 
       {canManage && (
-        <div className="flex items-center gap-3">
-          <Button size="sm" onClick={handleSave} loading={pending}>
-            Save
-          </Button>
-          {info && <p className="text-sm text-ws-green">{info}</p>}
-          {error && <p className="text-sm text-ws-red">{error}</p>}
-        </div>
+        <details className="rounded-[8px] border border-ws-border bg-ws-page px-3 py-2">
+          <summary className="cursor-pointer font-mono text-[10px] uppercase tracking-[0.12em] text-ws-text-3">
+            Account settings
+          </summary>
+          <div className="mt-3 flex flex-col gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex flex-col gap-1 text-[11px] text-ws-text-3">
+                Payment terms (days)
+                <input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={terms}
+                  onChange={(e) => setTerms(e.target.value)}
+                  disabled={pending}
+                  className={`${FIELD_CLASS} w-24`}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-[11px] text-ws-text-3">
+                Credit limit (£, empty = none)
+                <input
+                  type="number"
+                  min={0}
+                  step="50"
+                  value={limit}
+                  onChange={(e) => setLimit(e.target.value)}
+                  disabled={pending}
+                  placeholder="no limit"
+                  className={`${FIELD_CLASS} w-32`}
+                />
+              </label>
+              <label className="mb-1.5 flex items-center gap-2 text-[13px] text-ws-text-2">
+                <input
+                  type="checkbox"
+                  checked={consolidated}
+                  onChange={(e) => setConsolidated(e.target.checked)}
+                  disabled={pending}
+                  className="h-4 w-4 accent-current"
+                />
+                Consolidated monthly invoice
+              </label>
+            </div>
+
+            {initial.consolidatedBilling && (
+              <div className="flex flex-wrap items-end gap-3 border-t border-ws-border pt-3">
+                <label className="flex flex-col gap-1 text-[11px] text-ws-text-3">
+                  Billing month
+                  <input
+                    type="month"
+                    value={billMonth}
+                    onChange={(e) => setBillMonth(e.target.value)}
+                    disabled={raising}
+                    className={FIELD_CLASS}
+                  />
+                </label>
+                <Button size="sm" variant="outline" onClick={handleRaise} loading={raising}>
+                  Raise consolidated invoice
+                </Button>
+                {raised && (
+                  <p className="mb-1.5 text-[13px] text-ws-green">
+                    {raised.invoiceNumber} · {raised.jobCount} job{raised.jobCount === 1 ? "" : "s"} ·{" "}
+                    {fmtGBP(raised.total)} —{" "}
+                    <Link href={`/staff/invoices/${raised.invoiceId}`} className="underline underline-offset-2">
+                      open →
+                    </Link>
+                  </p>
+                )}
+              </div>
+            )}
+
+            <Button size="sm" onClick={handleSave} loading={pending} className="self-start">
+              Save
+            </Button>
+          </div>
+        </details>
       )}
-      {!canManage && <p className="text-xs text-muted-foreground">Only staff with invoice access can change account settings.</p>}
-    </section>
+
+      {info && <p className="animate-cd-fade-up text-[12px] text-ws-green">✓ {info}</p>}
+      {error && <p className="text-[12px] text-ws-red">{error}</p>}
+      {!canManage && (
+        <p className="text-[11.5px] text-ws-text-3">Only staff with invoice access can change account settings.</p>
+      )}
+    </div>
   );
 }
