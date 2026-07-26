@@ -525,12 +525,21 @@ export function FleetSection({
         <div className="flex items-baseline justify-between gap-3">
           <div className="flex items-baseline gap-3">
             <h2 className={SECTION_LABEL_CLASS}>Loan diary — this week</h2>
+            {/* Adding a car and taking one off the fleet live here — this is
+                the only route to them, so it has to read as a button. */}
             <button
               type="button"
               onClick={() => setManageOpen((v) => !v)}
-              className="font-mono text-[9px] uppercase tracking-[0.08em] text-ws-text-3 underline underline-offset-2 transition-colors hover:text-ws-text-2"
+              className="inline-flex items-center gap-1 self-center rounded-md border border-ws-border px-2 py-[3px] text-[11px] font-medium text-ws-text-2 transition-colors hover:border-ws-text-3 hover:text-ws-text"
             >
-              {manageOpen ? "Hide fleet" : "Manage fleet"}
+              {manageOpen ? (
+                "Hide fleet"
+              ) : (
+                <>
+                  <Plus className="h-3 w-3" strokeWidth={2.5} />
+                  Add or edit cars
+                </>
+              )}
             </button>
           </div>
           <div className="flex gap-3 font-mono text-[9px] tracking-[0.08em] text-ws-text-3">
@@ -651,9 +660,17 @@ export function FleetSection({
         )}
 
         {cars.length === 0 ? (
-          <p className="my-2 rounded-[10px] border border-dashed border-ws-border p-5 text-center text-[13px] text-ws-text-2">
-            No courtesy cars yet — add your first one to start the loan diary.
-          </p>
+          <div className="my-2 rounded-[10px] border border-dashed border-ws-border p-5 text-center">
+            <p className="text-[13px] text-ws-text-2">
+              No courtesy cars yet — add your first one to start the loan diary.
+            </p>
+            {!manageOpen && (
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => setManageOpen(true)}>
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Add a courtesy car
+              </Button>
+            )}
+          </div>
         ) : (
           <>
             <div className="mt-3 grid grid-cols-[168px_minmax(0,1fr)] items-center gap-x-3">
