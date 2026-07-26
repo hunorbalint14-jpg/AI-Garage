@@ -2,6 +2,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { agreementText } from "@/lib/courtesy-agreement";
 import { createPhotoReadUrls } from "@/lib/courtesy-photos";
+import { parseDamageMarkers } from "@/lib/courtesy-damage";
 import { onBrandColor } from "@/components/staff/staff-modules";
 import { DEFAULT_BRAND } from "./courtesy-ui";
 import { FleetSection, type CourtesyCarView, type OpenJobView } from "./fleet-section";
@@ -24,7 +25,7 @@ export default async function CourtesyCarsPage() {
       .select(
         // job is embedded (hinted on the FK column) so the out-now card can show
         // what the customer's own car is in for without a second round-trip.
-        "id, car_id, job_id, loaned_at, due_back_at, returned_at, fuel_out, fuel_in, odometer_out, odometer_in, condition_out, condition_in, licence_share_code, agreement_name, photos_out, photos_in, signature_url, customer:customers(id, full_name, phone), car:courtesy_cars(registration, make, model), job:jobs!job_id(description)",
+        "id, car_id, job_id, loaned_at, due_back_at, returned_at, fuel_out, fuel_in, odometer_out, odometer_in, condition_out, condition_in, damage_out, damage_in, licence_share_code, agreement_name, photos_out, photos_in, signature_url, customer:customers(id, full_name, phone), car:courtesy_cars(registration, make, model), job:jobs!job_id(description)",
       )
       .eq("location_id", ctx.location.id)
       .order("loaned_at", { ascending: false })
@@ -53,6 +54,8 @@ export default async function CourtesyCarsPage() {
     odometer_in: number | null;
     condition_out: string | null;
     condition_in: string | null;
+    damage_out: unknown;
+    damage_in: unknown;
     licence_share_code: string | null;
     agreement_name: string | null;
     photos_out: string[] | null;
@@ -94,6 +97,8 @@ export default async function CourtesyCarsPage() {
     odometerIn: l.odometer_in,
     conditionOut: l.condition_out,
     conditionIn: l.condition_in,
+    damageOut: parseDamageMarkers(l.damage_out),
+    damageIn: parseDamageMarkers(l.damage_in),
     licenceShareCode: l.licence_share_code,
     agreementName: l.agreement_name,
     photoUrlsOut: resolve(l.photos_out),

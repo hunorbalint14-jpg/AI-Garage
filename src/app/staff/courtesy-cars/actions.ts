@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeRegistration, validateRegistration } from "@/lib/registration";
 import { logAudit } from "@/lib/audit";
 import { AGREEMENT_VERSION } from "@/lib/courtesy-agreement";
+import { parseDamageMarkers } from "@/lib/courtesy-damage";
 import {
   loanPhotoPath,
   loanSignaturePath,
@@ -21,6 +22,16 @@ import {
 // every write lands here behind the bookings permission.
 
 type ActionResult = { error: string } | { success: true };
+
+/** FormData carries the damage markers as a JSON string; bad JSON is no markers. */
+function safeJson(value: FormDataEntryValue | null): unknown {
+  if (typeof value !== "string" || !value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
 
 export async function addCourtesyCar(formData: FormData): Promise<ActionResult> {
   const ctx = await requireStaffContext();
@@ -101,6 +112,9 @@ export async function checkOutCourtesyCar(formData: FormData): Promise<CheckOutR
   const licenceNumber = String(formData.get("licenceNumber") ?? "").trim() || null;
   const licenceShareCode = String(formData.get("licenceShareCode") ?? "").trim() || null;
   const agreementName = String(formData.get("agreementName") ?? "").trim();
+  // Markers off the condition diagram. Re-parsed server-side: the column is the
+  // evidence in a damage dispute, so it never takes the client's word for shape.
+  const damageOut = parseDamageMarkers(safeJson(formData.get("damageOut")));
 
   if (!carId || !customerId) return { error: "Pick a car and a customer." };
   if (!agreementName) return { error: "The customer must sign by typing their full name." };
@@ -148,6 +162,7 @@ export async function checkOutCourtesyCar(formData: FormData): Promise<CheckOutR
     fuel_out: fuelOut,
     odometer_out: odometerOut ? Number(odometerOut) : null,
     condition_out: conditionOut,
+    damage_out: damageOut,
     licence_number: licenceNumber,
     licence_share_code: licenceShareCode,
     agreement_name: agreementName,
@@ -326,6 +341,7 @@ export async function returnCourtesyCar(formData: FormData): Promise<ActionResul
   const fuelIn = Number(formData.get("fuelIn"));
   const odometerIn = String(formData.get("odometerIn") ?? "").trim();
   const conditionIn = String(formData.get("conditionIn") ?? "").trim() || null;
+  const damageIn = parseDamageMarkers(safeJson(formData.get("damageIn")));
 
   if (!loanId) return { error: "Loan not found." };
   if (!Number.isInteger(fuelIn) || fuelIn < 0 || fuelIn > 8) {
@@ -340,6 +356,7 @@ export async function returnCourtesyCar(formData: FormData): Promise<ActionResul
       fuel_in: fuelIn,
       odometer_in: odometerIn ? Number(odometerIn) : null,
       condition_in: conditionIn,
+      damage_in: damageIn,
     })
     .eq("id", loanId)
     .eq("location_id", ctx.location.id)
