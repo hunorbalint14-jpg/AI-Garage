@@ -162,7 +162,10 @@ export function DamageMap({
 
   function setNote(id: string, note: string) {
     if (!onChange) return;
-    onChange(markers.map((m) => (m.id === id ? { ...m, note: note.trim() || null } : m)));
+    // Store exactly what was typed. Trimming here would eat the trailing space
+    // on every keystroke, so a second word could never be started; the note is
+    // trimmed (and blanks nulled) once, server-side, in parseDamageMarkers.
+    onChange(markers.map((m) => (m.id === id ? { ...m, note } : m)));
   }
 
   const selectedMarker = markers.find((m) => m.id === selected) ?? null;
