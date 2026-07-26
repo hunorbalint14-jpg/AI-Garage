@@ -1,8 +1,9 @@
 import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PageHeader } from "@/components/staff/page-header";
 import { agreementText } from "@/lib/courtesy-agreement";
 import { createPhotoReadUrls } from "@/lib/courtesy-photos";
+import { onBrandColor } from "@/components/staff/staff-modules";
+import { DEFAULT_BRAND } from "./courtesy-ui";
 import { FleetSection, type CourtesyCarView, type OpenJobView } from "./fleet-section";
 import { LoansSection, type LoanView } from "./loans-section";
 
@@ -21,7 +22,9 @@ export default async function CourtesyCarsPage() {
     admin
       .from("courtesy_car_loans")
       .select(
-        "id, car_id, job_id, loaned_at, due_back_at, returned_at, fuel_out, fuel_in, odometer_out, odometer_in, condition_out, condition_in, licence_share_code, agreement_name, photos_out, photos_in, signature_url, customer:customers(id, full_name, phone), car:courtesy_cars(registration, make, model)",
+        // job is embedded (hinted on the FK column) so the out-now card can show
+        // what the customer's own car is in for without a second round-trip.
+        "id, car_id, job_id, loaned_at, due_back_at, returned_at, fuel_out, fuel_in, odometer_out, odometer_in, condition_out, condition_in, licence_share_code, agreement_name, photos_out, photos_in, signature_url, customer:customers(id, full_name, phone), car:courtesy_cars(registration, make, model), job:jobs!job_id(description)",
       )
       .eq("location_id", ctx.location.id)
       .order("loaned_at", { ascending: false })
@@ -57,6 +60,7 @@ export default async function CourtesyCarsPage() {
     signature_url: string | null;
     customer: { id: string; full_name: string | null; phone: string | null } | null;
     car: { registration: string; make: string | null; model: string | null } | null;
+    job: { description: string | null } | null;
   };
   const loanRows = (loansRes.data ?? []) as unknown as LoanRow[];
 
@@ -74,6 +78,8 @@ export default async function CourtesyCarsPage() {
     id: l.id,
     carId: l.car_id,
     jobId: l.job_id,
+    jobLabel: l.job?.description?.trim() ? l.job.description.trim().slice(0, 60) : null,
+    carReg: l.car?.registration ?? "—",
     carLabel: l.car
       ? `${l.car.registration}${l.car.make ? ` — ${[l.car.make, l.car.model].filter(Boolean).join(" ")}` : ""}`
       : "—",
@@ -109,23 +115,27 @@ export default async function CourtesyCarsPage() {
       label: `${j.vehicle?.registration ?? "No reg"} — ${(j.description ?? "Job").slice(0, 60)}`,
     }));
 
-  const openLoanCarIds = new Set(loans.filter((l) => !l.returnedAt).map((l) => l.carId));
+  const openLoanCarIds = [...new Set(loans.filter((l) => !l.returnedAt).map((l) => l.carId))];
+  const brandColor = ctx.branding.primaryColor ?? DEFAULT_BRAND;
+  const onBrand = onBrandColor(brandColor);
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        title="Courtesy cars"
-        description="Loan diary with fuel and condition checks, a signed digital agreement, and DVLA licence share-code capture."
-      />
-
+    // Desktop-first: the diary board needs ~1140px before the lanes stop being
+    // readable, so the page scrolls horizontally rather than crushing them.
+    <div className="flex min-w-[1140px] max-w-[1240px] flex-col gap-5">
+      {/* FleetSection owns the page header: the "New loan" action opens the
+          check-out wizard, which is its client state. */}
       <FleetSection
         cars={cars}
-        openLoanCarIds={[...openLoanCarIds]}
+        loans={loans}
+        openLoanCarIds={openLoanCarIds}
         agreement={agreementText(ctx.organization.name)}
         openJobs={openJobs}
+        brandColor={brandColor}
+        onBrand={onBrand}
       />
 
-      <LoansSection loans={loans} />
+      <LoansSection loans={loans} brandColor={brandColor} onBrand={onBrand} />
     </div>
   );
 }
