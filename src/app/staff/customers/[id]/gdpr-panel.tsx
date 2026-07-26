@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Shield, Download, AlertTriangle, Trash2 } from "lucide-react";
+import { Download, AlertTriangle, Trash2 } from "lucide-react";
 import { updateConsent, anonymizeCustomer, exportCustomerData, deleteCustomerHard } from "./gdpr-actions";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/confirm-provider";
@@ -89,79 +89,84 @@ export function GdprPanel({
 
   if (anonymizedAt) {
     return (
-      <section className="rounded-lg border p-4 bg-muted/30">
-        <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-2 flex items-center gap-2">
-          <Shield className="h-4 w-4" /> Privacy & data (GDPR)
-        </h2>
-        <p className="text-sm text-ws-amber dark:text-amber-400 flex items-center gap-2">
-          <AlertTriangle className="h-4 w-4" />
-          Customer data anonymized on {new Date(anonymizedAt).toLocaleDateString("en-GB")}. PII removed; financial records retained.
-        </p>
-      </section>
+      <p className="flex items-center gap-2 text-[13px] text-ws-amber">
+        <AlertTriangle className="h-4 w-4 flex-none" />
+        Customer data anonymized on {new Date(anonymizedAt).toLocaleDateString("en-GB")}. PII removed; financial
+        records retained.
+      </p>
     );
   }
 
   return (
-    <section className="rounded-lg border p-4">
-      <h2 className="font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-ws-text-3 mb-3 flex items-center gap-2">
-        <Shield className="h-4 w-4" /> Privacy & data (GDPR)
-      </h2>
+    <div className="flex flex-col gap-1.5">
+      <label className="flex items-center gap-2 text-[13px] text-ws-text-2">
+        <input
+          type="checkbox"
+          checked={email}
+          onChange={(e) => setEmail(e.target.checked)}
+          className="h-4 w-4 accent-current"
+        />
+        Email marketing consent
+      </label>
+      <label className="mb-1 flex items-center gap-2 text-[13px] text-ws-text-2">
+        <input
+          type="checkbox"
+          checked={sms}
+          onChange={(e) => setSms(e.target.checked)}
+          className="h-4 w-4 accent-current"
+        />
+        SMS marketing consent
+      </label>
 
-      <div className="flex flex-col gap-3 mb-4">
-        <p className="text-xs text-muted-foreground">
-          Marketing consent. Transactional messages (booking confirmations, MOT reminders) are always sent under legitimate interest.
-        </p>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={email}
-            onChange={(e) => setEmail(e.target.checked)}
-            className="h-4 w-4 rounded border"
-          />
-          Email marketing consent
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={sms}
-            onChange={(e) => setSms(e.target.checked)}
-            className="h-4 w-4 rounded border"
-          />
-          SMS marketing consent
-        </label>
-        {consentUpdatedAt && (
-          <p className="text-xs text-muted-foreground">
-            Last updated: {new Date(consentUpdatedAt).toLocaleString("en-GB")}
-          </p>
+      <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-ws-text-3">
+        {consentUpdatedAt
+          ? `CONSENT UPDATED ${new Date(consentUpdatedAt).toLocaleDateString("en-GB")}`
+          : "CONSENT NEVER RECORDED"}
+      </p>
+      <p className="text-[11.5px] text-ws-text-3">
+        Marketing only. Transactional messages (booking confirmations, MOT reminders) always send under
+        legitimate interest.
+      </p>
+
+      <Button size="sm" variant="outline" onClick={handleSaveConsent} loading={pending} className="mt-1 self-start">
+        {saved ? "Saved" : "Save consent"}
+      </Button>
+
+      <div className="mt-2 flex flex-wrap items-center gap-3 border-t border-ws-border pt-3 text-[12.5px]">
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={pending}
+          className="inline-flex items-center gap-1.5 text-ws-text-2 underline underline-offset-2 hover:text-ws-text disabled:opacity-50"
+        >
+          <Download className="h-3.5 w-3.5" />
+          Export data
+        </button>
+        {canErase && (
+          <button
+            type="button"
+            onClick={handleAnonymize}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 text-amber-400 underline underline-offset-2 hover:brightness-110 disabled:opacity-50"
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Erase PII
+          </button>
         )}
-        <Button onClick={handleSaveConsent} loading={pending} className="self-start">
-          {saved ? "Saved" : "Save consent"}
-        </Button>
+        {isOwner && (
+          <button
+            type="button"
+            onClick={handleHardDelete}
+            disabled={pending}
+            className="inline-flex items-center gap-1.5 text-ws-red underline underline-offset-2 hover:brightness-110 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Hard delete
+          </button>
+        )}
       </div>
 
-      <div className="border-t pt-4 flex flex-col gap-2">
-        <p className="text-xs text-muted-foreground mb-1">Data subject rights:</p>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleExport} disabled={pending}>
-            <Download className="h-4 w-4 mr-1.5" />
-            Export data
-          </Button>
-          {canErase && (
-            <Button variant="outline" onClick={handleAnonymize} disabled={pending} className="text-ws-amber dark:text-amber-400 border-ws-amber-border">
-              <AlertTriangle className="h-4 w-4 mr-1.5" />
-              Erase PII (anonymize)
-            </Button>
-          )}
-          {isOwner && (
-            <Button variant="destructive" onClick={handleHardDelete} disabled={pending}>
-              <Trash2 className="h-4 w-4 mr-1.5" />
-              Hard delete
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {error && <p className="mt-3 text-sm text-ws-red">{error}</p>}
-    </section>
+      {error && <p className="mt-2 text-[12px] text-ws-red">{error}</p>}
+    </div>
   );
 }
