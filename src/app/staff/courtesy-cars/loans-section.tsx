@@ -4,6 +4,8 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { returnCourtesyCar } from "./actions";
 import { uploadLoanPhotos } from "./fleet-section";
+import { newDamage, summariseDamage, type DamageMarker } from "@/lib/courtesy-damage";
+import { DamageMap } from "./damage-map";
 import {
   EvidenceChip,
   FuelChipPicker,
@@ -36,6 +38,8 @@ export type LoanView = {
   odometerIn: number | null;
   conditionOut: string | null;
   conditionIn: string | null;
+  damageOut: DamageMarker[];
+  damageIn: DamageMarker[];
   licenceShareCode: string | null;
   agreementName: string | null;
   photoUrlsOut: string[];
@@ -69,6 +73,9 @@ function buildDiary(loans: LoanView[], now: number): DiaryDay[] {
       signatureUrl: null,
     });
     if (!loan.returnedAt) continue;
+    // Only the markers that weren't already on the car at check-out — the
+    // carried-over ones are the customer's to hand back, not to answer for.
+    const added = newDamage(loan.damageOut, loan.damageIn);
     // A closed loan drops off the out-now cards, so its evidence — photos, the
     // signed agreement — would be unreachable without the links carried here.
     events.push({
@@ -78,7 +85,9 @@ function buildDiary(loans: LoanView[], now: number): DiaryDay[] {
       // and an unrecorded fuel_in must read "—" rather than echo fuel_out.
       text: `${loan.carReg} returned by ${loan.customerName} — fuel ${fuelLabel(
         loan.fuelOut,
-      )} → ${fuelLabel(loan.fuelIn)}${loan.conditionIn ? `, ${loan.conditionIn}` : ""}`,
+      )} → ${fuelLabel(loan.fuelIn)}${loan.conditionIn ? `, ${loan.conditionIn}` : ""}${
+        added.length > 0 ? `, new damage: ${summariseDamage(added)}` : ""
+      }`,
       photos: [...loan.photoUrlsIn, ...loan.photoUrlsOut],
       signatureUrl: loan.signatureUrl,
     });
@@ -126,6 +135,7 @@ export function LoansSection({
   const [returningId, setReturningId] = useState<string | null>(null);
   const [photosOpenId, setPhotosOpenId] = useState<string | null>(null);
   const [fuelIn, setFuelIn] = useState(8);
+  const [damageIn, setDamageIn] = useState<DamageMarker[]>([]);
   const [returnPhotos, setReturnPhotos] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -139,12 +149,17 @@ export function LoansSection({
     setError(null);
     setReturnPhotos([]);
     setFuelIn(loan.fuelOut ?? 8);
+    // Seeded with the check-out markers so the return diagram starts from the
+    // car as it left: new damage is what gets added on top, and damage_in stays
+    // the full picture of the car rather than a fragment.
+    setDamageIn(loan.damageOut);
     setReturningId(loan.id);
   }
 
   function closeReturn() {
     setError(null);
     setReturnPhotos([]);
+    setDamageIn([]);
     setReturningId(null);
   }
 
@@ -153,6 +168,8 @@ export function LoansSection({
     setError(null);
     const formData = new FormData(e.currentTarget);
     const loanId = String(formData.get("loanId") ?? "");
+    // The diagram is React state, not a form control, so it has to be added by hand.
+    formData.set("damageIn", JSON.stringify(damageIn));
     startTransition(async () => {
       // Photos first — the loan row still exists either way, and uploading
       // before the return means the evidence is attached before sign-off.
@@ -168,6 +185,7 @@ export function LoansSection({
       else {
         setReturningId(null);
         setReturnPhotos([]);
+        setDamageIn([]);
       }
     });
   }
@@ -244,6 +262,12 @@ export function LoansSection({
                         // the return check has to compare against.
                         <p className="mt-1 text-[11.5px] text-ws-text-2">
                           <span className="text-ws-text-3">Out:</span> {loan.conditionOut}
+                        </p>
+                      )}
+                      {loan.damageOut.length > 0 && (
+                        <p className="mt-1 text-[11.5px] text-ws-text-2">
+                          <span className="text-ws-text-3">Marked at check-out:</span>{" "}
+                          {summariseDamage(loan.damageOut)}
                         </p>
                       )}
                     </div>
@@ -366,6 +390,25 @@ export function LoansSection({
                             disabled={pending}
                           />
                         </label>
+                      </div>
+
+                      <div>
+                        <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-ws-text-3">
+                          Damage at return
+                        </div>
+                        <p className="mt-[3px] text-[11px] text-ws-text-2">
+                          Check-out markers are carried over and dimmed — add anything new.
+                        </p>
+                        <div className="mt-1.5">
+                          <DamageMap
+                            markers={damageIn}
+                            onChange={setDamageIn}
+                            baseline={loan.damageOut}
+                            brandColor={brandColor}
+                            onBrand={onBrand}
+                            disabled={pending}
+                          />
+                        </div>
                       </div>
 
                       <label className="block text-[11px] text-ws-text-2">

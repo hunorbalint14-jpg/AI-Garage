@@ -20,10 +20,13 @@ import {
   SECTION_LABEL_CLASS,
   PlateChip,
   FuelChipPicker,
+  fmtDateTime,
   fuelLabel,
   lighten,
   useClientNow,
 } from "./courtesy-ui";
+import type { DamageMarker } from "@/lib/courtesy-damage";
+import { DamageMap } from "./damage-map";
 import type { LoanView } from "./loans-section";
 
 // Mint signed URLs, raw-PUT each file, then attach the verified paths.
@@ -195,6 +198,8 @@ const BRAND_BUTTON_CLASS =
   "inline-flex flex-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[8px] transition-colors hover:bg-[var(--brand-hover)] active:translate-y-px disabled:opacity-50";
 const GHOST_BUTTON_CLASS =
   "inline-flex flex-none items-center justify-center whitespace-nowrap rounded-[8px] text-ws-text-2 transition-colors hover:bg-ws-hover hover:text-ws-text disabled:opacity-50";
+const MICRO_LABEL_CLASS =
+  "font-mono text-[9px] font-semibold uppercase tracking-[0.12em] text-ws-text-3";
 
 type BarTone = "amber" | "red" | "green";
 
@@ -217,6 +222,28 @@ const STEPS: { n: number; label: string }[] = [
   { n: 2, label: "CONDITION" },
   { n: 3, label: "AGREEMENT" },
 ];
+
+/** One captioned row of the photo gallery. Signed URLs expire, so no next/image. */
+function PhotoStrip({ caption, urls }: { caption: string; urls: string[] }) {
+  if (urls.length === 0) return null;
+  return (
+    <div className="mt-2">
+      <div className={MICRO_LABEL_CLASS}>{caption}</div>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {urls.map((url, i) => (
+          <a key={url} href={url} target="_blank" rel="noreferrer">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={`${caption} ${i + 1}`}
+              className="h-[88px] w-[88px] rounded-md border border-ws-border object-cover"
+            />
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function FleetSection({
   cars,
@@ -270,6 +297,7 @@ export function FleetSection({
   const [odometerOut, setOdometerOut] = useState("");
   const [shareCode, setShareCode] = useState("");
   const [condition, setCondition] = useState("");
+  const [damage, setDamage] = useState<DamageMarker[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [agreementName, setAgreementName] = useState("");
   // The picker owns its own search state; remounting it on each open is the
@@ -280,6 +308,9 @@ export function FleetSection({
   const sigCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [sigInk, setSigInk] = useState(false);
 
+  // Photo gallery, keyed by car — every photo ever taken for that plate.
+  const [galleryCarId, setGalleryCarId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!wizOpen) return;
     function onKey(e: KeyboardEvent) {
@@ -289,6 +320,15 @@ export function FleetSection({
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [wizOpen, pending]);
+
+  useEffect(() => {
+    if (!galleryCarId) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setGalleryCarId(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [galleryCarId]);
 
   const onLoan = useMemo(() => new Set(openLoanCarIds), [openLoanCarIds]);
 
@@ -368,7 +408,32 @@ export function FleetSection({
   const wizCars = wizCar ? [wizCar] : availableCars;
   const customerJobs = picked ? openJobs.filter((j) => j.customerId === picked.id) : [];
 
+  const galleryCar = cars.find((c) => c.id === galleryCarId) ?? null;
+  // Derived from the loans already on the page — a car's evidence is scattered
+  // across closed loans that no longer appear anywhere else in the UI.
+  const galleryLoans = useMemo(() => {
+    if (!galleryCarId) return [];
+    return loans
+      .filter(
+        (l) =>
+          l.carId === galleryCarId &&
+          (l.photoUrlsOut.length > 0 ||
+            l.photoUrlsIn.length > 0 ||
+            !!l.signatureUrl ||
+            l.damageOut.length > 0 ||
+            l.damageIn.length > 0),
+      )
+      .sort((a, b) => Date.parse(b.loanedAt) - Date.parse(a.loanedAt));
+  }, [loans, galleryCarId]);
+
+  function openGallery(carId: string) {
+    // Both surfaces are full-screen modals — never stack them.
+    setWizOpen(false);
+    setGalleryCarId(carId);
+  }
+
   function openWizard(carId: string | null) {
+    setGalleryCarId(null);
     setWizOpen(true);
     setWizStep(1);
     setWizCarId(carId);
@@ -380,6 +445,7 @@ export function FleetSection({
     setOdometerOut("");
     setShareCode("");
     setCondition("");
+    setDamage([]);
     setPhotos([]);
     setAgreementName("");
     setSigInk(false);
@@ -445,6 +511,7 @@ export function FleetSection({
     formData.set("fuelOut", String(fuelOut));
     formData.set("odometerOut", odometerOut);
     formData.set("conditionOut", condition);
+    formData.set("damageOut", JSON.stringify(damage));
     formData.set("licenceShareCode", shareCode);
     formData.set("agreementName", agreementName);
     startTransition(async () => {
@@ -471,6 +538,7 @@ export function FleetSection({
       setWizOpen(false);
       setWizCarId(null);
       setPicked(null);
+      setDamage([]);
       setPhotos([]);
       setAgreementName("");
       setSigInk(false);
@@ -525,12 +593,21 @@ export function FleetSection({
         <div className="flex items-baseline justify-between gap-3">
           <div className="flex items-baseline gap-3">
             <h2 className={SECTION_LABEL_CLASS}>Loan diary — this week</h2>
+            {/* Adding a car and taking one off the fleet live here — this is
+                the only route to them, so it has to read as a button. */}
             <button
               type="button"
               onClick={() => setManageOpen((v) => !v)}
-              className="font-mono text-[9px] uppercase tracking-[0.08em] text-ws-text-3 underline underline-offset-2 transition-colors hover:text-ws-text-2"
+              className="inline-flex items-center gap-1 self-center rounded-md border border-ws-border px-2 py-[3px] text-[11px] font-medium text-ws-text-2 transition-colors hover:border-ws-text-3 hover:text-ws-text"
             >
-              {manageOpen ? "Hide fleet" : "Manage fleet"}
+              {manageOpen ? (
+                "Hide fleet"
+              ) : (
+                <>
+                  <Plus className="h-3 w-3" strokeWidth={2.5} />
+                  Add or edit cars
+                </>
+              )}
             </button>
           </div>
           <div className="flex gap-3 font-mono text-[9px] tracking-[0.08em] text-ws-text-3">
@@ -651,9 +728,17 @@ export function FleetSection({
         )}
 
         {cars.length === 0 ? (
-          <p className="my-2 rounded-[10px] border border-dashed border-ws-border p-5 text-center text-[13px] text-ws-text-2">
-            No courtesy cars yet — add your first one to start the loan diary.
-          </p>
+          <div className="my-2 rounded-[10px] border border-dashed border-ws-border p-5 text-center">
+            <p className="text-[13px] text-ws-text-2">
+              No courtesy cars yet — add your first one to start the loan diary.
+            </p>
+            {!manageOpen && (
+              <Button size="sm" variant="outline" className="mt-3" onClick={() => setManageOpen(true)}>
+                <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                Add a courtesy car
+              </Button>
+            )}
+          </div>
         ) : (
           <>
             <div className="mt-3 grid grid-cols-[168px_minmax(0,1fr)] items-center gap-x-3">
@@ -683,7 +768,16 @@ export function FleetSection({
                   style={car.active ? undefined : { opacity: 0.45 }}
                 >
                   <div className="flex min-w-0 items-center gap-2">
-                    <PlateChip reg={car.registration} size="sm" />
+                    {/* The plate is the only handle on a car that survives a
+                        loan closing, so it's what opens the photo history. */}
+                    <button
+                      type="button"
+                      title={`Photos for ${car.registration}`}
+                      onClick={() => openGallery(car.id)}
+                      className="flex-none rounded"
+                    >
+                      <PlateChip reg={car.registration} size="sm" />
+                    </button>
                     <span className="min-w-0 truncate text-[10.5px] text-ws-text-3">
                       {[car.make, car.model].filter(Boolean).join(" ") || "—"}
                     </span>
@@ -940,6 +1034,22 @@ export function FleetSection({
                         disabled={pending}
                       />
                     </label>
+                    <div>
+                      <div className={MICRO_LABEL_CLASS}>Existing damage</div>
+                      <p className="mt-[3px] text-[11px] text-ws-text-2">
+                        Mark anything already on the car — this is what the return check compares
+                        against.
+                      </p>
+                      <div className="mt-1.5">
+                        <DamageMap
+                          markers={damage}
+                          onChange={setDamage}
+                          brandColor={brandColor}
+                          onBrand={onBrand}
+                          disabled={pending}
+                        />
+                      </div>
+                    </div>
                     <label className="block text-[11px] text-ws-text-2">
                       Condition photos (up to 6)
                       <input
@@ -1014,6 +1124,92 @@ export function FleetSection({
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {galleryCar && (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setGalleryCarId(null)}
+            className="animate-co-fade-in absolute inset-0 h-full w-full cursor-default bg-black/60"
+          />
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Photos for ${galleryCar.registration}`}
+              className="animate-co-pop-in pointer-events-auto flex max-h-[88vh] w-[720px] max-w-[94vw] flex-col rounded-[14px] border border-ws-border bg-ws-card shadow-[0_32px_80px_rgba(0,0,0,0.6)]"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-ws-border px-5 pb-3 pt-4">
+                <div>
+                  <div className="font-mono text-[10px] tracking-[0.2em] text-ws-text-3">
+                    {"// PHOTO HISTORY"}
+                  </div>
+                  <div className="mt-[3px] text-[16px] font-bold">
+                    Photos — {galleryCar.registration}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  onClick={() => setGalleryCarId(null)}
+                  className="grid h-[30px] w-[30px] place-items-center rounded-[8px] text-ws-text-2 transition-colors hover:bg-ws-hover hover:text-ws-text"
+                >
+                  <X className="h-[15px] w-[15px]" strokeWidth={2} />
+                </button>
+              </div>
+
+              <div className="flex flex-1 flex-col overflow-y-auto px-5 py-[18px]">
+                {galleryLoans.length === 0 ? (
+                  <p className="text-center text-[13px] text-ws-text-2">
+                    No photos recorded for this car yet.
+                  </p>
+                ) : (
+                  galleryLoans.map((loan) => (
+                    <div
+                      key={loan.id}
+                      className="mt-4 border-t border-ws-border pt-4 first:mt-0 first:border-t-0 first:pt-0"
+                    >
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="text-[13px] font-semibold text-ws-text">
+                          {loan.customerName}
+                        </span>
+                        <span className="font-mono text-[10.5px] text-ws-text-3">
+                          {fmtDateTime(loan.loanedAt)}
+                          {loan.returnedAt && ` · returned ${fmtDateTime(loan.returnedAt)}`}
+                        </span>
+                      </div>
+                      <PhotoStrip caption="At check-out" urls={loan.photoUrlsOut} />
+                      <PhotoStrip caption="At return" urls={loan.photoUrlsIn} />
+                      <PhotoStrip
+                        caption="Signed agreement"
+                        urls={loan.signatureUrl ? [loan.signatureUrl] : []}
+                      />
+                      {(loan.damageOut.length > 0 || loan.damageIn.length > 0) && (
+                        <div className="mt-2">
+                          <div className={MICRO_LABEL_CLASS}>Condition diagram</div>
+                          {/* The return markers where they exist, otherwise the
+                              check-out set — with check-out always the dimmed
+                              baseline, so new damage reads at a glance. */}
+                          <div className="mt-1.5 w-[280px] max-w-full">
+                            <DamageMap
+                              markers={loan.damageIn.length > 0 ? loan.damageIn : loan.damageOut}
+                              baseline={loan.damageOut}
+                              readOnly
+                              brandColor={brandColor}
+                              onBrand={onBrand}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
