@@ -20,6 +20,8 @@ export type AccountingConnectionView = {
   label: string; // "Xero" | "QuickBooks" | "Sage"
   displayName: string | null;
   connectedAt: string;
+  needsReconnect: boolean;
+  lastRefreshError: string | null;
 };
 
 type Props = {
@@ -36,6 +38,7 @@ const ENTITY_LABELS: Record<string, string> = {
   credit_note: "Credit note",
   payout: "Payout",
   contact: "Contact",
+  connection: "Connection",
 };
 
 export function AccountingSection({ connection, health, canManage }: Props) {
@@ -106,6 +109,27 @@ export function AccountingSection({ connection, health, canManage }: Props) {
           Your accountant sees the books up to date without manual entry.
         </p>
       </div>
+
+      {connection?.needsReconnect ? (
+        <div className="rounded-md border border-ws-red/40 bg-ws-red-bg px-4 py-3 flex flex-col gap-2">
+          <p className="text-sm font-medium text-ws-red">
+            {connection.label} sync has stopped — reconnect needed
+          </p>
+          <p className="text-xs text-muted-foreground">
+            The saved authorisation has expired, so invoices and payments are no longer reaching{" "}
+            {connection.label}. Reconnect to resume — anything issued in the meantime backfills
+            automatically.
+            {connection.lastRefreshError ? ` (${connection.lastRefreshError})` : null}
+          </p>
+          {canManage ? (
+            <div>
+              <Button size="sm" onClick={() => handleConnect(connection.provider)}>
+                Reconnect {connection.label}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {connection ? (
         <div className="flex flex-col gap-3">

@@ -48,7 +48,16 @@ alter table public.payment_allocations
 alter table public.accounting_connections
   add column if not exists needs_reconnect boolean not null default false,
   add column if not exists last_refresh_error text,
-  add column if not exists last_refresh_error_at timestamptz;
+  add column if not exists last_refresh_error_at timestamptz,
+  add column if not exists reconnect_alerted_at timestamptz;
+
+-- The sync log grows a 'connection' entity so a dead link shows up in the
+-- books-health failure list, not just in server logs.
+alter table public.accounting_sync_log
+  drop constraint if exists accounting_sync_log_entity_type_check;
+alter table public.accounting_sync_log
+  add constraint accounting_sync_log_entity_type_check
+    check (entity_type in ('invoice', 'payment', 'credit_note', 'payout', 'contact', 'connection'));
 
 -- ── 3. MOT disbursement guardrail (VTAXPER48000) ──────────────────────────
 -- An approved test centre's MOT fee (≤ statutory max) is outside the scope

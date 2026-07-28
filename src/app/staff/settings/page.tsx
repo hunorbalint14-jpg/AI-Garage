@@ -123,6 +123,8 @@ export default async function SettingsPage({
         label: PROVIDER_LABELS[status.provider],
         displayName: status.displayName,
         connectedAt: status.connectedAt,
+        needsReconnect: status.needsReconnect,
+        lastRefreshError: status.lastRefreshError,
       };
       accountingHealth = await getBooksHealth(ctx.organization.id, status.connectedAt);
     }
