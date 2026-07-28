@@ -89,7 +89,31 @@ export async function GET(request: NextRequest) {
     .select("organization_id, provider, connected_at, needs_reconnect, reconnect_alerted_at");
   const rows = (data ?? []) as ConnRow[];
 
-  const results = { orgs: rows.length, attempted: 0, synced: 0, alerted: 0, dead: 0 };
+  const results = { orgs: rows.length, attempted: 0, synced: 0, alerted: 0, dead: 0, revoked: 0 };
+
+  // Alert the owner once per reconnect episode (reconnect_alerted_at is
+  // reset when an episode opens and cleared when it closes). Returns
+  // whether an episode is currently open.
+  const alertIfEpisodeOpen = async (orgId: string, provider: AccountingProviderId): Promise<boolean> => {
+    const { data: fresh } = await admin
+      .from("accounting_connections")
+      .select("needs_reconnect, reconnect_alerted_at")
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    const f = fresh as { needs_reconnect: boolean; reconnect_alerted_at: string | null } | null;
+    if (!f?.needs_reconnect) return false;
+    if (!f.reconnect_alerted_at) {
+      const sent = await alertOwnerReconnect(orgId, provider);
+      if (sent) {
+        results.alerted++;
+        await admin
+          .from("accounting_connections")
+          .update({ reconnect_alerted_at: new Date().toISOString() })
+          .eq("organization_id", orgId);
+      }
+    }
+    return true;
+  };
 
   for (const row of rows) {
     // Touch (refresh keepalive + reconnect detection)…
@@ -97,22 +121,7 @@ export async function GET(request: NextRequest) {
     if (!conn) {
       results.dead++;
       // …and alert the owner once per failure episode.
-      const { data: fresh } = await admin
-        .from("accounting_connections")
-        .select("needs_reconnect, reconnect_alerted_at")
-        .eq("organization_id", row.organization_id)
-        .maybeSingle();
-      const f = fresh as { needs_reconnect: boolean; reconnect_alerted_at: string | null } | null;
-      if (f?.needs_reconnect && !f.reconnect_alerted_at) {
-        const sent = await alertOwnerReconnect(row.organization_id, row.provider);
-        if (sent) {
-          results.alerted++;
-          await admin
-            .from("accounting_connections")
-            .update({ reconnect_alerted_at: new Date().toISOString() })
-            .eq("organization_id", row.organization_id);
-        }
-      }
+      await alertIfEpisodeOpen(row.organization_id, row.provider);
       continue;
     }
 
@@ -127,6 +136,12 @@ export async function GET(request: NextRequest) {
     } catch (e) {
       console.error("[cron/accounting-backfill] sweep failed", { orgId: row.organization_id }, e);
     }
+
+    // Tenant-revoked mode: the refresh above SUCCEEDED but the provider
+    // rejects every push (Xero 403 AuthenticationUnsuccessful after a
+    // Connected-Apps disconnect). The backfill attempts just ran through
+    // logSync, which opens the episode — check and alert in the same run.
+    if (await alertIfEpisodeOpen(row.organization_id, row.provider)) results.revoked++;
   }
 
   await recordCronRun(
@@ -134,7 +149,7 @@ export async function GET(request: NextRequest) {
     "cron/accounting-backfill",
     true,
     Date.now() - t0,
-    `orgs ${results.orgs}, synced ${results.synced}/${results.attempted}, dead ${results.dead}, alerted ${results.alerted}`,
+    `orgs ${results.orgs}, synced ${results.synced}/${results.attempted}, dead ${results.dead}, revoked ${results.revoked}, alerted ${results.alerted}`,
   );
 
   console.log("[cron/accounting-backfill]", results);

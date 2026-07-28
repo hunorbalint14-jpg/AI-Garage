@@ -1,6 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { lineTreatmentOf, STANDARD_VAT_RATE, type VatTreatment } from "@/lib/vat";
-import { getAccountingConnection, PROVIDERS } from "./connection";
+import { isTenantAuthError, syncErrorMessage } from "./auth-errors";
+import {
+  clearReconnectEpisode,
+  getAccountingConnection,
+  markConnectionRevoked,
+  PROVIDERS,
+} from "./connection";
 import type { AccountingConnection, LineTaxTreatment, SalesLine } from "./types";
 
 // Provider-neutral sync orchestration (#501). Owns: loading our rows,
@@ -22,10 +28,7 @@ async function logSync(args: {
   error?: unknown;
 }): Promise<void> {
   const admin = createAdminClient();
-  const message =
-    args.error == null
-      ? null
-      : (args.error instanceof Error ? args.error.message : String(args.error)).slice(0, 500);
+  const message = args.error == null ? null : syncErrorMessage(args.error).slice(0, 500);
   const { error } = await admin.from("accounting_sync_log").insert({
     organization_id: args.organizationId,
     provider: args.provider,
@@ -36,6 +39,20 @@ async function logSync(args: {
     error: message,
   });
   if (error) console.error("[accounting] sync log write failed", error.message);
+
+  if (args.status === "synced") {
+    await clearReconnectEpisode(args.organizationId);
+  } else if (isTenantAuthError(args.provider, args.error)) {
+    // Tenant-level auth failure: the token refresh succeeded but the
+    // provider rejects our API access (Xero Connected-Apps disconnect,
+    // QBO/Sage revocation) — the refresh-path health check in
+    // connection.ts never sees this, so open the reconnect episode here.
+    await markConnectionRevoked({
+      organizationId: args.organizationId,
+      provider: args.provider,
+      detail: message ?? "unknown error",
+    });
+  }
 }
 
 // Build the provider-neutral sales lines for an invoice. Pure — unit
@@ -671,9 +688,7 @@ export async function voidInvoiceInAccounting(args: {
       entityId: args.invoiceId ?? null,
       externalId: args.externalInvoiceId,
       status: "failed",
-      error: new Error(
-        `void failed — orphaned invoice in ${conn.provider}: ${err instanceof Error ? err.message : String(err)}`,
-      ),
+      error: new Error(`void failed — orphaned invoice in ${conn.provider}: ${syncErrorMessage(err)}`),
     });
     return false;
   }
