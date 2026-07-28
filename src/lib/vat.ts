@@ -35,6 +35,14 @@ export function lineTreatmentOf(
   return Number(vatRate ?? STANDARD_VAT_RATE) > 0 ? "standard" : "outside_scope";
 }
 
+// Loose format check for a UK VAT registration number: 9 digits (12 for
+// branch traders), or GD/HA + 3 digits for government/health bodies, with
+// an optional GB prefix and spaces. Format-only — no HMRC/VIES lookup.
+export function isLikelyUkVatNumber(v: string): boolean {
+  const s = v.toUpperCase().replace(/\s/g, "").replace(/^GB/, "");
+  return /^\d{9}(\d{3})?$/.test(s) || /^(GD|HA)\d{3}$/.test(s);
+}
+
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // Invoice-level VAT across mixed-rate lines. Deductions (member discount +
