@@ -3,7 +3,7 @@ import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { generateInvoiceForPaidBooking } from "@/lib/booking-invoice";
-import { pushPaymentToAccounting, pushPayoutToAccounting } from "@/lib/accounting/sync";
+import { pushCreditNoteToAccounting, pushPaymentToAccounting, pushPayoutToAccounting } from "@/lib/accounting/sync";
 import { applyQuoteDeposit } from "@/lib/quote-deposit";
 import { applyStandaloneQuoteDeposit } from "@/app/quote/[slug]/actions";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
@@ -402,6 +402,22 @@ async function handleStripeEvent(
           invoiceId,
           rowsUpdated: count,
         });
+
+        // Same push the checkout.session.completed path does — this route
+        // previously marked the invoice paid locally with no provider
+        // payment, leaving the accounting package showing it unpaid.
+        if (count && count > 0) {
+          try {
+            await pushPaymentToAccounting({
+              invoiceId,
+              amountPence: pi.amount_received ?? pi.amount ?? 0,
+              paymentDate: new Date().toISOString(),
+              reference: pi.id,
+            });
+          } catch (err) {
+            console.error("[stripe-webhook] payment_intent accounting push failed", err);
+          }
+        }
       }
       if (bookingId) {
         const { count } = await admin
@@ -465,7 +481,7 @@ async function handleStripeEvent(
         }
       }
       for (const r of refunds) {
-        await recordRefundCreditNote(admin, {
+        const { creditNoteId } = await recordRefundCreditNote(admin, {
           invoiceId: invRow.id,
           locationId: invRow.location_id,
           customerId: invRow.customer_id,
@@ -475,6 +491,17 @@ async function handleStripeEvent(
           stripeRefundId: r.id,
           createdBy: null,
         });
+        // Push to the accounting provider (idempotent) — dashboard-initiated
+        // refunds previously only reached the books via the manual retry
+        // button. Duplicates of in-app refunds are already stamped, so the
+        // push no-ops for them.
+        if (creditNoteId) {
+          try {
+            await pushCreditNoteToAccounting(creditNoteId);
+          } catch (err) {
+            console.error("[stripe-webhook] charge.refunded accounting push failed", err);
+          }
+        }
       }
 
       await recomputeInvoiceRefundStatus(admin, invRow.id);

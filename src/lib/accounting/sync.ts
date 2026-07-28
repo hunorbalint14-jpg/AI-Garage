@@ -498,6 +498,162 @@ export async function pushPaymentToAccounting(args: {
   }
 }
 
+// Push one account-payment allocation (#504) as a provider payment against
+// its invoice. Account payments allocate one cash receipt across several
+// invoices, so idempotency lives on payment_allocations.accounting_payment_id
+// (per allocation), not the invoice's single accounting_payment_id — that
+// column is stamped only once the invoice is fully paid and every allocation
+// has synced, which keeps the books-health counts and the full-payment
+// retry path honest.
+export async function pushAllocationToAccounting(allocationId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("payment_allocations")
+    .select(
+      "id, amount, accounting_payment_id, invoice_id, payment:payments(id, organization_id, method, reference, received_at)",
+    )
+    .eq("id", allocationId)
+    .maybeSingle();
+  type Row = {
+    id: string;
+    amount: number;
+    accounting_payment_id: string | null;
+    invoice_id: string;
+    payment: { id: string; organization_id: string; method: string | null; reference: string | null; received_at: string | null } | null;
+  };
+  const alloc = data as unknown as Row | null;
+  if (!alloc?.payment) return null;
+  if (alloc.accounting_payment_id) return alloc.accounting_payment_id;
+  const orgId = alloc.payment.organization_id;
+
+  const { data: invData } = await admin
+    .from("invoices")
+    .select("id, organization_id, customer_id, total, amount_paid, accounting_invoice_id, accounting_payment_id, is_demo")
+    .eq("id", alloc.invoice_id)
+    .maybeSingle();
+  type Inv = {
+    id: string;
+    organization_id: string | null;
+    customer_id: string;
+    total: number;
+    amount_paid: number | null;
+    accounting_invoice_id: string | null;
+    accounting_payment_id: string | null;
+    is_demo: boolean | null;
+  };
+  const inv = invData as Inv | null;
+  if (!inv || inv.is_demo) return null;
+
+  let externalInvoiceId = inv.accounting_invoice_id;
+  if (!externalInvoiceId) {
+    externalInvoiceId = await pushInvoiceToAccounting(inv.id);
+    if (!externalInvoiceId) return null;
+  }
+
+  const conn = await getAccountingConnection(orgId);
+  if (!conn) return null;
+
+  try {
+    const contactExternalId = await ensureContactForCustomer(conn, inv.customer_id);
+    const externalId = await PROVIDERS[conn.provider].createPayment(conn, {
+      externalInvoiceId,
+      contactExternalId,
+      amount: Number(alloc.amount),
+      dateISO: alloc.payment.received_at ?? new Date().toISOString(),
+      reference:
+        alloc.payment.reference ?? `Account payment (${alloc.payment.method ?? "manual"})`,
+    });
+    await admin
+      .from("payment_allocations")
+      .update({ accounting_payment_id: externalId })
+      .eq("id", allocationId);
+
+    // Fully paid + every allocation synced → stamp the invoice's own
+    // mapping column so health/retry treat the payment side as complete.
+    if (!inv.accounting_payment_id) {
+      const { count } = await admin
+        .from("payment_allocations")
+        .select("id", { count: "exact", head: true })
+        .eq("invoice_id", inv.id)
+        .is("accounting_payment_id", null);
+      const { data: invNow } = await admin
+        .from("invoices")
+        .select("status, accounting_payment_id")
+        .eq("id", inv.id)
+        .maybeSingle();
+      const nowRow = invNow as { status: string; accounting_payment_id: string | null } | null;
+      if ((count ?? 0) === 0 && nowRow && !nowRow.accounting_payment_id && nowRow.status === "paid") {
+        await admin.from("invoices").update({ accounting_payment_id: externalId }).eq("id", inv.id);
+      }
+    }
+
+    await logSync({
+      organizationId: orgId,
+      provider: conn.provider,
+      entityType: "payment",
+      entityId: inv.id,
+      externalId,
+      status: "synced",
+    });
+    console.log("[accounting] allocation pushed", { allocationId, invoiceId: inv.id, provider: conn.provider, externalId });
+    return externalId;
+  } catch (err) {
+    console.error("[accounting] allocation push failed", { allocationId, provider: conn.provider }, err);
+    await logSync({
+      organizationId: orgId,
+      provider: conn.provider,
+      entityType: "payment",
+      entityId: inv.id,
+      status: "failed",
+      error: err,
+    });
+    return null;
+  }
+}
+
+// Void the provider-side invoice after a local delete — otherwise an
+// authorised sales invoice lives on in the package with no local
+// counterpart (an orphan the accountant must find by hand). Best-effort:
+// failure is logged so the orphan is visible in books health.
+export async function voidInvoiceInAccounting(args: {
+  organizationId: string;
+  externalInvoiceId: string;
+  invoiceId?: string;
+}): Promise<boolean> {
+  const conn = await getAccountingConnection(args.organizationId);
+  if (!conn) return false;
+  try {
+    await PROVIDERS[conn.provider].voidInvoice(conn, args.externalInvoiceId);
+    await logSync({
+      organizationId: args.organizationId,
+      provider: conn.provider,
+      entityType: "invoice",
+      entityId: args.invoiceId ?? null,
+      externalId: args.externalInvoiceId,
+      status: "synced",
+    });
+    console.log("[accounting] provider invoice voided", {
+      externalInvoiceId: args.externalInvoiceId,
+      provider: conn.provider,
+    });
+    return true;
+  } catch (err) {
+    console.error("[accounting] provider invoice void failed", { externalInvoiceId: args.externalInvoiceId }, err);
+    await logSync({
+      organizationId: args.organizationId,
+      provider: conn.provider,
+      entityType: "invoice",
+      entityId: args.invoiceId ?? null,
+      externalId: args.externalInvoiceId,
+      status: "failed",
+      error: new Error(
+        `void failed — orphaned invoice in ${conn.provider}: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+    });
+    return false;
+  }
+}
+
 // Push a credit note (a refund) to the provider. Idempotent via the local
 // mapping column, then the provider-side dedupe key.
 export async function pushCreditNoteToAccounting(creditNoteId: string): Promise<string | null> {

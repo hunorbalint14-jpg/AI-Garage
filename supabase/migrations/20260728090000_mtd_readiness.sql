@@ -32,6 +32,14 @@ update public.job_items ji
    and ji.service_id = s.id
    and ji.vat_rate = 0;
 
+-- ── 1b. Per-allocation payment sync (#504 account payments) ──────────────
+-- Account payments allocate one cash receipt across several invoices, so
+-- payment-sync idempotency must live per allocation. The invoice's single
+-- accounting_payment_id is stamped only once the invoice is fully paid
+-- and every allocation has synced.
+alter table public.payment_allocations
+  add column if not exists accounting_payment_id text;
+
 -- ── 2. Accounting link health ─────────────────────────────────────────────
 -- A failed token refresh used to silently sever the digital link (Sage
 -- refresh tokens die after 31 days unused, QuickBooks after ~100). Record
