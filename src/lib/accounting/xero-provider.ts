@@ -121,15 +121,24 @@ function xeroQuoteValue(v: string): string {
   return `"${v.replace(/"/g, '""')}"`;
 }
 
-// Map a provider-neutral line to a Xero LineItem. OUTPUT2 = UK 20%;
-// NONE for 0%-rated lines (e.g. an MOT fee) so Xero doesn't add VAT we
-// didn't charge.
+// Map a provider-neutral line to a Xero LineItem. Xero UK income tax
+// types: OUTPUT2 = 20% standard; ZERORATEDOUTPUT and EXEMPTOUTPUT keep
+// zero-rated/exempt sales inside the VAT return (Box 6); NONE excludes
+// the line entirely (outside-scope MOT fees, unregistered orgs).
+const XERO_TAX_TYPES: Record<SalesLine["taxTreatment"], string> = {
+  standard: "OUTPUT2",
+  zero: "ZERORATEDOUTPUT",
+  exempt: "EXEMPTOUTPUT",
+  outside_scope: "NONE",
+  no_vat: "NONE",
+};
+
 function toLineItem(line: SalesLine): LineItem {
   return {
     description: line.description,
     quantity: line.quantity,
     unitAmount: line.unitAmount,
-    taxType: line.standardRated ? "OUTPUT2" : "NONE",
+    taxType: XERO_TAX_TYPES[line.taxTreatment],
     accountCode: DEFAULT_SALES_ACCOUNT_CODE,
   };
 }
@@ -303,7 +312,8 @@ export const xeroProvider: AccountingProvider = {
   },
 
   // Created AUTHORISED but NOT auto-allocated against the original
-  // invoice — the accountant allocates in Xero.
+  // invoice — the accountant allocates in Xero. Lines carry the refund's
+  // actual VAT mix (buildCreditNoteLines) — never a hardcoded OUTPUT2.
   async createCreditNote(conn: AccountingConnection, payload: CreditNotePayload): Promise<string> {
     const client = hydrate(conn);
     const creditNote: CreditNote = {
@@ -312,15 +322,7 @@ export const xeroProvider: AccountingProvider = {
       reference: payload.referenceTag,
       date: new Date().toISOString().split("T")[0],
       lineAmountTypes: LineAmountTypes.Exclusive,
-      lineItems: [
-        {
-          description: payload.description,
-          quantity: 1,
-          unitAmount: payload.amount,
-          taxType: "OUTPUT2",
-          accountCode: DEFAULT_SALES_ACCOUNT_CODE,
-        },
-      ],
+      lineItems: payload.lines.map(toLineItem),
       status: CreditNote.StatusEnum.AUTHORISED,
     };
     const res = await client.accountingApi.createCreditNotes(conn.externalId, {
@@ -329,6 +331,16 @@ export const xeroProvider: AccountingProvider = {
     const created = res.body.creditNotes?.[0];
     if (!created?.creditNoteID) throw new Error("Xero createCreditNotes returned no credit note");
     return created.creditNoteID;
+  },
+
+  // VOIDED only works on an AUTHORISED invoice with no payments applied —
+  // exactly the window in which our deleteInvoice permits deletion. Xero
+  // rejects the update otherwise and the orchestrator logs the failure.
+  async voidInvoice(conn: AccountingConnection, externalInvoiceId: string): Promise<void> {
+    const client = hydrate(conn);
+    await client.accountingApi.updateInvoice(conn.externalId, externalInvoiceId, {
+      invoices: [{ status: Invoice.StatusEnum.VOIDED }],
+    });
   },
 
   // Receive Money bank transaction for a Stripe payout. Allocates to a

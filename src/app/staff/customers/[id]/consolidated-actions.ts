@@ -5,6 +5,7 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nextDocumentNumber } from "@/lib/document-numbers";
+import { pushInvoiceToAccounting } from "@/lib/accounting/sync";
 import { logAudit } from "@/lib/audit";
 
 // Consolidated month-end invoicing (#504 PR 3). One invoice per account for
@@ -135,6 +136,14 @@ export async function raiseConsolidatedInvoice(
   }
 
   await admin.from("jobs").update({ status: "invoiced" }).in("id", jobs.map((j) => j.id));
+
+  // Fire-and-forget: consolidated invoices previously never reached the
+  // accounting provider at raise time (only via the manual retry button,
+  // and then as a wrong single standard-rated line — see sync.ts's
+  // consolidatedSalesLines for the per-job treatment-split push).
+  pushInvoiceToAccounting(invoice.id).catch((err) =>
+    console.error("[consolidated] accounting push failed", err),
+  );
 
   await logAudit({
     organizationId: ctx.organization.id,

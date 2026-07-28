@@ -20,6 +20,8 @@ export type AccountingConnectionView = {
   label: string; // "Xero" | "QuickBooks" | "Sage"
   displayName: string | null;
   connectedAt: string;
+  needsReconnect: boolean;
+  lastRefreshError: string | null;
 };
 
 type Props = {
@@ -36,6 +38,7 @@ const ENTITY_LABELS: Record<string, string> = {
   credit_note: "Credit note",
   payout: "Payout",
   contact: "Contact",
+  connection: "Connection",
 };
 
 export function AccountingSection({ connection, health, canManage }: Props) {
@@ -107,6 +110,27 @@ export function AccountingSection({ connection, health, canManage }: Props) {
         </p>
       </div>
 
+      {connection?.needsReconnect ? (
+        <div className="rounded-md border border-ws-red/40 bg-ws-red-bg px-4 py-3 flex flex-col gap-2">
+          <p className="text-sm font-medium text-ws-red">
+            {connection.label} sync has stopped — reconnect needed
+          </p>
+          <p className="text-xs text-muted-foreground">
+            The saved authorisation has expired, so invoices and payments are no longer reaching{" "}
+            {connection.label}. Reconnect to resume — anything issued in the meantime backfills
+            automatically.
+            {connection.lastRefreshError ? ` (${connection.lastRefreshError})` : null}
+          </p>
+          {canManage ? (
+            <div>
+              <Button size="sm" onClick={() => handleConnect(connection.provider)}>
+                Reconnect {connection.label}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {connection ? (
         <div className="flex flex-col gap-3">
           <ul className="text-xs text-muted-foreground space-y-1">
@@ -149,6 +173,21 @@ export function AccountingSection({ connection, health, canManage }: Props) {
           </div>
           <p className="text-xs text-muted-foreground">One accounting connection per organisation.</p>
         </div>
+      )}
+
+      {/* CSV import/export is itself a valid MTD digital link — the
+          compliant route for accountants on other software. Re-keying
+          from screen or PDF is the banned path this replaces. */}
+      {canManage && (
+        <p className="text-xs text-muted-foreground">
+          Accountant on something else?{" "}
+          <a className="underline underline-offset-2 hover:text-foreground" href="/staff/settings/export/accounting" download>
+            Download the sales CSV
+          </a>{" "}
+          — one row per invoice line with VAT treatment, ready to import into any MTD-compatible
+          package (add <code className="font-mono">?from=YYYY-MM-DD&amp;to=YYYY-MM-DD</code> for a VAT
+          period).
+        </p>
       )}
 
       {!canManage && !connection && (

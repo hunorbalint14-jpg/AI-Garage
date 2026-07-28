@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
   // Daily platform-level passes on the 09:00 tick — both routes are
   // idempotent, so a double fire is safe and a missed hour runs next day.
   if (now.getUTCHours() === 9) {
-    for (const path of ["/api/cron/activation", "/api/cron/overage-reconcile", "/api/cron/traffic-rollup"]) {
+    for (const path of ["/api/cron/activation", "/api/cron/overage-reconcile", "/api/cron/traffic-rollup", "/api/cron/accounting-backfill"]) {
       try {
         const res = await fetch(`${origin}${path}`, {
           headers: { authorization: `Bearer ${secret}` },

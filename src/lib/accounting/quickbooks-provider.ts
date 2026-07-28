@@ -268,29 +268,42 @@ async function ensureSalesItem(auth: QboAuth): Promise<QboRef> {
 }
 
 // UK QBO tax codes are realm-specific rows, so we resolve by name:
-// "20.0% S" = standard rate; "No VAT" (fallback "Exempt", then a
-// zero-rated code) plays the role Xero's NONE does for 0% lines.
-async function resolveTaxCodes(auth: QboAuth): Promise<{ standard: QboRef; none: QboRef }> {
+// "20.0% S" = standard, "0.0% Z" = zero-rated, "Exempt", "No VAT" (the
+// out-of-scope code, playing Xero's NONE). Zero-rated/exempt/No-VAT are
+// distinct because they land in different boxes of the VAT return; when
+// a realm lacks one of the 0% codes we fall back within the 0% family,
+// never to the standard code.
+type QboTaxRefs = Record<SalesLine["taxTreatment"], QboRef>;
+
+async function resolveTaxCodes(auth: QboAuth): Promise<QboTaxRefs> {
   const codes = await qboQuery<"TaxCode", QboTaxCode>(auth, "TaxCode", "Active = true");
   const byName = (re: RegExp) => codes.find((c) => re.test(c.Name ?? ""));
   const standard = byName(/^20\.0% s/i) ?? byName(/20\.0%/);
-  const none = byName(/^no vat/i) ?? byName(/^exempt/i) ?? byName(/^0\.00?% z/i);
+  const zero = byName(/^0\.00?% z/i);
+  const exempt = byName(/^exempt/i);
+  const noVat = byName(/^no vat/i);
   if (!standard?.Id) {
     throw new Error("No 20% standard-rate tax code found in QuickBooks (is the company UK VAT-enabled?)");
   }
-  if (!none?.Id) throw new Error("No zero/No-VAT tax code found in QuickBooks");
-  return { standard: { value: standard.Id }, none: { value: none.Id } };
+  const zeroFamily = (...prefs: (QboTaxCode | undefined)[]) => prefs.find((c) => c?.Id)?.Id;
+  const zeroId = zeroFamily(zero, exempt, noVat);
+  const exemptId = zeroFamily(exempt, noVat, zero);
+  const noVatId = zeroFamily(noVat, exempt, zero);
+  if (!zeroId || !exemptId || !noVatId) throw new Error("No zero/No-VAT tax code found in QuickBooks");
+  return {
+    standard: { value: standard.Id },
+    zero: { value: zeroId },
+    exempt: { value: exemptId },
+    outside_scope: { value: noVatId },
+    no_vat: { value: noVatId },
+  };
 }
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-function toSalesLine(
-  line: SalesLine,
-  itemRef: QboRef,
-  tax: { standard: QboRef; none: QboRef },
-) {
+function toSalesLine(line: SalesLine, itemRef: QboRef, tax: QboTaxRefs) {
   return {
     DetailType: "SalesItemLineDetail",
     Amount: round2(line.quantity * line.unitAmount),
@@ -299,7 +312,7 @@ function toSalesLine(
       ItemRef: itemRef,
       Qty: line.quantity,
       UnitPrice: line.unitAmount,
-      TaxCodeRef: line.standardRated ? tax.standard : tax.none,
+      TaxCodeRef: tax[line.taxTreatment],
     },
   };
 }
@@ -409,7 +422,8 @@ export const quickBooksProvider: AccountingProvider = {
   },
 
   // Not auto-applied against the original invoice — the accountant
-  // allocates it in QuickBooks, mirroring the Xero behaviour.
+  // allocates it in QuickBooks, mirroring the Xero behaviour. Lines carry
+  // the refund's actual VAT mix (buildCreditNoteLines).
   async createCreditNote(conn: AccountingConnection, payload: CreditNotePayload): Promise<string> {
     const auth = authOf(conn);
     const [itemRef, tax] = await Promise.all([ensureSalesItem(auth), resolveTaxCodes(auth)]);
@@ -420,16 +434,26 @@ export const quickBooksProvider: AccountingProvider = {
       TxnDate: new Date().toISOString().split("T")[0],
       GlobalTaxCalculation: "TaxExcluded",
       PrivateNote: payload.referenceTag,
-      Line: [
-        toSalesLine(
-          { description: payload.description, quantity: 1, unitAmount: payload.amount, standardRated: true },
-          itemRef,
-          tax,
-        ),
-      ],
+      Line: payload.lines.map((l) => toSalesLine(l, itemRef, tax)),
     });
     if (!res.CreditMemo?.Id) throw new Error("QuickBooks credit memo create returned no credit memo");
     return res.CreditMemo.Id;
+  },
+
+  // QBO voids in place (operation=void keeps the DocNumber but zeroes the
+  // amounts); needs the current SyncToken. Fails if a payment is linked.
+  async voidInvoice(conn: AccountingConnection, externalInvoiceId: string): Promise<void> {
+    const auth = authOf(conn);
+    const current = await qboApi<{ Invoice?: { Id: string; SyncToken?: string } }>(
+      auth,
+      "GET",
+      `/invoice/${externalInvoiceId}`,
+    );
+    if (!current.Invoice?.Id) throw new Error("QuickBooks invoice not found for void");
+    await qboApi(auth, "POST", "/invoice?operation=void", {
+      Id: current.Invoice.Id,
+      SyncToken: current.Invoice.SyncToken ?? "0",
+    });
   },
 
   // Stripe payout → Deposit into the first Bank account. Same v1 caveat

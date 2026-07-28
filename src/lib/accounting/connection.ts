@@ -31,6 +31,7 @@ type ConnectionRow = {
   refresh_token: string | null;
   token_expires_at: string | null;
   connected_at: string;
+  needs_reconnect: boolean | null;
 };
 
 // Load the org's accounting connection with decrypted tokens, refreshing
@@ -44,7 +45,7 @@ export async function getAccountingConnection(
   const admin = createAdminClient();
   const { data } = await admin
     .from("accounting_connections")
-    .select("organization_id, provider, external_id, display_name, access_token, refresh_token, token_expires_at, connected_at")
+    .select("organization_id, provider, external_id, display_name, access_token, refresh_token, token_expires_at, connected_at, needs_reconnect")
     .eq("organization_id", orgId)
     .maybeSingle();
 
@@ -70,10 +71,37 @@ export async function getAccountingConnection(
           access_token: encrypt(accessToken),
           refresh_token: encrypt(refreshToken),
           token_expires_at: expiresAt,
+          // A successful refresh ends any reconnect episode.
+          ...(row.needs_reconnect
+            ? { needs_reconnect: false, last_refresh_error: null, last_refresh_error_at: null, reconnect_alerted_at: null }
+            : {}),
         })
         .eq("organization_id", orgId);
     } catch (err) {
+      // A dead refresh token severs the digital link — it used to do so
+      // SILENTLY (no sync-log row, no banner; Sage refresh tokens die
+      // after 31 days unused, QuickBooks after ~100). Record the failure
+      // so the UI can demand a reconnect and the cron can alert the owner.
       console.error(`[accounting] ${row.provider} token refresh failed`, err);
+      const message = (err instanceof Error ? err.message : String(err)).slice(0, 500);
+      await admin
+        .from("accounting_connections")
+        .update({
+          needs_reconnect: true,
+          last_refresh_error: message,
+          last_refresh_error_at: new Date().toISOString(),
+        })
+        .eq("organization_id", orgId);
+      if (!row.needs_reconnect) {
+        // First failure of the episode → one visible sync-log row.
+        await admin.from("accounting_sync_log").insert({
+          organization_id: orgId,
+          provider: row.provider,
+          entity_type: "connection",
+          status: "failed",
+          error: `token refresh failed — reconnect required: ${message}`.slice(0, 500),
+        });
+      }
       return null;
     }
   }
@@ -150,6 +178,10 @@ export async function saveAccountingConnection(args: {
       token_expires_at: args.tokenExpiresAt,
       connected_at: new Date().toISOString(),
       connected_by: args.connectedBy,
+      needs_reconnect: false,
+      last_refresh_error: null,
+      last_refresh_error_at: null,
+      reconnect_alerted_at: null,
     },
     { onConflict: "organization_id" },
   );
@@ -170,13 +202,15 @@ export type ConnectionStatus = {
   provider: AccountingProviderId;
   displayName: string | null;
   connectedAt: string;
+  needsReconnect: boolean;
+  lastRefreshError: string | null;
 };
 
 export async function getConnectionStatus(orgId: string): Promise<ConnectionStatus | null> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("accounting_connections")
-    .select("provider, display_name, connected_at")
+    .select("provider, display_name, connected_at, needs_reconnect, last_refresh_error")
     .eq("organization_id", orgId)
     .maybeSingle();
   if (!data) return null;
@@ -184,5 +218,7 @@ export async function getConnectionStatus(orgId: string): Promise<ConnectionStat
     provider: data.provider as AccountingProviderId,
     displayName: data.display_name as string | null,
     connectedAt: data.connected_at as string,
+    needsReconnect: (data.needs_reconnect as boolean | null) === true,
+    lastRefreshError: (data.last_refresh_error as string | null) ?? null,
   };
 }

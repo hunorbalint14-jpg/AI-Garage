@@ -10,6 +10,8 @@
 //   4. Add a card in the settings Integrations tab + env-checklist rows.
 // See docs/accounting-providers.md.
 
+import type { VatTreatment } from "@/lib/vat";
+
 export type AccountingProviderId = "xero" | "quickbooks" | "sage";
 
 export const PROVIDER_LABELS: Record<AccountingProviderId, string> = {
@@ -32,14 +34,20 @@ export type AccountingConnection = {
   connectedAt: string; // ISO
 };
 
-// One provider-neutral sales line. `standardRated` selects the provider's
-// UK 20% VAT code; false = the provider's no-VAT code (0% / outside scope).
-// unitAmount is net (ex VAT) and may be negative (discounts, credits).
+// Per-line tax treatment carried to the provider. The four VatTreatments
+// map to the provider's distinct UK codes (zero-rated and exempt sales
+// belong in Box 6 of the VAT return; outside-scope doesn't — collapsing
+// them misstates the return the garage files from the package). "no_vat"
+// = the org isn't VAT-registered, so no line carries any VAT meaning.
+export type LineTaxTreatment = VatTreatment | "no_vat";
+
+// One provider-neutral sales line. unitAmount is net (ex VAT) and may be
+// negative (discounts, credits).
 export type SalesLine = {
   description: string;
   quantity: number;
   unitAmount: number;
-  standardRated: boolean;
+  taxTreatment: LineTaxTreatment;
 };
 
 export type ContactPayload = {
@@ -78,9 +86,12 @@ export type CreditNotePayload = {
   referenceTag: string;
   creditNumber: string | null;
   contactExternalId: string;
-  description: string;
-  /** Net amount (positive). */
-  amount: number;
+  /**
+   * Net lines carrying the refund's actual VAT mix (built by
+   * buildCreditNoteLines from the credit note's stored net + VAT — a
+   * refund against a 0%-VAT invoice must not gain 20% provider-side).
+   */
+  lines: SalesLine[];
 };
 
 export type PayoutPayload = {
@@ -107,6 +118,12 @@ export interface AccountingProvider {
   createCreditNote(conn: AccountingConnection, payload: CreditNotePayload): Promise<string>;
   /** Post a Stripe payout as a bank-side receive/deposit transaction. */
   createPayout(conn: AccountingConnection, payload: PayoutPayload): Promise<string>;
+  /**
+   * Void/delete the provider-side sales invoice. Throws if the provider
+   * refuses (e.g. payments already applied) — the orchestrator logs the
+   * failure so the orphan is visible instead of silent.
+   */
+  voidInvoice(conn: AccountingConnection, externalInvoiceId: string): Promise<void>;
 }
 
 export type RefreshedTokens = {

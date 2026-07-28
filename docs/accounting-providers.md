@@ -49,8 +49,34 @@ Business Cloud Accounting). The seam separates *what* we sync
 3. Create, then persist the mapping + a `synced` log row.
 
 Failures write a `failed` log row and return null — callers are
-fire-and-forget. The health panel's "Retry sync now" re-pushes anything
-missing inside the connection window (everything is individually idempotent).
+fire-and-forget. The sweep in `src/lib/accounting/backfill.ts` re-pushes
+anything missing inside the connection window (everything is individually
+idempotent); it runs from the health panel's "Retry sync now" button AND
+daily from `/api/cron/accounting-backfill` (dispatched by tick's 09:00
+pass), which also keeps refresh tokens alive and emails the org owner once
+per reconnect episode when a refresh fails
+(`accounting_connections.needs_reconnect`).
+
+## Tax coding (MTD readiness)
+
+Lines carry a `taxTreatment` enum (`standard` / `zero` / `exempt` /
+`outside_scope` / `no_vat`), snapshotted per line on `job_items.vat_treatment`
+and mapped to DISTINCT provider codes — Xero `OUTPUT2` /
+`ZERORATEDOUTPUT` / `EXEMPTOUTPUT` / `NONE`; QBO `20.0% S` / `0.0% Z` /
+`Exempt` / `No VAT`; Sage `GB_STANDARD` / `GB_ZERO` / `GB_EXEMPT` /
+`GB_NO_TAX`. Zero-rated and exempt sales belong in Box 6 of the VAT
+return, outside-scope ones don't — never collapse them to one no-VAT
+code. Credit notes push the refund's actual VAT mix
+(`buildCreditNoteLines`: standard portion reconstructed from stored VAT +
+a no-VAT remainder), never a hardcoded standard rate. Consolidated
+account invoices push per-job, per-treatment lines
+(`consolidatedSalesLines`). Account payments (#504) sync per allocation
+(`payment_allocations.accounting_payment_id`) so partial payments post as
+the amounts actually received. `deleteInvoice` voids the provider-side
+invoice (`voidInvoice` op). Orgs without a connection get the
+accounting-import sales CSV at `/staff/settings/export/accounting` —
+built from `salesLinesForInvoiceRow`, i.e. exactly what the sync would
+push. Background: `docs/mtd-readiness.md`.
 
 ## Adding a provider
 

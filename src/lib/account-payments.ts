@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { allocatePayment } from "@/lib/allocation";
+import { pushAllocationToAccounting } from "@/lib/accounting/sync";
 
 // Shared account-payment applier (#504 → Stripe balance payments). One code
 // path for "money arrived for this customer's account": staff-recorded
@@ -64,9 +65,12 @@ export async function applyAccountPayment(
   if (payErr || !payment) return { error: payErr?.message ?? "Could not record the payment." };
 
   if (allocations.length > 0) {
-    const { error: allocErr } = await admin.from("payment_allocations").insert(
-      allocations.map((a) => ({ payment_id: payment.id, invoice_id: a.invoiceId, amount: a.amount })),
-    );
+    const { data: allocRows, error: allocErr } = await admin
+      .from("payment_allocations")
+      .insert(
+        allocations.map((a) => ({ payment_id: payment.id, invoice_id: a.invoiceId, amount: a.amount })),
+      )
+      .select("id");
     if (allocErr) {
       await admin.from("payments").delete().eq("id", payment.id);
       return { error: allocErr.message };
@@ -86,6 +90,15 @@ export async function applyAccountPayment(
         .from("invoices")
         .update({ amount_paid: paidNow, ...(covered ? { status: "paid", paid_at: nowIso } : {}) })
         .eq("id", a.invoiceId);
+    }
+
+    // Fire-and-forget: each allocation becomes a provider payment against
+    // its invoice (a re-keyed account payment breaks the MTD digital
+    // link). The backfill cron sweeps any that fail here.
+    for (const row of (allocRows ?? []) as { id: string }[]) {
+      pushAllocationToAccounting(row.id).catch((err) =>
+        console.error("[account-payments] accounting allocation push failed", err),
+      );
     }
   }
 

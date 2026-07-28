@@ -84,6 +84,7 @@ type JobItem = {
   unit_price: number;
   type: string;
   vat_rate: number;
+  vat_treatment: string | null;
   unit_cost: number | null;
   created_at: string;
 };
@@ -108,7 +109,7 @@ export default async function JobDetailPage({
       .maybeSingle(),
     admin
       .from("job_items")
-      .select("id, description, quantity, unit_price, type, vat_rate, unit_cost, created_at")
+      .select("id, description, quantity, unit_price, type, vat_rate, vat_treatment, unit_cost, created_at")
       .eq("job_id", id)
       .order("created_at", { ascending: true }),
     cachedActiveProducts(ctx.location.id),
@@ -295,6 +296,33 @@ export default async function JobDetailPage({
           findings={(await deferredFindingsForVehicles(admin, [job.vehicle.id], { excludeJobId: job.id })).get(job.vehicle.id) ?? []}
         />
       )}
+
+      {/* MOT disbursement guardrail (VTAXPER48000, docs/mtd-readiness.md
+          WS6): a subcontracting branch may only pass on the EXACT amount
+          the test centre charged as outside-scope — markup must be a
+          separate standard-rated line, else VAT is due on the whole fee. */}
+      {await (async () => {
+        const hasOutsideScope = items.some(
+          (it) => it.vat_treatment === "outside_scope" || (!it.vat_treatment && Number(it.vat_rate) === 0),
+        );
+        if (!hasOutsideScope) return null;
+        const { data: loc } = await admin
+          .from("locations")
+          .select("mot_subcontracted")
+          .eq("id", ctx.location.id)
+          .maybeSingle();
+        if ((loc as { mot_subcontracted: boolean | null } | null)?.mot_subcontracted !== true) return null;
+        return (
+          <div className="rounded-md border border-ws-amber/40 bg-ws-amber-bg px-4 py-3">
+            <p className="text-sm font-medium text-ws-amber">Subcontracted MOT — check the VAT split</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              This branch subcontracts MOTs, so the VAT-free line must be exactly what the test
+              centre charged you — no more. Charging the customer extra? Add the markup as its own
+              standard-rated line, or HMRC treats the whole fee as VATable (VTAXPER48000).
+            </p>
+          </div>
+        );
+      })()}
 
       <JobDetail job={job} items={items} products={productOptions} services={services} quotes={quotes} />
     </div>
