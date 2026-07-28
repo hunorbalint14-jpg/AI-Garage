@@ -175,6 +175,21 @@ export function AccountingSection({ connection, health, canManage }: Props) {
         </div>
       )}
 
+      {/* CSV import/export is itself a valid MTD digital link — the
+          compliant route for accountants on other software. Re-keying
+          from screen or PDF is the banned path this replaces. */}
+      {canManage && (
+        <p className="text-xs text-muted-foreground">
+          Accountant on something else?{" "}
+          <a className="underline underline-offset-2 hover:text-foreground" href="/staff/settings/export/accounting" download>
+            Download the sales CSV
+          </a>{" "}
+          — one row per invoice line with VAT treatment, ready to import into any MTD-compatible
+          package (add <code className="font-mono">?from=YYYY-MM-DD&amp;to=YYYY-MM-DD</code> for a VAT
+          period).
+        </p>
+      )}
+
       {!canManage && !connection && (
         <p className="text-xs text-muted-foreground">
           Only owners and admins can connect an accounting account.

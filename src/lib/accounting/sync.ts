@@ -176,7 +176,7 @@ export function buildCreditNoteLines(args: {
   ];
 }
 
-async function orgIsVatRegistered(organizationId: string): Promise<boolean> {
+export async function orgIsVatRegistered(organizationId: string): Promise<boolean> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("organizations")
@@ -299,6 +299,79 @@ type InvoiceRow = {
   is_demo: boolean | null;
 };
 
+// The exact sales lines the provider push sends, derivable for any
+// invoice row — shared by pushInvoiceToAccounting and the
+// accounting-import CSV export (the export IS the digital-link fallback,
+// so it must say precisely what the API sync would have said).
+export async function salesLinesForInvoiceRow(
+  inv: Pick<
+    InvoiceRow,
+    | "id"
+    | "job_id"
+    | "booking_id"
+    | "invoice_number"
+    | "subtotal"
+    | "vat_amount"
+    | "discount_amount"
+    | "discount_description"
+    | "membership_credit_amount"
+    | "membership_credit_description"
+  >,
+  orgVatRegistered: boolean,
+): Promise<SalesLine[]> {
+  const admin = createAdminClient();
+
+  type JobItemRow = { description: string; quantity: number; unit_price: number; vat_rate?: number | null; vat_treatment?: string | null };
+  let jobItems: JobItemRow[] | null = null;
+  let booking: { serviceName: string; when: string | null; subtotal: number; taxTreatment: VatTreatment } | null = null;
+  let consolidated: { description: string; net: number; taxTreatment: VatTreatment }[] | null = null;
+  if (inv.job_id) {
+    const { data: items } = await admin
+      .from("job_items")
+      .select("description, type, quantity, unit_price, vat_rate, vat_treatment")
+      .eq("job_id", inv.job_id);
+    jobItems = (items ?? []) as unknown as JobItemRow[];
+  } else if (inv.booking_id) {
+    const { data: b } = await admin
+      .from("bookings")
+      .select("scheduled_at, service:services(name, vat_treatment)")
+      .eq("id", inv.booking_id)
+      .maybeSingle();
+    type B = { scheduled_at: string; service: { name: string; vat_treatment: string | null } | null };
+    const row = b as unknown as B | null;
+    booking = {
+      serviceName: row?.service?.name ?? "Service",
+      when: row?.scheduled_at
+        ? new Date(row.scheduled_at).toLocaleString("en-GB", {
+            day: "numeric",
+            month: "long",
+            hour: "2-digit",
+            minute: "2-digit",
+          })
+        : null,
+      subtotal: Number(inv.subtotal),
+      // The booking invoice's stored VAT was derived from this treatment
+      // at generation time; vat_rate > 0 on the invoice implies standard.
+      taxTreatment: lineTreatmentOf(row?.service?.vat_treatment, Number(inv.vat_amount) > 0 ? STANDARD_VAT_RATE : 0),
+    };
+  } else {
+    consolidated = await consolidatedSalesLines(inv.id);
+  }
+
+  return buildSalesLines({
+    orgVatRegistered,
+    jobItems,
+    consolidated,
+    booking,
+    fallback: { invoiceNumber: inv.invoice_number, subtotal: Number(inv.subtotal) },
+    membershipCredit: {
+      amount: Number(inv.membership_credit_amount),
+      description: inv.membership_credit_description,
+    },
+    discount: { amount: Number(inv.discount_amount), description: inv.discount_description },
+  });
+}
+
 // Push an invoice (with its job_items OR booking line) to the org's
 // connected accounting provider as a sales invoice. Idempotent: local
 // mapping column first, then a provider-side reference lookup. Returns
@@ -327,43 +400,6 @@ export async function pushInvoiceToAccounting(invoiceId: string): Promise<string
     const contactExternalId = await ensureContactForCustomer(conn, inv.customer_id);
     const orgVatRegistered = await orgIsVatRegistered(inv.organization_id);
 
-    type JobItemRow = { description: string; quantity: number; unit_price: number; vat_rate?: number | null; vat_treatment?: string | null };
-    let jobItems: JobItemRow[] | null = null;
-    let booking: { serviceName: string; when: string | null; subtotal: number; taxTreatment: VatTreatment } | null = null;
-    let consolidated: { description: string; net: number; taxTreatment: VatTreatment }[] | null = null;
-    if (inv.job_id) {
-      const { data: items } = await admin
-        .from("job_items")
-        .select("description, type, quantity, unit_price, vat_rate, vat_treatment")
-        .eq("job_id", inv.job_id);
-      jobItems = (items ?? []) as unknown as JobItemRow[];
-    } else if (inv.booking_id) {
-      const { data: b } = await admin
-        .from("bookings")
-        .select("scheduled_at, service:services(name, vat_treatment)")
-        .eq("id", inv.booking_id)
-        .maybeSingle();
-      type B = { scheduled_at: string; service: { name: string; vat_treatment: string | null } | null };
-      const row = b as unknown as B | null;
-      booking = {
-        serviceName: row?.service?.name ?? "Service",
-        when: row?.scheduled_at
-          ? new Date(row.scheduled_at).toLocaleString("en-GB", {
-              day: "numeric",
-              month: "long",
-              hour: "2-digit",
-              minute: "2-digit",
-            })
-          : null,
-        subtotal: Number(inv.subtotal),
-        // The booking invoice's stored VAT was derived from this treatment
-        // at generation time; vat_rate > 0 on the invoice implies standard.
-        taxTreatment: lineTreatmentOf(row?.service?.vat_treatment, Number(inv.vat_amount) > 0 ? STANDARD_VAT_RATE : 0),
-      };
-    } else {
-      consolidated = await consolidatedSalesLines(inv.id);
-    }
-
     const payload = {
       ourInvoiceId: inv.id,
       invoiceNumber: inv.invoice_number,
@@ -371,18 +407,7 @@ export async function pushInvoiceToAccounting(invoiceId: string): Promise<string
       issuedAt: inv.issued_at,
       dueAt: inv.due_at,
       contactExternalId,
-      lines: buildSalesLines({
-        orgVatRegistered,
-        jobItems,
-        consolidated,
-        booking,
-        fallback: { invoiceNumber: inv.invoice_number, subtotal: Number(inv.subtotal) },
-        membershipCredit: {
-          amount: Number(inv.membership_credit_amount),
-          description: inv.membership_credit_description,
-        },
-        discount: { amount: Number(inv.discount_amount), description: inv.discount_description },
-      }),
+      lines: await salesLinesForInvoiceRow(inv, orgVatRegistered),
     };
 
     // Provider-side dedupe recovers a lost local mapping (and on Xero
