@@ -171,6 +171,9 @@ export async function applyApprovedItems(quoteId: string): Promise<{ appliedIds:
     quantity: it.quantity,
     unit_price: it.unit_price,
     product_id: it.product_id,
+    // Quote lines are parts/labour — standard-rated (quotes carry no
+    // per-line treatment; the MOT fee never rides a quote approval).
+    vat_treatment: "standard",
     // Cost snapshot for the margin maths (#502) — the product's cost at
     // apply time; null stays unknown.
     unit_cost: it.product?.cost_price ?? null,

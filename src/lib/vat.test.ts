@@ -1,5 +1,44 @@
 import { describe, it, expect } from "vitest";
-import { serviceNetUnitPrice, STANDARD_VAT_RATE, vatRateFor, computeInvoiceVat, isVatTreatment } from "./vat";
+import {
+  serviceNetUnitPrice,
+  STANDARD_VAT_RATE,
+  vatRateFor,
+  computeInvoiceVat,
+  isVatTreatment,
+  isLikelyUkVatNumber,
+  lineTreatmentOf,
+} from "./vat";
+
+describe("isLikelyUkVatNumber", () => {
+  it("accepts standard 9-digit numbers with/without GB and spaces", () => {
+    expect(isLikelyUkVatNumber("123456789")).toBe(true);
+    expect(isLikelyUkVatNumber("GB123456789")).toBe(true);
+    expect(isLikelyUkVatNumber("GB 123 4567 89")).toBe(true);
+  });
+  it("accepts 12-digit branch traders and GD/HA bodies", () => {
+    expect(isLikelyUkVatNumber("123456789001")).toBe(true);
+    expect(isLikelyUkVatNumber("GBGD001")).toBe(true);
+    expect(isLikelyUkVatNumber("HA599")).toBe(true);
+  });
+  it("rejects wrong lengths and junk", () => {
+    expect(isLikelyUkVatNumber("12345678")).toBe(false);
+    expect(isLikelyUkVatNumber("1234567890")).toBe(false);
+    expect(isLikelyUkVatNumber("VAT NUMBER")).toBe(false);
+    expect(isLikelyUkVatNumber("")).toBe(false);
+  });
+});
+
+describe("lineTreatmentOf", () => {
+  it("prefers the stored treatment", () => {
+    expect(lineTreatmentOf("zero", 0)).toBe("zero");
+    expect(lineTreatmentOf("outside_scope", 0)).toBe("outside_scope");
+  });
+  it("legacy lines fall back by rate: positive → standard, 0 → outside_scope", () => {
+    expect(lineTreatmentOf(null, 20)).toBe("standard");
+    expect(lineTreatmentOf(undefined, null)).toBe("standard"); // null rate defaults 20
+    expect(lineTreatmentOf("bogus", 0)).toBe("outside_scope");
+  });
+});
 
 describe("serviceNetUnitPrice", () => {
   it("backs VAT out of a gross (vat_included) price", () => {

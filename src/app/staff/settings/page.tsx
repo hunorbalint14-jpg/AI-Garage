@@ -30,8 +30,10 @@ import { isHvQualified, qualExpired } from "@/lib/ev-readiness";
 import type { FinanceConfigView } from "./finance-actions";
 import { SettingsTabs, isSettingsTab } from "./settings-tabs";
 import { SiteSection } from "./site-section";
+import { MtdReadinessCard } from "./mtd-readiness-card";
+import { getMtdReadiness } from "@/lib/mtd-readiness";
 
-type LocationRow = { id: string; slug: string; name: string; address: string | null; invoice_prefix: string | null; created_at: string };
+type LocationRow = { id: string; slug: string; name: string; address: string | null; invoice_prefix: string | null; mot_subcontracted: boolean | null; created_at: string };
 
 const ROOT = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? "localtest.me:3000";
 const ROOT_HOST = ROOT.split(":")[0];
@@ -50,12 +52,12 @@ export default async function SettingsPage({
   const [orgRes, locationsRes, currentLocRes, passkeysRes, financeRes] = await Promise.all([
     admin
       .from("organizations")
-      .select("name, primary_color, logo_url, slug, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number, authorisation_terms, variation_threshold_pct, labour_cost_rate, parts_markup_rules, parts_target_margin_pct")
+      .select("name, primary_color, logo_url, slug, phone, google_review_url, privacy_policy_url, dpa_version, dpa_accepted_at, stripe_account_id, stripe_charges_enabled, stripe_payouts_enabled, stripe_details_submitted, quote_deposit_pct, quote_validity_days, quote_reminders_enabled, quote_reminder_days, quote_reminder_max, no_show_fee_pence, vat_registered, vat_number, business_structure, authorisation_terms, variation_threshold_pct, labour_cost_rate, parts_markup_rules, parts_target_margin_pct")
       .eq("id", ctx.organization.id)
       .single(),
     admin
       .from("locations")
-      .select("id, slug, name, address, invoice_prefix, created_at")
+      .select("id, slug, name, address, invoice_prefix, mot_subcontracted, created_at")
       .eq("organization_id", ctx.organization.id)
       .order("created_at", { ascending: true }),
     admin
@@ -123,6 +125,8 @@ export default async function SettingsPage({
         label: PROVIDER_LABELS[status.provider],
         displayName: status.displayName,
         connectedAt: status.connectedAt,
+        needsReconnect: status.needsReconnect,
+        lastRefreshError: status.lastRefreshError,
       };
       accountingHealth = await getBooksHealth(ctx.organization.id, status.connectedAt);
     }
@@ -304,8 +308,10 @@ export default async function SettingsPage({
           <VatSection
             vatRegistered={(org as { vat_registered?: boolean | null } | null)?.vat_registered !== false}
             vatNumber={(org as { vat_number?: string | null } | null)?.vat_number ?? ""}
+            businessStructure={(org as { business_structure?: string | null } | null)?.business_structure ?? ""}
             activeLocationName={ctx.location.name}
             invoicePrefix={locations.find((l) => l.id === ctx.location.id)?.invoice_prefix ?? ""}
+            motSubcontracted={locations.find((l) => l.id === ctx.location.id)?.mot_subcontracted === true}
             canManage={isOwner}
           />
 
@@ -356,11 +362,14 @@ export default async function SettingsPage({
 
       {/* ── Integrations ─────────────────────────────────────────── */}
       {tab === "integrations" && (
-        <AccountingSection
-          connection={accountingConnection}
-          health={accountingHealth}
-          canManage={isOwner}
-        />
+        <>
+          <AccountingSection
+            connection={accountingConnection}
+            health={accountingHealth}
+            canManage={isOwner}
+          />
+          <MtdReadinessCard readiness={await getMtdReadiness(ctx.organization.id)} />
+        </>
       )}
 
       {/* ── Compliance ───────────────────────────────────────────── */}

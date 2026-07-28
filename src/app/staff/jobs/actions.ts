@@ -18,7 +18,7 @@ import { listLocationStaff } from "@/lib/staff-directory";
 import { logAudit } from "@/lib/audit";
 import { durationMinutes } from "@/lib/time-tracking";
 import { applyStockDelta } from "@/lib/stock";
-import { serviceNetUnitPrice, vatRateFor, isVatTreatment, STANDARD_VAT_RATE } from "@/lib/vat";
+import { serviceNetUnitPrice, vatRateFor, isVatTreatment, STANDARD_VAT_RATE, type VatTreatment } from "@/lib/vat";
 
 // Sum product-linked part quantities for a job → Map<product_id, qty>. Used to
 // move stock on completion/reopen.
@@ -516,10 +516,13 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
   // included-services allowance recognise the line later).
   let serviceId: string | null = null;
   let effectiveUnitPrice = unitPrice;
-  // Line VAT rate is snapshotted at add time: custom lines and products are
+  // Line VAT is snapshotted at add time: custom lines and products are
   // standard-rated; a service line carries its catalogue treatment (an MOT
-  // fee is outside the scope → 0%).
+  // fee is outside the scope → 0%). Both the numeric rate and the treatment
+  // are stored — the rate renders the invoice, the treatment feeds the
+  // accounting sync's distinct zero/exempt/outside-scope codes.
   let lineVatRate = STANDARD_VAT_RATE;
+  let lineVatTreatment: VatTreatment = "standard";
   if (serviceIdRaw) {
     const { data: svc } = await admin
       .from("services")
@@ -530,7 +533,8 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
     serviceId = svc ? serviceIdRaw : null;
     const s = svc as { price: number | null; vat_included: boolean | null; vat_treatment: string | null } | null;
     if (s) {
-      lineVatRate = vatRateFor(isVatTreatment(s.vat_treatment) ? s.vat_treatment : "standard");
+      lineVatTreatment = isVatTreatment(s.vat_treatment) ? s.vat_treatment : "standard";
+      lineVatRate = vatRateFor(lineVatTreatment);
       // A vat_included service price is the advertised gross; the invoice adds
       // VAT on top, so back it out (only when the client submitted the catalogue
       // price unchanged — a hand-edited price is trusted as net).
@@ -542,7 +546,7 @@ export async function addJobItem(jobId: string, formData: FormData): Promise<Add
 
   const { data, error } = await admin
     .from("job_items")
-    .insert({ job_id: jobId, description, type, quantity, unit_price: effectiveUnitPrice, product_id: productId, service_id: serviceId, vat_rate: lineVatRate, unit_cost: unitCost })
+    .insert({ job_id: jobId, description, type, quantity, unit_price: effectiveUnitPrice, product_id: productId, service_id: serviceId, vat_rate: lineVatRate, vat_treatment: lineVatTreatment, unit_cost: unitCost })
     .select("id")
     .single();
 

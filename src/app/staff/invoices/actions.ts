@@ -9,7 +9,7 @@ import { sendEmail } from "@/lib/email";
 import { garageLabel } from "@/lib/garage-identity";
 import { tenantPayUrl, stripe } from "@/lib/stripe";
 import { buildInvoiceHtml } from "@/lib/invoice-html";
-import { pushInvoiceToAccounting, pushPaymentToAccounting, pushCreditNoteToAccounting } from "@/lib/accounting/sync";
+import { pushInvoiceToAccounting, pushPaymentToAccounting, pushCreditNoteToAccounting, voidInvoiceInAccounting } from "@/lib/accounting/sync";
 import { recordRefundCreditNote, recomputeInvoiceRefundStatus } from "@/lib/credit-notes";
 import {
   getMemberBenefits,
@@ -519,7 +519,7 @@ export async function deleteInvoice(invoiceId: string): Promise<InvoiceActionRes
 
   const { data: invoice } = await admin
     .from("invoices")
-    .select("id, location_id, job_id, status")
+    .select("id, location_id, job_id, status, invoice_number, accounting_invoice_id")
     .eq("id", invoiceId)
     .maybeSingle();
 
@@ -532,6 +532,18 @@ export async function deleteInvoice(invoiceId: string): Promise<InvoiceActionRes
     await admin.from("jobs").update({ status: "complete" }).eq("id", invoice.job_id);
   }
 
+  // Void the already-pushed provider invoice — deleting only locally left
+  // an authorised sales invoice alive in the accounting package (an MTD
+  // digital-record divergence the accountant had to find by hand).
+  // Best-effort: a failed void lands in the sync log / books health.
+  if (invoice.accounting_invoice_id) {
+    voidInvoiceInAccounting({
+      organizationId: ctx.organization.id,
+      externalInvoiceId: invoice.accounting_invoice_id as string,
+      invoiceId,
+    }).catch((err) => console.error("[invoices/deleteInvoice] provider void failed", err));
+  }
+
   await logAudit({
     organizationId: ctx.organization.id,
     actorUserId: ctx.user.id,
@@ -539,7 +551,12 @@ export async function deleteInvoice(invoiceId: string): Promise<InvoiceActionRes
     action: "invoice.delete",
     entityType: "invoice",
     entityId: invoiceId,
-    metadata: { job_id: invoice.job_id, prior_status: invoice.status },
+    metadata: {
+      job_id: invoice.job_id,
+      prior_status: invoice.status,
+      invoice_number: invoice.invoice_number,
+      provider_invoice_voided: !!invoice.accounting_invoice_id,
+    },
   });
 
   revalidatePath("/staff/invoices");

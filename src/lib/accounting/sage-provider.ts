@@ -184,20 +184,31 @@ type SageTaxRate = { id: string; name?: string; percentage?: number };
 type SageLedgerAccount = { id: string; displayed_as?: string };
 type SageBankAccount = { id: string; displayed_as?: string };
 
-// UK ids are GB_STANDARD / GB_ZERO / GB_NO_TAX; match by id first and
-// fall back to the percentage so a non-GB business still resolves.
-async function resolveTaxRates(auth: SageAuth): Promise<{ standard: string; none: string }> {
+// UK ids are GB_STANDARD / GB_ZERO / GB_EXEMPT / GB_NO_TAX; match by id
+// first and fall back to the percentage so a non-GB business still
+// resolves. The three 0% rates are distinct because they land in
+// different boxes of the VAT return; a missing one falls back within the
+// 0% family, never to the standard rate.
+type SageTaxIds = Record<SalesLine["taxTreatment"], string>;
+
+async function resolveTaxRates(auth: SageAuth): Promise<SageTaxIds> {
   const res = await sageApi<SagePage<SageTaxRate>>(auth, "GET", "/tax_rates?items_per_page=200");
   const rates = res.$items ?? [];
-  const standard =
-    rates.find((r) => r.id === "GB_STANDARD") ?? rates.find((r) => Number(r.percentage) === 20);
-  const none =
-    rates.find((r) => r.id === "GB_NO_TAX") ??
-    rates.find((r) => r.id === "GB_ZERO") ??
-    rates.find((r) => Number(r.percentage) === 0);
+  const byId = (id: string) => rates.find((r) => r.id === id);
+  const standard = byId("GB_STANDARD") ?? rates.find((r) => Number(r.percentage) === 20);
+  const anyZeroPct = rates.find((r) => Number(r.percentage) === 0);
+  const zero = byId("GB_ZERO") ?? byId("GB_EXEMPT") ?? byId("GB_NO_TAX") ?? anyZeroPct;
+  const exempt = byId("GB_EXEMPT") ?? byId("GB_NO_TAX") ?? byId("GB_ZERO") ?? anyZeroPct;
+  const noTax = byId("GB_NO_TAX") ?? byId("GB_EXEMPT") ?? byId("GB_ZERO") ?? anyZeroPct;
   if (!standard) throw new Error("No 20% standard tax rate found in Sage (is the business UK?)");
-  if (!none) throw new Error("No zero/no-tax rate found in Sage");
-  return { standard: standard.id, none: none.id };
+  if (!zero || !exempt || !noTax) throw new Error("No zero/no-tax rate found in Sage");
+  return {
+    standard: standard.id,
+    zero: zero.id,
+    exempt: exempt.id,
+    outside_scope: noTax.id,
+    no_vat: noTax.id,
+  };
 }
 
 // First sales-visible ledger account, preferring one labelled "Sales" —
@@ -223,17 +234,13 @@ async function firstBankAccount(auth: SageAuth): Promise<string> {
   return pick.id;
 }
 
-function toInvoiceLine(
-  line: SalesLine,
-  ledgerAccountId: string,
-  tax: { standard: string; none: string },
-) {
+function toInvoiceLine(line: SalesLine, ledgerAccountId: string, tax: SageTaxIds) {
   return {
     description: line.description,
     ledger_account_id: ledgerAccountId,
     quantity: line.quantity,
     unit_price: line.unitAmount,
-    tax_rate_id: line.standardRated ? tax.standard : tax.none,
+    tax_rate_id: tax[line.taxTreatment],
   };
 }
 
@@ -370,7 +377,8 @@ export const sageProvider: AccountingProvider = {
   },
 
   // Not auto-allocated against the original invoice — the accountant
-  // allocates in Sage, mirroring the other providers.
+  // allocates in Sage, mirroring the other providers. Lines carry the
+  // refund's actual VAT mix (buildCreditNoteLines).
   async createCreditNote(conn: AccountingConnection, payload: CreditNotePayload): Promise<string> {
     const auth = authOf(conn);
     const [tax, ledgerAccountId] = await Promise.all([
@@ -382,17 +390,30 @@ export const sageProvider: AccountingProvider = {
         contact_id: payload.contactExternalId,
         date: new Date().toISOString().split("T")[0],
         reference: sageReference("AIGCN-", payload.ourCreditNoteId),
-        credit_note_lines: [
-          toInvoiceLine(
-            { description: payload.description, quantity: 1, unitAmount: payload.amount, standardRated: true },
-            ledgerAccountId,
-            tax,
-          ),
-        ],
+        credit_note_lines: payload.lines.map((l) => toInvoiceLine(l, ledgerAccountId, tax)),
       },
     });
     if (!res.id) throw new Error("Sage sales credit note create returned no id");
     return res.id;
+  },
+
+  // Sage has no void — DELETE removes an unallocated, unpaid sales
+  // invoice; the API rejects it once payments/allocations exist.
+  async voidInvoice(conn: AccountingConnection, externalInvoiceId: string): Promise<void> {
+    const auth = authOf(conn);
+    const res = await fetch(`${API_BASE}/sales_invoices/${externalInvoiceId}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${auth.accessToken}`,
+        Accept: "application/json",
+        ...(auth.businessId ? { "X-Business": auth.businessId } : {}),
+      },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok && res.status !== 204) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`Sage DELETE /sales_invoices ${res.status}: ${text.slice(0, 300)}`);
+    }
   },
 
   // Stripe payout → OTHER_RECEIPT into the first bank account, booked
@@ -417,7 +438,7 @@ export const sageProvider: AccountingProvider = {
           {
             ledger_account_id: ledgerAccountId,
             total_amount: payload.amount,
-            tax_rate_id: tax.none,
+            tax_rate_id: tax.no_vat,
             details: `Stripe payout ${payload.reference}`.slice(0, 60),
           },
         ],

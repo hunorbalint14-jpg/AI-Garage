@@ -23,8 +23,7 @@ describe("creditNoteDocNumber", () => {
     referenceTag: "AIG-CN-6a7b8c9d-1111-2222-3333-abcdefabcdef",
     creditNumber: null,
     contactExternalId: "42",
-    description: "Refund",
-    amount: 10,
+    lines: [{ description: "Refund", quantity: 1, unitAmount: 10, taxTreatment: "standard" }],
   };
 
   it("uses the credit number when present", () => {
