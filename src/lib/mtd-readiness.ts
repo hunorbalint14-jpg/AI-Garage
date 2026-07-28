@@ -110,6 +110,22 @@ export async function getMtdReadiness(orgId: string): Promise<MtdReadiness> {
           ? "No unsynced invoices, payments or refunds in the window."
           : `${unsynced} record${unsynced === 1 ? "" : "s"} not yet in ${PROVIDER_LABELS[connection.provider]} — the nightly sweep retries automatically, or use "Retry sync now".`,
     });
+
+    // Money view, NOT windowed to the connection date — this is what catches
+    // takings stranded outside the sync window (e.g. documents issued while
+    // disconnected, or from before a provider switch), which the unsynced
+    // counts by design do not see.
+    const gbp = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" });
+    const drift = Math.round((health.paidTotal30d - health.syncedPaidTotal30d) * 100) / 100;
+    checks.push({
+      key: "drift",
+      label: "Takings reaching your books",
+      status: drift <= 0.005 ? "ok" : "warn",
+      detail:
+        drift <= 0.005
+          ? `All ${gbp.format(health.paidTotal30d)} paid in the last 30 days is in ${PROVIDER_LABELS[connection.provider]}.`
+          : `${gbp.format(drift)} of the last 30 days' payments hasn't reached ${PROVIDER_LABELS[connection.provider]}. If "Retry sync now" finds nothing, the documents predate the connection window (issued while disconnected, or before a provider switch) — export the sales CSV for that period so your accountant can import the gap.`,
+    });
   }
 
   // 4. MOT services carry the right treatment (Box 6 correctness).
