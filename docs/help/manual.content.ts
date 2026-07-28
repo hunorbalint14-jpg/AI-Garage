@@ -212,14 +212,14 @@ const concepts: Section[] = [
     purpose: "The outside services the garage can connect, and what each does.",
     prose: [
       "Stripe — card payments, deposits and payouts, straight into the garage's own account (see Payments).",
-      "Xero — accounting. Connect once and invoices/payments sync across so the books stay tidy without double entry.",
+      "Xero, QuickBooks or Sage — accounting. Connect one and invoices, payments and refunds sync across so the books stay tidy without double entry — the digital link Making Tax Digital expects.",
       "DVLA & DVSA — UK vehicle data. Enter a registration and the make/model, MOT history and recalls are pulled in automatically; MOT due dates are kept fresh.",
       "Twilio — SMS and WhatsApp for reminders, booking confirmations and the AI receptionist's text replies.",
       "Email (Resend) — transactional email: quotes, invoices, reminders and review requests.",
       "Passkeys — modern, phishing-resistant sign-in (Face ID / fingerprint / security key) for staff and customers, instead of passwords.",
     ],
     notes: [
-      "Integrations are optional and set up in staff Settings → Integrations. The app works without them; connecting each one removes manual work (e.g. no re-keying invoices into Xero).",
+      "Integrations are optional and set up in staff Settings → Integrations. The app works without them; connecting each one removes manual work (e.g. no re-keying invoices into the accounting package — re-keying is also the thing Making Tax Digital rules don't allow).",
     ],
   },
   {
@@ -244,7 +244,7 @@ const conceptsFaq: Faq[] = [
   { q: "Do customers need the app installed?", a: "No — the customer portal is a website. Customers use the link the garage sends (or the garage's own web address) on any phone or computer." },
   { q: "Can one person work at two branches?", a: "Yes. A staff member can belong to several branches and switches between them with the top-bar branch selector. Owners, admins and accountants see every branch automatically." },
   { q: "Who holds the money when a customer pays?", a: "The garage. Payments go straight into the garage's own Stripe account — AI Garage never holds funds, it only takes a small platform fee per transaction." },
-  { q: "What happens if we disconnect Stripe or Xero?", a: "Past data is untouched. Customers simply can't pay online (Stripe) or invoices stop syncing (Xero) until it's reconnected in Settings → Integrations." },
+  { q: "What happens if we disconnect Stripe or our accounting package?", a: "Past data is untouched. Customers simply can't pay online (Stripe) or invoices stop syncing (Xero/QuickBooks/Sage) until it's reconnected in Settings → Integrations — and anything issued in the meantime backfills automatically once reconnected." },
   { q: "Why can't a colleague see a page I can see?", a: "Roles and permissions. Pages a person can't access are hidden from their navigation entirely. An owner or admin can change their permissions on the Team page." },
 ];
 
@@ -965,7 +965,7 @@ const staff: Section[] = [
     steps: [
       "Business: logo, brand colour, contact details, and per-day opening hours with one-off special days (bank holidays).",
       "Locations: add branches and set the primary location.",
-      "Integrations: connect Stripe and Xero, set the deposit % and quote validity.",
+      "Integrations: connect Stripe and your accounting package (Xero, QuickBooks or Sage), check the Making Tax Digital readiness card, set the deposit % and quote validity.",
       "Compliance: accept the Data Processing Agreement and set MFA enforcement.",
     ],
     notes: ["Some actions (managing the team, GDPR) stay locked to owner/admin even when other permissions are granted."],
