@@ -141,6 +141,31 @@ These are correctness bugs today, independent of any MTD positioning:
   useless for accounting import, so an org not on Xero/QBO/Sage re-keys
   everything, which is precisely the non-compliant pattern.
 
+## Workstream status (implemented 2026-07-28, this branch)
+
+| # | Workstream | Status |
+|---|---|---|
+| 1 | Tax-fidelity fixes in the sync | ✅ `job_items.vat_treatment` snapshot + backfill; `SalesLine.taxTreatment` enum; distinct Xero/QBO/Sage tax codes; credit notes push actual VAT mix; consolidated invoices push per-job treatment-split lines |
+| 2 | Coverage closure | ✅ `payment_intent.succeeded` payments, `charge.refunded` credit notes, per-allocation account payments, consolidated push at raise, delete→provider void. **Deferred:** quote deposits + service-plan subscription revenue (see below) |
+| 3 | Link health | ✅ `needs_reconnect` detection + Settings banner + one-per-episode owner email + daily `/api/cron/accounting-backfill` (sweep + token keepalive) |
+| 4 | MTD readiness checklist | ✅ Settings → Integrations card (`src/lib/mtd-readiness.ts`) |
+| 5 | Accounting-import CSV | ✅ `/staff/settings/export/accounting` (per-line, treatment-coded, `?from/&to` VAT-period range) |
+| 6 | MOT disbursement guardrail | ✅ `locations.mot_subcontracted` + job-screen split warning (VTAXPER48000) |
+| 7 | ITSA segmentation + education | ✅ `organizations.business_structure` + sole-trader deadline guidance in VAT settings + checklist |
+
+**Deliberately deferred (product decisions, not wiring):**
+
+- **Quote deposits** — money with a VAT tax point at receipt but no
+  document model: does a deposit raise a part-invoice, a payment on the
+  eventual invoice, or a provider prepayment? Each has knock-on effects on
+  numbering, dunning, and the funding gate. Decide the document first.
+- **Service-plan subscription revenue** — Stripe subscription payments
+  accrue `plan_subscriptions.paid_in_pence` with no invoice row. Creating
+  one touches numbering, revenue reports, and dunning exclusions. Same
+  "which document?" decision.
+- **Stripe fees** — still the documented accountant journal (posting fees
+  needs a purchase-side concept the product deliberately lacks).
+
 ## Proposed workstreams
 
 Ordered; 1–2 are bug-fix-grade and worth doing regardless of MTD framing.
