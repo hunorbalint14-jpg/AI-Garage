@@ -120,6 +120,7 @@ export async function applyStructuredJob(
       type: item.type,
       quantity: item.quantity,
       unit_price: unitPrice,
+      vat_treatment: "standard",
     });
     if (!error) added++;
   }

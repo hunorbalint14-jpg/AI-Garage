@@ -353,7 +353,8 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
       .eq("location_id", ctx.location.id)
       .maybeSingle();
     if (service) {
-      const svcRate = vatRateFor(isVatTreatment(service.vat_treatment) ? service.vat_treatment : "standard");
+      const svcTreatment = isVatTreatment(service.vat_treatment) ? service.vat_treatment : "standard";
+      const svcRate = vatRateFor(svcTreatment);
       await admin.from("job_items").insert({
         job_id: job.id,
         description: service.name,
@@ -364,6 +365,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
         unit_price: serviceNetUnitPrice(Number(service.price ?? 0), service.vat_included !== false, svcRate),
         service_id: booking.service_id,
         vat_rate: svcRate,
+        vat_treatment: svcTreatment,
       });
     }
   }
@@ -392,6 +394,7 @@ export async function startBooking(bookingId: string): Promise<UpdateBookingStat
           type: it.type,
           quantity: it.quantity,
           unit_price: it.unit_price,
+          vat_treatment: "standard",
         }));
       if (rows.length > 0) await admin.from("job_items").insert(rows);
     }
