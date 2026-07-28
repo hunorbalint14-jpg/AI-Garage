@@ -32,7 +32,18 @@ type ConnectionRow = {
   token_expires_at: string | null;
   connected_at: string;
   needs_reconnect: boolean | null;
+  last_refresh_error: string | null;
 };
+
+// Marker distinguishing a tenant-revoked episode (refresh keeps working
+// but the provider 401/403s every API push — e.g. Xero Connected Apps
+// disconnect) from a refresh-failure episode. A successful token refresh
+// must NOT close a revoked episode; only a successful push does.
+const REVOKED_EPISODE_PREFIX = "provider access revoked";
+
+function isRevokedEpisode(lastRefreshError: string | null): boolean {
+  return !!lastRefreshError?.startsWith(REVOKED_EPISODE_PREFIX);
+}
 
 // Load the org's accounting connection with decrypted tokens, refreshing
 // the access token if it expires within 60s (rotated refresh tokens are
@@ -45,7 +56,7 @@ export async function getAccountingConnection(
   const admin = createAdminClient();
   const { data } = await admin
     .from("accounting_connections")
-    .select("organization_id, provider, external_id, display_name, access_token, refresh_token, token_expires_at, connected_at, needs_reconnect")
+    .select("organization_id, provider, external_id, display_name, access_token, refresh_token, token_expires_at, connected_at, needs_reconnect, last_refresh_error")
     .eq("organization_id", orgId)
     .maybeSingle();
 
@@ -71,8 +82,10 @@ export async function getAccountingConnection(
           access_token: encrypt(accessToken),
           refresh_token: encrypt(refreshToken),
           token_expires_at: expiresAt,
-          // A successful refresh ends any reconnect episode.
-          ...(row.needs_reconnect
+          // A successful refresh ends a refresh-failure episode — but NOT
+          // a revoked episode (that failure mode refreshes fine while every
+          // push 403s; only a successful push closes it, via logSync).
+          ...(row.needs_reconnect && !isRevokedEpisode(row.last_refresh_error)
             ? { needs_reconnect: false, last_refresh_error: null, last_refresh_error_at: null, reconnect_alerted_at: null }
             : {}),
         })
@@ -116,6 +129,71 @@ export async function getAccountingConnection(
     tokenExpiresAt: expiresAt,
     connectedAt: row.connected_at,
   };
+}
+
+// Open a reconnect episode from the PUSH error path — the provider
+// rejected an API call at tenant level (access revoked provider-side)
+// even though token refresh still works, so the refresh-path detection
+// above never fires. Same episode semantics as the refresh path: one
+// 'connection' sync-log row per episode, reconnect_alerted_at reset so
+// the daily accounting-backfill cron emails the owner once.
+export async function markConnectionRevoked(args: {
+  organizationId: string;
+  provider: string;
+  detail: string;
+}): Promise<void> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("accounting_connections")
+    .select("provider, needs_reconnect")
+    .eq("organization_id", args.organizationId)
+    .maybeSingle();
+  const row = data as { provider: string; needs_reconnect: boolean | null } | null;
+  // Gone or already reconnected to a different provider — the error we
+  // caught belongs to a dead connection; nothing to flag.
+  if (!row || row.provider !== args.provider) return;
+  // Episode already open (revoked or refresh-failure) — keep the single
+  // sync-log row + single owner email per episode.
+  if (row.needs_reconnect) return;
+
+  console.error(`[accounting] ${args.provider} access revoked at tenant level`, {
+    organizationId: args.organizationId,
+    detail: args.detail,
+  });
+  await admin
+    .from("accounting_connections")
+    .update({
+      needs_reconnect: true,
+      last_refresh_error: `${REVOKED_EPISODE_PREFIX} — pushes rejected after token refresh: ${args.detail}`.slice(0, 500),
+      last_refresh_error_at: new Date().toISOString(),
+      reconnect_alerted_at: null,
+    })
+    .eq("organization_id", args.organizationId);
+  await admin.from("accounting_sync_log").insert({
+    organization_id: args.organizationId,
+    provider: args.provider,
+    entity_type: "connection",
+    status: "failed",
+    error: `${args.provider} access revoked — reconnect required: ${args.detail}`.slice(0, 500),
+  });
+}
+
+// A successful push proves the link end-to-end — close any open reconnect
+// episode (revoked or refresh-failure). Conditional update so the common
+// healthy-path push costs one no-op statement, no read.
+export async function clearReconnectEpisode(orgId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("accounting_connections")
+    .update({
+      needs_reconnect: false,
+      last_refresh_error: null,
+      last_refresh_error_at: null,
+      reconnect_alerted_at: null,
+    })
+    .eq("organization_id", orgId)
+    .eq("needs_reconnect", true);
+  if (error) console.error("[accounting] clearing reconnect episode failed", error.message);
 }
 
 // Persist a fresh OAuth connection. If the org was previously connected
