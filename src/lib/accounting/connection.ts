@@ -202,6 +202,11 @@ export async function clearReconnectEpisode(orgId: string): Promise<void> {
 // the old ledger and would corrupt pushes against the new one — wipe
 // them. Reference-tag dedupe rebuilds mappings if the org ever
 // reconnects the original company.
+//
+// Reconnecting the SAME provider + company (the token-expiry recovery
+// flow) keeps the existing connected_at: it anchors the books-health
+// window and the backfill sweep, so resetting it would silently orphan
+// everything issued during the outage.
 export async function saveAccountingConnection(args: {
   organizationId: string;
   provider: AccountingProviderId;
@@ -216,7 +221,7 @@ export async function saveAccountingConnection(args: {
 
   const { data: existing } = await admin
     .from("accounting_connections")
-    .select("provider, external_id")
+    .select("provider, external_id, connected_at")
     .eq("organization_id", args.organizationId)
     .maybeSingle();
 
@@ -254,7 +259,10 @@ export async function saveAccountingConnection(args: {
       access_token: encrypt(args.accessToken),
       refresh_token: encrypt(args.refreshToken),
       token_expires_at: args.tokenExpiresAt,
-      connected_at: new Date().toISOString(),
+      connected_at:
+        existing && !switched
+          ? (existing.connected_at as string)
+          : new Date().toISOString(),
       connected_by: args.connectedBy,
       needs_reconnect: false,
       last_refresh_error: null,
