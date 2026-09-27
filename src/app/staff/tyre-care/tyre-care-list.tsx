@@ -143,7 +143,7 @@ export function TyreCareList({ items, emptyText }: { items: QueueItem[]; emptyTe
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="font-medium capitalize">{item.serviceLabel}</div>
+                      <div className="font-medium">{item.serviceLabel}</div>
                       <span
                         className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${
                           item.confidence === "high" ? "bg-ws-green-bg text-ws-green" : "bg-ws-amber-bg text-ws-amber"
