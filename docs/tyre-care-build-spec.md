@@ -223,9 +223,27 @@ tyre_recommendations (
 
 ## Metrics (PR 6)
 
-Conversion per service type + confidence tier, attributed £, staff rejection
-rate (false-positive proxy), unsubscribe rate, coverage (% active vehicles
-with an estimate). Beta registry entry + dashboard tile + docs.
+`/staff/tyre-care/results` (linked from the queue) plus a dashboard tile for
+revenue-permission roles, both behind the `tyre_care` flag. Definitions live
+in the pure `src/lib/tyre-care-metrics.ts` (unit-tested), rolling 90 days per
+branch:
+
+- **Conversion** — of the messages *sent* in the window, how many led to a
+  booking (the booking may land after the window). Split by service ×
+  evidence (measured vs mileage estimate) — the signal for tuning intervals.
+- **Revenue** — paid invoices on bookings from a tyre-care link, following
+  both invoice links (booking_id directly, or booking → job → invoice), each
+  invoice counted once. Not-yet-invoiced bookings reported separately as
+  booked value. £ figures only for the `revenue` permission.
+- **Dismissal rate** — dismissed ÷ (sent + dismissed) among staff decisions
+  in the window: the false-positive proxy, with the reasons ranked.
+- **Unsubscribe rate** — of the customers messaged, how many used a
+  tyre-care opt-out link since: the trust canary.
+- **Coverage** — from `tyre_care_runs`, one row per branch per nightly run:
+  home-branch vehicles, those with service history, and those with a
+  mileage estimate. The engine already visits every vehicle, so it records
+  the counts rather than the page re-running it over the fleet.
+- Rates under 10 show a small-sample caveat.
 
 ## Explicit MVP cuts
 

@@ -5,7 +5,7 @@ import { hasPermission } from "@/lib/permissions";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { garageLabel } from "@/lib/garage-identity";
 import type { Evidence, ServiceType } from "@/lib/tyre-care";
-import { SERVICE_LABEL, standardDraft } from "@/lib/tyre-care-messages";
+import { serviceTitle, standardDraft } from "@/lib/tyre-care-messages";
 import { loadContactStates } from "@/lib/tyre-care-contact";
 import { TyreCareList, type QueueItem } from "./tyre-care-list";
 
@@ -178,7 +178,7 @@ export default async function TyreCarePage({
     return {
       id: r.id,
       status: r.status,
-      serviceLabel: SERVICE_LABEL[r.service_type],
+      serviceLabel: serviceTitle(r.service_type),
       confidence: r.confidence,
       reason: r.evidence.reason,
       dismissedReason: r.dismissed_reason,
@@ -213,12 +213,17 @@ export default async function TyreCarePage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold">
-          Tyre care
-          <span className="ml-2 rounded border border-[#5a4218] bg-[#3a2c14] px-1 py-px align-middle font-mono text-[8px] tracking-[.1em] text-[#ffb020]">
-            BETA
-          </span>
-        </h1>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h1 className="text-2xl font-bold">
+            Tyre care
+            <span className="ml-2 rounded border border-[#5a4218] bg-[#3a2c14] px-1 py-px align-middle font-mono text-[8px] tracking-[.1em] text-[#ffb020]">
+              BETA
+            </span>
+          </h1>
+          <Link href="/staff/tyre-care/results" className="text-sm underline underline-offset-2">
+            Results →
+          </Link>
+        </div>
         <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
           Rotation and alignment recommendations raised overnight for customers of this branch, each with the evidence
           behind it. Review the message and send it, or dismiss anything that doesn&apos;t look right — your reasons

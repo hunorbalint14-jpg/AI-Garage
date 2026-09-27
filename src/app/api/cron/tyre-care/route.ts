@@ -103,6 +103,8 @@ async function evaluateLocation(admin: Admin, location: LocationRow, deadline: n
   const evaluated = new Set<string>();
   const fresh: FreshRecommendation[] = [];
   let truncated = false;
+  let withHistory = 0;
+  let withEstimate = 0;
 
   for (let i = 0; i < vehicles.length; i += VEHICLE_BATCH) {
     if (Date.now() > deadline) {
@@ -122,6 +124,7 @@ async function evaluateLocation(admin: Admin, location: LocationRow, deadline: n
       // the garage has never worked on (the spec's no-history non-goal).
       // Counting them as evaluated lets any stale queue item for them expire.
       if (!v.customer || v.customer.anonymized_at || !d?.hasServiceHistory) continue;
+      withHistory++;
 
       const result = evaluateTyreCare({
         now,
@@ -134,6 +137,7 @@ async function evaluateLocation(admin: Admin, location: LocationRow, deadline: n
         visits: d.visits,
         thresholds,
       });
+      if (result.mileage) withEstimate++;
       for (const rec of result.recommendations) {
         // Balancing never reaches the queue: it is a job-card prompt only.
         if (!rec.customerContactable) continue;
@@ -203,6 +207,20 @@ async function evaluateLocation(admin: Admin, location: LocationRow, deadline: n
     if (error) throw new Error(`expire: ${error.message}`);
     expired += ids.length;
   }
+
+  // Run log — the coverage metric reads the latest row. A failed log write
+  // must not fail the evaluation that just succeeded.
+  const { error: runError } = await admin.from("tyre_care_runs").insert({
+    location_id: location.id,
+    vehicles: evaluated.size,
+    with_history: withHistory,
+    with_estimate: withEstimate,
+    raised: inserted,
+    refreshed,
+    expired,
+    truncated,
+  });
+  if (runError) console.error("[tyre-care] run log write failed", runError.message);
 
   return { evaluated: evaluated.size, inserted, refreshed, expired, held: plan.held.length, truncated };
 }

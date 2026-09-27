@@ -21,6 +21,12 @@ export const SERVICE_LABEL: Record<ServiceType, string> = {
   balance: "wheel balance",
 };
 
+/** "Tyre rotation" — sentence case for headings and table cells. */
+export function serviceTitle(serviceType: ServiceType): string {
+  const label = SERVICE_LABEL[serviceType];
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 /** The benefit, stated concretely (spec: tyre life, economy, safety). */
 const BENEFIT: Record<ServiceType, string> = {
   rotation:

@@ -9,6 +9,8 @@ import { CardGridSkeleton, BlockSkeleton, TableSkeleton } from "@/components/sta
 import { KpiTile } from "@/components/staff/dashboard/kpi-tile";
 import { csatSummary } from "@/lib/csat";
 import { fetchPeriodMargin, orgLabourCostRate } from "@/lib/margin-data";
+import { loadTyreCareMetrics } from "@/lib/tyre-care-metrics-data";
+import type { TyreCareMetrics } from "@/lib/tyre-care-metrics";
 import { BayTimeline } from "@/components/staff/workshop/bay-timeline";
 import { WeeklyChart } from "@/components/staff/dashboard/weekly-chart";
 import { AttentionQueue } from "@/components/staff/dashboard/attention-queue";
@@ -146,6 +148,17 @@ async function DashboardContent() {
     deferredRecovered = sum(dRec);
   }
 
+  // Tyre care (#596): 90-day results, once the rollout reaches this account.
+  // Never lets a metrics failure take the dashboard down.
+  let tyreCare: TyreCareMetrics | null = null;
+  if (widgets.revenue && (await isFeatureEnabled("tyre_care"))) {
+    try {
+      tyreCare = await loadTyreCareMetrics(admin, ctx.location.id);
+    } catch (err) {
+      console.error("[dashboard] tyre-care metrics failed", err);
+    }
+  }
+
   const totalCustomers = stats.total_customers;
   const totalVehicles = stats.total_vehicles;
   const remindersMonth = stats.reminders_month;
@@ -259,6 +272,17 @@ async function DashboardContent() {
         positive={deferredRecovered > 0 ? true : undefined}
       />,
     );
+    if (tyreCare) {
+      tiles.push(
+        <KpiTile
+          key="tyre-care"
+          label="Tyre care · 90 days"
+          value={fmtGBP(tyreCare.paidRevenue)}
+          delta={tyreCare.sent > 0 ? `${tyreCare.booked} booked from ${tyreCare.sent} sent` : "nothing sent yet"}
+          positive={tyreCare.booked > 0 ? true : undefined}
+        />,
+      );
+    }
     if (monthMargin && monthMargin.jobs > 0) {
       tiles.push(
         <KpiTile
