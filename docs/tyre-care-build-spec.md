@@ -109,15 +109,27 @@ gains the org backfill.
 
 - `estimateMileage(points, now)` — weighted regression over all dated
   odometer points (mot_tests + jobs + tyre_checks + vehicle_history_entries),
-  weighted toward the most recent 2–3; returns
+  weighted toward the most recent 2–3 (geometric decay); returns
   `{ estimatedNow, avgDailyMiles, confidence, pointCount }`. ≥2 points or
   no estimate. `estimated_mileage_now` renders on the vehicle page.
+  **Conflicting readings resolve to the NEWER one** — an older reading that
+  exceeds a later one, or whose hop up to it is impossibly fast (>330 mi/day),
+  is dropped. Migrated `vehicle_history_entries` can disagree with DVSA; the
+  opposite rule anchored to a stale figure and inflated one estimate ~34k miles.
 - **Powertrain multiplier** from `vehicles.fuel_type` (ELECTRICITY ≈ 0.8 ×
   interval, HYBRID ≈ 0.9, else 1.0) — shortens rotation/balance intervals.
 - Triggers (issue thresholds, org-overridable):
-  - **Rotation**: `miles_since_rotation ≥ interval` (default 6,000 mi ×
-    multiplier) AND profile eligible; `cross_axle_diff ≥ 1.0mm` upgrades
-    confidence to high.
+  - **Rotation** (never on staggered/directional fitment; flagged for staff
+    when the wheel profile is unconfirmed):
+    - `miles_since_baseline ≥ interval` (default 6,000 mi × multiplier). The
+      baseline is the more recent of the last recorded rotation and the last
+      **tyre fitting** (any `*_replaced`, two tyres or four) — only rows that
+      carry a mileage count. Recent `cross_axle_diff ≥ 1.0mm` → high confidence.
+    - OR a recent `cross_axle_diff ≥ 1.0mm` on its own (no mileage history
+      needed) → `rotation.tread_differential`, high confidence.
+    - Decided 2026-09-27 (user, options B + C): without them rotation had no
+      baseline for any garage at launch and would have been silent. The
+      message names the more-worn axle (front or rear).
   - **Alignment**: `axle_differential ≥ 1.5mm` · MOT advisory regex
     (uneven/edge/shoulder wear) · suspension/steering job without alignment
     event · new tyres (`*_replaced`) without alignment event.
@@ -125,6 +137,10 @@ gains the org backfill.
     balance event · `miles_since_balance ≥ 12,000 mi`.
 - **Cooldown**: no rec within 3 months or 3,000 miles of the matching
   `wheel_service_events` row, whichever is longer.
+- **Evidence must be current and post-date the service it justifies**: tyre
+  checks, steering work and fittings count for 180 days, MOT advisories for
+  730, and nothing recorded before the last matching service counts at all
+  (the spec's "at last visit").
 - Every trigger returns `evidence` jsonb:
   `{ rule_key, rule_version, inputs: {...}, reason }` where `reason` is the
   plain-English sentence that goes in the message ("~7,200 miles since your
@@ -145,7 +161,9 @@ tyre_recommendations (
   book_token_hash text, sent_at, converted_booking_id, converted_at,
   created_at, updated_at
 )
--- one live row per (vehicle_id, service_type): code-level guard like planBankUpserts
+-- one live row per (vehicle_id, service_type): partial unique index on
+-- status = 'pending_review' + the pure planner (src/lib/tyre-care-queue.ts).
+-- RLS read-only for branch members; all writes via the admin client.
 ```
 
 - Cron: `scheduled_tasks` `task_type='tyre_care'` → `/api/cron/tyre-care`
@@ -155,9 +173,17 @@ tyre_recommendations (
 - Config: `organizations.tyre_rotation_miles int default 6000`,
   `tyre_balance_miles int default 12000` (org columns, precedent
   `deferred_followup_days`); channels via task `settings.channels`.
-- Queue: `/staff/tyre-care` — pending rows with the evidence sentence,
-  estimated mileage, confidence chip, MOT-due-soon flag, wheel-profile state;
-  actions Approve & send / Dismiss (reason). Audit every action.
+- Planner: a still-due queued item is refreshed with today's evidence (and
+  re-homed if the customer changed branch); a dismissal holds for 90 days; a
+  recent send or booking holds for 90 days; a queued item whose trigger no
+  longer holds is expired — but only for vehicles the run actually reached.
+  Anonymised customers and never-serviced vehicles are evaluated as "nothing
+  due". Balancing never enters the queue.
+- Queue: `/staff/tyre-care` — To review / Dismissed / No longer due, with the
+  evidence sentence, confidence chip, MOT-due-soon flag and live wheel-profile
+  state; Dismiss with reason (quick picks incl. "Wait for MOT"), Reopen. Audit
+  every action. Approve & send lands with PR 5. Nav item and the automations
+  task are hidden while the `tyre_care` flag is off.
 - Point-of-service balance prompt renders on the job card when the engine
   flags it (computed live, no row).
 
