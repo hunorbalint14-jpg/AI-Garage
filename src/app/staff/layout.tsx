@@ -102,7 +102,11 @@ export default async function StaffLayout({
     pathname.startsWith("/staff/dpa-acceptance") || pathname.startsWith("/staff/login");
   const onMfaPage = pathname.startsWith("/staff/mfa") || pathname.startsWith("/staff/login");
   const mfaApplies = mfaAppliesToRole(ctx.orgRole) && !onMfaPage;
-  const streaming = await isFeatureEnabled("streaming_dashboard");
+  const [streaming, tyreCareEnabled] = await Promise.all([
+    isFeatureEnabled("streaming_dashboard"),
+    isFeatureEnabled("tyre_care"),
+  ]);
+  const hiddenNavKeys = tyreCareEnabled ? [] : ["tyre-care"];
 
   // The MFA step-up flag gates a redirect below, so it must resolve before we
   // render — it can't be deferred behind Suspense. Notifications are
@@ -253,6 +257,7 @@ export default async function StaffLayout({
         locations={locationsData}
         currentLocationId={ctx.activeLocation.id}
         role={role}
+        hiddenNavKeys={hiddenNavKeys}
       >
         {showMfaNudge && <MfaNudge userId={ctx.user.id} />}
         {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} />}

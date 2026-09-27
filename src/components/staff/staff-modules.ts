@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Bell, Settings, Megaphone, CalendarDays, Receipt,
   TrendingUp, Building2, Wrench, Columns, UserCog, FlaskConical, Zap, Package,
   FileText, ShieldCheck, Truck, ClipboardList, BarChart3, Repeat, CreditCard,
-  Hammer, RotateCcw, PhoneCall, CarFront, HandCoins, Sparkles, History,
+  Hammer, RotateCcw, PhoneCall, CarFront, HandCoins, Sparkles, History, Disc3,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PermissionKey } from "@/app/staff/staff-members/constants";
@@ -80,6 +80,8 @@ export const NAV_MODULES: NavModule[] = [
       { key: "campaigns",   href: "/staff/campaigns",   label: "Campaigns",   icon: Megaphone, permission: "campaigns" },
       { key: "win-back",    href: "/staff/win-back",    label: "Win-back",    icon: RotateCcw, permission: "campaigns" },
       { key: "deferred",    href: "/staff/deferred",    label: "Deferred work", icon: History, permission: "quotes_draft", beta: true },
+      // Hidden by the layout while the tyre_care flag is off (hiddenNavKeys).
+      { key: "tyre-care",   href: "/staff/tyre-care",   label: "Tyre care",   icon: Disc3,     permission: "reminders", beta: true },
       { key: "receptionist", href: "/staff/receptionist", label: "Receptionist", icon: PhoneCall, permission: "bookings", beta: true },
       { key: "automations", href: "/staff/automations", label: "Automations", icon: Zap,       permission: "automations" },
     ],

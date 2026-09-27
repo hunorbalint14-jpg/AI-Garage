@@ -13,6 +13,7 @@ const SCHEDULES: Record<string, string> = {
   "cron/dunning": "via tick",
   "cron/review-requests": "via tick",
   "cron/digest": "via tick",
+  "cron/tyre-care": "via tick",
 };
 const KNOWN_JOBS = Object.keys(SCHEDULES);
 

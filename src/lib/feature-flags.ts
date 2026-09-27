@@ -42,6 +42,12 @@ export const FEATURE_FLAGS = {
       "Staged rollout of the automated 14/30-day recovery messages (#498). Off = the cron route no-ops everywhere; the deferred-work bank and staff surfaces are unaffected. Each location must also enable its own Automations task.",
     default: false,
   },
+  tyre_care: {
+    label: "Tyre-care recommendations",
+    description:
+      "Wheel & tyre care engine (#596): the daily run that raises rotation and alignment recommendations into the staff review queue, the Tyre care nav item, and the job-card balancing prompt. Off = the cron no-ops and the surfaces are hidden. Nothing is ever sent to a customer without staff approval. Each location must also enable its own Automations task.",
+    default: false,
+  },
   activation_emails: {
     label: "First-week activation emails",
     description:
