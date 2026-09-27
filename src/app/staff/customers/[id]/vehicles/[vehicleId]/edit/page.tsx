@@ -9,6 +9,8 @@ import {
   type WheelProfile,
   type WheelServiceEvent,
 } from "../tyres/wheel-care-section";
+import { MileageEstimatePanel } from "../tyres/mileage-estimate";
+import { vehicleMileageEstimate } from "@/lib/tyre-care-data";
 
 type TyreCheck = {
   id: string;
@@ -34,7 +36,7 @@ export default async function EditVehiclePage({
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const [vehicleRes, tyresRes, profileRes, eventsRes] = await Promise.all([
+  const [vehicleRes, tyresRes, profileRes, eventsRes, mileage] = await Promise.all([
     admin
       .from("vehicles")
       .select("id, registration, make, model, year, mot_expiry, service_due")
@@ -59,6 +61,7 @@ export default async function EditVehiclePage({
       .eq("vehicle_id", vehicleId)
       .order("performed_at", { ascending: false })
       .limit(20),
+    vehicleMileageEstimate(admin, vehicleId),
   ]);
 
   if (!vehicleRes.data) notFound();
@@ -78,6 +81,10 @@ export default async function EditVehiclePage({
       </div>
 
       <EditVehicleForm vehicle={vehicle} customerId={id} />
+
+      <section className="rounded-lg border p-4 flex flex-col gap-3">
+        <MileageEstimatePanel estimate={mileage} />
+      </section>
 
       <section className="rounded-lg border p-4 flex flex-col gap-3">
         <TyreSection vehicleId={vehicleId} customerId={id} checks={tyreChecks} />
