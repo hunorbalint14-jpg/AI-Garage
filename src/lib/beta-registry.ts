@@ -29,6 +29,15 @@ export const BETA_SURFACES: BetaSurface[] = [
     aiFeatures: ["deferred_followup_draft"],
   },
   {
+    key: "tyre-care",
+    label: "Tyre-care recommendations",
+    chip: { navKey: "tyre-care" },
+    launchedOn: "2026-09-27",
+    // Reviewing is the usage signal until sends land (PR 5).
+    auditActions: ["tyre_care.dismissed", "tyre_care.reopened"],
+    aiFeatures: [],
+  },
+  {
     key: "receptionist",
     label: "AI receptionist",
     chip: { navKey: "receptionist" },

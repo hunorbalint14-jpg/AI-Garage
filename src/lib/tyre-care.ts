@@ -32,6 +32,12 @@ const STALE_ANCHOR_DAYS = 548; // 18 months
  * since — if the wear were still there, the newer test would say so.
  */
 const ADVISORY_MAX_AGE_DAYS = 730;
+/**
+ * Evidence from a visit older than this no longer describes the car: a tyre
+ * check, steering work, or a fitting from last year is history, not a reason
+ * to contact someone today. The spec's own wording is "at last visit".
+ */
+export const RECENT_EVIDENCE_DAYS = 180;
 
 export type ServiceType = "rotation" | "alignment" | "balance";
 export type TyreConfig = "standard" | "directional" | "staggered" | "unknown";
@@ -196,14 +202,21 @@ export type TyreCheck = {
   osf_replaced?: boolean;
   nsr_replaced?: boolean;
   osr_replaced?: boolean;
+  /** Mileage at the check — makes a tyre fitting usable as a rotation baseline. */
+  odometer_miles?: number | null;
 };
 
 export type TreadAnalysis = {
   checkedAt: string;
   /** Largest left-vs-right gap on a single axle — the misalignment signature. */
   axleDifferential: number | null;
-  /** Front-average vs rear-average gap — corroborates an overdue rotation. */
+  /** Front-average vs rear-average gap — evidence a rotation is due. */
   crossAxleDiff: number | null;
+  /**
+   * Which axle is more worn. Front-wheel-drive cars wear the fronts first,
+   * rear-wheel-drive the rears — a message must name the right one.
+   */
+  frontWornMore: boolean | null;
   anyReplaced: boolean;
 };
 
@@ -233,14 +246,25 @@ export function analyseTread(checks: TyreCheck[]): TreadAnalysis | null {
   const frontAvg = mean([latest.nsf_depth, latest.osf_depth]);
   const rearAvg = mean([latest.nsr_depth, latest.osr_depth]);
 
+  const bothAxles = frontAvg !== null && rearAvg !== null;
   return {
     checkedAt: latest.checked_at,
     axleDifferential,
-    crossAxleDiff: frontAvg === null || rearAvg === null ? null : Math.abs(frontAvg - rearAvg),
-    anyReplaced: Boolean(
-      latest.nsf_replaced || latest.osf_replaced || latest.nsr_replaced || latest.osr_replaced,
-    ),
+    crossAxleDiff: bothAxles ? Math.abs(frontAvg - rearAvg) : null,
+    // Less tread left = more worn.
+    frontWornMore: bothAxles && frontAvg !== rearAvg ? frontAvg < rearAvg : null,
+    anyReplaced: anyTyreReplaced(latest),
   };
+}
+
+function anyTyreReplaced(check: TyreCheck): boolean {
+  return Boolean(check.nsf_replaced || check.osf_replaced || check.nsr_replaced || check.osr_replaced);
+}
+
+/** "the front tyres have worn about 2.0mm more than the rears" */
+function wearClause(tread: TreadAnalysis): string {
+  const [worse, better] = tread.frontWornMore ? ["front", "rears"] : ["rear", "fronts"];
+  return `the ${worse} tyres have worn about ${tread.crossAxleDiff!.toFixed(1)}mm more than the ${better}`;
 }
 
 // MOT advisory wording is free-form and inconsistent, so match the shapes that
@@ -354,6 +378,36 @@ function formatMiles(miles: number): string {
   return Math.round(miles).toLocaleString("en-GB");
 }
 
+type RotationBaseline = { kind: "rotation" | "fitment"; on: string; miles: number };
+
+/**
+ * Where "miles since rotation" is measured from: the more recent of the last
+ * recorded rotation and the last time new tyres went on. A fitting restarts
+ * the schedule whether two tyres or four were replaced — new tyres normally go
+ * on the rear and rotation resumes from there. Only rows that carry a mileage
+ * count: a fitting with no odometer reading cannot anchor a distance.
+ */
+function rotationBaseline(
+  rotation: WheelServiceEvent | null,
+  checks: TyreCheck[],
+): RotationBaseline | null {
+  const candidates: (RotationBaseline & { t: number })[] = [];
+  if (rotation?.odometer_miles != null) {
+    const t = Date.parse(rotation.performed_at);
+    if (Number.isFinite(t)) {
+      candidates.push({ kind: "rotation", on: rotation.performed_at, miles: rotation.odometer_miles, t });
+    }
+  }
+  for (const c of checks) {
+    if (!anyTyreReplaced(c) || c.odometer_miles == null) continue;
+    const t = Date.parse(c.checked_at);
+    if (Number.isFinite(t)) candidates.push({ kind: "fitment", on: c.checked_at, miles: c.odometer_miles, t });
+  }
+  if (candidates.length === 0) return null;
+  const latest = candidates.reduce((a, b) => (b.t > a.t ? b : a));
+  return { kind: latest.kind, on: latest.on, miles: latest.miles };
+}
+
 export function evaluateTyreCare(input: TyreCareInput): TyreCareResult {
   const now = input.now ?? new Date();
   const multiplier = powertrainMultiplier(input.fuelType);
@@ -370,6 +424,16 @@ export function evaluateTyreCare(input: TyreCareInput): TyreCareResult {
 
   const recommendations: TyreRecommendation[] = [];
   const suppressions: { serviceType: ServiceType; reason: string }[] = [];
+
+  /** Recent enough to act on, and after the service it would justify. */
+  const actionable = (iso: string, lastServiceAt: number | null): boolean => {
+    const t = Date.parse(iso);
+    return (
+      Number.isFinite(t) &&
+      now.getTime() - t <= RECENT_EVIDENCE_DAYS * DAY_MS &&
+      (lastServiceAt === null || t > lastServiceAt)
+    );
+  };
 
   // ── Rotation ───────────────────────────────────────────────────────────────
   const rotationBlocked = input.tyreConfig === "staggered" || input.tyreConfig === "directional";
@@ -389,24 +453,26 @@ export function evaluateTyreCare(input: TyreCareInput): TyreCareResult {
       serviceType: "rotation",
       reason: `Rotated ${rotationCooldown.daysSince} days ago — inside the cooldown.`,
     });
-  } else if (estimatedNow === null) {
-    suppressions.push({
-      serviceType: "rotation",
-      reason: "Not enough odometer readings to estimate mileage (two or more needed).",
-    });
-  } else if (rotationEvent?.odometer_miles == null) {
-    suppressions.push({
-      serviceType: "rotation",
-      reason: "No rotation on record with a mileage to measure from.",
-    });
   } else {
-    const since = estimatedNow - rotationEvent.odometer_miles;
-    if (since >= rotationInterval) {
-      const corroborated =
-        tread?.crossAxleDiff != null && tread.crossAxleDiff >= CROSS_AXLE_DIFF_MM;
+    const rotatedAt = rotationEvent ? Date.parse(rotationEvent.performed_at) : null;
+    const baseline = rotationBaseline(rotationEvent, input.tyreChecks);
+    const since = estimatedNow !== null && baseline ? estimatedNow - baseline.miles : null;
+
+    // Measured front/rear wear is evidence on its own — it needs no mileage
+    // history at all. It must be recent, and must post-date the last rotation:
+    // a differential measured before the tyres were swapped describes wear
+    // the rotation already dealt with.
+    const treadFresh =
+      tread !== null &&
+      tread.crossAxleDiff !== null &&
+      tread.crossAxleDiff >= CROSS_AXLE_DIFF_MM &&
+      actionable(tread.checkedAt, rotatedAt);
+
+    if (baseline && since !== null && since >= rotationInterval) {
+      const sinceWhat = baseline.kind === "fitment" ? "your new tyres were fitted" : "your tyres were rotated";
       recommendations.push({
         serviceType: "rotation",
-        confidence: corroborated ? "high" : "low",
+        confidence: treadFresh ? "high" : "low",
         customerContactable: true,
         requiresWheelProfile: input.tyreConfig !== "standard",
         evidence: {
@@ -414,18 +480,50 @@ export function evaluateTyreCare(input: TyreCareInput): TyreCareResult {
           rule_version: RULE_VERSION,
           inputs: {
             estimated_mileage_now: estimatedNow,
-            miles_since_rotation: Math.round(since),
+            baseline_kind: baseline.kind,
+            baseline_on: baseline.on,
+            baseline_miles: baseline.miles,
+            miles_since_baseline: Math.round(since),
             rotation_interval: rotationInterval,
             powertrain_multiplier: multiplier,
-            cross_axle_diff_mm: tread?.crossAxleDiff ?? null,
+            cross_axle_diff_mm: treadFresh ? tread!.crossAxleDiff : null,
             mileage_confidence: mileage?.confidence ?? null,
           },
-          reason: corroborated
-            ? `Your last recorded reading suggests about ${formatMiles(since)} miles since your tyres were rotated, and the front tyres are wearing about ${tread!.crossAxleDiff!.toFixed(1)}mm faster than the rears.`
-            : `Your last recorded reading suggests you've covered about ${formatMiles(since)} miles since your tyres were rotated.`,
+          reason: treadFresh
+            ? `Your last recorded reading suggests about ${formatMiles(since)} miles since ${sinceWhat}, and ${wearClause(tread!)}.`
+            : `Your last recorded reading suggests you've covered about ${formatMiles(since)} miles since ${sinceWhat}.`,
         },
       });
+    } else if (treadFresh) {
+      recommendations.push({
+        serviceType: "rotation",
+        confidence: "high",
+        customerContactable: true,
+        requiresWheelProfile: input.tyreConfig !== "standard",
+        evidence: {
+          rule_key: "rotation.tread_differential",
+          rule_version: RULE_VERSION,
+          inputs: {
+            cross_axle_diff_mm: tread!.crossAxleDiff,
+            front_worn_more: tread!.frontWornMore,
+            threshold_mm: CROSS_AXLE_DIFF_MM,
+            checked_at: tread!.checkedAt,
+          },
+          reason: `At your last check ${wearClause(tread!)} — rotating them evens out the wear and gets more life from the set.`,
+        },
+      });
+    } else if (!baseline) {
+      suppressions.push({
+        serviceType: "rotation",
+        reason: "No rotation or new-tyre fitting on record with a mileage to measure from.",
+      });
+    } else if (estimatedNow === null) {
+      suppressions.push({
+        serviceType: "rotation",
+        reason: "Not enough odometer readings to estimate mileage (two or more needed).",
+      });
     }
+    // Otherwise it was measured and simply isn't due yet — nothing to report.
   }
 
   // ── Alignment ──────────────────────────────────────────────────────────────
@@ -452,12 +550,15 @@ export function evaluateTyreCare(input: TyreCareInput): TyreCareResult {
       );
     });
     const steeringVisit = input.visits.find(
-      (v) => isSteeringWork(v.description) && (alignedAt === null || Date.parse(v.on) > alignedAt),
+      (v) => isSteeringWork(v.description) && actionable(v.on, alignedAt),
     );
-    const newTyresUnaligned =
-      tread?.anyReplaced && (alignedAt === null || Date.parse(tread.checkedAt) > alignedAt);
+    const newTyresUnaligned = tread?.anyReplaced && actionable(tread.checkedAt, alignedAt);
 
-    if (tread?.axleDifferential != null && tread.axleDifferential >= AXLE_DIFF_MM) {
+    if (
+      tread?.axleDifferential != null &&
+      tread.axleDifferential >= AXLE_DIFF_MM &&
+      actionable(tread.checkedAt, alignedAt)
+    ) {
       recommendations.push({
         serviceType: "alignment",
         confidence: "high",
@@ -528,8 +629,7 @@ export function evaluateTyreCare(input: TyreCareInput): TyreCareResult {
       reason: `Balanced ${balanceCooldown.daysSince} days ago — inside the cooldown.`,
     });
   } else {
-    const fittedUnbalanced =
-      tread?.anyReplaced && (balancedAt === null || Date.parse(tread.checkedAt) > balancedAt);
+    const fittedUnbalanced = tread?.anyReplaced && actionable(tread.checkedAt, balancedAt);
     const sinceBalance =
       estimatedNow !== null && balanceEvent?.odometer_miles != null
         ? estimatedNow - balanceEvent.odometer_miles

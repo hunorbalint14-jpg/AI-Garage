@@ -242,7 +242,8 @@ describe("evaluateTyreCare — rotation", () => {
     expect(rec.confidence).toBe("low");
     expect(rec.customerContactable).toBe(true);
     expect(rec.evidence.rule_key).toBe("rotation.interval");
-    expect(rec.evidence.inputs.miles_since_rotation).toBeGreaterThanOrEqual(6_000);
+    expect(rec.evidence.inputs.miles_since_baseline).toBeGreaterThanOrEqual(6_000);
+    expect(rec.evidence.inputs.baseline_kind).toBe("rotation");
     expect(rec.evidence.reason).toMatch(/miles since your tyres were rotated/);
   });
 
@@ -265,7 +266,7 @@ describe("evaluateTyreCare — rotation", () => {
     );
     const rec = result.recommendations.find((r) => r.serviceType === "rotation")!;
     expect(rec.confidence).toBe("high");
-    expect(rec.evidence.reason).toMatch(/faster than the rears/);
+    expect(rec.evidence.reason).toMatch(/front tyres have worn about 2.0mm more than the rears/);
   });
 
   it("never recommends rotation on staggered or directional fitment", () => {
@@ -355,6 +356,118 @@ describe("evaluateTyreCare — rotation", () => {
     expect(
       result.suppressions.find((s) => s.serviceType === "rotation")?.reason,
     ).toMatch(/odometer readings/);
+  });
+});
+
+describe("evaluateTyreCare — rotation baseline from a tyre fitting", () => {
+  const fitting = (on: string, miles: number | null, pair: "fronts" | "all" = "all") => ({
+    checked_at: on,
+    nsf_depth: 8,
+    osf_depth: 8,
+    nsr_depth: 8,
+    osr_depth: 8,
+    nsf_replaced: true,
+    osf_replaced: true,
+    nsr_replaced: pair === "all",
+    osr_replaced: pair === "all",
+    odometer_miles: miles,
+  });
+
+  it("measures from new tyres when no rotation was ever recorded", () => {
+    const result = evaluateTyreCare(baseInput({ tyreChecks: [fitting(daysAgo(380), 31_000)] }));
+    const rec = result.recommendations.find((r) => r.serviceType === "rotation")!;
+    expect(rec.evidence.rule_key).toBe("rotation.interval");
+    expect(rec.evidence.inputs.baseline_kind).toBe("fitment");
+    expect(rec.evidence.reason).toMatch(/since your new tyres were fitted/);
+  });
+
+  it("counts a two-tyre fitting as a restart too", () => {
+    const result = evaluateTyreCare(
+      baseInput({ tyreChecks: [fitting(daysAgo(380), 31_000, "fronts")] }),
+    );
+    const rec = result.recommendations.find((r) => r.serviceType === "rotation")!;
+    expect(rec.evidence.inputs.baseline_kind).toBe("fitment");
+  });
+
+  it("uses whichever is more recent — rotation or fitting", () => {
+    // Rotated long ago, new tyres since: the fitting is the baseline, and only
+    // ~2,300 miles have passed on them, so nothing is due.
+    const result = evaluateTyreCare(
+      baseInput({
+        serviceEvents: [
+          { service_type: "rotation", performed_at: daysAgo(900), odometer_miles: 15_000 },
+        ],
+        tyreChecks: [fitting(daysAgo(120), 39_000)],
+      }),
+    );
+    expect(result.recommendations.find((r) => r.serviceType === "rotation")).toBeUndefined();
+  });
+
+  it("ignores a fitting with no mileage recorded", () => {
+    const result = evaluateTyreCare(baseInput({ tyreChecks: [fitting(daysAgo(380), null)] }));
+    expect(result.recommendations.find((r) => r.serviceType === "rotation")).toBeUndefined();
+    expect(
+      result.suppressions.find((s) => s.serviceType === "rotation")?.reason,
+    ).toMatch(/No rotation or new-tyre fitting/);
+  });
+});
+
+describe("evaluateTyreCare — rotation from tread wear alone", () => {
+  const uneven = (on: string, front: number, rear: number) => ({
+    checked_at: on,
+    nsf_depth: front,
+    osf_depth: front,
+    nsr_depth: rear,
+    osr_depth: rear,
+  });
+
+  it("fires on a front/rear gap with no mileage history at all", () => {
+    const result = evaluateTyreCare(
+      baseInput({ odometerPoints: [], tyreChecks: [uneven(daysAgo(20), 4, 6)] }),
+    );
+    expect(result.mileage).toBeNull();
+    const rec = result.recommendations.find((r) => r.serviceType === "rotation")!;
+    expect(rec.evidence.rule_key).toBe("rotation.tread_differential");
+    expect(rec.confidence).toBe("high");
+    expect(rec.evidence.reason).toMatch(/front tyres have worn about 2.0mm more than the rears/);
+  });
+
+  it("names the rear axle when the rears are the worn ones", () => {
+    // Rear-wheel drive: the message must not blame the fronts.
+    const result = evaluateTyreCare(baseInput({ tyreChecks: [uneven(daysAgo(20), 6, 4.5)] }));
+    const rec = result.recommendations.find((r) => r.serviceType === "rotation")!;
+    expect(rec.evidence.reason).toMatch(/rear tyres have worn about 1.5mm more than the fronts/);
+  });
+
+  it("ignores a gap too small to matter", () => {
+    const result = evaluateTyreCare(baseInput({ tyreChecks: [uneven(daysAgo(20), 5.5, 6)] }));
+    expect(result.recommendations.find((r) => r.serviceType === "rotation")).toBeUndefined();
+  });
+
+  it("ignores a tyre check too old to describe the car today", () => {
+    const result = evaluateTyreCare(baseInput({ tyreChecks: [uneven(daysAgo(200), 4, 6)] }));
+    expect(result.recommendations.find((r) => r.serviceType === "rotation")).toBeUndefined();
+  });
+
+  it("ignores wear measured before the last rotation", () => {
+    // Rotated 100 days ago (outside the cooldown), but the only tyre check is
+    // from before that — the swap already dealt with the wear it recorded.
+    const result = evaluateTyreCare(
+      baseInput({
+        serviceEvents: [
+          { service_type: "rotation", performed_at: daysAgo(100), odometer_miles: 36_500 },
+        ],
+        tyreChecks: [uneven(daysAgo(150), 4, 6)],
+      }),
+    );
+    expect(result.recommendations.find((r) => r.serviceType === "rotation")).toBeUndefined();
+  });
+
+  it("never fires on staggered fitment, whatever the wear", () => {
+    const result = evaluateTyreCare(
+      baseInput({ tyreConfig: "staggered", tyreChecks: [uneven(daysAgo(20), 4, 6)] }),
+    );
+    expect(result.recommendations.find((r) => r.serviceType === "rotation")).toBeUndefined();
   });
 });
 
@@ -485,6 +598,64 @@ describe("evaluateTyreCare — alignment", () => {
       }),
     );
     expect(result.recommendations.find((r) => r.serviceType === "alignment")).toBeUndefined();
+  });
+});
+
+describe("evaluateTyreCare — stale evidence never triggers", () => {
+  // Regression: several triggers had no age limit and no "after the last
+  // service" check, so old history kept recommending work that was done or no
+  // longer relevant. The spec's own wording is "at last visit".
+  const lopsided = (on: string) => ({
+    checked_at: on,
+    nsf_depth: 3,
+    osf_depth: 5,
+    nsr_depth: 6,
+    osr_depth: 6,
+  });
+
+  it("ignores an axle differential from an old tyre check", () => {
+    const result = evaluateTyreCare(baseInput({ tyreChecks: [lopsided(daysAgo(250))] }));
+    expect(result.recommendations.find((r) => r.serviceType === "alignment")).toBeUndefined();
+  });
+
+  it("ignores an axle differential measured before the last alignment", () => {
+    const result = evaluateTyreCare(
+      baseInput({
+        tyreChecks: [lopsided(daysAgo(150))],
+        serviceEvents: [
+          // Aligned after that check, and outside the cooldown.
+          { service_type: "alignment", performed_at: daysAgo(100), odometer_miles: 36_500 },
+        ],
+      }),
+    );
+    expect(result.recommendations.find((r) => r.serviceType === "alignment")).toBeUndefined();
+  });
+
+  it("ignores steering work from long ago", () => {
+    const result = evaluateTyreCare(
+      baseInput({ visits: [{ on: daysAgo(700), description: "Replaced track rod end" }] }),
+    );
+    expect(result.recommendations.find((r) => r.serviceType === "alignment")).toBeUndefined();
+  });
+
+  it("ignores an old tyre fitting for alignment and balancing", () => {
+    const result = evaluateTyreCare(
+      baseInput({
+        tyreChecks: [
+          {
+            checked_at: daysAgo(400),
+            nsf_depth: 8,
+            osf_depth: 8,
+            nsr_depth: 8,
+            osr_depth: 8,
+            nsf_replaced: true,
+            osf_replaced: true,
+          },
+        ],
+      }),
+    );
+    expect(result.recommendations.find((r) => r.serviceType === "alignment")).toBeUndefined();
+    expect(result.recommendations.find((r) => r.serviceType === "balance")).toBeUndefined();
   });
 });
 

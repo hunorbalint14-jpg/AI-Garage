@@ -58,6 +58,7 @@ export function StaffShell({
   locations,
   currentLocationId,
   role,
+  hiddenNavKeys,
   children,
 }: {
   brandColor: string;
@@ -72,13 +73,18 @@ export function StaffShell({
   locations: Location[];
   currentLocationId: string;
   role: string;
+  /** Nav items to hide — surfaces whose feature flag is off for this account. */
+  hiddenNavKeys?: string[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname() || "/staff";
-  const modules = useMemo(
-    () => filterModulesForRole({ orgRole: orgRole ?? null, locationPermissions }),
-    [orgRole, locationPermissions],
-  );
+  const hiddenKey = (hiddenNavKeys ?? []).join(",");
+  const modules = useMemo(() => {
+    const hidden = new Set(hiddenKey ? hiddenKey.split(",") : []);
+    return filterModulesForRole({ orgRole: orgRole ?? null, locationPermissions })
+      .map((m) => ({ ...m, items: m.items.filter((i) => !hidden.has(i.key)) }))
+      .filter((m) => m.items.length > 0);
+  }, [orgRole, locationPermissions, hiddenKey]);
   const { module: activeModule, item: activeItem } = findActive(pathname, modules);
   // Nav-item keys this user can see — the palette gates its create-actions on
   // the same set, so Cmd+K never offers a verb the nav would hide.

@@ -62,6 +62,44 @@ import { isFeatureEnabled } from "@/lib/feature-flags";
 import { JobTimeTracking, type TimeEntryView } from "./job-time-tracking";
 import { HighVoltageSection } from "./high-voltage-section";
 import { OdometerSection } from "./odometer-section";
+import { BalancePrompt } from "./tyre-care-prompt";
+import { evaluateTyreCare, BALANCE_INTERVAL_MILES, type TyreRecommendation } from "@/lib/tyre-care";
+import { loadTyreCareData } from "@/lib/tyre-care-data";
+
+// Live balancing check for the vehicle on the ramp (#596). Never throws — a
+// failed read just means no prompt, not a broken job card.
+async function balancePromptFor(
+  admin: ReturnType<typeof createAdminClient>,
+  vehicleId: string,
+  organizationId: string,
+): Promise<TyreRecommendation | null> {
+  try {
+    const [data, { data: vehicle }, { data: org }] = await Promise.all([
+      loadTyreCareData(admin, [vehicleId]),
+      admin.from("vehicles").select("fuel_type").eq("id", vehicleId).maybeSingle(),
+      admin.from("organizations").select("tyre_balance_miles").eq("id", organizationId).maybeSingle(),
+    ]);
+    const d = data.get(vehicleId);
+    if (!d) return null;
+    const result = evaluateTyreCare({
+      fuelType: (vehicle as { fuel_type: string | null } | null)?.fuel_type ?? null,
+      tyreConfig: d.tyreConfig,
+      odometerPoints: d.odometerPoints,
+      tyreChecks: d.tyreChecks,
+      motAdvisories: d.motAdvisories,
+      serviceEvents: d.serviceEvents,
+      visits: d.visits,
+      thresholds: {
+        balanceMiles:
+          (org as { tyre_balance_miles: number | null } | null)?.tyre_balance_miles ?? BALANCE_INTERVAL_MILES,
+      },
+    });
+    return result.recommendations.find((r) => r.serviceType === "balance") ?? null;
+  } catch (err) {
+    console.error("[tyre-care] balance prompt failed", { vehicleId, err });
+    return null;
+  }
+}
 
 type Job = {
   id: string;
@@ -99,7 +137,10 @@ export default async function JobDetailPage({
   const { id } = await params;
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
-  const evhcEnabled = await isFeatureEnabled("evhc");
+  const [evhcEnabled, tyreCareEnabled] = await Promise.all([
+    isFeatureEnabled("evhc"),
+    isFeatureEnabled("tyre_care"),
+  ]);
 
   const [jobRes, itemsRes, products, cachedServices, quotesRes, staff, timeRes] = await Promise.all([
     admin
@@ -227,6 +268,13 @@ export default async function JobDetailPage({
       </section>
 
       <OdometerSection jobId={job.id} initialMiles={job.odometer_miles} />
+
+      {tyreCareEnabled &&
+        job.vehicle &&
+        (await (async () => {
+          const rec = await balancePromptFor(admin, job.vehicle!.id, ctx.organization.id);
+          return rec ? <BalancePrompt recommendation={rec} /> : null;
+        })())}
 
       <HighVoltageSection
         jobId={job.id}

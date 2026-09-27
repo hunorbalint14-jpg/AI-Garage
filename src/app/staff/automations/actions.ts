@@ -6,15 +6,17 @@ import { hasPermission } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
 import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
+import { logAudit } from "@/lib/audit";
 
-export type TaskType = "mot_reminders" | "service_reminders" | "tax_reminders" | "weekly_digest" | "invoice_dunning" | "review_requests" | "booking_confirmations" | "deferred_followups";
+export type TaskType = "mot_reminders" | "service_reminders" | "tax_reminders" | "weekly_digest" | "invoice_dunning" | "review_requests" | "booking_confirmations" | "deferred_followups" | "tyre_care";
 
 export type TaskSettings =
   | { remind_days_before: number; channels: string[] }
   | { window_days: number }
   | { cadence_days: number[]; channels: string[] }
   | { hours_before: number; channels: string[] }
-  | { channels: string[] };
+  | { channels: string[] }
+  | Record<string, never>;
 
 type ActionResult = { error: string } | { success: true };
 
@@ -22,7 +24,7 @@ const REMINDER_TYPES: TaskType[] = ["mot_reminders", "service_reminders", "tax_r
 
 export async function ensureDefaultTasks(locationId: string) {
   const admin = createAdminClient();
-  const allTypes: TaskType[] = [...REMINDER_TYPES, "invoice_dunning", "review_requests", "booking_confirmations", "deferred_followups", "weekly_digest"];
+  const allTypes: TaskType[] = [...REMINDER_TYPES, "invoice_dunning", "review_requests", "booking_confirmations", "deferred_followups", "tyre_care", "weekly_digest"];
   const defaults: Record<TaskType, { settings: object; frequency: Frequency; hour: number; day_of_week: number | null }> = {
     mot_reminders:     { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
     service_reminders: { settings: { remind_days_before: 30, channels: ["email", "sms", "whatsapp"] }, frequency: "daily",  hour: 9, day_of_week: null },
@@ -31,6 +33,8 @@ export async function ensureDefaultTasks(locationId: string) {
     review_requests:   { settings: { channels: ["email", "sms"] },                                       frequency: "daily",  hour: 9, day_of_week: null },
     booking_confirmations: { settings: { hours_before: 24, channels: ["email", "sms", "whatsapp"] },    frequency: "daily",  hour: 9, day_of_week: null },
     deferred_followups: { settings: { channels: ["email", "sms"] },                                      frequency: "daily",  hour: 10, day_of_week: null },
+    // Evaluation only — it fills the staff review queue overnight, nothing is sent.
+    tyre_care:         { settings: {},                                                                    frequency: "daily",  hour: 6,  day_of_week: null },
     weekly_digest:     { settings: { window_days: 30 },                                                 frequency: "weekly", hour: 8, day_of_week: 1 },
   };
   await admin.from("scheduled_tasks").upsert(
@@ -138,6 +142,40 @@ export async function updateDeferredFollowupDays(days: number[]): Promise<Action
   return { success: true };
 }
 
+// Tyre-care service intervals — ORG-level like the deferred cadence: one
+// garage, one policy. The EV/hybrid multiplier is applied on top in code.
+export async function updateTyreThresholds(rotationMiles: number, balanceMiles: number): Promise<ActionResult> {
+  const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "automations")) return { error: "Permission denied." };
+  if (!entitledTo(ctx.tenantBilling, "automations")) return { error: UPGRADE_MESSAGE.automations };
+
+  if (!Number.isInteger(rotationMiles) || rotationMiles < 1000 || rotationMiles > 30000) {
+    return { error: "Rotation interval must be 1,000–30,000 miles." };
+  }
+  if (!Number.isInteger(balanceMiles) || balanceMiles < 1000 || balanceMiles > 50000) {
+    return { error: "Balancing interval must be 1,000–50,000 miles." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("organizations")
+    .update({ tyre_rotation_miles: rotationMiles, tyre_balance_miles: balanceMiles })
+    .eq("id", ctx.organization.id);
+  if (error) return { error: error.message };
+
+  await logAudit({
+    organizationId: ctx.organization.id,
+    actorUserId: ctx.user.id,
+    actorEmail: ctx.user.email ?? null,
+    action: "tyre_care.thresholds_update",
+    entityType: "organization",
+    entityId: ctx.organization.id,
+    metadata: { rotation_miles: rotationMiles, balance_miles: balanceMiles },
+  });
+  revalidatePath("/staff/automations");
+  return { success: true };
+}
+
 export async function runTaskNow(taskType: TaskType): Promise<ActionResult> {
   const ctx = await requireStaffContext();
   if (!hasPermission(ctx, "automations")) {
@@ -163,6 +201,7 @@ export async function runTaskNow(taskType: TaskType): Promise<ActionResult> {
     review_requests:   "/api/cron/review-requests",
     booking_confirmations: "/api/cron/booking-confirmations",
     deferred_followups: "/api/cron/deferred-followups",
+    tyre_care:         "/api/cron/tyre-care",
     weekly_digest:     "/api/cron/digest",
   };
 

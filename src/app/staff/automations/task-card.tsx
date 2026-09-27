@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { toggleTask, updateTaskSettings, updateSchedule, runTaskNow, updateDeferredFollowupDays, type TaskType, type TaskSettings } from "./actions";
+import { toggleTask, updateTaskSettings, updateSchedule, runTaskNow, updateDeferredFollowupDays, updateTyreThresholds, type TaskType, type TaskSettings } from "./actions";
 import { formatSchedule, type Frequency } from "@/lib/cron/schedule";
 
 const CHANNELS = ["email", "sms", "whatsapp"] as const;
@@ -27,7 +27,7 @@ type Task = {
   next_run_at: string | null;
 };
 
-const TASK_META: Record<TaskType, { label: string; description: string; audience: "customer" | "staff"; hasRemindDays: boolean; hasChannels: boolean; hasWindowDays: boolean; hasHoursBefore: boolean; hasFollowupDays?: boolean }> = {
+const TASK_META: Record<TaskType, { label: string; description: string; audience: "customer" | "staff"; hasRemindDays: boolean; hasChannels: boolean; hasWindowDays: boolean; hasHoursBefore: boolean; hasFollowupDays?: boolean; hasTyreThresholds?: boolean }> = {
   mot_reminders:     { label: "MOT reminders",      description: "Send customers a personalised AI reminder before their MOT expires.",          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
   service_reminders: { label: "Service reminders",  description: "Remind customers when their vehicle service is due.",                          audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
   tax_reminders:     { label: "Road tax reminders", description: "Alert customers when their road tax (VED) renewal is due.",                    audience: "customer", hasRemindDays: true,  hasChannels: true,  hasWindowDays: false, hasHoursBefore: false },
@@ -35,13 +35,26 @@ const TASK_META: Record<TaskType, { label: string; description: string; audience
   invoice_dunning:   { label: "Overdue invoice reminders", description: "Email customers an escalating reminder (with a Pay-now link) when an invoice is overdue, until it's paid.", audience: "customer", hasRemindDays: false, hasChannels: false, hasWindowDays: false, hasHoursBefore: false },
   review_requests:   { label: "Feedback pulse & reviews", description: "After a job completes, ask the customer for a one-tap rating. 4–5★ goes straight to your Google review page; 1–3★ is intercepted privately with a staff alert before any public ask. One pulse per customer per 30 days.", audience: "customer", hasRemindDays: false, hasChannels: true, hasWindowDays: false, hasHoursBefore: false },
   deferred_followups: { label: "Deferred work follow-ups", description: "After a customer declines or defers advised work, send a friendly nudge naming the exact items with a one-tap booking link. Capped at one message per customer per week across all reminders.", audience: "customer", hasRemindDays: false, hasChannels: true, hasWindowDays: false, hasHoursBefore: false, hasFollowupDays: true },
+  tyre_care:         { label: "Tyre-care recommendations", description: "Each night, work out which customers' tyres are genuinely due a rotation or alignment — from mileage, tread readings, MOT advisories and recent work — and add them to the Tyre care review queue with the evidence. Nothing is ever sent without staff approval.", audience: "staff", hasRemindDays: false, hasChannels: false, hasWindowDays: false, hasHoursBefore: false, hasTyreThresholds: true },
   weekly_digest:     { label: "Weekly staff digest","description": "Email org owners/admins a summary of upcoming MOTs and services.",            audience: "staff",    hasRemindDays: false, hasChannels: false, hasWindowDays: true,  hasHoursBefore: false },
 };
 
-export function TaskCard({ task, canEdit, followupDays }: { task: Task; canEdit: boolean; followupDays?: number[] | null }) {
+export function TaskCard({
+  task,
+  canEdit,
+  followupDays,
+  tyreThresholds,
+}: {
+  task: Task;
+  canEdit: boolean;
+  followupDays?: number[] | null;
+  tyreThresholds?: { rotationMiles: number; balanceMiles: number } | null;
+}) {
   const meta = TASK_META[task.task_type];
   const [enabled, setEnabled] = useState(task.enabled);
   const [offsetsText, setOffsetsText] = useState((followupDays ?? [14, 30]).join(", "));
+  const [rotationMiles, setRotationMiles] = useState<number>(tyreThresholds?.rotationMiles ?? 6000);
+  const [balanceMiles, setBalanceMiles] = useState<number>(tyreThresholds?.balanceMiles ?? 12000);
   const [remindDays, setRemindDays] = useState<number>((task.settings.remind_days_before as number) ?? 30);
   const [windowDays, setWindowDays] = useState<number>((task.settings.window_days as number) ?? 30);
   const [hoursBefore, setHoursBefore] = useState<number>((task.settings.hours_before as number) ?? 24);
@@ -74,7 +87,9 @@ export function TaskCard({ task, canEdit, followupDays }: { task: Task; canEdit:
   function handleSaveSettings() {
     setError(null);
     setSaved(false);
-    const settings: TaskSettings = meta.hasRemindDays
+    const settings: TaskSettings = meta.hasTyreThresholds
+      ? {}
+      : meta.hasRemindDays
       ? { remind_days_before: remindDays, channels }
       : meta.hasHoursBefore
         ? { hours_before: hoursBefore, channels }
@@ -85,14 +100,18 @@ export function TaskCard({ task, canEdit, followupDays }: { task: Task; canEdit:
       ? offsetsText.split(/[,\s]+/).map(Number).filter((n) => Number.isFinite(n))
       : null;
     startTransition(async () => {
-      const [settingsRes, scheduleRes, offsetsRes] = await Promise.all([
+      const [settingsRes, scheduleRes, offsetsRes, thresholdsRes] = await Promise.all([
         updateTaskSettings(task.id, settings),
         updateSchedule(task.id, frequency, hour, frequency === "weekly" ? dayOfWeek : null),
         offsets ? updateDeferredFollowupDays(offsets) : Promise.resolve({ success: true as const }),
+        meta.hasTyreThresholds
+          ? updateTyreThresholds(rotationMiles, balanceMiles)
+          : Promise.resolve({ success: true as const }),
       ]);
       if ("error" in settingsRes) { setError(settingsRes.error); return; }
       if ("error" in scheduleRes) { setError(scheduleRes.error); return; }
       if ("error" in offsetsRes) { setError(offsetsRes.error); return; }
+      if ("error" in thresholdsRes) { setError(thresholdsRes.error); return; }
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     });
@@ -255,6 +274,41 @@ export function TaskCard({ task, canEdit, followupDays }: { task: Task; canEdit:
               />
               <span className="text-xs text-muted-foreground">days (1–3 stages, org-wide)</span>
             </div>
+          )}
+          {meta.hasTyreThresholds && (
+            <>
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-muted-foreground w-36">Rotate every</label>
+                <input
+                  type="number"
+                  min={1000}
+                  max={30000}
+                  step={500}
+                  value={rotationMiles}
+                  onChange={(e) => setRotationMiles(Number(e.target.value))}
+                  disabled={!canEdit}
+                  className="w-24 rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
+                />
+                <span className="text-xs text-muted-foreground">miles</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-muted-foreground w-36">Balance check every</label>
+                <input
+                  type="number"
+                  min={1000}
+                  max={50000}
+                  step={500}
+                  value={balanceMiles}
+                  onChange={(e) => setBalanceMiles(Number(e.target.value))}
+                  disabled={!canEdit}
+                  className="w-24 rounded border bg-background px-2 py-1 text-sm disabled:opacity-50"
+                />
+                <span className="text-xs text-muted-foreground">miles</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Org-wide. Electric and hybrid cars automatically use a shorter interval (80% and 90%).
+              </p>
+            </>
           )}
           {meta.hasChannels && (
             <div className="flex items-center gap-3 flex-wrap">

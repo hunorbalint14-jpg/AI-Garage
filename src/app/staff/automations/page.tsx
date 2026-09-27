@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { FeatureGateBanner } from "@/components/staff/feature-gate-banner";
 import { entitledTo, UPGRADE_MESSAGE } from "@/lib/tenant-plans";
 import { isPrelive } from "@/lib/prelive";
+import { isFeatureEnabled } from "@/lib/feature-flags";
 import { ensureDefaultTasks, type TaskType } from "./actions";
 import { TaskCard } from "./task-card";
 
@@ -21,7 +22,11 @@ type ScheduledTask = {
   next_run_at: string | null;
 };
 
-const TASK_ORDER: TaskType[] = ["mot_reminders", "service_reminders", "tax_reminders", "booking_confirmations", "invoice_dunning", "review_requests", "deferred_followups", "weekly_digest"];
+const TASK_ORDER: TaskType[] = ["mot_reminders", "service_reminders", "tax_reminders", "booking_confirmations", "invoice_dunning", "review_requests", "deferred_followups", "tyre_care", "weekly_digest"];
+
+// Tasks whose output is for staff, not a message to a customer. Tyre care
+// only fills a review queue — sending is a separate staff decision.
+const STAFF_TASKS = new Set<TaskType>(["weekly_digest", "tyre_care"]);
 
 export default async function AutomationsPage() {
   const ctx = await requireStaffContext();
@@ -30,21 +35,38 @@ export default async function AutomationsPage() {
 
   await ensureDefaultTasks(ctx.location.id);
 
-  const [{ data, error }, { data: orgRow }] = await Promise.all([
+  const [{ data, error }, { data: orgRow }, tyreCareEnabled] = await Promise.all([
     admin
       .from("scheduled_tasks")
       .select("id, task_type, enabled, settings, last_run_at, frequency, hour, day_of_week, next_run_at")
       .eq("location_id", ctx.location.id)
       .order("created_at", { ascending: true }),
-    admin.from("organizations").select("deferred_followup_days").eq("id", ctx.organization.id).maybeSingle(),
+    admin
+      .from("organizations")
+      .select("deferred_followup_days, tyre_rotation_miles, tyre_balance_miles")
+      .eq("id", ctx.organization.id)
+      .maybeSingle(),
+    isFeatureEnabled("tyre_care"),
   ]);
-  const followupDays = (orgRow as { deferred_followup_days: number[] | null } | null)?.deferred_followup_days ?? null;
+  const org = orgRow as {
+    deferred_followup_days: number[] | null;
+    tyre_rotation_miles: number | null;
+    tyre_balance_miles: number | null;
+  } | null;
+  const followupDays = org?.deferred_followup_days ?? null;
+  const tyreThresholds = {
+    rotationMiles: org?.tyre_rotation_miles ?? 6000,
+    balanceMiles: org?.tyre_balance_miles ?? 12000,
+  };
 
   const tasks = (data ?? []) as ScheduledTask[];
-  const sorted = TASK_ORDER.map((t) => tasks.find((r) => r.task_type === t)).filter(Boolean) as ScheduledTask[];
+  // Hidden until the tyre-care rollout reaches this account: a toggle that
+  // does nothing (the cron no-ops while the flag is off) only confuses.
+  const visibleOrder = TASK_ORDER.filter((t) => t !== "tyre_care" || tyreCareEnabled);
+  const sorted = visibleOrder.map((t) => tasks.find((r) => r.task_type === t)).filter(Boolean) as ScheduledTask[];
 
-  const customerTasks = sorted.filter((t) => t.task_type !== "weekly_digest");
-  const staffTasks = sorted.filter((t) => t.task_type === "weekly_digest");
+  const customerTasks = sorted.filter((t) => !STAFF_TASKS.has(t.task_type));
+  const staffTasks = sorted.filter((t) => STAFF_TASKS.has(t.task_type));
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
@@ -95,7 +117,12 @@ export default async function AutomationsPage() {
           Internal / staff reports
         </h2>
         {staffTasks.map((t) => (
-          <TaskCard key={t.id} task={t} canEdit={canEdit} />
+          <TaskCard
+            key={t.id}
+            task={t}
+            canEdit={canEdit}
+            tyreThresholds={t.task_type === "tyre_care" ? tyreThresholds : undefined}
+          />
         ))}
       </section>
 
