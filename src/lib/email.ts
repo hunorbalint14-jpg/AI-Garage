@@ -9,7 +9,13 @@ import {
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadSuppressed } from "./email-suppression";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazily-created Resend client. The Resend constructor THROWS when no API key
+// is present, so building it at module scope breaks `next build` on any
+// environment without RESEND_API_KEY (page-data collection imports this file).
+// Deferring it keeps a missing key what env-checklist documents it to be — a
+// runtime send failure, caught by the try/catch in each send helper.
+let _resend: Resend | null = null;
+const resendClient = () => (_resend ??= new Resend(process.env.RESEND_API_KEY));
 
 // Lazily-created service-role client used only to consult the email
 // suppression list (populated by the Resend webhook). Lazy so importing this
@@ -130,7 +136,7 @@ export async function sendEmailBatch(items: BatchEmailItem[]): Promise<BatchEmai
 
     const batch = sendIdx.map((i) => items[i]);
     try {
-      const { data, error } = await resend.batch.send(
+      const { data, error } = await resendClient().batch.send(
         batch.map((i) => ({
           from: FROM,
           to: [i.to],
@@ -184,7 +190,7 @@ export async function sendEmail({
       return { success: false, suppressed: true, error: "Recipient suppressed (previous hard bounce or spam complaint)." };
     }
 
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await resendClient().emails.send({
       from: FROM,
       to: [to],
       subject,
