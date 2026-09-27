@@ -3,37 +3,58 @@ import { requireStaffContext } from "@/lib/staff-context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hasPermission } from "@/lib/permissions";
 import { isFeatureEnabled } from "@/lib/feature-flags";
-import type { Evidence } from "@/lib/tyre-care";
-import { TyreCareRowActions } from "./row-actions";
+import { garageLabel } from "@/lib/garage-identity";
+import type { Evidence, ServiceType } from "@/lib/tyre-care";
+import { SERVICE_LABEL, standardDraft } from "@/lib/tyre-care-messages";
+import { loadContactStates } from "@/lib/tyre-care-contact";
+import { TyreCareList, type QueueItem } from "./tyre-care-list";
 
-// Tyre-care review queue (#596 PR 4). Recommendations the nightly check has
-// raised for customers whose home branch is this one, each with the evidence
-// it rests on. Staff judge the evidence here; dismissals and their reasons are
+// Tyre-care review queue (#596). Recommendations the nightly check raised for
+// customers whose home branch is this one, each with the evidence it rests
+// on. Staff review, edit and send them — or dismiss with a reason, which is
 // the false-positive signal the thresholds are tuned against.
 
 export const dynamic = "force-dynamic";
 
 const TABS = [
   { status: "pending_review", label: "To review" },
+  { status: "approved_sent", label: "Sent" },
+  { status: "converted", label: "Booked" },
   { status: "dismissed", label: "Dismissed" },
   { status: "expired", label: "No longer due" },
 ] as const;
 type TabStatus = (typeof TABS)[number]["status"];
+
+const EMPTY_TEXT: Record<TabStatus, string> = {
+  pending_review: "Nothing to review. The nightly check adds vehicles here when a rotation or alignment is genuinely due.",
+  approved_sent: "Nothing sent yet.",
+  converted: "No bookings from tyre-care messages yet.",
+  dismissed: "No dismissed recommendations.",
+  expired: "Nothing has lapsed — items move here when the evidence behind them no longer holds.",
+};
 
 /** An MOT this close is the better moment to raise tyre care (spec: bundle with MOT). */
 const MOT_BUNDLE_DAYS = 45;
 
 type Row = {
   id: string;
-  service_type: "rotation" | "alignment" | "balance";
+  service_type: ServiceType;
   confidence: "high" | "low";
   evidence: Evidence;
   status: TabStatus;
   dismissed_reason: string | null;
-  reviewed_at: string | null;
   created_at: string;
-  updated_at: string;
-  customer: { id: string; full_name: string | null; anonymized_at: string | null } | null;
+  sent_at: string | null;
+  converted_at: string | null;
+  customer: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+    marketing_email_consent: boolean;
+    marketing_sms_consent: boolean;
+    anonymized_at: string | null;
+  } | null;
   vehicle: {
     id: string;
     registration: string | null;
@@ -43,21 +64,25 @@ type Row = {
   } | null;
 };
 
-const SERVICE_LABEL: Record<Row["service_type"], string> = {
-  rotation: "Tyre rotation",
-  alignment: "Wheel alignment",
-  balance: "Wheel balancing",
-};
-
-function daysUntil(date: string | null): number | null {
+function daysFromNow(date: string | null): number | null {
   if (!date) return null;
   const t = Date.parse(date);
   return Number.isFinite(t) ? Math.ceil((t - Date.now()) / 86_400_000) : null;
 }
 
-function ageLabel(iso: string): string {
-  const days = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
-  return days === 0 ? "today" : days === 1 ? "1 day ago" : `${days} days ago`;
+function daysAgo(iso: string): number {
+  return Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 86_400_000));
+}
+
+function ago(iso: string): string {
+  const d = daysAgo(iso);
+  return d === 0 ? "today" : d === 1 ? "1 day ago" : `${d} days ago`;
+}
+
+function channelState(hasAddress: boolean, consent: boolean, kind: "email" | "phone") {
+  if (!hasAddress) return { available: false, blocked: kind === "email" ? "no email address" : "no mobile number" };
+  if (!consent) return { available: false, blocked: "no marketing consent" };
+  return { available: true, blocked: null };
 }
 
 export default async function TyreCarePage({
@@ -93,43 +118,97 @@ export default async function TyreCarePage({
     ? (statusParam as TabStatus)
     : "pending_review";
 
-  const [{ data: rowsData }, { count: pendingCount }] = await Promise.all([
+  const [{ data: rowsData }, { count: pendingCount }, { data: loc }] = await Promise.all([
     admin
       .from("tyre_recommendations")
       .select(
-        "id, service_type, confidence, evidence, status, dismissed_reason, reviewed_at, created_at, updated_at, customer:customers(id, full_name, anonymized_at), vehicle:vehicles(id, registration, make, model, mot_expiry)",
+        "id, service_type, confidence, evidence, status, dismissed_reason, created_at, sent_at, converted_at, customer:customers(id, full_name, email, phone, marketing_email_consent, marketing_sms_consent, anonymized_at), vehicle:vehicles(id, registration, make, model, mot_expiry)",
       )
       .eq("location_id", ctx.location.id)
       .eq("status", status)
-      .order("created_at", { ascending: false })
+      .order(status === "approved_sent" ? "sent_at" : status === "converted" ? "converted_at" : "created_at", {
+        ascending: false,
+      })
       .limit(200),
     admin
       .from("tyre_recommendations")
       .select("id", { count: "exact", head: true })
       .eq("location_id", ctx.location.id)
       .eq("status", "pending_review"),
+    admin.from("locations").select("name").eq("id", ctx.location.id).maybeSingle(),
   ]);
 
   // Anonymised customers are never contacted; don't show them work to do.
   const rows = ((rowsData ?? []) as unknown as Row[])
-    .filter((r) => r.customer && !r.customer.anonymized_at)
-    // Strongest evidence first when reviewing.
+    .filter((r) => r.customer && !r.customer.anonymized_at && r.vehicle)
     .sort((a, b) =>
       status === "pending_review" && a.confidence !== b.confidence ? (a.confidence === "high" ? -1 : 1) : 0,
     );
 
+  const pending = status === "pending_review";
+
   // Wheel setup is read live: staff often confirm it after the item is raised.
-  const rotationVehicleIds = [
-    ...new Set(rows.filter((r) => r.service_type === "rotation" && r.vehicle).map((r) => r.vehicle!.id)),
-  ];
-  const { data: profiles } = rotationVehicleIds.length
-    ? await admin.from("vehicle_wheel_profile").select("vehicle_id, tyre_config").in("vehicle_id", rotationVehicleIds)
-    : { data: [] };
+  const rotationVehicleIds = pending
+    ? [...new Set(rows.filter((r) => r.service_type === "rotation").map((r) => r.vehicle!.id))]
+    : [];
+  const [{ data: profiles }, contactStates] = await Promise.all([
+    rotationVehicleIds.length
+      ? admin.from("vehicle_wheel_profile").select("vehicle_id, tyre_config").in("vehicle_id", rotationVehicleIds)
+      : Promise.resolve({ data: [] }),
+    pending ? loadContactStates(admin, rows.map((r) => r.customer!.id)) : Promise.resolve(new Map()),
+  ]);
   const confirmedSetup = new Set(
     ((profiles ?? []) as { vehicle_id: string; tyre_config: string }[])
       .filter((p) => p.tyre_config === "standard")
       .map((p) => p.vehicle_id),
   );
+
+  const label = garageLabel({
+    orgName: ctx.organization.name,
+    locationName: (loc as { name: string } | null)?.name ?? null,
+  });
+
+  const items: QueueItem[] = rows.map((r) => {
+    const customer = r.customer!;
+    const vehicle = r.vehicle!;
+    const registration = vehicle.registration ?? "—";
+    const makeModel = [vehicle.make, vehicle.model].filter(Boolean).join(" ");
+    const motIn = daysFromNow(vehicle.mot_expiry);
+    const cap = contactStates.get(customer.id)?.cap;
+    return {
+      id: r.id,
+      status: r.status,
+      serviceLabel: SERVICE_LABEL[r.service_type],
+      confidence: r.confidence,
+      reason: r.evidence.reason,
+      dismissedReason: r.dismissed_reason,
+      ageLabel: ago(r.created_at),
+      eventLabel:
+        r.status === "approved_sent" && r.sent_at
+          ? `Sent ${ago(r.sent_at)}`
+          : r.status === "converted" && r.converted_at
+            ? `Booked ${ago(r.converted_at)}${r.sent_at ? `, ${Math.max(0, daysAgo(r.sent_at) - daysAgo(r.converted_at))} days after the message` : ""}`
+            : null,
+      customerName: customer.full_name ?? "Customer",
+      customerHref: `/staff/customers/${customer.id}`,
+      registration,
+      makeModel,
+      vehicleHref: `/staff/customers/${customer.id}/vehicles/${vehicle.id}/edit`,
+      needsSetup: r.service_type === "rotation" && !confirmedSetup.has(vehicle.id),
+      motInDays: motIn !== null && motIn >= 0 && motIn <= MOT_BUNDLE_DAYS ? motIn : null,
+      email: channelState(Boolean(customer.email), customer.marketing_email_consent, "email"),
+      sms: channelState(Boolean(customer.phone), customer.marketing_sms_consent, "phone"),
+      cap: cap && !cap.allowed ? { allowed: false, reason: cap.reason } : { allowed: true, reason: null },
+      draft: standardDraft({
+        firstName: customer.full_name?.split(" ")[0] ?? "there",
+        registration,
+        vehicleName: makeModel || null,
+        serviceType: r.service_type,
+        evidence: r.evidence,
+        garageLabel: label,
+      }),
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -142,8 +221,8 @@ export default async function TyreCarePage({
         </h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
           Rotation and alignment recommendations raised overnight for customers of this branch, each with the evidence
-          behind it. Dismiss anything that doesn&apos;t look right — your reasons tune the thresholds. The nightly check
-          and its intervals live under{" "}
+          behind it. Review the message and send it, or dismiss anything that doesn&apos;t look right — your reasons
+          tune the thresholds. The nightly check and its intervals live under{" "}
           <Link href="/staff/automations" className="underline underline-offset-2">
             Automations
           </Link>
@@ -151,7 +230,7 @@ export default async function TyreCarePage({
         </p>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <Link
             key={t.status}
@@ -168,100 +247,7 @@ export default async function TyreCarePage({
         ))}
       </div>
 
-      {rows.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          {status === "pending_review"
-            ? "Nothing to review. The nightly check adds vehicles here when a rotation or alignment is genuinely due."
-            : status === "dismissed"
-              ? "No dismissed recommendations."
-              : "Nothing has lapsed — items move here when the evidence behind them no longer holds."}
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border">
-          <table className="w-full min-w-[900px] text-sm">
-            <thead className="bg-muted/50 text-left">
-              <tr>
-                <th className="px-4 py-2 font-medium">Vehicle</th>
-                <th className="px-4 py-2 font-medium">Customer</th>
-                <th className="px-4 py-2 font-medium">Recommendation</th>
-                <th className="px-4 py-2 font-medium">Why</th>
-                <th className="px-4 py-2 font-medium">Raised</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const motIn = daysUntil(r.vehicle?.mot_expiry ?? null);
-                const motSoon = motIn !== null && motIn >= 0 && motIn <= MOT_BUNDLE_DAYS;
-                const needsSetup =
-                  r.service_type === "rotation" && r.vehicle !== null && !confirmedSetup.has(r.vehicle.id);
-                const vehicleHref =
-                  r.customer && r.vehicle ? `/staff/customers/${r.customer.id}/vehicles/${r.vehicle.id}/edit` : null;
-                return (
-                  <tr key={r.id} className="border-t align-top">
-                    <td className="px-4 py-3">
-                      {vehicleHref ? (
-                        <Link href={vehicleHref} className="font-mono font-semibold underline-offset-2 hover:underline">
-                          {r.vehicle?.registration ?? "—"}
-                        </Link>
-                      ) : (
-                        <span className="font-mono">{r.vehicle?.registration ?? "—"}</span>
-                      )}
-                      <div className="text-xs text-muted-foreground">
-                        {[r.vehicle?.make, r.vehicle?.model].filter(Boolean).join(" ") || " "}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {r.customer ? (
-                        <Link href={`/staff/customers/${r.customer.id}`} className="underline-offset-2 hover:underline">
-                          {r.customer.full_name ?? "Customer"}
-                        </Link>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{SERVICE_LABEL[r.service_type]}</div>
-                      <span
-                        className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${
-                          r.confidence === "high" ? "bg-ws-green-bg text-ws-green" : "bg-ws-amber-bg text-ws-amber"
-                        }`}
-                      >
-                        {r.confidence === "high" ? "Measured evidence" : "Mileage estimate"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 max-w-md">
-                      <p className="text-sm">{r.evidence.reason}</p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {needsSetup && vehicleHref && (
-                          <Link
-                            href={vehicleHref}
-                            className="rounded border border-ws-amber-border bg-ws-amber-bg px-1.5 py-0.5 text-xs text-ws-amber hover:underline"
-                          >
-                            Wheel setup not confirmed
-                          </Link>
-                        )}
-                        {motSoon && (
-                          <span className="rounded border border-ws-blue-border bg-ws-blue-bg px-1.5 py-0.5 text-xs text-ws-blue">
-                            MOT due in {motIn} day{motIn === 1 ? "" : "s"}
-                          </span>
-                        )}
-                      </div>
-                      {r.status === "dismissed" && r.dismissed_reason && (
-                        <p className="mt-1 text-xs text-muted-foreground">Dismissed: {r.dismissed_reason}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">{ageLabel(r.created_at)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <TyreCareRowActions id={r.id} status={r.status} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <TyreCareList items={items} emptyText={EMPTY_TEXT[status]} />
     </div>
   );
 }

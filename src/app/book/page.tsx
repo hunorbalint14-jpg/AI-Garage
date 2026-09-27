@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { resolveDeferredBooking, type DeferredBookingContext } from "@/lib/deferred-followup";
+import { resolveTyreCareBooking, type TyreCareBookingContext } from "@/lib/tyre-care-links";
+import { matchTyreService, SERVICE_LABEL } from "@/lib/tyre-care-messages";
 import { BookingWidgetForm } from "./booking-widget-form";
 import { parseWeeklyHours, formatWeeklySummary, APP_TZ, type WeeklyHours, type SpecialHours } from "@/lib/business-hours";
 import { cachedActiveServices, cachedLocationHours } from "@/lib/location-cache";
@@ -11,13 +13,13 @@ import { cachedActiveServices, cachedLocationHours } from "@/lib/location-cache"
 export default async function BookingWidgetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ quote?: string; t?: string; dw?: string }>;
+  searchParams: Promise<{ quote?: string; t?: string; dw?: string; tc?: string }>;
 }) {
   const headersList = await headers();
   const slug = headersList.get("x-tenant-slug");
   if (!slug) redirect("/");
 
-  const { quote: quoteSlug, t: quoteToken, dw: deferredToken } = await searchParams;
+  const { quote: quoteSlug, t: quoteToken, dw: deferredToken, tc: tyreCareToken } = await searchParams;
 
   const admin = createAdminClient();
 
@@ -88,7 +90,7 @@ export default async function BookingWidgetPage({
     }));
     servicesByLocation[b.id] = b.services.map((s) => ({ ...s, category: s.category ?? "" }));
   }
-  const defaultLocationId = location.id;
+  let defaultLocationId = location.id;
 
   // If the visitor is already logged in as a customer, pre-fill the form
   // and skip the contact-details prompt.
@@ -212,6 +214,31 @@ export default async function BookingWidgetPage({
     }
   }
 
+  // Tyre-care link (#596): "?tc=<token>" from a recommendation message. Lands
+  // on the customer's home branch with their car and — when the branch offers
+  // a matching service — the service already chosen. The token rides a hidden
+  // field to createBooking, which marks the recommendation converted. A spent
+  // or unknown token degrades to the plain widget.
+  let tyreContext: TyreCareBookingContext | null = null;
+  let initialRegistration: string | null = null;
+  let initialServiceId: string | null = null;
+  if (tyreCareToken) {
+    tyreContext = await resolveTyreCareBooking(admin, tyreCareToken);
+    if (tyreContext) {
+      if (!prefill && tyreContext.customer?.email) {
+        prefill = {
+          customerId: tyreContext.customer.id,
+          fullName: tyreContext.customer.full_name ?? "",
+          email: tyreContext.customer.email,
+          phone: tyreContext.customer.phone ?? "",
+        };
+      }
+      if (locations.some((l) => l.id === tyreContext!.locationId)) defaultLocationId = tyreContext.locationId;
+      initialRegistration = tyreContext.vehicle?.registration ?? null;
+      initialServiceId = matchTyreService(servicesByLocation[defaultLocationId] ?? [], tyreContext.serviceType);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-start justify-center p-4 pt-8">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-md border border-black/[0.06] p-7">
@@ -270,6 +297,17 @@ export default async function BookingWidgetPage({
           </div>
         )}
 
+        {tyreContext && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">Recommended</div>
+            <p className="text-sm text-slate-700">
+              Booking a {SERVICE_LABEL[tyreContext.serviceType]}
+              {tyreContext.vehicle?.registration ? ` for ${tyreContext.vehicle.registration}` : ""}.
+            </p>
+            {tyreContext.reason && <p className="mt-1 text-xs text-slate-600">{tyreContext.reason}</p>}
+          </div>
+        )}
+
         {quoteContext && (
           <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-1">From quote</div>
@@ -300,6 +338,9 @@ export default async function BookingWidgetPage({
           fromQuoteSlug={quoteContext?.slug ?? null}
           fromQuoteToken={quoteContext?.token ?? null}
           fromDeferredToken={deferredContext ? (deferredToken ?? null) : null}
+          fromTyreCareToken={tyreContext ? (tyreCareToken ?? null) : null}
+          initialRegistration={initialRegistration}
+          initialServiceId={initialServiceId}
         />
       </div>
     </div>
