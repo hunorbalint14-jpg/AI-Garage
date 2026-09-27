@@ -68,16 +68,22 @@ export default async function MotHistoryPage({
         tests: result.tests,
       };
       await cacheSet(cacheKey, history, MOT_CACHE_TTL_SEC);
-      // Write-through to mot_tests (#596) — the cache-miss fetch is the one
-      // moment we hold the full series without spending extra DVSA quota.
-      // Never blocks the page: persistMotTests swallows its own errors.
-      await persistMotTests(
-        admin,
-        motTestsToRows(vehicle.id, vehicle.organization_id, result.tests, "lookup"),
-      );
     } else {
       lookupFailed = true;
     }
+  }
+
+  // Write-through to mot_tests (#596). Runs on cache HITS too: the Redis key
+  // is the registration, which is shared across orgs, so a twin vehicle at
+  // another tenant would otherwise never be seeded — the delta cron only
+  // emits a record when that vehicle's MOT data next changes. The upsert is
+  // idempotent and persistMotTests swallows its own errors, so this never
+  // blocks the page.
+  if (history) {
+    await persistMotTests(
+      admin,
+      motTestsToRows(vehicle.id, vehicle.organization_id, history.tests, "lookup"),
+    );
   }
 
   const orgColor = location.organization.primary_color;

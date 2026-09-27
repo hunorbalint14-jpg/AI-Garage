@@ -326,6 +326,7 @@ export async function setJobOdometer(
   odometerMiles: number | null,
 ): Promise<SetOdometerResult> {
   const ctx = await requireStaffContext();
+  if (!hasPermission(ctx, "bookings")) return { error: "Permission denied." };
   const admin = createAdminClient();
 
   if (odometerMiles !== null) {

@@ -191,6 +191,7 @@ export function WheelCareSection({
                 type="number"
                 inputMode="numeric"
                 min="0"
+                max="1500000"
                 step="1"
                 placeholder="optional"
                 disabled={pending}

@@ -7,9 +7,18 @@ import { logAudit } from "@/lib/audit";
 
 export type TyreCheckResult = { error: string } | { success: true };
 
-function intOrNull(raw: FormDataEntryValue | null): number | null {
-  const val = parseInt(String(raw ?? ""), 10);
-  return Number.isInteger(val) && val >= 0 ? val : null;
+// Comfortably past any real UK odometer, and inside int4 — without the bound
+// an oversized entry reached Postgres and came back as a raw driver error.
+const MAX_ODOMETER_MILES = 1_500_000;
+const ODOMETER_ERROR = "Enter the mileage as a whole number of miles.";
+
+/** null = left blank. "invalid" = typed but not a usable mileage. */
+function parseOdometer(raw: FormDataEntryValue | null): number | null | "invalid" {
+  const text = String(raw ?? "").trim();
+  if (text === "") return null;
+  const val = Number(text);
+  if (!Number.isInteger(val) || val < 0 || val > MAX_ODOMETER_MILES) return "invalid";
+  return val;
 }
 
 export async function saveTyreCheck(
@@ -35,6 +44,9 @@ export async function saveTyreCheck(
     return isNaN(val) ? null : val;
   }
 
+  const odometer = parseOdometer(formData.get("odometer_miles"));
+  if (odometer === "invalid") return { error: ODOMETER_ERROR };
+
   const { error } = await admin.from("tyre_checks").insert({
     vehicle_id: vehicleId,
     location_id: ctx.location.id,
@@ -47,7 +59,7 @@ export async function saveTyreCheck(
     osf_replaced: formData.get("osf_replaced") === "on",
     nsr_replaced: formData.get("nsr_replaced") === "on",
     osr_replaced: formData.get("osr_replaced") === "on",
-    odometer_miles: intOrNull(formData.get("odometer_miles")),
+    odometer_miles: odometer,
     notes: (formData.get("notes") as string | null)?.trim() || null,
   });
 
@@ -65,13 +77,19 @@ export async function deleteTyreCheck(
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const { error } = await admin
+  // Org-scoped for the same reason as deleteWheelServiceEvent below: the page
+  // lists checks from every branch, so a branch-only filter silently matched
+  // nothing and still reported success.
+  const { data, error } = await admin
     .from("tyre_checks")
     .delete()
     .eq("id", checkId)
-    .eq("location_id", ctx.location.id);
+    .eq("vehicle_id", vehicleId)
+    .eq("organization_id", ctx.organization.id)
+    .select("id");
 
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "Tyre check not found." };
 
   revalidatePath(`/staff/customers/${customerId}`);
   return { success: true };
@@ -153,13 +171,16 @@ export async function addWheelServiceEvent(
     return { error: "Pick a service type." };
   }
 
+  const odometer = parseOdometer(formData.get("odometer_miles"));
+  if (odometer === "invalid") return { error: ODOMETER_ERROR };
+
   const { error } = await admin.from("wheel_service_events").insert({
     vehicle_id: vehicleId,
     location_id: ctx.location.id,
     service_type: serviceType,
     performed_at:
       (formData.get("performed_at") as string) || new Date().toISOString().split("T")[0],
-    odometer_miles: intOrNull(formData.get("odometer_miles")),
+    odometer_miles: odometer,
     recorded_by: ctx.user.id,
   });
   if (error) return { error: error.message };
@@ -186,12 +207,21 @@ export async function deleteWheelServiceEvent(
   const ctx = await requireStaffContext();
   const admin = createAdminClient();
 
-  const { error } = await admin
+  // The vehicle page lists events from every branch on purpose, so scope the
+  // delete to the ORG rather than the active branch — a branch-only filter
+  // matched nothing for another branch's row and still reported success.
+  // Returning the deleted row is what proves it happened: a 0-row delete is
+  // not an error to supabase-js, so without this the caller gets a success
+  // and the audit log gets an entry for a deletion that never occurred.
+  const { data, error } = await admin
     .from("wheel_service_events")
     .delete()
     .eq("id", eventId)
-    .eq("location_id", ctx.location.id);
+    .eq("vehicle_id", vehicleId)
+    .eq("organization_id", ctx.organization.id)
+    .select("id, location_id");
   if (error) return { error: error.message };
+  if (!data || data.length === 0) return { error: "Wheel service record not found." };
 
   await logAudit({
     organizationId: ctx.organization.id,
@@ -200,7 +230,7 @@ export async function deleteWheelServiceEvent(
     action: "vehicle.wheel_service_deleted",
     entityType: "vehicle",
     entityId: vehicleId,
-    metadata: { event_id: eventId },
+    metadata: { event_id: eventId, location_id: data[0].location_id },
   });
 
   revalidatePath(`/staff/customers/${customerId}`);
