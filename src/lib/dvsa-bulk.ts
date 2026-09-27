@@ -1,6 +1,7 @@
 import { createInflateRaw } from "node:zlib";
 import { getAccessToken } from "./dvla-auth";
 import { odometerToMiles } from "./mot-history";
+import { parseDvsaDate } from "./dvsa-dates";
 
 // DVSA MOT History API — bulk-download endpoint. Lists a weekly bulk file
 // plus daily delta files (every vehicle created/updated/deleted in the last
@@ -198,14 +199,9 @@ export function normalizeRegistration(reg: string): string {
   return reg.replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
-// DVSA dates appear as ISO ("2026-01-17T14:23:21.000Z"), bare dates, or the
-// legacy "2026.01.17 14:23:21" form depending on payload vintage. Normalise
-// to YYYY-MM-DD; null for anything unparseable.
-export function parseDvsaDate(raw: unknown): string | null {
-  if (typeof raw !== "string" || raw.length < 10) return null;
-  const datePart = raw.slice(0, 10).replace(/\./g, "-");
-  return /^\d{4}-\d{2}-\d{2}$/.test(datePart) ? datePart : null;
-}
+// Re-exported so existing importers (and the delta tests) keep their path;
+// the parser itself is shared with mot-history.ts via ./dvsa-dates.
+export { parseDvsaDate };
 
 export function extractDeltaUpdate(record: Record<string, unknown>): DeltaVehicleUpdate | null {
   const registration = typeof record.registration === "string" ? record.registration : null;

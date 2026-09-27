@@ -60,6 +60,7 @@ export function OdometerSection({
               type="number"
               inputMode="numeric"
               min="0"
+              max="1500000"
               step="1"
               placeholder="e.g. 45210"
               value={value}

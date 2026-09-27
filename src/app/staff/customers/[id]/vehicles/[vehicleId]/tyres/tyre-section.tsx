@@ -69,8 +69,10 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
       destructive: true,
     });
     if (!ok) return;
+    setError(null);
     startTransition(async () => {
-      await deleteTyreCheck(checkId, vehicleId, customerId);
+      const result = await deleteTyreCheck(checkId, vehicleId, customerId);
+      if ("error" in result) setError(result.error);
     });
   }
 
@@ -108,6 +110,7 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
                 type="number"
                 inputMode="numeric"
                 min="0"
+                max="1500000"
                 step="1"
                 placeholder="e.g. 45210"
                 disabled={pending}
@@ -166,8 +169,6 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
             />
           </div>
 
-          {error && <p className="text-xs text-ws-red">{error}</p>}
-
           <button
             type="submit"
             disabled={pending}
@@ -178,6 +179,9 @@ export function TyreSection({ vehicleId, customerId, checks }: Props) {
           </button>
         </form>
       )}
+
+      {/* Outside the add form: delete errors must show with the form closed. */}
+      {error && <p className="text-xs text-ws-red">{error}</p>}
 
       {/* History */}
       {checks.length === 0 && !open ? (

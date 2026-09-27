@@ -1,5 +1,6 @@
 import type { createAdminClient } from "@/lib/supabase/admin";
 import type { MotTest } from "@/lib/dvla";
+import { parseDvsaDate } from "@/lib/dvsa-dates";
 
 // MOT test persistence (#596). DVSA gives us the full odometer + defect
 // series on every history lookup and in every nightly delta record, but until
@@ -52,8 +53,10 @@ export function motTestsToRows(
 ): MotTestRow[] {
   const rows: MotTestRow[] = [];
   for (const t of tests) {
-    const testDate = t.completedDate?.slice(0, 10) ?? null;
-    if (!testDate || !/^\d{4}-\d{2}-\d{2}$/.test(testDate)) continue;
+    // Shared with the delta pipeline so legacy dotted dates ("2026.01.17")
+    // are kept rather than silently dropped on the lookup path.
+    const testDate = parseDvsaDate(t.completedDate);
+    if (!testDate) continue;
     rows.push({
       vehicle_id: vehicleId,
       organization_id: organizationId,
@@ -72,13 +75,21 @@ const UPSERT_CHUNK = 500;
 /**
  * Idempotent write — safe to call on every lookup/delta pass. Never throws:
  * MOT persistence is an enrichment, not a request-critical path.
+ *
+ * A chunk is one atomic statement, so a single bad row (e.g. a vehicle deleted
+ * between the caller's read and this write, violating the FK) fails all 500 of
+ * its neighbours. Carry on with the remaining chunks rather than abandoning the
+ * rest of the run: the delta cron marks its file done either way, so anything
+ * skipped here is not retried until that vehicle's MOT data next changes.
  */
 export async function persistMotTests(
   admin: ReturnType<typeof createAdminClient>,
   rows: MotTestRow[],
-): Promise<{ upserted: number; error: string | null }> {
+): Promise<{ upserted: number; failed: number; error: string | null }> {
   const deduped = dedupeMotTestRows(rows);
   let upserted = 0;
+  let failed = 0;
+  let firstError: string | null = null;
   for (let i = 0; i < deduped.length; i += UPSERT_CHUNK) {
     const chunk = deduped
       .slice(i, i + UPSERT_CHUNK)
@@ -86,8 +97,12 @@ export async function persistMotTests(
     const { error } = await admin
       .from("mot_tests")
       .upsert(chunk, { onConflict: "vehicle_id,test_date" });
-    if (error) return { upserted, error: error.message };
+    if (error) {
+      failed += chunk.length;
+      firstError ??= error.message;
+      continue;
+    }
     upserted += chunk.length;
   }
-  return { upserted, error: null };
+  return { upserted, failed, error: firstError };
 }
