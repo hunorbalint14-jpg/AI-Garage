@@ -140,6 +140,11 @@ export type RenderEmailOpts = {
   cta?: EmailCta;
   /** Greyed line above the platform sign-off (e.g. address, opt-out). */
   footerNote?: string;
+  /**
+   * Marketing messages only: renders a real, clickable opt-out link in the
+   * footer (footerNote is escaped text, so it can't carry one).
+   */
+  unsubscribeUrl?: string;
   publicOrigin: string;
 };
 
@@ -163,6 +168,9 @@ export function renderEmail(opts: RenderEmailOpts): string {
   const footerNote = opts.footerNote
     ? `<p style="margin:0 0 10px;font-family:${FONT_MONO};font-size:12px;line-height:1.6;color:${MUTED}">${esc(opts.footerNote).replace(/\n/g, "<br>")}</p>`
     : "";
+  const unsubscribe = opts.unsubscribeUrl
+    ? `<p style="margin:0 0 10px;font-family:${FONT_MONO};font-size:12px;line-height:1.6;color:${MUTED}">Don't want messages like this? <a href="${escAttr(opts.unsubscribeUrl)}" style="color:${MUTED};text-decoration:underline">Unsubscribe</a></p>`
+    : "";
   const preheader = opts.preheader
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${esc(opts.preheader)}</div>`
     : "";
@@ -183,7 +191,7 @@ ${preheader}
         ${badge}${heading}${opts.bodyHtml}${details}${cta}
       </td></tr>
       <tr><td style="background:${CARD};border:1px solid ${BORDER};border-top:1px solid ${BORDER};border-radius:0 0 16px 16px;padding:20px 28px">
-        ${footerNote}<p style="margin:0;font-family:${FONT_MONO};font-size:11px;color:${FAINT}">Sent via AI Garage · <a href="${escAttr(opts.publicOrigin)}" style="color:${FAINT};text-decoration:underline">ai-garage.co.uk</a></p>
+        ${footerNote}${unsubscribe}<p style="margin:0;font-family:${FONT_MONO};font-size:11px;color:${FAINT}">Sent via AI Garage · <a href="${escAttr(opts.publicOrigin)}" style="color:${FAINT};text-decoration:underline">ai-garage.co.uk</a></p>
       </td></tr>
     </table>
   </td></tr>

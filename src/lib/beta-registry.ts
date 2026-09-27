@@ -33,8 +33,7 @@ export const BETA_SURFACES: BetaSurface[] = [
     label: "Tyre-care recommendations",
     chip: { navKey: "tyre-care" },
     launchedOn: "2026-09-27",
-    // Reviewing is the usage signal until sends land (PR 5).
-    auditActions: ["tyre_care.dismissed", "tyre_care.reopened"],
+    auditActions: ["tyre_care.sent", "tyre_care.converted", "tyre_care.dismissed", "tyre_care.reopened"],
     aiFeatures: [],
   },
   {

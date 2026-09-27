@@ -189,22 +189,37 @@ tyre_recommendations (
 
 ## Sends + attribution (PR 5)
 
-- Approval action: consent per channel + 30-day / annual (default 6) caps
-  checked server-side at click time — caps consult `reminders` +
-  `review_requests` + `deferred_work.last_followup_at` (extends the #498
-  union) — then AI-drafted email/SMS (Haiku, org brief, feature key
-  `tyre_care_draft`, deterministic fallback), branch identity, unsubscribe.
-  Sends log to `reminders` (type widened `'tyre_care'`) so every other cap
-  union sees them.
-- **Unsubscribe (platform infra)**: `/unsubscribe?u=<token>` — random
-  32-byte token minted per customer, sha256 on `customers`; landing page
-  flips the consent booleans per channel + `consent_updated_at` + audit.
-  `sendEmail` gains optional `List-Unsubscribe` / one-click headers.
-- Deep link: `/book?tc=<token>` — booking widget gains vehicle-registration
-  prefill + service preselect (per-location service mapping optional in task
-  settings; unmapped → vehicle-only prefill). Booking creation calls
-  `markTyreRecConverted` (dw-token pattern verbatim). Expiry: token dies when
-  the row leaves `approved_sent`.
+- **Compose-first** (the rule from PR #594 supersedes the original
+  "AI-drafted" plan): "Review & send" opens an inline composer pre-filled
+  with a plain, non-AI standard wording that states the evidence (the
+  trust guardrail). Staff edit freely; AI only via the shared assist menu.
+  Send is blocked while a ticked channel is empty; channels without an
+  address or marketing consent can't be ticked. Branch identity, the
+  booking button and the unsubscribe link are appended automatically.
+- Approval checks everything before anything is sent: not anonymised,
+  confirmed wheel setup for rotation, consent + message per ticked channel,
+  and the contact limits. Then claim-before-send (status -> approved_sent
+  with the booking-token hash), send, and roll the claim back if every
+  channel failed. Each channel logs to `reminders` (type `tyre_care`).
+- **Contact limits**: one automated nudge per customer per 30 days across
+  MOT/service/tax reminders, campaigns, deferred follow-ups, feedback
+  requests and tyre care itself; at most 6 tyre-care messages a year.
+  `custom` reminders (booking confirmations, manual messages, win-back)
+  are deliberately excluded — they share one type and aren't nagging. The
+  recommendation's own `sent_at` also counts, so the cap holds even if a
+  `reminders` row fails to write. Shown on the queue before anyone clicks.
+- **Unsubscribe (platform infra)**: `unsubscribe_tokens` — one 128-bit
+  token per message (sha256 stored, never overwritten, so every old link
+  keeps working). `/unsubscribe?u=` needs a button press (link scanners
+  can't unsubscribe anyone); `/api/unsubscribe` takes the RFC 8058
+  one-click POST (email only). `sendEmail`/`renderEmail` gain an optional
+  `unsubscribe` → footer link + `List-Unsubscribe` headers. Tokens are
+  128-bit rather than 256 because an SMS carries two links.
+- Deep link: `/book?tc=<token>` lands on the home branch with the customer
+  and registration prefilled and — when the branch catalogue has a matching
+  service by name (rotat / align|tracking|geometry / balanc) — the service
+  preselected; otherwise vehicle-only. Booking creation calls
+  `markTyreRecConverted`; the token dies when the row leaves `approved_sent`.
 
 ## Metrics (PR 6)
 

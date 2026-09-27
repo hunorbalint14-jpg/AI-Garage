@@ -69,15 +69,24 @@ export function tenantPortalUrl(orgSlug: string, path = "/dashboard"): string {
 // Generic transactional email body — renders the plain text into the shared
 // dark/branded shell (see email-layout.ts). Tenant-specific emails that need a
 // richer layout build their own renderEmail() call.
-function textToHtml(text: string, cta?: EmailCta): string {
+function textToHtml(text: string, cta?: EmailCta, unsubscribeUrl?: string): string {
   return renderEmail({
     brandName: SENDER_NAME,
     logoUrl: LOGO_URL,
     bodyHtml: paragraphsToHtml(text),
     cta,
+    unsubscribeUrl,
     publicOrigin: PUBLIC_ORIGIN,
   });
 }
+
+/**
+ * Marketing opt-out for one message. `pageUrl` is the human landing page
+ * (a button press is required, so link scanners can't unsubscribe anyone);
+ * `oneClickUrl` takes the RFC 8058 POST that Gmail and Yahoo send from their
+ * own "Unsubscribe" button.
+ */
+export type EmailUnsubscribe = { pageUrl: string; oneClickUrl: string };
 
 function appendCtaToText(text: string, cta?: EmailCta): string {
   if (!cta) return text;
@@ -177,12 +186,14 @@ export async function sendEmail({
   text,
   html,
   cta,
+  unsubscribe,
 }: {
   to: string;
   subject: string;
   text: string;
   html?: string;
   cta?: EmailCta;
+  unsubscribe?: EmailUnsubscribe;
 }): Promise<SendEmailResult> {
   try {
     const suppressed = await loadSuppressed(suppressionClient(), [to]);
@@ -190,12 +201,21 @@ export async function sendEmail({
       return { success: false, suppressed: true, error: "Recipient suppressed (previous hard bounce or spam complaint)." };
     }
 
+    const plain = appendCtaToText(text, cta);
     const { data, error } = await resendClient().emails.send({
       from: FROM,
       to: [to],
       subject,
-      text: appendCtaToText(text, cta),
-      html: html ?? textToHtml(text, cta),
+      text: unsubscribe ? `${plain}\n\nUnsubscribe: ${unsubscribe.pageUrl}` : plain,
+      html: html ?? textToHtml(text, cta, unsubscribe?.pageUrl),
+      ...(unsubscribe
+        ? {
+            headers: {
+              "List-Unsubscribe": `<${unsubscribe.oneClickUrl}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          }
+        : {}),
     });
 
     if (error) return { success: false, error: error.message };

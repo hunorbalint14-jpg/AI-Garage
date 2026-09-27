@@ -19,6 +19,7 @@ import {
 } from "@/lib/business-hours";
 import { verifyQuoteAccess } from "@/lib/quote-links";
 import { markDeferredRecovered } from "@/lib/deferred-followup";
+import { markTyreRecConverted } from "@/lib/tyre-care-links";
 import { logAudit } from "@/lib/audit";
 import { createStaffNotification } from "@/lib/staff-notifications";
 import {
@@ -93,6 +94,7 @@ export async function submitWidgetBooking(
   const fromQuoteSlug = (formData.get("fromQuoteSlug") as string | null)?.trim() || null;
   const fromQuoteToken = (formData.get("fromQuoteToken") as string | null)?.trim() || null;
   const fromDeferredToken = (formData.get("fromDeferredToken") as string | null)?.trim() || null;
+  const fromTyreCareToken = (formData.get("fromTyreCareToken") as string | null)?.trim() || null;
 
   if (!fullName) return { error: "Name is required." };
   if (!email || !EMAIL_RE.test(email)) return { error: "A valid email is required." };
@@ -326,6 +328,25 @@ export async function submitWidgetBooking(
       }
     } catch (e) {
       console.error("[deferred] recovery attribution failed", e);
+    }
+  }
+
+  // Tyre-care attribution (#596): the customer arrived from a recommendation
+  // message's booking link. Best-effort; never blocks the booking.
+  if (fromTyreCareToken) {
+    try {
+      const recommendationId = await markTyreRecConverted(admin, fromTyreCareToken, booking.id);
+      if (recommendationId) {
+        await logAudit({
+          organizationId: location.organization.id,
+          action: "tyre_care.converted",
+          entityType: "tyre_recommendation",
+          entityId: recommendationId,
+          metadata: { booking_id: booking.id, location_id: location.id },
+        });
+      }
+    } catch (e) {
+      console.error("[tyre-care] conversion attribution failed", e);
     }
   }
 

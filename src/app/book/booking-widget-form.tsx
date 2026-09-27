@@ -46,6 +46,11 @@ type Props = {
   fromQuoteSlug?: string | null;
   fromQuoteToken?: string | null;
   fromDeferredToken?: string | null;
+  /** Tyre-care link (#596): attributes the booking to the recommendation. */
+  fromTyreCareToken?: string | null;
+  /** Deep-link prefill — the customer arrived knowing which car and service. */
+  initialRegistration?: string | null;
+  initialServiceId?: string | null;
 };
 
 const INPUT =
@@ -98,6 +103,9 @@ export function BookingWidgetForm({
   fromQuoteSlug,
   fromQuoteToken,
   fromDeferredToken,
+  fromTyreCareToken,
+  initialRegistration,
+  initialServiceId,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +116,7 @@ export function BookingWidgetForm({
     () => servicesByLocation[locationId] ?? [],
     [servicesByLocation, locationId],
   );
-  const [serviceId, setServiceId] = useState<string>("");
+  const [serviceId, setServiceId] = useState<string>(initialServiceId ?? "");
   // Naive "YYYY-MM-DDTHH:mm" from the slot grid — same shape the action expects.
   const [scheduledAt, setScheduledAt] = useState<string | null>(null);
 
@@ -121,7 +129,7 @@ export function BookingWidgetForm({
   }
 
   // Reg-first lookup: type the plate → DVSA fills in the car + MOT due date.
-  const [reg, setReg] = useState("");
+  const [reg, setReg] = useState(initialRegistration ?? "");
   const [looking, startLookup] = useTransition();
   const [vehicle, setVehicle] = useState<Extract<RegLookupResult, { found: true }> | null>(null);
   const [lookupError, setLookupError] = useState<string | null>(null);
@@ -211,6 +219,7 @@ export function BookingWidgetForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {fromDeferredToken && <input type="hidden" name="fromDeferredToken" value={fromDeferredToken} />}
+      {fromTyreCareToken && <input type="hidden" name="fromTyreCareToken" value={fromTyreCareToken} />}
       {fromQuoteSlug && fromQuoteToken && (
         <>
           <input type="hidden" name="fromQuoteSlug" value={fromQuoteSlug} />

@@ -21,6 +21,8 @@ export type AuditAction =
   | "tyre_care.dismissed"
   | "tyre_care.reopened"
   | "tyre_care.thresholds_update"
+  | "tyre_care.sent"
+  | "tyre_care.converted"
   | "authorisation.captured"
   | "authorisation.reauth_requested"
   | "authorisation.reauth_responded"
