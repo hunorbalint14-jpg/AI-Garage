@@ -25,7 +25,11 @@ export async function POST(request: NextRequest) {
   let event: ResendEvent;
   try {
     const wh = new Webhook(secret);
-    event = wh.verify(body, svixHeaders) as ResendEvent;
+    // svix >= 2 verify() only authenticates — it no longer returns the parsed
+    // payload — so throw-on-bad-signature first, then parse the raw body we
+    // just proved was signed. A malformed body throws here too and is rejected.
+    wh.verify(body, svixHeaders);
+    event = JSON.parse(body) as ResendEvent;
   } catch (err) {
     console.error("[resend-webhook] signature verification failed", {
       message: err instanceof Error ? err.message : String(err),
