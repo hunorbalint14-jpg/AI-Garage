@@ -223,7 +223,13 @@ async function processFile(
       moted_elsewhere_count: elsewhere.size,
       duration_ms: Date.now() - t0,
     });
-    return { updated, elsewhere: elsewhere.size, tests: persisted.upserted, testsError: persisted.error };
+    return {
+      updated,
+      elsewhere: elsewhere.size,
+      tests: persisted.upserted,
+      testsFailed: persisted.failed,
+      testsError: persisted.error,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await admin.from("mot_delta_runs").insert({
@@ -281,6 +287,7 @@ export async function GET(request: NextRequest) {
   let updated = 0;
   let elsewhere = 0;
   let tests = 0;
+  let testsFailed = 0;
   let testsError: string | null = null;
   let failure: string | null = null;
 
@@ -292,6 +299,7 @@ export async function GET(request: NextRequest) {
       updated += result.updated;
       elsewhere += result.elsewhere;
       tests += result.tests;
+      testsFailed += result.testsFailed;
       if (result.testsError) testsError = result.testsError;
     } catch (err) {
       failure = err instanceof Error ? err.message : String(err);
@@ -299,7 +307,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const detail = `files ${processed}/${pendingFiles.length}, updated ${updated}, elsewhere ${elsewhere}, tests ${tests}${testsError ? `, tests error: ${testsError.slice(0, 80)}` : ""}${failure ? `, error: ${failure.slice(0, 120)}` : ""}`;
+  const detail = `files ${processed}/${pendingFiles.length}, updated ${updated}, elsewhere ${elsewhere}, tests ${tests}${testsFailed ? `, tests dropped ${testsFailed}` : ""}${testsError ? `, tests error: ${testsError.slice(0, 80)}` : ""}${failure ? `, error: ${failure.slice(0, 120)}` : ""}`;
   await recordCronRun(admin, "cron/mot-delta", failure === null, Date.now() - __t0, detail);
 
   if (failure !== null) {
@@ -312,5 +320,6 @@ export async function GET(request: NextRequest) {
     updated,
     moted_elsewhere: elsewhere,
     mot_tests_upserted: tests,
+    mot_tests_dropped: testsFailed,
   });
 }

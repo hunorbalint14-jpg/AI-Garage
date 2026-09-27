@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { odometerToMiles, dedupeMotTestRows, motTestsToRows, type MotTestRow } from "./mot-history";
+import {
+  odometerToMiles,
+  dedupeMotTestRows,
+  motTestsToRows,
+  persistMotTests,
+  type MotTestRow,
+} from "./mot-history";
 import type { MotTest } from "./dvla";
 
 describe("odometerToMiles", () => {
@@ -98,5 +104,70 @@ describe("motTestsToRows", () => {
       source: "lookup",
     });
     expect(rows[0].defects[0].type).toBe("ADVISORY");
+  });
+
+  it("keeps legacy dotted DVSA dates, like the delta path", () => {
+    const rows = motTestsToRows(
+      "v1",
+      "o1",
+      [
+        {
+          completedDate: "2026.01.17 14:23:21",
+          testResult: "PASSED",
+          expiryDate: null,
+          odometerValue: "30000",
+          odometerUnit: "MI",
+          defects: [],
+        },
+      ],
+      "lookup",
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].test_date).toBe("2026-01-17");
+  });
+});
+
+describe("persistMotTests", () => {
+  const row = {
+    vehicle_id: "v1",
+    organization_id: "o1",
+    test_date: "2026-06-09",
+    result: "PASSED",
+    odometer_miles: 40000,
+    defects: [],
+    source: "lookup" as const,
+  };
+
+  // 1200 rows across three 500-row chunks, with the first chunk rejected.
+  function rowsAcrossChunks(count: number) {
+    return Array.from({ length: count }, (_, i) => ({
+      ...row,
+      vehicle_id: `v${i}`,
+    }));
+  }
+
+  function fakeAdmin(failChunks: number[]) {
+    let call = 0;
+    return {
+      from: () => ({
+        upsert: async () => {
+          const isFailing = failChunks.includes(call);
+          call++;
+          return { error: isFailing ? { message: "fk violation" } : null };
+        },
+      }),
+    } as never;
+  }
+
+  it("carries on past a failed chunk instead of dropping the rest", async () => {
+    const result = await persistMotTests(fakeAdmin([0]), rowsAcrossChunks(1200));
+    expect(result.upserted).toBe(700); // chunks 2 and 3
+    expect(result.failed).toBe(500); // chunk 1
+    expect(result.error).toBe("fk violation");
+  });
+
+  it("reports a clean run", async () => {
+    const result = await persistMotTests(fakeAdmin([]), rowsAcrossChunks(600));
+    expect(result).toEqual({ upserted: 600, failed: 0, error: null });
   });
 });
