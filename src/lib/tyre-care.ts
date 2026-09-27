@@ -27,6 +27,11 @@ export const CROSS_AXLE_DIFF_MM = 1.0;
 const MAX_PLAUSIBLE_DAILY_MILES = 330;
 /** Past this, the last reading is too stale to call the estimate trustworthy. */
 const STALE_ANCHOR_DAYS = 548; // 18 months
+/**
+ * An MOT advisory older than this describes a car that has had another test
+ * since — if the wear were still there, the newer test would say so.
+ */
+const ADVISORY_MAX_AGE_DAYS = 730;
 
 export type ServiceType = "rotation" | "alignment" | "balance";
 export type TyreConfig = "standard" | "directional" | "staggered" | "unknown";
@@ -435,7 +440,17 @@ export function evaluateTyreCare(input: TyreCareInput): TyreCareResult {
     });
   } else {
     // Strongest signal first: measured tread, then MOT wording, then events.
-    const advisory = input.motAdvisories.find((a) => matchesAlignmentAdvisory(a.text));
+    // Every signal must post-date the last alignment — otherwise the car has
+    // already had the work and we'd be recommending it again from old news.
+    const advisory = input.motAdvisories.find((a) => {
+      const tested = Date.parse(a.test_date);
+      return (
+        matchesAlignmentAdvisory(a.text) &&
+        Number.isFinite(tested) &&
+        now.getTime() - tested <= ADVISORY_MAX_AGE_DAYS * DAY_MS &&
+        (alignedAt === null || tested > alignedAt)
+      );
+    });
     const steeringVisit = input.visits.find(
       (v) => isSteeringWork(v.description) && (alignedAt === null || Date.parse(v.on) > alignedAt),
     );

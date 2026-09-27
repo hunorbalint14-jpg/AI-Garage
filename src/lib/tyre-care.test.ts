@@ -388,6 +388,34 @@ describe("evaluateTyreCare — alignment", () => {
     expect(rec.evidence.rule_key).toBe("alignment.mot_advisory");
   });
 
+  it("ignores an advisory the car has already been aligned for", () => {
+    // Regression: advisories weren't checked against the last alignment, so
+    // an old "worn on inner edge" kept recommending work already done.
+    const result = evaluateTyreCare(
+      baseInput({
+        motAdvisories: [
+          { test_date: daysAgo(400), text: "Nearside front tyre worn on inner edge", type: "ADVISORY" },
+        ],
+        serviceEvents: [
+          // Aligned after that MOT, and well outside the cooldown.
+          { service_type: "alignment", performed_at: daysAgo(300), odometer_miles: 33_000 },
+        ],
+      }),
+    );
+    expect(result.recommendations.find((r) => r.serviceType === "alignment")).toBeUndefined();
+  });
+
+  it("ignores an advisory too old to describe the car today", () => {
+    const result = evaluateTyreCare(
+      baseInput({
+        motAdvisories: [
+          { test_date: daysAgo(900), text: "Offside front tyre unevenly worn", type: "ADVISORY" },
+        ],
+      }),
+    );
+    expect(result.recommendations.find((r) => r.serviceType === "alignment")).toBeUndefined();
+  });
+
   it("fires after steering work with no alignment since", () => {
     const result = evaluateTyreCare(
       baseInput({ visits: [{ on: daysAgo(20), description: "Replaced offside track rod end" }] }),
