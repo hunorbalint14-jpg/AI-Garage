@@ -5,14 +5,19 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePlatformAdmin } from "@/lib/platform-admin";
 import { logAudit } from "@/lib/audit";
 import { PLATFORM_COMPONENTS } from "@/lib/platform/components";
+import { incidentRef } from "@/lib/platform/alerts";
 
 const SEVERITIES = ["SEV-1", "SEV-2", "SEV-3", "SEV-4"];
 const STATUSES = ["Investigating", "Identified", "Monitoring", "Resolved"];
 
 export type ActionResult = { error: string } | { success: true };
 
-function newRef(): string {
-  return "INC-" + Date.now().toString().slice(-5);
+// The incidents panel lives on /admin/incidents (it used to sit on
+// /admin/health); /status reads the same rows.
+function revalidateIncidentViews() {
+  revalidatePath("/admin/incidents");
+  revalidatePath("/admin/health");
+  revalidatePath("/status");
 }
 
 // Declare a new incident with its first update.
@@ -34,7 +39,9 @@ export async function declareIncident(formData: FormData): Promise<ActionResult>
   const { data: inc, error } = await admin
     .from("incidents")
     .insert({
-      ref: newRef(),
+      // Shared with auto-declare: a clock-only ref repeats every 100 s and
+      // `ref` is UNIQUE, so a collision silently failed the insert.
+      ref: incidentRef(),
       title,
       severity,
       status: "Investigating",
@@ -46,7 +53,7 @@ export async function declareIncident(formData: FormData): Promise<ActionResult>
     .single();
   if (error || !inc) return { error: error?.message ?? "Could not create incident." };
 
-  await admin.from("incident_updates").insert({
+  const { error: updateError } = await admin.from("incident_updates").insert({
     incident_id: inc.id,
     status: "Investigating",
     body,
@@ -63,11 +70,20 @@ export async function declareIncident(formData: FormData): Promise<ActionResult>
     metadata: { ref: inc.ref, severity, components, published },
   });
 
-  revalidatePath("/admin/health");
+  revalidateIncidentViews();
+  if (updateError) {
+    return { error: `Incident ${inc.ref} was declared, but its first update didn't save: ${updateError.message}` };
+  }
   return { success: true };
 }
 
 // Append an update and move the incident's status. "Resolved" closes it.
+//
+// A PUBLIC update publishes its incident. /status only lists published
+// incidents, so a public update on an unpublished one used to be marked
+// "·public" in the admin timeline and still appear nowhere — the incident had
+// to be published separately, which is easy to miss mid-incident (and
+// auto-declared incidents always start unpublished).
 export async function addIncidentUpdate(formData: FormData): Promise<ActionResult> {
   const actor = await requirePlatformAdmin();
 
@@ -80,17 +96,28 @@ export async function addIncidentUpdate(formData: FormData): Promise<ActionResul
   if (!body) return { error: "Update text is required." };
 
   const admin = createAdminClient();
-  await admin.from("incident_updates").insert({
+  const { data: incident, error: readError } = await admin
+    .from("incidents")
+    .select("id, published")
+    .eq("id", incidentId)
+    .maybeSingle();
+  if (readError) return { error: readError.message };
+  if (!incident) return { error: "Incident not found." };
+  const publishing = isPublic && !(incident as { published: boolean }).published;
+
+  const { error: insertError } = await admin.from("incident_updates").insert({
     incident_id: incidentId,
     status,
     body,
     actor_email: actor.email ?? null,
     public: isPublic,
   });
+  if (insertError) return { error: `The update didn't save: ${insertError.message}` };
 
   const patch: Record<string, unknown> = { status };
   if (status === "Resolved") patch.resolved_at = new Date().toISOString();
-  await admin.from("incidents").update(patch).eq("id", incidentId);
+  if (publishing) patch.published = true;
+  const { error: patchError } = await admin.from("incidents").update(patch).eq("id", incidentId);
 
   await logAudit({
     action: status === "Resolved" ? "incident.resolve" : "incident.update",
@@ -98,10 +125,13 @@ export async function addIncidentUpdate(formData: FormData): Promise<ActionResul
     actorEmail: actor.email ?? null,
     entityType: "incident",
     entityId: incidentId,
-    metadata: { status, public: isPublic },
+    metadata: { status, public: isPublic, ...(publishing ? { published: true } : {}) },
   });
 
-  revalidatePath("/admin/health");
+  revalidateIncidentViews();
+  if (patchError) {
+    return { error: `The update was saved, but the incident status didn't change: ${patchError.message}` };
+  }
   return { success: true };
 }
 
@@ -109,7 +139,8 @@ export async function setIncidentPublished(incidentId: string, published: boolea
   const actor = await requirePlatformAdmin();
   if (!incidentId) return { error: "Missing incident." };
   const admin = createAdminClient();
-  await admin.from("incidents").update({ published }).eq("id", incidentId);
+  const { error } = await admin.from("incidents").update({ published }).eq("id", incidentId);
+  if (error) return { error: error.message };
   await logAudit({
     action: "incident.publish",
     actorUserId: actor.id,
@@ -118,7 +149,7 @@ export async function setIncidentPublished(incidentId: string, published: boolea
     entityId: incidentId,
     metadata: { published },
   });
-  revalidatePath("/admin/health");
+  revalidateIncidentViews();
   return { success: true };
 }
 
@@ -126,7 +157,8 @@ export async function ackIncident(incidentId: string): Promise<ActionResult> {
   const actor = await requirePlatformAdmin();
   if (!incidentId) return { error: "Missing incident." };
   const admin = createAdminClient();
-  await admin.from("incidents").update({ acked_at: new Date().toISOString() }).eq("id", incidentId);
+  const { error } = await admin.from("incidents").update({ acked_at: new Date().toISOString() }).eq("id", incidentId);
+  if (error) return { error: error.message };
   await logAudit({
     action: "incident.ack",
     actorUserId: actor.id,
@@ -134,6 +166,6 @@ export async function ackIncident(incidentId: string): Promise<ActionResult> {
     entityType: "incident",
     entityId: incidentId,
   });
-  revalidatePath("/admin/health");
+  revalidateIncidentViews();
   return { success: true };
 }

@@ -88,7 +88,11 @@ function IncidentCard({ inc, onChange }: { inc: Incident; onChange: () => void }
   const [pending, startTransition] = useTransition();
   const [status, setStatus] = useState<string>(inc.status);
   const [body, setBody] = useState("");
-  const [isPublic, setIsPublic] = useState(inc.published);
+  // Follows the incident's published state until the operator changes it, so
+  // publishing from the button above defaults the next update to public too
+  // (a plain useState(inc.published) kept the value from the first render).
+  const [publicOverride, setPublicOverride] = useState<boolean | null>(null);
+  const isPublic = publicOverride ?? inc.published;
   const [err, setErr] = useState<string | null>(null);
   const tone = sevTone(inc.severity);
 
@@ -113,7 +117,10 @@ function IncidentCard({ inc, onChange }: { inc: Incident; onChange: () => void }
     if (isPublic) fd.set("public", "on");
     run(async () => {
       const r = await addIncidentUpdate(fd);
-      if ("success" in r) setBody("");
+      if ("success" in r) {
+        setBody("");
+        setPublicOverride(null);
+      }
       return r;
     });
   }
@@ -210,9 +217,12 @@ function IncidentCard({ inc, onChange }: { inc: Incident; onChange: () => void }
           placeholder="Post an update…"
           className="min-w-[200px] flex-1 rounded border border-[#2a2f37] bg-[#171b21] px-3 py-1.5 text-sm text-white placeholder:text-[#5a6170] focus:border-[#22c55e] focus:outline-none"
         />
-        <label className="flex items-center gap-1.5 text-xs text-[#9aa1ad]">
-          <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
-          public
+        <label
+          className="flex items-center gap-1.5 text-xs text-[#9aa1ad]"
+          title={inc.published ? "Shown on /status" : "Posting a public update also publishes this incident to /status"}
+        >
+          <input type="checkbox" checked={isPublic} onChange={(e) => setPublicOverride(e.target.checked)} />
+          {isPublic && !inc.published ? "public · publishes to /status" : "public"}
         </label>
         <button
           type="button"
