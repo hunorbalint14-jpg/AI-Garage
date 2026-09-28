@@ -441,6 +441,20 @@ const customer: Section[] = [
     ],
   },
   {
+    id: "tyre-care-message",
+    title: "Tyre-care suggestions from your garage",
+    persona: "customer",
+    route: "",
+    noShot: true,
+    purpose: "Why your garage might suggest a tyre rotation or alignment check, and how to book or opt out.",
+    prose: [
+      "If your garage uses tyre care, they may message you when your tyres are due a rotation or your wheel alignment is worth checking. Every message says why: for example, your estimated mileage since the last rotation, uneven wear measured at your last visit, or an MOT advisory. Someone at the garage read and approved it before it was sent.",
+      "Tap Book it in to go straight to the garage's booking page with the service already chosen.",
+      "These suggestions count as marketing, so you only get them if you agreed to marketing messages. Each one has an unsubscribe link where you can stop marketing emails, texts or both. Opting out doesn't affect messages about your bookings, jobs and invoices, or reminders you asked for, such as your MOT reminder.",
+    ],
+    notes: ["You'll get at most one automated message from the garage in any 30 days, and no more than six tyre-care suggestions a year."],
+  },
+  {
     id: "account",
     title: "Your account (trade & fleet)",
     persona: "customer",
@@ -848,6 +862,9 @@ const staff: Section[] = [
       "Reminders nudge customers ahead of MOT/service dates; dunning chases overdue invoices gently; review requests follow completed visits.",
       "Turn an automation on or off per branch; sending respects each customer's contact consent.",
     ],
+    notes: [
+      "Two automations never message customers themselves. The weekly digest goes to staff, and Tyre-care recommendations (where enabled) fills the Tyre care queue for staff to review.",
+    ],
   },
   {
     id: "campaigns",
@@ -1048,6 +1065,34 @@ const staff: Section[] = [
       "When the customer books, the item flips to recovered and counts as recovered revenue; dead items can be dismissed with a reason.",
     ],
     notes: ["Items are created automatically — from declined quote lines and from health-check advisories that never became a quote. Nothing needs manual entry."],
+  },
+  {
+    id: "tyre-care",
+    title: "Tyre care",
+    persona: "staff",
+    route: "/staff/tyre-care",
+    noShot: true,
+    roles: "Reminders permission",
+    purpose: "Rotation and alignment suggestions raised overnight, each with its evidence. Nothing reaches a customer until a person approves it.",
+    prose: [
+      "Every night, tyre care checks the vehicles of customers whose home branch is this one, and works out whether a tyre rotation or a wheel alignment check is genuinely due. It works from the car's estimated mileage (built from MOT tests, jobs, tyre checks and imported history), tread depths from tyre checks, MOT advisories about uneven wear, and recent steering or suspension work. Anything due is added to the Tyre care queue with the reason written out in plain English. Nothing is sent automatically.",
+      "Each item is labelled 'Measured evidence' (a tread reading, an advisory or recent work) or 'Mileage estimate' (estimated miles since the last rotation only). Measured items are listed first. Chips on the row show what needs attention. 'Wheel setup not confirmed' means a rotation can't be sent until someone confirms the car has a standard setup on its vehicle page, because staggered or directional tyres can't be swapped front to back. 'MOT due in N days' suggests raising it at the MOT instead. A grey note means the customer was contacted recently.",
+      "Review & send opens the message, pre-filled with plain wording that states the evidence. Edit it freely, or polish it with the AI assist menu. Tick email, SMS or both. A channel can only be ticked if the customer has agreed to marketing on it and has an email address or mobile number. A Book it in button (with the service already chosen), your branch details and an unsubscribe link are added automatically.",
+      "If something doesn't look right, dismiss it and pick a reason: Wait for MOT, Already done elsewhere, Customer not interested, or Evidence looks wrong. Those reasons are how the thresholds get tuned. A dismissed item stays quiet for 90 days, and so does a car that has just been messaged or booked.",
+      "The tabs follow each item through: To review, Sent, Booked (the customer booked through the link), Dismissed, and No longer due (the evidence stopped holding, for example because the work was recorded). Results → covers the last 90 days: how many sent messages led to a booking, paid revenue from those bookings, the dismissal rate with the top reasons, unsubscribes, and how much of the fleet has enough readings for an estimate. Revenue roles also get a Tyre care tile on the dashboard.",
+    ],
+    notes: [
+      "Balancing is never messaged to customers, because the signal is too weak. When it's due, the job page shows a 'Worth checking while it's in' prompt for the technician instead.",
+      "Contact limits: a customer who had any automated message (an MOT, service or tax reminder, a follow-up or another tyre-care message) in the last 30 days can't be sent one, and nobody gets more than 6 tyre-care messages a year. The queue shows this before you open the message.",
+      "The nightly check is switched on per branch in Automations → Tyre-care recommendations. Staff with the Automations permission can change the rotation and balance intervals there (default 6,000 and 12,000 miles, org-wide). Electric and hybrid cars automatically use a shorter interval.",
+      "Each vehicle page shows its estimated mileage with the readings behind it, the wheel & tyre profile, and a log of rotations, alignments and balances. Record work there so it isn't suggested again.",
+    ],
+    troubleshooting: [
+      { problem: "No Tyre care in the menu", fix: "Tyre care is being rolled out gradually. If it isn't in the menu, it isn't switched on for your account yet. It also needs the Reminders permission. Ask via the Support widget." },
+      { problem: "The queue is empty", fix: "Check the nightly check is switched on for this branch in Automations. It only looks at customers whose home branch is this one, and a car needs at least two dated mileage readings (MOT history usually provides them). The Results page shows how much of the fleet has an estimate." },
+      { problem: "Review & send is greyed out", fix: "One of three things. The wheel setup isn't confirmed (rotations only). Or the customer is inside a contact limit (messaged in the last 30 days, or already had 6 tyre-care messages this year). Or they have no marketing consent or contact details on any channel. The chips on the row say which." },
+      { problem: "A car was suggested for work we've already done", fix: "Record the rotation or alignment under Wheel services on the vehicle page, and the mileage on the job. The item moves to 'No longer due' after the next nightly check. Or dismiss it now with 'Already done elsewhere'." },
+    ],
   },
   {
     id: "authorisations",
