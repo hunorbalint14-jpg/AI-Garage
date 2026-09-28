@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveTenantFromHost } from "@/lib/tenant";
 import { PLATFORM_COMPONENTS } from "@/lib/platform/components";
+import { severityTone, summariseStatus, ukDateTime, ukTime, ukTimeWithZone, type StatusTone } from "@/lib/platform/status-summary";
 
 // Public system-status page. Shows ONLY incidents the ops team has published
 // (and only their public updates). No auth. Component statuses are derived from
-// published, unresolved incidents until per-service synthetic checks land.
+// published, unresolved incidents until per-service synthetic checks land; the
+// headline follows every published incident (see status-summary.ts).
 // Root-domain only — not served on tenant subdomains or the admin host.
 export const dynamic = "force-dynamic";
 
@@ -38,9 +40,7 @@ type PubIncident = {
   incident_updates: PubUpdate[];
 };
 
-type Tone = "ok" | "warn" | "bad";
-const sevTone = (sev: string): Tone => (sev === "SEV-1" || sev === "SEV-2" ? "bad" : "warn");
-const rank: Record<Tone, number> = { ok: 0, warn: 1, bad: 2 };
+type Tone = StatusTone;
 
 const UPDATE_TONE: Record<string, string> = {
   Investigating: "text-[#ff7b7b]",
@@ -56,12 +56,17 @@ export default async function StatusPage() {
   if (!resolveTenantFromHost(host).isRootDomain) notFound();
 
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("incidents")
     .select("id, title, severity, status, components, started_at, incident_updates(status, body, created_at, public)")
     .eq("published", true)
     .is("resolved_at", null)
     .order("started_at", { ascending: false });
+  // A failed read must never render as "All systems operational" — that is
+  // the one message a status page can't get wrong, and a database problem is
+  // exactly when this query is most likely to fail.
+  const unavailable = !!error;
+  if (error) console.error("[status] incidents query failed", error.message);
 
   const incidents = ((data ?? []) as PubIncident[]).map((i) => ({
     ...i,
@@ -71,19 +76,13 @@ export default async function StatusPage() {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
   }));
 
-  // Derive component statuses from published incidents.
-  const compTone = new Map<string, Tone>();
-  for (const c of PLATFORM_COMPONENTS) compTone.set(c, "ok");
-  for (const inc of incidents) {
-    const tone = sevTone(inc.severity);
-    for (const c of inc.components) {
-      if (compTone.has(c) && rank[tone] > rank[compTone.get(c)!]) compTone.set(c, tone);
-    }
-  }
-  const worst = [...compTone.values()].reduce<Tone>((w, t) => (rank[t] > rank[w] ? t : w), "ok");
+  const summary = summariseStatus(incidents);
+  const compTone = summary.components;
+  const worst = summary.overall;
 
-  const overall =
-    worst === "ok"
+  const overall = unavailable
+    ? { icon: "?", title: "Status temporarily unavailable", sub: "We couldn't load the latest status. Please try again in a few minutes.", border: "border-[#2a2f37]", from: "from-[#1b1f26]", color: "text-[#9aa1ad]" }
+    : worst === "ok"
       ? { icon: "✓", title: "All systems operational", sub: "All AI Garage services are running normally.", border: "border-[#2a5a3a]", from: "from-[#13301f]", color: "text-[#5fdd9d]" }
       : worst === "warn"
         ? { icon: "!", title: "Some systems degraded", sub: "We're investigating an issue affecting some services.", border: "border-[#5a4a1f]", from: "from-[#2e2410]", color: "text-[#f5c451]" }
@@ -112,7 +111,12 @@ export default async function StatusPage() {
         </div>
 
         <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[#5a6170]">Active incidents</h2>
-        {incidents.length === 0 ? (
+        {unavailable ? (
+          <div className="mb-9 flex items-center gap-2.5 rounded-xl border border-[#23272f] bg-[#15181d] px-4 py-4 text-sm text-[#9aa1ad]">
+            <span className="h-2 w-2 rounded-full bg-[#9aa1ad]" />
+            Incident details couldn&apos;t be loaded right now.
+          </div>
+        ) : incidents.length === 0 ? (
           <div className="mb-9 flex items-center gap-2.5 rounded-xl border border-[#23272f] bg-[#15181d] px-4 py-4 text-sm text-[#9aa1ad]">
             <span className="h-2 w-2 rounded-full bg-[#5fdd9d]" />
             No incidents reported. All systems have been stable.
@@ -120,7 +124,7 @@ export default async function StatusPage() {
         ) : (
           <div className="mb-9 flex flex-col gap-4">
             {incidents.map((inc) => {
-              const tone = sevTone(inc.severity);
+              const tone = severityTone(inc.severity);
               return (
                 <div
                   key={inc.id}
@@ -133,15 +137,14 @@ export default async function StatusPage() {
                     </span>
                   </div>
                   <div className="mb-3 font-mono text-xs text-[#5a6170]">
-                    Started {new Date(inc.started_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} GMT
+                    Started {ukDateTime(inc.started_at)}
+                    {inc.components.length > 0 && <> · Affects {inc.components.join(", ")}</>}
                   </div>
                   {inc.updates.map((u, i) => (
-                    <div key={i} className="grid grid-cols-[78px_1fr] gap-3.5 border-t border-[#23272f] py-2.5">
+                    <div key={i} className="grid grid-cols-[108px_1fr] gap-3.5 border-t border-[#23272f] py-2.5">
                       <div>
                         <div className={`text-[11px] font-bold uppercase tracking-wide ${UPDATE_TONE[u.status] ?? "text-[#c7ccd4]"}`}>{u.status}</div>
-                        <div className="mt-0.5 font-mono text-[11px] text-[#5a6170]">
-                          {new Date(u.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                        </div>
+                        <div className="mt-0.5 font-mono text-[11px] text-[#5a6170]">{ukTime(u.created_at)}</div>
                       </div>
                       <div className="text-[13.5px] leading-relaxed text-[#c7ccd4]">{u.body}</div>
                     </div>
@@ -153,27 +156,32 @@ export default async function StatusPage() {
         )}
 
         <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[#5a6170]">Current status</h2>
+        {!unavailable && summary.unmapped && (
+          <p className="mb-3 text-[13px] text-[#9aa1ad]">
+            We&apos;re still confirming which services an active incident affects — see Active incidents above.
+          </p>
+        )}
         <div className="overflow-hidden rounded-xl border border-[#23272f] bg-[#15181d]">
           {PLATFORM_COMPONENTS.map((c) => {
             const t = compTone.get(c)!;
             return (
               <div key={c} className="flex items-center gap-3 border-t border-[#23272f] px-[18px] py-3.5 first:border-t-0">
                 <span className="text-sm font-medium">{c}</span>
-                <span className={`ml-auto flex items-center gap-2 text-[12.5px] font-semibold ${textFor(t)}`}>
-                  <span className={`h-2.5 w-2.5 rounded-full ${dotFor(t)}`} />
-                  {labelFor(t)}
-                </span>
+                {unavailable ? (
+                  <span className="ml-auto text-[12.5px] font-semibold text-[#9aa1ad]">Unknown</span>
+                ) : (
+                  <span className={`ml-auto flex items-center gap-2 text-[12.5px] font-semibold ${textFor(t)}`}>
+                    <span className={`h-2.5 w-2.5 rounded-full ${dotFor(t)}`} />
+                    {labelFor(t)}
+                  </span>
+                )}
               </div>
             );
           })}
         </div>
 
         <div className="mt-12 border-t border-[#23272f] pt-6 text-xs text-[#5a6170]">
-          Updated{" "}
-          <span className="font-mono">
-            {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-          </span>{" "}
-          · all times GMT
+          Updated <span className="font-mono">{ukTimeWithZone(new Date())}</span> · all times UK time
         </div>
       </div>
     </div>
