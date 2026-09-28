@@ -33,7 +33,7 @@ Grouped; see `npm run check:env` output for the per-var failure mode.
 - **AI (Anthropic)** — `ANTHROPIC_API_KEY` (read implicitly by the SDK; assist, drafting, receptionist).
 - **Email (Resend)** — `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_SENDER_NAME`, `RESEND_WEBHOOK_SECRET`.
 - **Rate limiting (Upstash)** — one of the pairs `UPSTASH_REDIS_REST_URL`+`UPSTASH_REDIS_REST_TOKEN` **or** `UPSTASH_KV_REST_API_URL`+`UPSTASH_KV_REST_API_TOKEN`. Missing → **auth endpoints unthrottled**.
-- **Vehicle data (DVLA/DVSA)** — `DVLA_VES_API_KEY`, `DVSA_CLIENT_ID`, `DVSA_CLIENT_SECRET`, `DVSA_API_KEY`, `DVSA_TOKEN_URL`, `DVSA_SCOPE`.
+- **Vehicle data (DVLA/DVSA)** — `DVLA_VES_API_KEY`, `DVSA_CLIENT_ID`, `DVSA_CLIENT_SECRET`, `DVSA_API_KEY` (the legacy name `DVSA_MOT_API_KEY` is also accepted), `DVSA_TOKEN_URL`, `DVSA_SCOPE`. `DVLA_VES_API_KEY` is the DVLA Vehicle Enquiry Service (tax/fuel); the five `DVSA_*` vars are the MOT History API — MOT lookups, recalls and the nightly MOT sync + reconcile crons.
 - **SMS/WhatsApp (Twilio)** — `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, `TWILIO_WHATSAPP_FROM`.
 - **Xero** — `XERO_CLIENT_ID`, `XERO_CLIENT_SECRET`, `XERO_SALES_ACCOUNT_CODE`.
 - **Passkeys** — `WEBAUTHN_RP_ID`, `WEBAUTHN_RP_NAME`.

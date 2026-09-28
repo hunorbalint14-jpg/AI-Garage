@@ -2,6 +2,7 @@
 // The MOT History API at history.mot.api.gov.uk includes recall information.
 
 import { getAccessToken } from "./dvla-auth";
+import { dvsaApiKey } from "./dvsa-api-key";
 
 export type RecallResult =
   | { success: true; hasRecall: boolean; recalls: Recall[] }
@@ -16,7 +17,7 @@ export type Recall = {
 };
 
 export async function checkVehicleRecalls(registration: string): Promise<RecallResult> {
-  const apiKey = process.env.DVSA_API_KEY;
+  const apiKey = dvsaApiKey();
   if (!apiKey) return { success: false, error: "DVSA API key not configured." };
 
   const reg = registration.replace(/\s+/g, "").toUpperCase();

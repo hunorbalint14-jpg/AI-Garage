@@ -1,5 +1,6 @@
 import { createInflateRaw } from "node:zlib";
 import { getAccessToken } from "./dvla-auth";
+import { dvsaApiKey } from "./dvsa-api-key";
 import { odometerToMiles } from "./mot-history";
 import { parseDvsaDate } from "./dvsa-dates";
 
@@ -24,7 +25,7 @@ export type BulkDownloadListing = {
 };
 
 export async function listBulkDownloadFiles(): Promise<BulkDownloadListing> {
-  const apiKey = process.env.DVSA_API_KEY;
+  const apiKey = dvsaApiKey();
   if (!apiKey) throw new Error("DVSA API key not configured.");
 
   const token = await getAccessToken();

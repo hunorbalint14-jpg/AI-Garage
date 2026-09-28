@@ -72,6 +72,10 @@ Defined in [vercel.json](vercel.json), gated by a `CRON_SECRET` header check ins
 - `/api/cron/tick` — hourly; fans out due `scheduled_tasks` rows to `/api/cron/reminders`, `/api/cron/digest`, `/api/cron/dunning`, `/api/cron/review-requests`
 - `/api/cron/quote-expiry` — every 30 min
 - `/api/cron/uptime` — every 3 min (platform reliability probes)
+- `/api/cron/mot-delta` — daily 03:45 UTC; applies DVSA's daily delta files (vehicles whose MOT data changed in 24h) → `mot_expiry`, `last_mot_test_date`, `moted_elsewhere_at` (win-back)
+- `/api/cron/mot-reconcile` — daily 04:15 UTC; per-registration re-check of vehicles whose stored expiry has passed / is due soon / is missing — the delta can't correct tests that predate our sync. Both share [src/lib/mot-sync.ts](src/lib/mot-sync.ts)
+
+New cron jobs must be added to `SCHEDULES` (and `MAX_AGE_MINS` if Vercel-scheduled) in [src/lib/platform/cron-runs.ts](src/lib/platform/cron-runs.ts) — unlisted jobs never appear on `/admin/health` and are never stale-checked.
 
 ### Audit log
 Staff actions are recorded via [src/lib/audit.ts](src/lib/audit.ts) into the `audit_log` table and surfaced at `/staff/audit-log`. New staff-side mutations should call the audit helper.

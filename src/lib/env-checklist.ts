@@ -46,7 +46,7 @@ export const ENV_VARS: EnvVar[] = [
   { name: "DVLA_VES_API_KEY", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "Registration lookup (make/model/tax) fails." },
   { name: "DVSA_CLIENT_ID", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "MOT history + due dates can't be fetched." },
   { name: "DVSA_CLIENT_SECRET", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "MOT history + due dates can't be fetched." },
-  { name: "DVSA_API_KEY", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "MOT history API rejects requests." },
+  // The DVSA API key itself is a one-of below (DVSA_API_KEY | DVSA_MOT_API_KEY).
   { name: "DVSA_TOKEN_URL", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "DVSA OAuth token can't be obtained." },
   { name: "DVSA_SCOPE", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "DVSA OAuth scope missing." },
 
@@ -102,6 +102,15 @@ export const ENV_ONE_OF: EnvOneOf[] = [
       ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
       ["UPSTASH_KV_REST_API_URL", "UPSTASH_KV_REST_API_TOKEN"],
     ],
+  },
+  {
+    // The code reads DVSA_API_KEY; the docs historically said DVSA_MOT_API_KEY.
+    // src/lib/dvsa-api-key.ts accepts either, so the checklist does too —
+    // listing only one name is how a missing key once showed as configured.
+    group: "Vehicle data (DVLA/DVSA)",
+    level: "feature",
+    ifMissing: "MOT history API rejects every request — MOT lookups, recall checks and the nightly MOT sync all fail.",
+    options: [["DVSA_API_KEY"], ["DVSA_MOT_API_KEY"]],
   },
 ];
 
