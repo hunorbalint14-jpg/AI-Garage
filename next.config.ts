@@ -1,5 +1,5 @@
 import type { NextConfig } from "next";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 // Enforced CSP, promoted from Report-Only after reviewing real prod traffic
 // (Supabase media, Google fonts, and the Vercel Live toolbar were the only
