@@ -4,7 +4,21 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveTenantFromHost } from "@/lib/tenant";
 import { PLATFORM_COMPONENTS } from "@/lib/platform/components";
-import { severityTone, summariseStatus, ukDateTime, ukTime, ukTimeWithZone, type StatusTone } from "@/lib/platform/status-summary";
+import {
+  PAST_INCIDENT_DAYS,
+  PAST_INCIDENT_LIMIT,
+  groupByUkDay,
+  incidentDuration,
+  incidentWindow,
+  pastIncidentsSince,
+  severityTone,
+  summariseStatus,
+  ukDateTime,
+  ukDayTime,
+  ukTime,
+  ukTimeWithZone,
+  type StatusTone,
+} from "@/lib/platform/status-summary";
 
 // Public system-status page. Shows ONLY incidents the ops team has published
 // (and only their public updates). No auth. Component statuses are derived from
@@ -39,8 +53,14 @@ type PubIncident = {
   started_at: string;
   incident_updates: PubUpdate[];
 };
+type PastIncident = PubIncident & { resolved_at: string };
 
 type Tone = StatusTone;
+
+const publicUpdatesNewestFirst = (updates: PubUpdate[] | null) =>
+  (updates ?? [])
+    .filter((u) => u.public)
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
 const UPDATE_TONE: Record<string, string> = {
   Investigating: "text-[#ff7b7b]",
@@ -56,25 +76,41 @@ export default async function StatusPage() {
   if (!resolveTenantFromHost(host).isRootDomain) notFound();
 
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("incidents")
-    .select("id, title, severity, status, components, started_at, incident_updates(status, body, created_at, public)")
-    .eq("published", true)
-    .is("resolved_at", null)
-    .order("started_at", { ascending: false });
+  const pastSince = pastIncidentsSince(new Date());
+  const [{ data, error }, { data: pastData, error: pastError }] = await Promise.all([
+    admin
+      .from("incidents")
+      .select("id, title, severity, status, components, started_at, incident_updates(status, body, created_at, public)")
+      .eq("published", true)
+      .is("resolved_at", null)
+      .order("started_at", { ascending: false }),
+    admin
+      .from("incidents")
+      .select("id, title, severity, status, components, started_at, resolved_at, incident_updates(status, body, created_at, public)")
+      .eq("published", true)
+      .gte("resolved_at", pastSince)
+      .order("started_at", { ascending: false })
+      .limit(PAST_INCIDENT_LIMIT),
+  ]);
   // A failed read must never render as "All systems operational" — that is
   // the one message a status page can't get wrong, and a database problem is
   // exactly when this query is most likely to fail.
   const unavailable = !!error;
   if (error) console.error("[status] incidents query failed", error.message);
+  if (pastError) console.error("[status] past incidents query failed", pastError.message);
 
   const incidents = ((data ?? []) as PubIncident[]).map((i) => ({
     ...i,
     components: i.components ?? [],
-    updates: (i.incident_updates ?? [])
-      .filter((u) => u.public)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    updates: publicUpdatesNewestFirst(i.incident_updates),
   }));
+  const pastDays = groupByUkDay(
+    ((pastData ?? []) as PastIncident[]).map((i) => ({
+      ...i,
+      components: i.components ?? [],
+      updates: publicUpdatesNewestFirst(i.incident_updates),
+    })),
+  );
 
   const summary = summariseStatus(incidents);
   const compTone = summary.components;
@@ -179,6 +215,67 @@ export default async function StatusPage() {
             );
           })}
         </div>
+
+        <h2 className="mb-3 mt-10 text-[13px] font-semibold uppercase tracking-wide text-[#5a6170]">
+          Past incidents <span className="font-normal normal-case tracking-normal">· last {PAST_INCIDENT_DAYS} days</span>
+        </h2>
+        {pastError ? (
+          <div className="rounded-xl border border-[#23272f] bg-[#15181d] px-4 py-4 text-sm text-[#9aa1ad]">
+            Past incidents couldn&apos;t be loaded right now.
+          </div>
+        ) : pastDays.length === 0 ? (
+          <div className="rounded-xl border border-[#23272f] bg-[#15181d] px-4 py-4 text-sm text-[#9aa1ad]">
+            No incidents in the last {PAST_INCIDENT_DAYS} days.
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {pastDays.map((day) => (
+              <div key={day.label}>
+                <div className="mb-2 border-b border-[#23272f] pb-1.5 text-sm font-semibold text-[#c7ccd4]">{day.label}</div>
+                <div className="flex flex-col gap-2.5">
+                  {day.items.map((inc) => {
+                    const tone = severityTone(inc.severity);
+                    return (
+                      <details key={inc.id} className="group rounded-xl border border-[#23272f] bg-[#15181d] px-4 py-3">
+                        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2.5 gap-y-1 [&::-webkit-details-marker]:hidden">
+                          <span className="text-[14.5px] font-semibold">{inc.title}</span>
+                          <span
+                            className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-bold ${tone === "bad" ? "border-[#5a2424] bg-[#3a1a1a] text-[#ff7b7b]" : "border-[#5a4a1f] bg-[#2e2410] text-[#f5c451]"}`}
+                          >
+                            {tone === "bad" ? "Major" : "Minor"}
+                          </span>
+                          <span className="rounded border border-[#2a5a3a] bg-[#13301f] px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#5fdd9d]">
+                            Resolved
+                          </span>
+                          <span className="ml-auto font-mono text-[11px] text-[#5a6170] group-open:hidden">
+                            {inc.updates.length > 0 ? `${inc.updates.length} update${inc.updates.length === 1 ? "" : "s"} ▾` : ""}
+                          </span>
+                          <span className="basis-full font-mono text-xs text-[#5a6170]">
+                            {incidentWindow(inc.started_at, inc.resolved_at)} · lasted {incidentDuration(inc.started_at, inc.resolved_at)}
+                            {inc.components.length > 0 && <> · Affected {inc.components.join(", ")}</>}
+                          </span>
+                        </summary>
+                        {inc.updates.length > 0 && (
+                          <div className="mt-2">
+                            {inc.updates.map((u, i) => (
+                              <div key={i} className="grid grid-cols-[108px_1fr] gap-3.5 border-t border-[#23272f] py-2.5">
+                                <div>
+                                  <div className={`text-[11px] font-bold uppercase tracking-wide ${UPDATE_TONE[u.status] ?? "text-[#c7ccd4]"}`}>{u.status}</div>
+                                  <div className="mt-0.5 font-mono text-[11px] text-[#5a6170]">{ukDayTime(u.created_at)}</div>
+                                </div>
+                                <div className="text-[13.5px] leading-relaxed text-[#c7ccd4]">{u.body}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </details>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-12 border-t border-[#23272f] pt-6 text-xs text-[#5a6170]">
           Updated <span className="font-mono">{ukTimeWithZone(new Date())}</span> · all times UK time
