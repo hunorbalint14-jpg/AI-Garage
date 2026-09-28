@@ -17,12 +17,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const admin = createAdminClient();
+  const __t0 = Date.now();
+
+  // Record the skip: /admin/health watches this job for a missing daily run,
+  // so a flag-off day must still leave a (green, explained) run behind.
   if (!(await isFeatureEnabled("activation_emails"))) {
+    await recordCronRun(admin, "cron/activation", true, Date.now() - __t0, "skipped: activation_emails flag off");
     return NextResponse.json({ success: true, skipped: "flag_off" });
   }
 
-  const admin = createAdminClient();
-  const __t0 = Date.now();
   const results = await runActivationSweep(admin);
 
   console.log("[cron/activation]", results);
