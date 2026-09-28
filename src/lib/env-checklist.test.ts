@@ -48,6 +48,17 @@ describe("checkEnv", () => {
     expect(kv.oneOfMissing.some((g) => g.group.includes("Upstash"))).toBe(false);
   });
 
+  it("accepts the DVSA key under either name the code reads", () => {
+    const dvsaMissing = (env: Record<string, string>) =>
+      checkEnv(envWith(env)).oneOfMissing.some((g) => g.options.some((set) => set.includes("DVSA_API_KEY")));
+    expect(dvsaMissing({})).toBe(true);
+    expect(dvsaMissing({ DVSA_API_KEY: "k" })).toBe(false);
+    expect(dvsaMissing({ DVSA_MOT_API_KEY: "k" })).toBe(false);
+    // No plain row for either name — a single-name row is how a missing key
+    // once showed as configured.
+    expect(ENV_VARS.some((v) => v.name === "DVSA_API_KEY" || v.name === "DVSA_MOT_API_KEY")).toBe(false);
+  });
+
   it("does not accept a half-set Upstash pair", () => {
     const half = checkEnv(envWith({ UPSTASH_REDIS_REST_URL: "u" }));
     expect(half.oneOfMissing.some((g) => g.group.includes("Upstash"))).toBe(true);

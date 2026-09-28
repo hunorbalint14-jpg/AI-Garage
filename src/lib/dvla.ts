@@ -1,4 +1,5 @@
 import { getAccessToken } from "./dvla-auth";
+import { dvsaApiKey } from "./dvsa-api-key";
 import { parseDvsaDate } from "./dvsa-bulk";
 
 // DVSA MOT History API — OAuth2 client credentials + API key auth
@@ -110,7 +111,7 @@ export async function lookupMotHistory(registration: string): Promise<MotHistory
     return DEMO_MOT_FIXTURES[reg];
   }
 
-  const apiKey = process.env.DVSA_API_KEY;
+  const apiKey = dvsaApiKey();
   if (!apiKey) return { success: false, error: "DVSA API key not configured." };
 
   let token: string;
@@ -179,7 +180,7 @@ export async function lookupMotHistory(registration: string): Promise<MotHistory
 }
 
 export async function lookupVehicle(registration: string): Promise<DvsaResult> {
-  const apiKey = process.env.DVSA_API_KEY;
+  const apiKey = dvsaApiKey();
   if (!apiKey) return { success: false, error: "DVSA API key not configured." };
 
   const reg = registration.replace(/\s+/g, "").toUpperCase();
@@ -257,4 +258,53 @@ export async function lookupVehicle(registration: string): Promise<DvsaResult> {
       noMotHistory,
     },
   };
+}
+
+export type DvsaRecordResult =
+  | { status: "ok"; record: Record<string, unknown> }
+  /** 404, or 400 for a registration DVSA rejects as malformed — neither resolves on retry. */
+  | { status: "not_found" }
+  /** Every following call in a batch would fail the same way — stop the batch. */
+  | { status: "systemic"; error: string }
+  /** This registration only; the next one may well succeed. */
+  | { status: "error"; error: string };
+
+// The raw DVSA vehicle record, unmapped. Same shape as a delta-file record, so
+// batch callers can run it through extractDeltaUpdate() and derive MOT expiry
+// and last-test date by exactly the rule the nightly delta sync uses.
+export async function fetchDvsaVehicleRecord(registration: string): Promise<DvsaRecordResult> {
+  const apiKey = dvsaApiKey();
+  if (!apiKey) return { status: "systemic", error: "DVSA API key not configured." };
+
+  const reg = registration.replace(/\s+/g, "").toUpperCase();
+
+  let token: string;
+  try {
+    token = await getAccessToken();
+  } catch (err) {
+    return { status: "systemic", error: err instanceof Error ? err.message : "Auth failed." };
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`https://history.mot.api.gov.uk/v1/trade/vehicles/registration/${encodeURIComponent(reg)}`, {
+      headers: { Authorization: `Bearer ${token}`, "X-API-Key": apiKey, Accept: "application/json+v6" },
+    });
+  } catch (err) {
+    return { status: "error", error: err instanceof Error ? err.message : "Network error." };
+  }
+
+  if (res.status === 404 || res.status === 400) return { status: "not_found" };
+  if (!res.ok) {
+    const text = (await res.text()).slice(0, 200);
+    const error = `DVSA API error (${res.status}): ${text}`;
+    // 401/403 = credentials, 429 = quota: retrying the next registration won't help.
+    return res.status === 401 || res.status === 403 || res.status === 429
+      ? { status: "systemic", error }
+      : { status: "error", error };
+  }
+
+  const record = (await res.json()) as Record<string, unknown> | null;
+  if (!record || typeof record !== "object") return { status: "error", error: "No data returned for this registration." };
+  return { status: "ok", record };
 }

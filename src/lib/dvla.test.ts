@@ -1,7 +1,23 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { lookupVehicle, firstMotDueDate } from "./dvla";
+import { lookupVehicle, firstMotDueDate, fetchDvsaVehicleRecord } from "./dvla";
 
 vi.mock("./dvla-auth", () => ({ getAccessToken: vi.fn().mockResolvedValue("test-token") }));
+
+// Both names are accepted (src/lib/dvsa-api-key.ts), and vitest.setup.ts
+// pre-sets the legacy one — so "no key" tests must clear both. Restore by
+// deleting rather than assigning: `process.env.X = undefined` stores the
+// string "undefined", which would read as a configured key.
+const KEY_NAMES = ["DVSA_API_KEY", "DVSA_MOT_API_KEY"] as const;
+const savedKeys = Object.fromEntries(KEY_NAMES.map((k) => [k, process.env[k]]));
+function clearDvsaKeys() {
+  for (const k of KEY_NAMES) delete process.env[k];
+}
+function restoreDvsaKeys() {
+  for (const k of KEY_NAMES) {
+    if (savedKeys[k] === undefined) delete process.env[k];
+    else process.env[k] = savedKeys[k];
+  }
+}
 
 describe("firstMotDueDate", () => {
   it("adds three years to the first-used date", () => {
@@ -23,14 +39,10 @@ describe("firstMotDueDate", () => {
 });
 
 describe("lookupVehicle", () => {
-  const origKey = process.env.DVSA_API_KEY;
-
-  beforeEach(() => {
-    delete process.env.DVSA_API_KEY;
-  });
+  beforeEach(clearDvsaKeys);
 
   afterEach(() => {
-    process.env.DVSA_API_KEY = origKey;
+    restoreDvsaKeys();
     vi.unstubAllGlobals();
   });
 
@@ -106,6 +118,65 @@ describe("lookupVehicle", () => {
     expect(res).toMatchObject({
       success: true,
       vehicle: { motExpiry: "2027-02-09", noMotHistory: false },
+    });
+  });
+
+  it("accepts the key under its legacy DVSA_MOT_API_KEY name", async () => {
+    // The env docs named it DVSA_MOT_API_KEY while the code read DVSA_API_KEY,
+    // so an environment set up from the docs failed every lookup.
+    process.env.DVSA_MOT_API_KEY = "legacy-key";
+    stubDvsaResponse({ registration: "AB12CDE", make: "FORD", motTests: [] });
+
+    const res = await lookupVehicle("AB12CDE");
+
+    expect(res.success).toBe(true);
+    const init = vi.mocked(fetch).mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>)["X-API-Key"]).toBe("legacy-key");
+  });
+});
+
+describe("fetchDvsaVehicleRecord", () => {
+  beforeEach(() => {
+    clearDvsaKeys();
+    process.env.DVSA_API_KEY = "test-key";
+  });
+
+  afterEach(() => {
+    restoreDvsaKeys();
+    vi.unstubAllGlobals();
+  });
+
+  const respond = (status: number, body: unknown = {}) =>
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status })));
+
+  it("returns the raw record for a known registration", async () => {
+    respond(200, { registration: "AB12CDE", motTests: [] });
+    expect(await fetchDvsaVehicleRecord("ab12 cde")).toEqual({
+      status: "ok",
+      record: { registration: "AB12CDE", motTests: [] },
+    });
+  });
+
+  it.each([404, 400])("treats %i as not found — it won't resolve on retry", async (status) => {
+    respond(status);
+    expect(await fetchDvsaVehicleRecord("AB12CDE")).toEqual({ status: "not_found" });
+  });
+
+  it.each([401, 403, 429])("treats %i as systemic — the next registration would fail too", async (status) => {
+    respond(status);
+    expect((await fetchDvsaVehicleRecord("AB12CDE")).status).toBe("systemic");
+  });
+
+  it("treats a 5xx as this registration's problem only", async () => {
+    respond(503);
+    expect((await fetchDvsaVehicleRecord("AB12CDE")).status).toBe("error");
+  });
+
+  it("is systemic when no key is configured under either name", async () => {
+    clearDvsaKeys();
+    expect(await fetchDvsaVehicleRecord("AB12CDE")).toEqual({
+      status: "systemic",
+      error: "DVSA API key not configured.",
     });
   });
 });

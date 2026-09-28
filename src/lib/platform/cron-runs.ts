@@ -14,6 +14,10 @@ const SCHEDULES: Record<string, string> = {
   "cron/review-requests": "via tick",
   "cron/digest": "via tick",
   "cron/tyre-care": "via tick",
+  // Only jobs listed here appear on /admin/health at all — mot-delta ran
+  // unlisted for months, so a nightly failure showed nowhere.
+  "cron/mot-delta": "daily 03:45 UTC",
+  "cron/mot-reconcile": "daily 04:15 UTC",
 };
 const KNOWN_JOBS = Object.keys(SCHEDULES);
 
@@ -32,6 +36,8 @@ const MAX_AGE_MINS: Record<string, number> = {
   "cron/tick": 90, // hourly
   "cron/uptime": 20, // every 3 min
   "cron/quote-expiry": 90, // every 30 min
+  "cron/mot-delta": 26 * 60, // daily, plus slack for Vercel's cron jitter
+  "cron/mot-reconcile": 26 * 60, // daily
 };
 
 export type StaleCron = { job: string; ageMins: number; maxMins: number; overdueMins: number };
