@@ -46,7 +46,7 @@ export const ENV_VARS: EnvVar[] = [
   { name: "DVLA_VES_API_KEY", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "Registration lookup (make/model/tax) fails." },
   { name: "DVSA_CLIENT_ID", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "MOT history + due dates can't be fetched." },
   { name: "DVSA_CLIENT_SECRET", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "MOT history + due dates can't be fetched." },
-  { name: "DVSA_MOT_API_KEY", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "MOT history API rejects requests." },
+  { name: "DVSA_API_KEY", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "MOT history API rejects requests." },
   { name: "DVSA_TOKEN_URL", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "DVSA OAuth token can't be obtained." },
   { name: "DVSA_SCOPE", level: "feature", group: "Vehicle data (DVLA/DVSA)", ifMissing: "DVSA OAuth scope missing." },
 

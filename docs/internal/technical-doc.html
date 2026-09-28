@@ -359,12 +359,25 @@
       <li><a href="#quotes">Mid-job quotes (DVI)</a></li>
       <li><a href="#standalone-quotes">Standalone quotes</a></li>
       <li><a href="#roles">Team roles &amp; permissions</a></li>
+      <li><a href="#service-plans">Service plans</a></li>
+      <li><a href="#platform-billing">Platform billing</a></li>
+      <li><a href="#credit-notes">Refunds &amp; credit notes</a></li>
+      <li><a href="#inventory">Inventory &amp; labour</a></li>
+      <li><a href="#account">Account &amp; notifications</a></li>
+      <li><a href="#workshop">Workshop: eVHC &amp; authorisation</a></li>
+      <li><a href="#deferred">Deferred work</a></li>
+      <li><a href="#tyre-care">Tyre-care recommendations</a></li>
+      <li><a href="#comms">Customer comms &amp; compliance</a></li>
+      <li><a href="#trade">Trade accounts &amp; finance</a></li>
+      <li><a href="#onboarding">Onboarding &amp; migration</a></li>
+      <li><a href="#parts">Parts &amp; suppliers</a></li>
+      <li><a href="#platform-ops">Platform operations</a></li>
       <li><a href="#testing">Testing &amp; CI</a></li>
       <li><a href="#security">Security &amp; compliance</a></li>
     </ol>
     <div class="meta">
-      rev. 2026.05.27<br />
-      revision&nbsp;05<br />
+      rev. 2026.09.27<br />
+      revision&nbsp;06<br />
       classification:<br />internal
     </div>
   </aside>
@@ -380,9 +393,9 @@
       </div>
 
       <div class="cover-title">
-        <div class="eyebrow">Engineering reference · Rev 05</div>
+        <div class="eyebrow">Engineering reference · Rev 06</div>
         <h1>End&#8209;to&#8209;end<br /><span class="accent">technical</span> documentation</h1>
-        <p class="lede">A blueprint of the AI Garage SaaS — multi-tenant Next.js on Supabase, with AI-drafted customer communications, scheduled reminder pipelines and Stripe / Xero / DVSA integrations. Written for developers and the CTO.</p>
+        <p class="lede">A blueprint of the AI Garage SaaS — organisation-scoped, multi-branch Next.js on Supabase, with compose-first AI assistance, scheduled communication pipelines, digital vehicle health checks, revenue-recovery engines and Stripe / accounting / DVSA integrations. Written for developers and the CTO.</p>
       </div>
 
       <dl class="cover-meta">
@@ -401,12 +414,12 @@
         <div class="tag">scope · whole app</div>
       </div>
 
-      <p class="lede2">AI Garage is an AI&#8209;powered, white-label SaaS for UK garages. It tracks MOT / service / VED dates, drafts and sends automated customer reminders across email / SMS / WhatsApp, captures bookings and payments, and pushes accounting data into Xero.</p>
+      <p class="lede2">AI Garage is an AI&#8209;powered, white-label SaaS for UK garages. It tracks MOT / service / VED dates and sends customer reminders across email / SMS / WhatsApp; runs the workshop from booking through digital health check, authorisation, job and invoice; recovers declined and due work; captures payments; and keeps the garage's accounting package (Xero, QuickBooks or Sage) in sync as an MTD digital link.</p>
 
       <div class="kpis">
-        <div class="kpi"><div class="v">2&nbsp;<span class="accent">portals</span></div><div class="l">staff · customer</div></div>
-        <div class="kpi"><div class="v">42&nbsp;<span class="accent">tables</span></div><div class="l">tenant-scoped</div></div>
-        <div class="kpi"><div class="v">8&nbsp;<span class="accent">externals</span></div><div class="l">3rd-party APIs</div></div>
+        <div class="kpi"><div class="v">3&nbsp;<span class="accent">portals</span></div><div class="l">staff · customer · platform admin</div></div>
+        <div class="kpi"><div class="v">94&nbsp;<span class="accent">tables</span></div><div class="l">org · branch · platform</div></div>
+        <div class="kpi"><div class="v">11&nbsp;<span class="accent">externals</span></div><div class="l">3rd-party APIs</div></div>
         <div class="kpi"><div class="v">3&nbsp;<span class="accent">channels</span></div><div class="l">email · sms · whatsapp</div></div>
       </div>
 
@@ -418,14 +431,20 @@
             <li><strong>Reminder engine</strong> — MOT, service and road-tax reminders drafted by Claude and sent on a per-location schedule.</li>
             <li><strong>Bookings &amp; jobs</strong> — bay-aware scheduling with Stripe Checkout pay-links.</li>
             <li><strong>Invoicing</strong> — issued in-app, optional Stripe pay-link, mirrored to Xero.</li>
-            <li><strong>Campaigns</strong> — AI-drafted broadcast email / SMS to the whole customer list.</li>
+            <li><strong>Campaigns</strong> — broadcast email / SMS written by staff, with opt-in AI assist (compose-first, §07); marketing consent enforced per channel.</li>
             <li><strong>Mid-job quotes (DVI)</strong> — mechanic records a short video of extra work found, customer approves or declines via a token-gated link.</li>
             <li><strong>Audit log</strong> — append-only trail of staff-sensitive actions (settings, GDPR, financial, integrations) visible to owners/admins.</li>
-            <li><strong>Multi-location orgs</strong> — owners manage many garages under one organisation.</li>
+            <li><strong>Multi-branch organisations</strong> — the organisation is the tenant; customers are shared org-wide, work stays per branch.</li>
             <li><strong>Membership plans</strong> — recurring service plans (Stripe subscriptions) with member discounts + an included-service allowance.</li>
-            <li><strong>Platform billing</strong> — the garage's own AI Garage subscription: Starter / Pro / Growth tiers that set the platform fee and gate premium features.</li>
-            <li><strong>Refunds</strong> — Stripe refunds recorded as credit notes, mirrored to Xero.</li>
-            <li><strong>Stock &amp; purchasing</strong> — parts catalogue, suppliers and purchase orders; per-technician labour time tracking.</li>
+            <li><strong>Platform billing</strong> — the garage's own AI Garage subscription: Starter / Pro / Growth tiers, metered overage, and a lapse policy that never gates core trading.</li>
+            <li><strong>Refunds</strong> — Stripe refunds recorded as credit notes, mirrored to the accounting package.</li>
+            <li><strong>Stock &amp; purchasing</strong> — parts catalogue, suppliers and purchase orders; AI parts suggestions with margin rules; per-technician labour time tracking.</li>
+            <li><strong>Digital health checks (eVHC)</strong> — red/amber/green inspection with photos, turned into an approvable quote (§21).</li>
+            <li><strong>Work authorisation &amp; job profit</strong> — immutable signed artefacts, variation re-auth, per-job P&amp;L (§21).</li>
+            <li><strong>Revenue recovery</strong> — the deferred-work bank with follow-ups (§22) and evidence-backed tyre-care recommendations (§23).</li>
+            <li><strong>Trade accounts</strong> — account customers, consolidated invoices, payments ledger, statements (§25).</li>
+            <li><strong>Courtesy cars</strong> — loan diary with a hire-style damage map and photo history (§21).</li>
+            <li><strong>Onboarding</strong> — prelive mode, self-serve activation, a migration toolkit with AI column mapping, and an AI-written garage mini-site (§24, §26).</li>
           </ul>
         </div>
         <div>
@@ -435,12 +454,14 @@
             <tr><td>UI</td><td>Tailwind v4 · shadcn/ui · Base UI · Recharts</td></tr>
             <tr><td>Data</td><td>Supabase Postgres · RLS · <code>@supabase/ssr</code></td></tr>
             <tr><td>Auth</td><td>Supabase Auth · WebAuthn / passkeys</td></tr>
-            <tr><td>AI</td><td><code>@anthropic-ai/sdk</code> · Claude Haiku 4.5</td></tr>
-            <tr><td>Email</td><td>Resend</td></tr>
+            <tr><td>AI</td><td><code>@anthropic-ai/sdk</code> · Claude Haiku 4.5 (default) · Sonnet 4.6 (AI receptionist) · Sonnet 5 (support assist, flagged)</td></tr>
+            <tr><td>Email</td><td>Resend (webhook-fed suppression list)</td></tr>
             <tr><td>SMS / WhatsApp</td><td>Twilio</td></tr>
-            <tr><td>Vehicle data</td><td>DVSA MOT History API</td></tr>
-            <tr><td>Payments</td><td>Stripe Connect (Express) · Checkout</td></tr>
-            <tr><td>Accounting</td><td>Xero (per-org OAuth)</td></tr>
+            <tr><td>Vehicle data</td><td>DVSA MOT History API + nightly bulk deltas · DVLA Vehicle Enquiry (VES)</td></tr>
+            <tr><td>Payments</td><td>Stripe Connect (Express) · Checkout · metered billing</td></tr>
+            <tr><td>Accounting</td><td>Xero · QuickBooks Online · Sage Business Cloud (one per org, OAuth)</td></tr>
+            <tr><td>Cache</td><td>Upstash Redis (org lookup, feature flags, rate limits; fails open)</td></tr>
+            <tr><td>Monitoring</td><td>Sentry · in-house uptime probes + alert rules</td></tr>
             <tr><td>Hosting</td><td>Vercel · Vercel Cron</td></tr>
           </table>
         </div>
@@ -460,9 +481,9 @@
           <div class="desc">End customers of a garage. View their vehicles &amp; reminders, request bookings, pay invoices. Self-serve on the garage's branded subdomain.</div>
         </div>
         <div class="tile scoped">
-          <div class="corner">platform</div>
+          <div class="corner">admin.apex</div>
           <div class="name">Platform operator</div>
-          <div class="desc">AI Garage itself. Owns the root domain, the Stripe platform account, the Claude/Resend/Twilio keys, the cron secret.</div>
+          <div class="desc">AI Garage itself. Owns the root domain, the Stripe platform account, the Claude/Resend/Twilio keys and the cron secret; runs the admin console — feature flags, reliability, support tickets, traffic (§28).</div>
         </div>
       </div>
     </section>
@@ -637,7 +658,7 @@
         <div class="tag">subdomain · slug · RLS</div>
       </div>
 
-      <p class="lede2">Every garage gets a subdomain on the root domain. The proxy parses the host, attaches the slug to the request, and every page resolves the tenant from that slug before talking to the database. Tenant isolation is enforced by Postgres RLS, not by application code.</p>
+      <p class="lede2">The <strong>tenant is the organisation</strong>. Its subdomain slug is <code>organizations.slug</code>; the organisation owns one or more <strong>locations</strong> (branches). A customer registers once per organisation and is visible org-wide, while operational work stays per-branch. Staff pick an <em>active branch</em>, held in a cookie and re-checked on every request. Tenant isolation is enforced by Postgres RLS, not by application code.</p>
 
       <div class="cols-2">
         <div>
@@ -645,22 +666,34 @@
           <p>The root domain comes from <code>NEXT_PUBLIC_ROOT_DOMAIN</code>. In development it's <code>localtest.me:3000</code> (which resolves any subdomain to <code>127.0.0.1</code> without DNS changes); in production it's the real apex.</p>
           <ul>
             <li><code>apex</code> &mdash; marketing site, sign-up</li>
-            <li><code>&lt;slug&gt;.apex</code> &mdash; tenant portals (staff + customer)</li>
-            <li><code>custom.example.com</code> &mdash; optional white-label custom domain stored on <code>organizations.custom_domain</code></li>
+            <li><code>&lt;org-slug&gt;.apex</code> &mdash; tenant portals (staff + customer), the public booking widget and the garage mini-site (§26)</li>
+            <li><code>admin.apex</code> &mdash; the platform-operator console (tenant-less; §28)</li>
+            <li>Retired slugs redirect to the current one (<code>org_slug_history</code>)</li>
           </ul>
+          <p>Custom domains are parked: <code>organizations.custom_domain</code> exists but the resolver never routes it (<code>docs/custom-domains.md</code>).</p>
         </div>
         <div>
-          <h3>Hierarchy</h3>
-          <p>An <strong>organisation</strong> owns one or more <strong>locations</strong>. Almost every other row carries <code>location_id</code> &mdash; the location is the tenant boundary for data, the organisation is the tenant boundary for branding, billing and Xero / Stripe Connect.</p>
+          <h3>Hierarchy &amp; scoping</h3>
           <pre class="code"><span class="c">// hierarchy</span>
-organization (slug, name, primary_color, stripe_account_id, xero_*)
- └── location  (slug, name, business_hours_*)
-      ├── customers · vehicles · jobs · invoices
-      ├── bookings · services · products · bays
-      ├── reminders · campaigns · scheduled_tasks
-      └── location_users (staff with location-scoped roles)</pre>
+organization  (slug, name, branding, billing, accounting, Stripe Connect)
+ ├── customers · vehicles · service plans · reminders   <span class="c">← customer-global</span>
+ ├── org_users (owner · admin · accountant)
+ └── location  (slug, name, address, business_hours, live_at)
+      ├── jobs · bookings · bays · services · products   <span class="c">← operational</span>
+      ├── inspections · deferred_work · tyre_recommendations
+      ├── invoices · credit_notes · payments             <span class="c">← financial</span>
+      └── location_users (branch staff + permissions)</pre>
         </div>
       </div>
+
+      <h3>Three scoping classes</h3>
+      <table class="tbl">
+        <tr><th style="width: 18%">Class</th><th style="width: 34%">Key &amp; RLS helper</th><th>Tables &amp; rule</th></tr>
+        <tr><td>Customer-global</td><td><code>organization_id</code> · <code>private.is_org_staff()</code></td><td><code>customers</code>, <code>vehicles</code>, <code>service_plans</code>, <code>plan_subscriptions</code>, <code>reminders</code>, <code>mot_tests</code>. Customers are unique per <code>(organization_id, lower(email))</code>; home branch is <code>customers.preferred_location_id</code>. <strong>Customer-level automated comms (reminders, campaigns, tyre care) route on the home branch</strong>, so a customer serviced at several branches is contacted once.</td></tr>
+        <tr><td>Operational</td><td><code>location_id</code> · <code>private.is_location_member()</code></td><td><code>jobs</code>, <code>bookings</code>, <code>bays</code>, <code>services</code>, <code>products</code>, <code>tyre_checks</code>, <code>inspections</code>, <code>deferred_work</code>, <code>tyre_recommendations</code>, … Event-level comms (dunning, review requests, booking confirmations) stay on the branch of record. <code>vehicles.location_id</code> survives as the <em>servicing</em> branch the MOT-delta cron routes on.</td></tr>
+        <tr><td>Financial</td><td><code>location_id</code> + <code>organization_id</code></td><td><code>invoices</code>, <code>credit_notes</code>, <code>payments</code>, <code>finance_applications</code> — readable by branch members <em>or</em> org finance (<code>private.is_org_finance()</code>).</td></tr>
+      </table>
+      <p>The trigger <code>private.set_org_from_location</code> backfills <code>organization_id</code> from <code>location_id</code> on insert for branch-scoped tables, so both keys are always present for RLS and reporting.</p>
 
       <h3>How a request finds its tenant</h3>
       <div class="bp">
@@ -712,13 +745,13 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
           <!-- step 6 -->
           <path d="M 520 260 L 735 260" class="d-stroke-green" />
           <polygon points="735,260 728,258 730,263" fill="#0b0d11" />
-          <text x="530" y="254" class="d-label">admin.from(locations).eq(slug, "smith")</text>
-          <text x="530" y="268" class="d-label-mute">+ org_users / location_users membership check</text>
+          <text x="530" y="254" class="d-label">organizations.eq(slug, "smith") + locations (Redis-cached)</text>
+          <text x="530" y="268" class="d-label-mute">+ org_users / location_users check · active_location cookie</text>
 
           <!-- step 7 -->
           <path d="M 520 305 L 925 305" class="d-stroke" />
           <polygon points="925,305 918,303 920,308" fill="#0b0d11" />
-          <text x="530" y="297" class="d-label">StaffContext { user, organization, location, role, supabase }</text>
+          <text x="530" y="297" class="d-label">StaffContext { user, organization, location, orgRole, accessibleLocations }</text>
 
           <text x="60" y="330" class="d-label-mute">If no slug, no user, or no membership → redirect /staff/login</text>
         </svg>
@@ -728,13 +761,22 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         </div>
       </div>
 
+      <h3>Active branch</h3>
+      <p>Staff pick a branch in the top-bar switcher (and, on phones, the "Jump to…" sheet); after login, multi-branch users land on <code>/staff/select-branch</code>. <code>setActiveLocation()</code> writes the <code>active_location</code> cookie, but the cookie is never trusted alone: <code>getStaffContext()</code> resolves it against the user's accessible branches every request, falling back to the org's primary location, then the first accessible one. Org owners, admins and accountants (and platform admins) can act in any branch; location-only staff are limited to the branches they hold a <code>location_users</code> row for. <code>ctx.location</code> is the active branch; <code>ctx.organization</code> is the tenant.</p>
+
       <h3>Tenant-scoped data access</h3>
-      <p>Two clients are used inside the same request:</p>
+      <p>Three Supabase clients, chosen per call site:</p>
       <ul>
-        <li><strong>User-scoped</strong> (<code>createClient()</code> from <code>lib/supabase/server.ts</code>) — used for all reads / writes after context is established. RLS does the isolation.</li>
-        <li><strong>Service-role</strong> (<code>createAdminClient()</code>) — used only for the initial location lookup in <code>staff-context.ts</code> (the slug is not sensitive and membership is independently verified afterwards), and inside webhooks / cron.</li>
+        <li><strong>User-scoped server</strong> (<code>createClient()</code> from <code>lib/supabase/server.ts</code>) — server components and actions; RLS does the isolation.</li>
+        <li><strong>Browser</strong> (<code>lib/supabase/client.ts</code>) — client components.</li>
+        <li><strong>Service-role</strong> (<code>createAdminClient()</code>) — bypasses RLS. Used for the org lookup in <code>staff-context.ts</code> (the slug isn't sensitive; membership is verified independently), webhooks, cron, and server actions that have already enforced ownership in code. Many newer tables are <em>read-only</em> to <code>authenticated</code> for exactly this reason: every write goes through a server path that checks ownership, so there is no direct-API write route to forge (e.g. <code>tyre_recommendations</code>, <code>held_comms</code>, <code>reminders</code>).</li>
       </ul>
-      <p>RLS policies key off the <code>is_garage_staff(location_id)</code> helper function, which is <code>security definer</code> and stable, so the planner can hoist it. Customer-facing rows additionally allow <code>auth.uid()</code>-matched self reads.</p>
+      <p>RLS helpers live in a non-API-exposed <code>private</code> schema and are <code>security definer</code> + <code>stable</code> so the planner can hoist them: <code>is_org_member</code> (any role) · <code>is_org_owner</code> · <code>is_org_admin</code> (owner | admin) · <code>is_org_finance</code> (owner | admin | accountant) · <code>is_org_staff</code> (employed anywhere in the org) · <code>is_location_member</code> (branch staff + org owner | admin) · <code>is_platform_admin</code>. New tables must ship with policies using these, scoped <code>to authenticated</code>, with <code>auth.uid()</code> wrapped as <code>(select auth.uid())</code>. Customer-facing rows additionally allow <code>auth.uid()</code>-matched self reads.</p>
+
+      <div class="note warn">
+        <span class="label">Write policies need the full check</span>
+        A <code>WITH CHECK</code> that validates only the caller's branch membership isn't enough when a row also references a customer-global entity. <code>wheel_service_events</code> originally let any branch member attach their branch to another organisation's vehicle; fixed in #619 with <code>private.vehicle_in_location_org()</code>, and verified by simulating an unprivileged member in <code>psql</code>. Validate every foreign reference a writable policy accepts.
+      </div>
     </section>
 
     <!-- ============== 4. AUTH ============== -->
@@ -742,28 +784,29 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
       <div class="sec-head">
         <div class="num">04</div>
         <h2>Authentication &amp; sessions</h2>
-        <div class="tag">supabase auth · webauthn</div>
+        <div class="tag">supabase auth · webauthn · mfa</div>
       </div>
 
-      <p class="lede2">Authentication uses Supabase Auth (email + password) with optional WebAuthn passkeys for re-authentication. Sessions are cookie-based and have a hard 12-hour absolute timeout on top of Supabase's own refresh window.</p>
+      <p class="lede2">Authentication uses Supabase Auth: email and password, a magic link for customers, and WebAuthn passkeys for staff and customers. Org-level roles get a passkey step-up as MFA. Sessions are cookie-based, with a 12-hour absolute cap enforced server-side by GoTrue's <code>[auth.sessions] timebox</code>. JWTs are ES256 and verified locally with <code>getClaims()</code>, so reading the user doesn't cost a network hop to Auth.</p>
 
       <div class="cols-2">
         <div>
           <h3>Identity model</h3>
           <ul>
             <li><strong><code>auth.users</code></strong> — Supabase-managed. One per real human.</li>
-            <li><strong><code>org_users</code></strong> — joins a user to an organisation with role <code>owner</code> or <code>admin</code>. Org-level access cascades to all locations under it.</li>
+            <li><strong><code>org_users</code></strong> — joins a user to an organisation with role <code>owner</code>, <code>admin</code> or <code>accountant</code>. Owner and admin access cascades to every branch. Accountant is finance-only (§15).</li>
             <li><strong><code>location_users</code></strong> — joins a user to a single location with a role + permissions JSON. Used for per-location staff (e.g. a mechanic at one branch).</li>
             <li><strong><code>customers</code></strong> — non-staff users. Carry an optional <code>user_id</code> so a customer can sign in and use the customer portal.</li>
             <li><strong><code>webauthn_credentials</code></strong> — registered passkeys per user.</li>
+            <li><strong><code>platform_admins</code></strong> — operator accounts for <code>admin.&lt;root&gt;</code> (or the <code>PLATFORM_ADMIN_EMAILS</code> allowlist).</li>
           </ul>
         </div>
         <div>
           <h3>Session lifecycle</h3>
           <ol>
-            <li>Login server action calls Supabase Auth → cookies <code>sb-*</code> set.</li>
-            <li>Proxy stamps an <code>ai_session_started_at</code> cookie on the first request after sign-in.</li>
-            <li>On every subsequent request, proxy reads the stamp; if now − started &gt; 12 h, calls <code>signOut()</code>, deletes <code>sb-*</code> cookies, redirects to <code>/staff/login?expired=1</code> (or returns 401 for <code>/api/*</code>).</li>
+            <li>The login server action calls Supabase Auth, which sets the <code>sb-*</code> cookies. Staff go through <code>/staff/select-branch</code>, which lets multi-branch users pick one and sets the <code>active_location</code> cookie; single-branch users go straight in.</li>
+            <li>For owners, admins and accountants the staff layout checks for a passkey step-up (the signed <code>ai_mfa_verified</code> cookie). By default it only nudges; with <code>OWNER_MFA_ENFORCED=true</code> it hard-blocks at <code>/staff/mfa</code>.</li>
+            <li>GoTrue refuses to refresh a session older than 12 h (the server-authoritative cap). The proxy also stamps <code>ai_session_started_at</code> and signs out early past 12 h, redirecting to <code>/staff/login?expired=1</code> (or returning 401 for <code>/api/*</code>). The stamp cookie must outlive the cap: when its <code>maxAge</code> equalled the cap, it deleted itself and users stayed logged in for days (#580).</li>
             <li>Sign-out is a server action that calls <code>signOut()</code> and clears the stamp.</li>
           </ol>
         </div>
@@ -817,8 +860,9 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <tr><th>Role</th><th>Source</th><th>Read</th><th>Write</th><th>Notes</th></tr>
         <tr><td><code>org · owner</code></td><td><code>org_users</code></td><td>All locations in org</td><td>All, incl. add locations, billing</td><td>Stripe Connect onboarding, Xero connect.</td></tr>
         <tr><td><code>org · admin</code></td><td><code>org_users</code></td><td>All locations in org</td><td>All except destructive org-level ops</td><td></td></tr>
-        <tr><td><code>location · admin</code></td><td><code>location_users</code></td><td>One location</td><td>Most</td><td>Per-location permissions JSON</td></tr>
-        <tr><td><code>location · staff</code></td><td><code>location_users</code></td><td>One location</td><td>Customers, vehicles, jobs, bookings</td><td></td></tr>
+        <tr><td><code>org · accountant</code></td><td><code>org_users</code></td><td>Financial rows org-wide</td><td>Finance only</td><td>Via <code>is_org_finance()</code>; no operational access.</td></tr>
+        <tr><td><code>location · role</code></td><td><code>location_users</code></td><td>Their branches (customer data org-wide)</td><td>Per the permissions JSON</td><td>manager · service advisor · mechanic · apprentice · receptionist · parts · bookkeeper (§15)</td></tr>
+        <tr><td><code>platform admin</code></td><td><code>platform_admins</code></td><td>All tenants (service role)</td><td>Operator actions</td><td><code>admin.&lt;root&gt;</code> only (§28).</td></tr>
         <tr><td><code>customer</code></td><td><code>customers.user_id</code></td><td>Own customer + vehicles</td><td>Booking requests, profile</td><td>Cannot reach <code>/staff</code>.</td></tr>
       </table>
 
@@ -836,12 +880,12 @@ organization (slug, name, primary_color, stripe_account_id, xero_*)
         <div class="tag">postgres · rls</div>
       </div>
 
-      <p class="lede2">42 tables, most tenant-scoped via <code>location_id</code>. Org-scoped tables: <code>organizations</code>, <code>org_users</code>, <code>webauthn_credentials</code>, <code>audit_log</code>, <code>doc_shares</code>, <code>xero_payouts</code> (required <code>organization_id</code>) plus <code>role_templates</code> + <code>staff_notifications</code> (nullable <code>organization_id</code>). The unified <code>quotes</code> table (job + standalone, see domain 4) carries both <code>location_id</code> and a denormalised <code>organization_id</code>. The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
+      <p class="lede2">94 tables in three scoping classes (§03): <strong>customer-global</strong> rows keyed on <code>organization_id</code> (customers, vehicles, plans, reminders, MOT history), <strong>operational</strong> rows keyed on <code>location_id</code> (jobs, bookings, inspections, deferred work, tyre-care recommendations, …), and <strong>financial</strong> rows carrying both (invoices, credit notes, payments). Most branch-scoped tables also carry a trigger-filled <code>organization_id</code> (<code>private.set_org_from_location</code>). A handful of platform tables have no tenant at all and are service-role only. The diagram below is the canonical entity relationship — see <code>public/SupabaseDBERD.md</code> for the column-level reference.</p>
 
       <div class="bp">
         <div class="caption"><span class="ref">FIG&nbsp;05·A</span><span>entity relationship diagram</span></div>
 
-        <p>Rendered from the same definitions as <code>public/SupabaseDBERD.md</code>. The <strong>domain map</strong> shows how all 42 tables cluster off <code>locations</code>; the per-domain diagrams detail the foreign keys. Cardinality is Mermaid notation (<code>||--o{</code> one&#8209;to&#8209;many, <code>|o--o|</code> optional).</p>
+        <p>Rendered from the same definitions as <code>public/SupabaseDBERD.md</code>. The <strong>domain map</strong> shows how all 94 tables cluster: customer-global domains hang off <code>organizations</code>, operational ones off <code>locations</code>. The per-domain diagrams detail the foreign keys. Cardinality is Mermaid notation (<code>||--o{</code> one&#8209;to&#8209;many, <code>|o--o|</code> optional).</p>
 
         <div class="mermaid">
 graph LR
@@ -849,15 +893,21 @@ graph LR
   subgraph IDENTITY["1 Identity and tenancy"]
     org_users
     location_users
+    location_special_hours
     role_templates
     webauthn_credentials
     staff_notification_prefs
+    platform_admins
+    org_slug_history
+    location_slug_history
   end
   subgraph CRM["2 Customers and vehicles"]
     customers
     vehicles
     fleet_companies
     tyre_checks
+    mot_tests
+    vehicle_history_entries
   end
   subgraph SCHED["3 Scheduling and work"]
     bookings
@@ -866,44 +916,111 @@ graph LR
     jobs
     job_items
     job_time_entries
+    work_authorisations
+    courtesy_cars
+    courtesy_car_loans
+    location_ev_readiness
   end
-  subgraph QUOTES["4 Quotes"]
+  subgraph QUOTES["4 Quotes and inspections"]
     quotes
     quote_items
+    quote_revisions
+    inspections
+    inspection_items
+    inspection_media
+    inspection_templates
+    inspection_template_items
   end
   subgraph MONEY["5 Invoicing and payments"]
     invoices
+    invoice_jobs
     credit_notes
-    review_requests
+    payments
+    payment_allocations
+    finance_applications
+    finance_provider_configs
+  end
+  subgraph COMMS["6 Communications"]
     reminders
     scheduled_tasks
+    review_requests
+    held_comms
+    email_suppressions
+    unsubscribe_tokens
   end
-  subgraph STOCK["6 Inventory and purchasing"]
+  subgraph RECOVER["7 Recovery and tyre care"]
+    deferred_work
+    tyre_recommendations
+    tyre_care_runs
+    vehicle_wheel_profile
+    wheel_service_events
+  end
+  subgraph STOCK["8 Inventory and purchasing"]
     products
     suppliers
+    supplier_integrations
     purchase_orders
+    purchase_order_items
   end
-  subgraph PLANS["7 Memberships and plans"]
+  subgraph PLANS["9 Memberships and plans"]
     service_plans
+    service_plan_items
     plan_subscriptions
     plan_invites
+    plan_service_usage
   end
-  subgraph SYS["8 Platform and system"]
+  subgraph BOOKS["10 Accounting and imports"]
+    accounting_connections
+    accounting_sync_log
+    accounting_payouts
+    import_batches
+    imported_invoices
+  end
+  subgraph GROWTH["11 Growth surfaces"]
+    org_sites
+    receptionist_configs
+    receptionist_conversations
+  end
+  subgraph SYS["12 Platform and system"]
     audit_log
     doc_shares
-    xero_payouts
     stripe_webhook_events
+    webhook_deliveries
     staff_notifications
     data_deletion_log
+    password_reset_tokens
+    feature_flags
+    ai_usage_events
+    support_tickets
+    support_ticket_messages
+  end
+  subgraph OPS["13 Reliability and analytics"]
+    cron_runs
+    mot_delta_runs
+    alert_rules
+    incidents
+    incident_updates
+    uptime_checks
+    uptime_rollup
+    latency_samples
+    sentry_issues
+    sentry_snapshot
+    page_views
+    page_view_daily
   end
   organizations --> IDENTITY
-  locations --> CRM
+  organizations --> CRM
   locations --> SCHED
   locations --> QUOTES
   locations --> MONEY
+  locations --> COMMS
+  locations --> RECOVER
   locations --> STOCK
-  locations --> PLANS
+  organizations --> PLANS
+  organizations --> BOOKS
+  organizations --> GROWTH
   organizations --> SYS
+  OPS
         </div>
 
         <h3>Relationships by domain</h3>
@@ -922,18 +1039,21 @@ erDiagram
   auth_users ||--o| staff_notification_prefs : "prefs"
         </div>
 
-        <p><strong>2 &middot; Customers &amp; vehicles</strong> — customers belong to a location, may be grouped under a fleet, own vehicles, and link to auth once they use the portal.</p>
+        <p><strong>2 &middot; Customers &amp; vehicles</strong> — customers belong to the <em>organisation</em> (unique per org + email) with a home branch (<code>preferred_location_id</code>); they may be grouped under a fleet/trade account, own vehicles, and link to auth once they use the portal. Vehicles keep <code>location_id</code> as the servicing branch. MOT history is persisted per test (odometer + advisories); migrated pre-platform history lives in <code>vehicle_history_entries</code>, deliberately separate from jobs.</p>
         <div class="mermaid">
 erDiagram
-  locations ||--o{ customers : "has"
-  locations ||--o{ fleet_companies : "has"
+  organizations ||--o{ customers : "has"
+  locations |o--o{ customers : "home branch"
+  organizations ||--o{ fleet_companies : "has"
   fleet_companies ||--o{ customers : "groups"
   customers ||--o{ vehicles : "owns"
   vehicles ||--o{ tyre_checks : "checked"
+  vehicles ||--o{ mot_tests : "MOT history"
+  vehicles ||--o{ vehicle_history_entries : "imported history"
   auth_users |o--o{ customers : "portal login"
         </div>
 
-        <p><strong>3 &middot; Scheduling &amp; work</strong> — a booking can spawn a job; jobs carry line items (optionally from a product/service) and labour time.</p>
+        <p><strong>3 &middot; Scheduling &amp; work</strong> — a booking can spawn a job; jobs carry line items (optionally from a product/service, with <code>unit_cost</code> for margin), labour time, and immutable work-authorisation artefacts. Courtesy cars are loaned against a job.</p>
         <div class="mermaid">
 erDiagram
   locations ||--o{ bookings : "schedules"
@@ -948,6 +1068,11 @@ erDiagram
   jobs ||--o{ job_time_entries : "labour"
   products |o--o{ job_items : "stock"
   services |o--o{ job_items : "from"
+  jobs ||--o{ work_authorisations : "authorised by"
+  quotes |o--o{ work_authorisations : "approval"
+  locations ||--o{ courtesy_cars : "fleet"
+  courtesy_cars ||--o{ courtesy_car_loans : "loaned"
+  jobs |o--o{ courtesy_car_loans : "during"
         </div>
 
         <p><strong>4 &middot; Quotes</strong> — one unified <code>quotes</code> table with a <code>quote_type</code> discriminator (<code>job</code> = video quote attached to a job · <code>standalone</code> = raised for a customer/vehicle). Both share <code>quote_items</code>; edits after send are journalled in <code>quote_revisions</code>; a quote can convert to a booking. The legacy <code>job_quotes</code>/<code>standalone_quotes</code> archive tables were retired in Phase 10 (#252).</p>
@@ -959,34 +1084,70 @@ erDiagram
   quotes ||--o{ quote_items : "lines"
   quotes ||--o{ quote_revisions : "revisions"
   quotes |o--o| bookings : "converts to"
+  jobs ||--o{ inspections : "eVHC"
+  inspection_templates ||--o{ inspections : "from"
+  inspection_templates ||--o{ inspection_template_items : "checklist"
+  inspections ||--o{ inspection_items : "findings"
+  inspection_items ||--o{ inspection_media : "photos"
+  inspections |o--o| quotes : "generates"
         </div>
+        <p>The eVHC (§21) is a <em>capture</em> surface: an inspection's red/amber findings generate a unified quote, which remains the approval and payment surface.</p>
 
-        <p><strong>5 &middot; Invoicing &amp; payments</strong> — an invoice bills a job or prepaid booking; credit notes record refunds; reviews/reminders/tasks drive comms; Xero payouts reconcile settlements.</p>
+        <p><strong>5 &middot; Invoicing &amp; payments</strong> — an invoice bills a job, a prepaid booking, or (for trade accounts) several jobs at once via <code>invoice_jobs</code>; credit notes record refunds; a payments ledger allocates receipts oldest-first across invoices; finance applications track point-of-sale credit.</p>
         <div class="mermaid">
 erDiagram
   locations ||--o{ invoices : "bills"
   customers ||--o{ invoices : "billed"
   jobs |o--o| invoices : "from job"
   bookings |o--o| invoices : "prepay"
+  invoices ||--o{ invoice_jobs : "consolidates"
+  jobs ||--o{ invoice_jobs : "billed on"
   invoices ||--o{ credit_notes : "refunds"
-  jobs ||--o{ review_requests : "asks review"
+  customers ||--o{ payments : "pays"
+  payments ||--o{ payment_allocations : "allocated"
+  invoices ||--o{ payment_allocations : "settled by"
+  locations ||--o{ finance_applications : "offers credit"
+        </div>
+
+        <p><strong>6 &middot; Communications</strong> — reminders are the send log every frequency cap reads; scheduled tasks drive the per-branch crons; <code>held_comms</code> is the prelive "what would have sent" set; email suppressions and unsubscribe tokens enforce deliverability and opt-out.</p>
+        <div class="mermaid">
+erDiagram
   customers ||--o{ reminders : "receives"
   vehicles |o--o{ reminders : "about"
   locations ||--o{ scheduled_tasks : "automates"
-  organizations ||--o{ xero_payouts : "reconciles"
+  jobs ||--o{ review_requests : "asks review"
+  locations ||--o{ held_comms : "prelive hold"
+  customers |o--o{ held_comms : "for"
+  customers ||--o{ unsubscribe_tokens : "opt-out links"
         </div>
 
-        <p><strong>6 &middot; Inventory &amp; purchasing</strong> — products are stock; suppliers receive purchase orders whose lines can reference a product.</p>
+        <p><strong>7 &middot; Recovery &amp; tyre care</strong> — the deferred-work bank (§22) holds declined or unquoted repairs; tyre-care recommendations (§23) hold evidence-backed rotation/alignment prompts. Both attribute a later booking back to themselves.</p>
+        <div class="mermaid">
+erDiagram
+  vehicles ||--o{ deferred_work : "outstanding"
+  quote_items |o--o{ deferred_work : "declined line"
+  inspection_items |o--o{ deferred_work : "unquoted finding"
+  bookings |o--o{ deferred_work : "recovered by"
+  vehicles ||--o{ tyre_recommendations : "recommended"
+  customers ||--o{ tyre_recommendations : "for"
+  bookings |o--o{ tyre_recommendations : "converted by"
+  vehicles ||--o| vehicle_wheel_profile : "fitment"
+  vehicles ||--o{ wheel_service_events : "rotation/alignment/balance"
+  locations ||--o{ tyre_care_runs : "nightly run log"
+        </div>
+
+        <p><strong>8 &middot; Inventory &amp; purchasing</strong> — products are stock; suppliers receive purchase orders whose lines can reference a product; supplier integrations hold electronic-ordering credentials (the connector seam, §27).</p>
         <div class="mermaid">
 erDiagram
   locations ||--o{ products : "stocks"
   locations ||--o{ suppliers : "buys from"
   suppliers ||--o{ purchase_orders : "fulfils"
+  suppliers ||--o| supplier_integrations : "connector"
   purchase_orders ||--o{ purchase_order_items : "lines"
   products |o--o{ purchase_order_items : "of"
         </div>
 
-        <p><strong>7 &middot; Memberships &amp; plans</strong> — plans bundle included services; customers subscribe (often via a token invite); consumed allowance is tracked per period.</p>
+        <p><strong>9 &middot; Memberships &amp; plans</strong> — plans bundle included services; customers subscribe (often via a token invite); consumed allowance is tracked per period.</p>
         <div class="mermaid">
 erDiagram
   locations ||--o{ service_plans : "offers"
@@ -1001,7 +1162,28 @@ erDiagram
   invoices |o--o{ plan_service_usage : "applied on"
         </div>
 
-        <p><strong>8 &middot; Platform &amp; system</strong> — audit trail, token-gated doc shares, the Stripe webhook idempotency ledger, in-app notifications, GDPR deletion log, password-reset tokens.</p>
+        <p><strong>10 &middot; Accounting &amp; imports</strong> — one accounting connection per organisation (Xero, QuickBooks or Sage) with a sync log and settlement payouts; imports land in batches that can be rolled back as a unit.</p>
+        <div class="mermaid">
+erDiagram
+  organizations ||--o| accounting_connections : "books"
+  organizations ||--o{ accounting_sync_log : "sync attempts"
+  organizations ||--o{ accounting_payouts : "settlements"
+  organizations ||--o{ import_batches : "imports"
+  import_batches ||--o{ imported_invoices : "history"
+  import_batches ||--o{ vehicle_history_entries : "history"
+  customers |o--o{ imported_invoices : "for"
+        </div>
+
+        <p><strong>11 &middot; Growth surfaces</strong> — the per-org mini-site (§26) and the AI receptionist's configuration and conversations.</p>
+        <div class="mermaid">
+erDiagram
+  organizations ||--o| org_sites : "mini-site"
+  locations ||--o| receptionist_configs : "receptionist"
+  receptionist_conversations |o--o| bookings : "booked"
+  customers |o--o{ receptionist_conversations : "caller"
+        </div>
+
+        <p><strong>12 &middot; Platform &amp; system</strong> — audit trail, token-gated doc shares, webhook idempotency ledgers, in-app notifications, GDPR deletion log, password-reset tokens, global feature flags, AI token usage, and staff support tickets.</p>
         <div class="mermaid">
 erDiagram
   organizations |o--o{ audit_log : "audited"
@@ -1010,21 +1192,35 @@ erDiagram
   auth_users |o--o{ staff_notifications : "for"
   auth_users ||--o{ password_reset_tokens : "resets"
   locations ||--o{ data_deletion_log : "erasures"
+  organizations |o--o{ ai_usage_events : "AI spend"
+  organizations ||--o{ support_tickets : "raises"
+  support_tickets ||--o{ support_ticket_messages : "thread"
+        </div>
+
+        <p><strong>13 &middot; Reliability &amp; analytics</strong> — platform-operator tables with no tenant: cron run history, uptime probes and rollups, alert rules, incidents, Sentry snapshots, and the privacy-preserving traffic beacon (§28).</p>
+        <div class="mermaid">
+erDiagram
+  incidents ||--o{ incident_updates : "timeline"
+  uptime_checks ||--o{ uptime_rollup : "rolled up"
+  page_views ||--o{ page_view_daily : "rolled up"
         </div>
 
         <div class="note">
           <span class="label">Not shown</span>
-          Platform (SaaS) billing has no table — the garage's own AI Garage subscription lives in <code>organizations.tenant_*</code> (see §17). Xero tokens are AES&#8209;256&#8209;GCM encrypted at the app layer; token-gated routes store only <code>sha256(token)</code>.
+          Platform (SaaS) billing has no table — the garage's own AI Garage subscription lives in <code>organizations.tenant_*</code> (see §17). Third-party OAuth tokens (accounting connections, supplier integrations) are AES&#8209;256&#8209;GCM encrypted at the app layer; token-gated routes store only <code>sha256(token)</code>.
         </div>
       </div>
 
       <h3>Notable column groupings</h3>
       <table class="tbl">
         <tr><th style="width: 22%">Concern</th><th style="width: 30%">Where</th><th>Columns</th></tr>
-        <tr><td>Branding</td><td><code>organizations</code></td><td><code>slug · name · primary_color · logo_url · custom_domain · portal_theme</code></td></tr>
+        <tr><td>Branding</td><td><code>organizations</code></td><td><code>slug · name · primary_color · logo_url · portal_theme</code> (<code>custom_domain</code> exists but is parked — the resolver never routes it; see <code>docs/custom-domains.md</code>)</td></tr>
+        <tr><td>Tenancy routing</td><td><code>customers</code> · <code>vehicles</code> · <code>locations</code></td><td><code>organization_id · preferred_location_id</code> (home branch — customer-level comms route here) · <code>vehicles.location_id</code> (servicing branch) · <code>live_at · first_run_cap</code> (prelive gate, §24)</td></tr>
         <tr><td>Compliance</td><td><code>organizations</code> · <code>customers</code> · <code>data_deletion_log</code></td><td><code>dpa_accepted_at · dpa_version · data_retention_years</code> · <code>marketing_*_consent · anonymized_at</code> · <code>customer_email_hash · requested_by</code></td></tr>
         <tr><td>Stripe</td><td><code>organizations</code> · <code>invoices</code> · <code>bookings</code></td><td><code>stripe_account_id · *_charges_enabled · *_payouts_enabled · *_details_submitted</code> · <code>stripe_checkout_session_id · stripe_payment_intent_id · paid_amount_pence</code></td></tr>
-        <tr><td>Xero</td><td><code>organizations</code> · <code>customers</code> · <code>invoices</code> · <code>xero_payouts</code></td><td><code>xero_tenant_id · xero_access_token · xero_refresh_token · xero_token_expires_at</code> (tokens encrypted at app layer via <code>lib/encryption.ts</code>) · <code>xero_contact_id</code> · <code>xero_invoice_id · xero_payment_id · xero_synced_at</code> · <code>stripe_payout_id · xero_bank_transaction_id · arrival_date</code></td></tr>
+        <tr><td>Accounting</td><td><code>accounting_connections</code> · <code>customers</code> · <code>invoices</code> · <code>credit_notes</code> · <code>accounting_payouts</code></td><td>One connection per org — <code>provider (xero · quickbooks · sage)</code> + encrypted tokens (service-role only). Provider-neutral mappings: <code>customers.accounting_contact_id</code> · <code>invoices.accounting_invoice_id · accounting_payment_id · accounting_synced_at</code> · <code>credit_notes.accounting_credit_note_id</code> — wiped when an org switches provider (§09)</td></tr>
+        <tr><td>Margin</td><td><code>job_items</code> · <code>organizations</code></td><td><code>unit_cost</code> (snapshot at add time) · <code>labour_cost_rate</code> — per-job P&amp;L (§21)</td></tr>
+        <tr><td>Mileage evidence</td><td><code>mot_tests</code> · <code>jobs</code> · <code>tyre_checks</code> · <code>vehicle_history_entries</code></td><td><code>odometer_miles</code> (miles, KM converted at ingest) · <code>defects (jsonb)</code> · <code>tyre_checks.job_id</code> — the tyre-care engine's inputs (§23)</td></tr>
         <tr><td>Email tracking</td><td><code>reminders</code></td><td><code>resend_email_id · delivered_at · opened_at · clicked_at</code></td></tr>
         <tr><td>Forensic audit</td><td><code>audit_log</code> · <code>doc_shares</code></td><td><code>actor_user_id · actor_email · action · entity_type · entity_id · metadata · ip_address · user_agent</code> · <code>token_hash · view_count · revoked_at · revoked_by</code></td></tr>
         <tr><td>Quote lifecycle</td><td><code>quotes</code> · <code>quote_items</code> · <code>quote_revisions</code></td><td><code>quote_type (job&nbsp;|&nbsp;standalone) · status · token_hash · slug · expires_at · sent_at · viewed_at · viewed_count · responded_at · approved_item_ids · decline_reason · vat_rate (per-row) · deposit_pct · deposit_amount · deposit_required · deposit_paid_at · stripe_checkout_session_id · stripe_payment_intent_id · revision_number · revision_note</code> · standalone rows add <code>customer_id · customer_message · converted_booking_id</code>; job rows add <code>job_id · applied_job_item_ids</code></td></tr>
@@ -1032,7 +1228,8 @@ erDiagram
         <tr><td>In-app notifications</td><td><code>staff_notifications</code></td><td><code>user_id · location_id · organization_id · kind · title · body · href · entity_type · entity_id · read_at</code></td></tr>
         <tr><td>Platform billing</td><td><code>organizations</code></td><td><code>tenant_plan · tenant_subscription_status · tenant_stripe_customer_id · tenant_stripe_subscription_id · tenant_current_period_end · tenant_trial_end</code> (the garage's own AI Garage subscription — see §17)</td></tr>
         <tr><td>Memberships</td><td><code>service_plans</code> · <code>plan_subscriptions</code> · <code>service_plan_items</code> · <code>plan_service_usage</code> · <code>plan_invites</code> · <code>invoices</code></td><td><code>discount_type · discount_value · stripe_price_monthly_id · stripe_price_annual_id · status · current_period_end · quantity_per_period · covered_qty · token_hash · subscribed_at</code> · invoice adds <code>membership_credit_amount · discount_amount</code></td></tr>
-        <tr><td>Refunds</td><td><code>credit_notes</code></td><td><code>invoice_id · credit_number · reason · stripe_refund_id</code> (unique) · <code>xero_credit_note_id · status</code></td></tr>
+        <tr><td>Refunds</td><td><code>credit_notes</code></td><td><code>invoice_id · credit_number · reason · stripe_refund_id</code> (unique) · <code>accounting_credit_note_id · status</code></td></tr>
+        <tr><td>Consent</td><td><code>customers</code> · <code>unsubscribe_tokens</code> · <code>email_suppressions</code></td><td><code>marketing_email_consent · marketing_sms_consent · consent_updated_at</code> · <code>token_hash · source · used_at</code> · <code>reason (hard_bounce · complaint)</code> (§24)</td></tr>
         <tr><td>Stock &amp; purchasing</td><td><code>products</code> · <code>suppliers</code> · <code>purchase_orders</code> · <code>purchase_order_items</code></td><td><code>stock_qty · reorder_at · cost_price</code> · <code>supplier_id · reference · ordered_at · received_at · unit_cost</code></td></tr>
         <tr><td>Labour time</td><td><code>job_time_entries</code></td><td><code>started_at · ended_at · active_minutes · segment_started_at · status</code></td></tr>
         <tr><td>User prefs</td><td><code>staff_notification_prefs</code></td><td><code>weekly_digest</code> (per-user; no row = opted in)</td></tr>
@@ -1055,16 +1252,29 @@ erDiagram
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/customers</div><div class="desc">Customer search, profile pages, vehicle list, fleet links, import.</div></div>
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/bookings</div><div class="desc">Calendar of bookings with bay assignment; new + edit + cancel.</div></div>
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/jobs</div><div class="desc">Workshop job sheets — line items (labour + parts), status, completion.</div></div>
-        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/invoices</div><div class="desc">Issue, send Stripe pay-link, mark paid, push to Xero.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/invoices</div><div class="desc">Issue, send Stripe pay-link, mark paid, consolidate trade-account jobs, push to the accounting package.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/quotes</div><div class="desc">Unified quotes (job + standalone) — draft, send, track responses and deposits.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/jobs/[id]/inspection</div><div class="desc">eVHC capture — RAG per item, photos, AI customer summaries (§21).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/authorisations</div><div class="desc">Signed work authorisations and pending re-auth requests (§21).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/courtesy-cars</div><div class="desc">7-day loan diary, loan wizard, damage map and photo history (§21).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/deferred</div><div class="desc">Deferred-work pipeline — open / recovered / dismissed (§22).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/tyre-care</div><div class="desc">Tyre-care review queue, approve &amp; send, results page (§23).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/win-back</div><div class="desc">Vehicles MOT'd elsewhere — compose-first re-engagement.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/finance</div><div class="desc">Point-of-sale finance applications (Bumper) and provider config.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/suppliers · /purchase-orders</div><div class="desc">Supplier records, electronic-ordering connectors, purchase orders (§27).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/receptionist</div><div class="desc">AI receptionist config — Twilio number, missed-call capture, conversations.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/reports</div><div class="desc">Analytics — revenue, margin, utilisation, MTD books health.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/go-live · /onboarding</div><div class="desc">Prelive "what's waiting" review + go-live; owner onboarding survey (§24, §26).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/support · /whats-new · /manual</div><div class="desc">Support tickets to the platform, release notes, in-app user manual.</div></div>
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/services</div><div class="desc">Service catalogue with price, duration and VAT flag.</div></div>
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/products</div><div class="desc">Parts inventory with cost / stock / reorder thresholds.</div></div>
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/bays</div><div class="desc">Per-location workshop bays — drives booking capacity.</div></div>
-        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/reminders</div><div class="desc">Manual reminder composer + history; AI draft on demand.</div></div>
-        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/campaigns</div><div class="desc">Broadcast email + SMS to whole customer list, AI-drafted.</div></div>
-        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/automations</div><div class="desc">Toggle &amp; schedule scheduled_tasks (MOT / service / tax / digest).</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/reminders</div><div class="desc">Manual reminder composer + history; compose-first with opt-in AI assist.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/campaigns</div><div class="desc">Broadcast email + SMS; compose-first, marketing consent enforced per channel.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/automations</div><div class="desc">Toggle, schedule and configure the per-branch <code>scheduled_tasks</code> (§08).</div></div>
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/fleet</div><div class="desc">Fleet customer accounts — many vehicles, one paying contact.</div></div>
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/revenue</div><div class="desc">Recharts revenue dashboard from invoices.</div></div>
-        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/settings</div><div class="desc">Branding, business hours, passkeys, Stripe Connect, Xero, locations.</div></div>
+        <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/settings</div><div class="desc">Branding, per-day opening hours + special dates, passkeys, Stripe Connect, accounting connection, locations, mini-site, billing.</div></div>
         <div class="tile scoped"><div class="corner">scoped</div><div class="name">/staff/staff-members</div><div class="desc">Invite / manage location_users with roles &amp; permissions.</div></div>
       </div>
 
@@ -1081,6 +1291,16 @@ erDiagram
         <div class="tile"><div class="corner">tenant</div><div class="name">/invoice/[id]</div><div class="desc">Public invoice view, share by link.</div></div>
         <div class="tile"><div class="corner">tenant</div><div class="name">/pay/[id]</div><div class="desc">Stripe Checkout pay-link redirect.</div></div>
         <div class="tile"><div class="corner">public</div><div class="name">/legal · /privacy</div><div class="desc">Generated legal documents.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/ (tenant root) · /b/[locationSlug]</div><div class="desc">The garage mini-site (and per-branch pages for multi-location orgs), SEO pack + AI copy (§26).</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/quote/[slug]?t=</div><div class="desc">Token-gated quote approval — per-item approve / decline, deposits.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/check/[slug]</div><div class="desc">Token-gated eVHC customer report with photos and priced findings (§21).</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/authorise/[slug]</div><div class="desc">Token-gated re-authorisation when a job's total varies (§21).</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/confirm/[id]</div><div class="desc">One-tap booking confirmation / reschedule request from the day-before message.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/review/[token]</div><div class="desc">Post-job feedback pulse — 4–5★ to Google, 1–3★ intercepted privately.</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/unsubscribe?u=</div><div class="desc">Marketing opt-out landing page — needs a button press (§24).</div></div>
+        <div class="tile"><div class="corner">tenant</div><div class="name">/book?quote · ?dw · ?tc</div><div class="desc">Booking widget deep links from quotes, deferred-work and tyre-care messages — prefill + attribution.</div></div>
+        <div class="tile"><div class="corner">public</div><div class="name">/status</div><div class="desc">Public status page — published incidents only (§28).</div></div>
+        <div class="tile scoped"><div class="corner">admin.apex</div><div class="name">/admin/*</div><div class="desc">Platform console — orgs, feature flags, beta tracker, health &amp; incidents, AI usage, traffic, support, doc shares (§28).</div></div>
       </div>
 
       <h3>API surface · <code>/api/*</code></h3>
@@ -1090,14 +1310,18 @@ erDiagram
         <tr><td><code>POST /api/auth/passkey/register/complete</code></td><td>session</td><td>Verify response &amp; store credential.</td></tr>
         <tr><td><code>POST /api/auth/passkey/login/begin</code></td><td>public</td><td>Issue authentication options for sign-in.</td></tr>
         <tr><td><code>POST /api/auth/passkey/login/complete</code></td><td>public</td><td>Verify response &amp; establish session.</td></tr>
-        <tr><td><code>GET /api/cron/tick</code></td><td><code>CRON_SECRET</code></td><td>Hourly orchestrator — finds due scheduled tasks and dispatches.</td></tr>
-        <tr><td><code>GET /api/cron/reminders</code></td><td><code>CRON_SECRET</code></td><td>Sends MOT, service &amp; road-tax reminders for one location.</td></tr>
-        <tr><td><code>GET /api/cron/digest</code></td><td><code>CRON_SECRET</code></td><td>Weekly staff digest email.</td></tr>
+        <tr><td><code>GET /api/cron/*</code></td><td><code>CRON_SECRET</code></td><td>Sixteen cron handlers — the hourly tick orchestrator and the jobs it dispatches (full inventory in §08).</td></tr>
         <tr><td><code>GET /api/invoice/[id]/print</code></td><td>signed link</td><td>Server-rendered HTML/PDF invoice.</td></tr>
         <tr><td><code>GET /api/stripe/connect/refresh · return</code></td><td>session</td><td>Stripe Connect onboarding callback URLs.</td></tr>
-        <tr><td><code>POST /api/webhooks/stripe</code></td><td>signature</td><td>Account, checkout, payment_intent, charge.refunded and <code>payout.paid</code> events. Last triggers Xero bank-reconciliation push.</td></tr>
-        <tr><td><code>POST /api/webhooks/resend</code></td><td>svix</td><td>Email delivery / open / click tracking → updates <code>reminders</code>.</td></tr>
-        <tr><td><code>GET /api/xero/connect/begin · callback</code></td><td>session</td><td>OAuth handshake to attach a Xero tenant to an org.</td></tr>
+        <tr><td><code>POST /api/webhooks/stripe</code></td><td>signature</td><td>Account, checkout, payment_intent, invoice.paid, charge.refunded and <code>payout.paid</code> events. The last pushes a settlement to the accounting package.</td></tr>
+        <tr><td><code>POST /api/webhooks/resend</code></td><td>svix</td><td>Email delivery / open / click tracking → <code>reminders</code>; bounces and complaints → <code>email_suppressions</code>.</td></tr>
+        <tr><td><code>POST /api/webhooks/twilio/messages · voice</code></td><td>Twilio signature</td><td>AI receptionist: inbound SMS/WhatsApp (ack immediately, agent runs in <code>after()</code>) and missed-call capture.</td></tr>
+        <tr><td><code>GET /api/xero · /quickbooks · /sage</code></td><td>session</td><td>OAuth handshakes to attach an accounting company to an org (one provider per org, §09).</td></tr>
+        <tr><td><code>POST /api/unsubscribe?u=</code></td><td>token</td><td>RFC 8058 one-click unsubscribe (email only); GET only redirects to the landing page (§24).</td></tr>
+        <tr><td><code>POST /api/collect</code></td><td>public</td><td>Page-view beacon; privacy-sensitive fields derived server-side, always 204 (§28).</td></tr>
+        <tr><td><code>POST /api/support/assist</code></td><td>session</td><td>Support-widget AI assistant.</td></tr>
+        <tr><td><code>/api/finance/bumper</code></td><td>varies</td><td>Point-of-sale finance provider integration (Bumper).</td></tr>
+        <tr><td><code>GET /api/health</code></td><td>public</td><td>Liveness endpoint for uptime probes.</td></tr>
         <tr><td><code>GET /docs/[slug]?t=&lt;token&gt;</code></td><td>signed token</td><td>Public token-gated read of internal HTML docs (technical reference, runbooks). Constant-time SHA-256 hash compare; styled 401 / 410 gate pages per failure reason.</td></tr>
       </table>
     </section>
@@ -1107,23 +1331,28 @@ erDiagram
       <div class="sec-head">
         <div class="num">07</div>
         <h2>AI module · Claude</h2>
-        <div class="tag">@anthropic-ai/sdk · haiku 4.5</div>
+        <div class="tag">@anthropic-ai/sdk · haiku 4.5 · sonnet</div>
       </div>
 
-      <p class="lede2">Claude is used for all customer-facing copy. The integration is small and deliberately opinionated: one model (<code>claude-haiku-4-5-20251001</code>), tight system prompts, deterministic fallbacks if the API fails. There is no streaming; calls are synchronous inside server actions or cron handlers.</p>
+      <p class="lede2">Two modes. <strong>Automated</strong> paths (the reminder crons, deferred-work follow-ups) draft copy with Claude and fall back to a deterministic template if the API fails. <strong>Staff-facing</strong> surfaces are <strong>compose-first</strong> (since #594): staff write their own words, and AI is opt-in through a shared assist menu, never firing on its own. Haiku 4.5 is the default model, with Sonnet only where the task needs it. There is no streaming; calls are synchronous inside server actions, route handlers or crons.</p>
 
       <div class="cols-2">
         <div>
           <h3>Surfaces</h3>
           <table class="tbl dense">
             <tr><th>Use case</th><th>File</th></tr>
-            <tr><td>Reminder email draft</td><td><code>lib/ai-messages.ts</code> · <code>draftReminderMessage()</code></td></tr>
-            <tr><td>Reminder SMS draft</td><td><code>lib/ai-messages.ts</code> · <code>draftSmsReminderMessage()</code></td></tr>
-            <tr><td>Custom 1-off message</td><td><code>lib/ai-messages.ts</code> · <code>draftCustomMessage()</code></td></tr>
-            <tr><td>Broadcast campaign</td><td><code>lib/ai-messages.ts</code> · <code>draftBroadcastMessage()</code></td></tr>
+            <tr><td>Reminder email / SMS drafts (cron)</td><td><code>lib/ai-messages.ts</code></td></tr>
+            <tr><td>Assist menu: write / rewrite / tone</td><td><code>lib/ai-assist.ts</code> · <code>components/staff/ai-assist-menu.tsx</code></td></tr>
+            <tr><td>Deferred-work follow-ups (cron)</td><td><code>lib/ai-deferred.ts</code></td></tr>
+            <tr><td>eVHC customer summaries</td><td><code>lib/ai-inspection.ts</code></td></tr>
+            <tr><td>Labour estimation</td><td><code>lib/ai-labour.ts</code></td></tr>
+            <tr><td>Parts suggestions + margin check</td><td><code>lib/ai-parts.ts</code> · <code>lib/ai-margin.ts</code></td></tr>
+            <tr><td>Import column mapping</td><td><code>lib/ai-import-mapping.ts</code></td></tr>
+            <tr><td>Mini-site copy</td><td><code>lib/ai-minisite-copy.ts</code></td></tr>
             <tr><td>Customer diagnostic chat</td><td><code>lib/ai-diagnostic.ts</code></td></tr>
             <tr><td>Voice → job sheet</td><td><code>lib/ai-job-from-voice.ts</code></td></tr>
-            <tr><td>Labour estimation</td><td><code>lib/ai-labour.ts</code></td></tr>
+            <tr><td>AI receptionist (Sonnet 4.6)</td><td><code>lib/receptionist/agent.ts</code></td></tr>
+            <tr><td>Support assistant (Haiku; Sonnet 5 behind a flag)</td><td><code>app/api/support/assist/route.ts</code></td></tr>
           </table>
         </div>
         <div>
@@ -1136,6 +1365,13 @@ erDiagram
             <li>System prompts are <code>cache_control: ephemeral</code> for prompt-cache discount on the cron path.</li>
           </ul>
           <p>If a call throws, the caller falls back to <code>fallbackReminderMessage()</code> — a deterministic template that hits the same compliance rules, so customers always get a coherent reminder.</p>
+          <h3>Cross-cutting rules</h3>
+          <ul>
+            <li><strong>Org AI brief</strong> — an owner onboarding survey produces <code>organizations.ai_brief</code>; every AI feature must load it with <code>getOrgAiBrief()</code> (<code>lib/ai-profile.ts</code>) and inject it with <code>aiBriefSystemBlock()</code> (<code>lib/ai-profile-shared.ts</code>) so copy matches the garage's voice.</li>
+            <li><strong>Usage metering</strong> — every call records tokens and an estimated £ cost to <code>ai_usage_events</code> via <code>recordAiUsage()</code> (feature key per surface), surfaced in the platform admin console.</li>
+            <li><strong>Client/server split</strong> — <code>ai-usage</code> uses <code>next/server</code>'s <code>after()</code>, so client components must import the <code>-shared.ts</code> halves only; only <code>next build</code> catches a violation.</li>
+            <li><strong>Send guard</strong> — a compose surface blocks send while any ticked channel has an empty message: never silently skip a channel.</li>
+          </ul>
         </div>
       </div>
 
@@ -1330,6 +1566,23 @@ erDiagram
         </div>
       </div>
 
+      <h3>Job inventory</h3>
+      <p>Only five crons are registered with Vercel. Everything per-branch rides the hourly tick: adding a task type needs the <code>scheduled_tasks_task_type_check</code> constraint widened, an entry in tick's <code>TASK_ROUTE</code>, the automations defaults / run-now path map, and a card in the automations UI. Miss one and the job silently never runs.</p>
+      <table class="tbl">
+        <tr><th style="width: 26%">Job</th><th style="width: 20%">Trigger</th><th>What it does</th></tr>
+        <tr><td><code>cron/tick</code></td><td>Vercel · hourly</td><td>Dispatches due <code>scheduled_tasks</code> (concurrency 4) and advances <code>next_run_at</code>; on the 09:00 UTC tick also runs the four platform passes below.</td></tr>
+        <tr><td><code>cron/quote-expiry</code></td><td>Vercel · :30</td><td>Expires lapsed quotes; sends quote reminders.</td></tr>
+        <tr><td><code>cron/uptime</code></td><td>Vercel · every 3 min</td><td>Synthetic probes, latency samples, alert-rule evaluation incl. dead-cron detection (§28).</td></tr>
+        <tr><td><code>cron/golden-path</code></td><td>Vercel · every 10 min</td><td>Synthetic check: exercises the critical write + render path against a canary tenant, so a break pages the team before a garage calls.</td></tr>
+        <tr><td><code>cron/mot-delta</code></td><td>Vercel · 03:45</td><td>DVSA bulk delta files → refreshes <code>mot_expiry</code>, flags vehicles MOT'd elsewhere (win-back), persists the full test series to <code>mot_tests</code> at no extra API quota.</td></tr>
+        <tr><td><code>reminders</code> (mot · service · tax)</td><td>task · per branch</td><td>Routes on the customer's home branch; AI-drafted with template fallback; 30-day dedupe.</td></tr>
+        <tr><td><code>dunning</code> · <code>review-requests</code> · <code>booking-confirmations</code></td><td>task · per branch</td><td>Overdue-invoice chasers; post-job feedback pulse (30-day cap); day-before confirm / reschedule links.</td></tr>
+        <tr><td><code>deferred-followups</code></td><td>task · per branch</td><td>Staged 14/30-day recovery messages for the deferred-work bank (§22). Behind the <code>deferred_followups</code> flag.</td></tr>
+        <tr><td><code>tyre-care</code></td><td>task · per branch</td><td>Evaluates every home-branch vehicle and fills the tyre-care review queue — never sends (§23). Behind the <code>tyre_care</code> flag.</td></tr>
+        <tr><td><code>digest</code></td><td>task · weekly</td><td>Staff digest to org owners / admins.</td></tr>
+        <tr><td><code>activation</code> · <code>overage-reconcile</code> · <code>traffic-rollup</code> · <code>accounting-backfill</code></td><td>tick · 09:00 UTC</td><td>Day-1/3/7 onboarding emails (§26); Growth-tier metered usage (§09); page-view rollup (§28); accounting-link maintenance — keeps Sage/QuickBooks refresh tokens alive, emails the owner once on a dead link, sweeps unsynced records (§09).</td></tr>
+      </table>
+
       <h3>Schedule storage</h3>
       <pre class="code"><span class="c">// scheduled_tasks row example</span>
 {
@@ -1350,7 +1603,11 @@ erDiagram
         <li><strong>30-day dedupe</strong> per <code>(vehicle, reminder_type, channel)</code> — prevents accidental repeat sends.</li>
         <li><strong>Per-location channels</strong> — settings JSON controls which channels run for which reminder type.</li>
         <li><strong>Hard 100-row limit</strong> per location per tick — cron stays well under the 60s Vercel hobby budget.</li>
-        <li><strong>Bearer auth</strong> — every cron handler requires <code>Authorization: Bearer ${CRON_SECRET}</code>; Vercel injects this from the project env when calling the configured cron path.</li>
+        <li><strong>Bearer auth</strong> — every cron handler requires <code>Authorization: Bearer ${CRON_SECRET}</code> (compared with <code>safeEqual</code>); Vercel injects this from the project env when calling the configured cron path.</li>
+        <li><strong>Prelive gate</strong> — a branch with <code>locations.live_at IS NULL</code> sends no unattended comms; each cron still works out what it <em>would</em> send and records it in <code>held_comms</code> for the Go-live screen (§24). The gate lives in the cron routes, not in the send helpers, so password resets and staff-initiated sends keep working.</li>
+        <li><strong>First-run cap</strong> — in the 24 hours after a branch goes live, reminders are capped at <code>locations.first_run_cap</code> (default 25); over-cap items roll to the next run rather than being marked sent.</li>
+        <li><strong>Cross-sender caps</strong> — the deferred-work and tyre-care paths read the <code>reminders</code> log (plus review requests and deferred follow-ups) so a customer never gets stacked nudges. Every automated send must write its <code>reminders</code> row: a silently failed insert defeats every cap that reads it.</li>
+        <li><strong>Run history</strong> — handlers call <code>recordCronRun()</code>; the Vercel-scheduled jobs are watched for staleness by an alert rule (via-tick jobs aren't, since a quiet day is normal for them).</li>
       </ul>
 
       <div class="note warn">
@@ -1364,10 +1621,10 @@ erDiagram
       <div class="sec-head">
         <div class="num">09</div>
         <h2>Payments &amp; accounting</h2>
-        <div class="tag">stripe connect · xero</div>
+        <div class="tag">stripe connect · accounting seam · mtd</div>
       </div>
 
-      <p class="lede2">Garages onboard their own Stripe Connect Express account through the platform. Every customer payment is a direct charge to that connected account with a platform fee skimmed (default 2%). Paid invoices and the corresponding payments are then synced to the garage's Xero tenant.</p>
+      <p class="lede2">Garages onboard their own Stripe Connect Express account through the platform. Every customer payment is a direct charge to that connected account with a platform fee skimmed (default 2%). Invoices, payments, credit notes and payouts are then synced to the garage's accounting package — <strong>Xero, QuickBooks Online or Sage</strong>, one per organisation, through a provider-neutral seam. The figure shows the original Xero flow; every "Xero" box now reads "the connected provider".</p>
 
       <div class="bp">
         <div class="caption"><span class="ref">FIG&nbsp;09·A</span><span>invoice · pay · sync</span></div>
@@ -1460,12 +1717,11 @@ erDiagram
           </ul>
         </div>
         <div>
-          <h3>Xero sync (lib/xero-sync.ts)</h3>
+          <h3>Accounting seam (<code>lib/accounting/</code>)</h3>
           <ul>
-            <li>One Xero tenant per <code>organization</code>, attached via OAuth at <code>/api/xero/connect/begin</code>. Tokens (<code>xero_access_token</code>, <code>xero_refresh_token</code>, <code>xero_token_expires_at</code>) are stored on <code>organizations</code>.</li>
-            <li><code>ensureXeroContact()</code> — idempotent contact upsert, stores <code>xero_contact_id</code> on <code>customers</code>.</li>
-            <li><code>pushInvoiceToXero()</code> — converts <code>job_items</code> (or a single booking line) to Xero <code>LineItem[]</code>, posts as <code>ACCREC</code>. UK VAT via <code>OUTPUT2</code> + <code>TaxExclusive</code>.</li>
-            <li><code>pushPaymentToXero()</code> — finds the first <code>BANK</code> account on the connected org, records a Payment against the invoice. Idempotent via <code>xero_payment_id</code>.</li>
+            <li><strong>What vs how</strong> — <code>sync.ts</code> owns provider-neutral orchestration (<code>pushInvoiceToAccounting</code>, <code>pushPaymentToAccounting</code>, <code>pushCreditNoteToAccounting</code>, <code>pushPayoutToAccounting</code>, line building, idempotency, <code>accounting_sync_log</code>); <code>xero-</code>, <code>quickbooks-</code> and <code>sage-provider.ts</code> implement the <code>AccountingProvider</code> interface with each vendor's quirks. A new provider is an add, not a rewrite.</li>
+            <li><strong>Storage</strong> — <code>accounting_connections</code>, one row per org, tokens AES-GCM encrypted, RLS deny-all (service role only). Entity mappings are provider-neutral columns (<code>accounting_invoice_id</code>, <code>accounting_contact_id</code>, …), wiped when an org switches provider or company; reference-tag dedupe rebuilds them on reconnect.</li>
+            <li><strong>Books health</strong> — <code>getBooksHealth()</code> reports unsynced counts, failures and 30-day paid-vs-synced coverage. A daily pass keeps refresh tokens alive and emails the owner once if a link dies (§08).</li>
           </ul>
         </div>
       </div>
@@ -1474,18 +1730,28 @@ erDiagram
       <table class="tbl">
         <tr><th>Stripe event</th><th>Action</th><th>Side effect</th></tr>
         <tr><td><code>account.updated</code></td><td>Update org flags</td><td>UI gates "send pay link" on <code>stripe_charges_enabled</code>.</td></tr>
-        <tr><td><code>checkout.session.completed</code> (paid)</td><td>Mark invoice / booking paid</td><td>Triggers <code>pushPaymentToXero()</code> if invoice path; generates branded invoice for booking path (<code>generateInvoiceForPaidBooking()</code>) and pushes both invoice + payment to Xero.</td></tr>
+        <tr><td><code>checkout.session.completed</code> (paid)</td><td>Mark invoice / booking / quote deposit / plan paid</td><td><code>pushPaymentToAccounting()</code> on the invoice path; a paid booking generates its branded invoice (<code>generateInvoiceForPaidBooking()</code>) and pushes invoice + payment.</td></tr>
         <tr><td><code>payment_intent.succeeded</code></td><td>Fallback for non-Checkout flows</td><td>Same paid bookkeeping.</td></tr>
-        <tr><td><code>charge.refunded</code></td><td>Flip invoice back to <code>sent</code></td><td>Operator handles Xero refund manually for now.</td></tr>
-        <tr><td><code>payout.paid</code></td><td>Push Stripe payout to Xero as RECEIVE bank transaction</td><td><code>pushPayoutToXero()</code> — Receive Money line in connected Xero with payout id as reference. Idempotent via <code>xero_payouts</code> tracking table.</td></tr>
+        <tr><td><code>charge.refunded</code></td><td>Record each refund as a credit note</td><td>Idempotent on <code>stripe_refund_id</code>, so an in-app refund isn't duplicated; covers dashboard refunds too. Fetches the real refund list (webhook payloads don't expand it) — the old fallback double-counted in-app refunds (#443). Pushes the credit note to the accounting package.</td></tr>
+        <tr><td><code>customer.subscription.*</code> · <code>invoice.paid</code></td><td>Platform (SaaS) and plan subscriptions</td><td>Syncs the org's tier for <code>tenant_billing</code> subscriptions (receipt on a plan switch); <code>invoice.paid</code> accrues a service-plan subscription's payments-in — the prepayment funding gate ("no draw before funded").</td></tr>
+        <tr><td><code>payout.paid</code></td><td>Settlement to the garage's bank</td><td><code>pushPayoutToAccounting()</code> — a Receive-Money style line with the payout id as reference, tracked in <code>accounting_payouts</code> for idempotency.</td></tr>
       </table>
 
-      <h3>Bank reconciliation (Xero Phase 2)</h3>
-      <p>Once a garage's Stripe balance pays out to their real bank, <code>payout.paid</code> fires on the connected account. The handler posts a matching <strong>Receive Money</strong> bank transaction in their Xero so the accountant gets a ready-to-match line against the actual bank feed — reconciliation becomes one click. The payout id is the reference; the date is <code>payout.arrival_date</code>; the line is NoTax (VAT was already settled on the underlying invoices). Fees gap (gross customer payments minus net payout) accumulates as imbalance the accountant resolves as a periodic "Stripe fees" Spend Money. A dedicated Stripe clearing account is the natural Phase 3.</p>
+      <h3>Bank reconciliation</h3>
+      <p>Once a garage's Stripe balance pays out, <code>payout.paid</code> fires on the connected account and the handler posts a matching bank line to the accounting package, so the accountant gets a ready-to-match line against the real bank feed. The payout id is the reference; the date is <code>payout.arrival_date</code>; the line carries no tax (VAT was settled on the underlying invoices). The fees gap (gross customer payments minus net payout) accumulates for the accountant to resolve as a periodic "Stripe fees" expense.</p>
+
+      <h3>Making Tax Digital — a digital link, not a filer</h3>
+      <p>AI Garage deliberately does <strong>not</strong> become HMRC-recognised filing software (<code>docs/mtd-readiness.md</code>). It generates the garage's sales invoices, so it holds the primary digital record of supplies. The job is to make the hand-off to the package that files — API sync, or a CSV designed for import — complete, lossless and provably healthy, which VAT Notice 700/22 accepts as a <em>digital link</em>. Per-line <code>vat_treatment</code>, branch invoice prefixes, the books-health report and dead-link alerts all serve that. Never describe the product as "HMRC-recognised".</p>
+
+      <h3>Platform billing additions</h3>
+      <ul>
+        <li><strong>Growth overage</strong> — Growth-tier subscriptions carry a metered per-location quantity, kept equal to the real location count by the daily <code>overage-reconcile</code> pass.</li>
+        <li><strong>Lapse policy</strong> — a five-state <code>tenantBillingState</code> machine drives persistent owner banners. The invariant: <strong>core trading is never billing-gated</strong>; only premium features lock (<code>docs/billing-lapse-policy.md</code>).</li>
+      </ul>
 
       <div class="note">
         <span class="label">Idempotency contract</span>
-        Every Xero write is guarded by an "id already set" check before calling the API. Replays from Stripe (or from a manual webhook retry) are safe. The fast path for an already-synced payment is two DB reads and no Xero call.
+        Every accounting write is guarded by an "id already set" check before calling the provider API, and Stripe webhook events are claimed in <code>stripe_webhook_events</code> before processing. Replays from Stripe (or a manual retry) are safe; the fast path for an already-synced payment is two DB reads and no provider call.
       </div>
     </section>
 
@@ -1497,20 +1763,22 @@ erDiagram
         <div class="tag">third parties · scope</div>
       </div>
 
-      <p class="lede2">All external calls live in <code>src/lib/*</code> so they can be swapped or mocked at one boundary. Per-tenant credentials (Stripe Connect, Xero) are stored on <code>organizations</code>; platform credentials come from env vars.</p>
+      <p class="lede2">All external calls live in <code>src/lib/*</code> so they can be swapped or mocked at one boundary. Per-tenant credentials are stored per organisation — the Stripe Connect account id on <code>organizations</code>, accounting and supplier OAuth tokens encrypted in <code>accounting_connections</code> / <code>supplier_integrations</code> (service role only) — and platform credentials come from env vars.</p>
 
       <table class="tbl">
         <tr><th style="width: 18%">Service</th><th style="width: 22%">Module</th><th style="width: 14%">Credentials</th><th>What it does</th></tr>
-        <tr><td>Supabase</td><td><code>lib/supabase/*</code> · <code>lib/quote-storage.ts</code></td><td>platform</td><td>Postgres, Auth, storage. SSR + browser + admin clients. RLS enforced. Private storage bucket <code>job-quote-videos</code> for DVI clips, signed-URL gated.</td></tr>
-        <tr><td>Anthropic Claude</td><td><code>lib/ai-messages.ts</code> · <code>lib/ai-diagnostic.ts</code> · <code>lib/ai-labour.ts</code> · <code>lib/ai-job-from-voice.ts</code></td><td>platform</td><td>Drafts customer communications and powers diagnostic / job sheet helpers.</td></tr>
-        <tr><td>Resend</td><td><code>lib/email.ts</code></td><td>platform</td><td>Transactional email. Webhook updates open / click / delivered timestamps on <code>reminders</code>.</td></tr>
-        <tr><td>Twilio SMS</td><td><code>lib/sms.ts</code></td><td>platform</td><td>Outbound SMS reminders &amp; campaigns.</td></tr>
-        <tr><td>Twilio WhatsApp</td><td><code>lib/whatsapp.ts</code></td><td>platform</td><td>Outbound WhatsApp template messages.</td></tr>
-        <tr><td>DVSA MOT History</td><td><code>lib/dvla.ts</code> · <code>lib/dvla-auth.ts</code></td><td>platform</td><td>OAuth client-credentials → lookup vehicle by reg → MOT expiry + first-due date for new vehicles.</td></tr>
-        <tr><td>DVLA VES</td><td><code>lib/dvla-ves.ts</code></td><td>platform</td><td>Road tax (VED) due date enrichment.</td></tr>
+        <tr><td>Supabase</td><td><code>lib/supabase/*</code> · <code>lib/quote-storage.ts</code> · <code>lib/inspection-media.ts</code></td><td>platform</td><td>Postgres, Auth, storage. SSR + browser + admin clients. RLS enforced. Private buckets (signed-URL only): <code>job-quote-videos</code> for DVI clips, <code>inspection-media</code> for eVHC photos.</td></tr>
+        <tr><td>Anthropic Claude</td><td><code>lib/ai-*.ts</code> · <code>lib/receptionist/*</code></td><td>platform</td><td>Automated drafts, the compose-first assist menu, eVHC summaries, parts/margin, import mapping, mini-site copy, AI receptionist, support assistant (§07).</td></tr>
+        <tr><td>Resend</td><td><code>lib/email.ts</code> · <code>lib/email-layout.ts</code></td><td>platform</td><td>Transactional + marketing email in a shared branded shell. Webhook updates open / click / delivered on <code>reminders</code> and feeds <code>email_suppressions</code>; marketing sends carry <code>List-Unsubscribe</code> headers (§24).</td></tr>
+        <tr><td>Twilio SMS / WhatsApp</td><td><code>lib/sms.ts</code> · <code>lib/whatsapp.ts</code></td><td>platform</td><td>Outbound reminders and messages; inbound SMS/WhatsApp + missed-call capture for the AI receptionist (per-location numbers).</td></tr>
+        <tr><td>DVSA MOT History</td><td><code>lib/dvla.ts</code> · <code>lib/dvla-auth.ts</code> · <code>lib/dvsa-bulk.ts</code></td><td>platform</td><td>OAuth client-credentials + <code>DVSA_API_KEY</code>. Per-reg lookup (MOT expiry, history, first-due date) and the nightly bulk delta files — whose full test series is persisted to <code>mot_tests</code>.</td></tr>
+        <tr><td>DVLA VES</td><td><code>lib/dvla-ves.ts</code></td><td>platform</td><td>Road tax (VED) due date and fuel type (drives EV/HV flags and tyre-care intervals).</td></tr>
         <tr><td>DVSA Recalls</td><td><code>lib/dvsa-recalls.ts</code></td><td>platform</td><td>Recall lookup; populates <code>vehicles.recall_status · recall_detail · recall_checked_at</code>.</td></tr>
         <tr><td>Stripe</td><td><code>lib/stripe.ts</code> · <code>lib/booking-invoice.ts</code></td><td>platform + per-org</td><td>Connect Express onboarding; Checkout pay-links on invoices &amp; bookings; webhooks.</td></tr>
-        <tr><td>Xero</td><td><code>lib/xero.ts</code> · <code>lib/xero-sync.ts</code></td><td>per-org OAuth</td><td>Contacts, invoices, payments. Idempotent push from AI Garage; one-way only.</td></tr>
+        <tr><td>Xero · QuickBooks · Sage</td><td><code>lib/accounting/*</code></td><td>per-org OAuth</td><td>One provider per organisation behind the accounting seam: contacts, invoices, payments, credit notes, payouts. Idempotent, one-way push (§09).</td></tr>
+        <tr><td>Upstash Redis</td><td><code>lib/redis.ts</code> · <code>lib/rate-limit.ts</code></td><td>platform</td><td>Org-by-slug cache, feature-flag cache, MOT-history cache, auth + AI rate limits. Every call fails open.</td></tr>
+        <tr><td>Sentry</td><td><code>@sentry/nextjs</code></td><td>platform</td><td>Error monitoring; issue snapshots feed the admin health view.</td></tr>
+        <tr><td>Bumper</td><td><code>app/api/finance/bumper</code></td><td>per-org config</td><td>Point-of-sale finance applications (§25).</td></tr>
       </table>
     </section>
 
@@ -1522,7 +1790,7 @@ erDiagram
         <div class="tag">.env · vercel</div>
       </div>
 
-      <p class="lede2">Source of truth: <code>.env.example</code>. Vars prefixed <code>NEXT_PUBLIC_</code> are exposed to the browser bundle; everything else is server-only. Per-tenant credentials (Stripe Connect, Xero) are stored on the <code>organizations</code> row, not in env.</p>
+      <p class="lede2">Source of truth: <code>src/lib/env-checklist.ts</code> — every variable, grouped, with what breaks when it's missing; check an environment with <code>npm run check:env</code> (<code>docs/production-env-checklist.md</code>). <code>.env.example</code> covers the common local set. Vars prefixed <code>NEXT_PUBLIC_</code> are exposed to the browser bundle; everything else is server-only. Per-tenant credentials (Stripe Connect, accounting and supplier OAuth) are stored per organisation, not in env. The table below is the core set; the checklist has the rest (help-manual tenant, preview slugs, golden-path budget, …).</p>
 
       <div class="fields">
         <div class="field-row"><div class="k">NEXT_PUBLIC_SUPABASE_URL</div><div class="scope client">client</div><div class="desc">Supabase project URL. Used by the SSR helpers and the browser client.</div></div>
@@ -1533,14 +1801,28 @@ erDiagram
         <div class="field-row"><div class="k">RESEND_FROM_EMAIL</div><div class="scope server">server</div><div class="desc">Verified sender. Without a verified domain, only mails to the Resend account address are delivered.</div></div>
         <div class="field-row"><div class="k">TWILIO_ACCOUNT_SID</div><div class="scope server">server</div><div class="desc">Twilio account.</div></div>
         <div class="field-row"><div class="k">TWILIO_AUTH_TOKEN</div><div class="scope server">server</div><div class="desc">Twilio auth.</div></div>
-        <div class="field-row"><div class="k">TWILIO_FROM_NUMBER</div><div class="scope server">server</div><div class="desc">E.164 sender number. WhatsApp uses Twilio sandbox unless a separate sender is configured.</div></div>
-        <div class="field-row"><div class="k">DVLA_MOT_API_KEY</div><div class="scope server">server</div><div class="desc">DVSA MOT History API key (sent as <code>X-API-Key</code>).</div></div>
+        <div class="field-row"><div class="k">TWILIO_FROM_NUMBER</div><div class="scope server">server</div><div class="desc">E.164 sender number for SMS.</div></div>
+        <div class="field-row"><div class="k">TWILIO_WHATSAPP_FROM</div><div class="scope server">server</div><div class="desc">WhatsApp sender; the sandbox is used when unset.</div></div>
+        <div class="field-row"><div class="k">RESEND_WEBHOOK_SECRET</div><div class="scope server">server</div><div class="desc">Verifies the Resend (svix) webhook — delivery tracking and the bounce/complaint suppression list.</div></div>
+        <div class="field-row"><div class="k">DVSA_API_KEY</div><div class="scope server">server</div><div class="desc">DVSA MOT History API key (sent as <code>X-API-Key</code>). With <code>DVSA_CLIENT_ID · DVSA_CLIENT_SECRET · DVSA_TOKEN_URL · DVSA_SCOPE</code> for the OAuth bearer token.</div></div>
+        <div class="field-row"><div class="k">DVLA_VES_API_KEY</div><div class="scope server">server</div><div class="desc">DVLA Vehicle Enquiry Service — road tax and fuel type.</div></div>
+        <div class="field-row"><div class="k">APP_ENCRYPTION_KEY</div><div class="scope server">server</div><div class="desc">32-byte base64 key for AES-256-GCM field encryption of third-party OAuth tokens.</div></div>
+        <div class="field-row"><div class="k">UPSTASH_REDIS_REST_URL / _TOKEN</div><div class="scope server">server</div><div class="desc">Cache + rate limits. Optional: every call fails open, so local dev works without it.</div></div>
+        <div class="field-row"><div class="k">QUICKBOOKS_CLIENT_ID / _SECRET / _ENVIRONMENT</div><div class="scope server">server</div><div class="desc">QuickBooks Online app (sandbox | production).</div></div>
+        <div class="field-row"><div class="k">SAGE_CLIENT_ID / _SECRET</div><div class="scope server">server</div><div class="desc">Sage Business Cloud Accounting app.</div></div>
+        <div class="field-row"><div class="k">STRIPE_TENANT_PRICE_*</div><div class="scope server">server</div><div class="desc">Platform-billing price ids — Pro / Growth monthly + annual, and the Growth overage metered price.</div></div>
+        <div class="field-row"><div class="k">SENTRY_DSN / NEXT_PUBLIC_SENTRY_DSN</div><div class="scope server">server</div><div class="desc">Error monitoring, server and browser.</div></div>
+        <div class="field-row"><div class="k">SLACK_OPS_WEBHOOK_URL</div><div class="scope server">server</div><div class="desc">Optional alert channel. Email is the delivery floor; Slack no-ops without it (§28).</div></div>
+        <div class="field-row"><div class="k">PLATFORM_ADMIN_EMAILS</div><div class="scope server">server</div><div class="desc">Allowlist for the <code>admin.</code> console, alongside <code>platform_admins</code> rows.</div></div>
+        <div class="field-row"><div class="k">WEBAUTHN_RP_ID / _RP_NAME</div><div class="scope server">server</div><div class="desc">Passkey relying-party identity.</div></div>
+        <div class="field-row"><div class="k">OWNER_MFA_ENFORCED</div><div class="scope server">server</div><div class="desc"><code>"true"</code> makes the passkey step-up mandatory for owners, admins and accountants. Unset means nudge only.</div></div>
+        <div class="field-row"><div class="k">CANARY_ORG_SLUG</div><div class="scope cron">cron</div><div class="desc">Tenant the golden-path synthetic check exercises.</div></div>
         <div class="field-row"><div class="k">CRON_SECRET</div><div class="scope cron">cron</div><div class="desc">Shared bearer secret. Set on Vercel project so Vercel Cron can authenticate to <code>/api/cron/tick</code>.</div></div>
         <div class="field-row"><div class="k">STRIPE_SECRET_KEY</div><div class="scope server">server</div><div class="desc">Platform Stripe secret. Used to manage Connect accounts and create Checkout sessions.</div></div>
         <div class="field-row"><div class="k">STRIPE_WEBHOOK_SECRET</div><div class="scope server">server</div><div class="desc">Verifies signatures on <code>POST /api/webhooks/stripe</code>.</div></div>
         <div class="field-row"><div class="k">STRIPE_PLATFORM_FEE_PERCENT</div><div class="scope server">server</div><div class="desc">Default <code>2</code>. Skimmed from every customer payment via <code>application_fee_amount</code>.</div></div>
         <div class="field-row"><div class="k">XERO_CLIENT_ID</div><div class="scope server">server</div><div class="desc">Xero app client id.</div></div>
-        <div class="field-row"><div class="k">XERO_CLIENT_SECRET</div><div class="scope server">server</div><div class="desc">Xero app secret. Callback URL: <code>/api/xero/connect/callback</code>.</div></div>
+        <div class="field-row"><div class="k">XERO_CLIENT_SECRET</div><div class="scope server">server</div><div class="desc">Xero app secret (with <code>XERO_SALES_ACCOUNT_CODE</code> for the income account).</div></div>
         <div class="field-row"><div class="k">NEXT_PUBLIC_ROOT_DOMAIN</div><div class="scope client">client</div><div class="desc">Apex used for subdomain routing. Local: <code>localtest.me:3000</code>; production: real apex.</div></div>
       </div>
 
@@ -1558,7 +1840,7 @@ erDiagram
         <div class="tag">vercel</div>
       </div>
 
-      <p class="lede2">Deployed on Vercel. One project, one cron, wildcard subdomain. Supabase is the only stateful backend; everything else is stateless Node functions.</p>
+      <p class="lede2">Deployed on Vercel: one project, five Vercel crons, a wildcard tenant subdomain plus <code>admin.</code>. Supabase is the stateful backend. Upstash Redis holds only a cache and the rate-limit counters, and everything else is stateless Node functions. Vercel functions run in <code>arn1</code> (Stockholm), next to Supabase in <code>eu-north-1</code>, so a database round trip stays within the region.</p>
 
       <div class="bp">
         <div class="caption"><span class="ref">FIG&nbsp;12·A</span><span>production deployment</span></div>
@@ -1568,7 +1850,7 @@ erDiagram
           <text x="32" y="62" class="d-title">DNS · *.aig.co.uk</text>
           <text x="32" y="82" class="d-label-mute">apex CNAME → Vercel</text>
           <text x="32" y="98" class="d-label-mute">wildcard CNAME → Vercel</text>
-          <text x="32" y="114" class="d-label-mute">custom domains → CNAME</text>
+          <text x="32" y="114" class="d-label-mute">admin.&lt;root&gt; → operator portal</text>
 
           <!-- Vercel -->
           <rect x="280" y="20" width="320" height="280" class="d-fill-paper d-stroke" />
@@ -1585,11 +1867,11 @@ erDiagram
 
           <rect x="300" y="192" width="280" height="60" class="d-fill-white d-stroke-green" />
           <text x="312" y="212" class="d-title">Vercel Cron</text>
-          <text x="312" y="230" class="d-label-mute">0 * * * * → /api/cron/tick</text>
-          <text x="312" y="244" class="d-label-mute">vercel.json</text>
+          <text x="312" y="230" class="d-label-mute">tick hourly · quote-expiry · uptime</text>
+          <text x="312" y="244" class="d-label-mute">golden-path · mot-delta (vercel.json)</text>
 
           <rect x="300" y="262" width="280" height="30" class="d-fill-white d-stroke" />
-          <text x="312" y="282" class="d-label-mute">env: STRIPE · XERO · TWILIO · DVSA · RESEND · ANTHROPIC</text>
+          <text x="312" y="282" class="d-label-mute">env: see §11 · npm run check:env</text>
 
           <!-- Supabase -->
           <rect x="660" y="40" width="320" height="240" class="d-fill-paper d-stroke" />
@@ -1597,15 +1879,15 @@ erDiagram
 
           <rect x="680" y="78" width="280" height="50" class="d-fill-white d-stroke-green" />
           <text x="692" y="98" class="d-title">Postgres + RLS</text>
-          <text x="692" y="114" class="d-label-mute">17 tables · migrations under git</text>
+          <text x="692" y="114" class="d-label-mute">94 tables · migrations under git</text>
 
           <rect x="680" y="138" width="280" height="40" class="d-fill-white d-stroke" />
           <text x="692" y="158" class="d-title">Auth</text>
-          <text x="692" y="172" class="d-label-mute">email/password · session refresh</text>
+          <text x="692" y="172" class="d-label-mute">password · passkeys · MFA · 12h timebox</text>
 
           <rect x="680" y="188" width="280" height="40" class="d-fill-white d-stroke" />
           <text x="692" y="208" class="d-title">Storage</text>
-          <text x="692" y="222" class="d-label-mute">org logos · invoice PDFs</text>
+          <text x="692" y="222" class="d-label-mute">videos · inspection · signatures · gallery</text>
 
           <rect x="680" y="238" width="280" height="34" class="d-fill-white d-stroke" />
           <text x="692" y="258" class="d-label-mute">pooler: transaction mode for serverless</text>
@@ -1627,10 +1909,12 @@ erDiagram
       <table class="tbl">
         <tr><th>Concern</th><th>Mechanism</th></tr>
         <tr><td>Schema changes</td><td>SQL files under <code>supabase/migrations/</code>. Reviewed, then applied via <code>supabase db push</code> in CI / by hand on the prod project.</td></tr>
-        <tr><td>Secrets</td><td>Vercel Project Environment Variables. Never committed. Local dev uses <code>.env.local</code>.</td></tr>
-        <tr><td>Custom domains</td><td>Tenant adds their own domain → CNAME to Vercel → stored in <code>organizations.custom_domain</code>. Resolution mirrors subdomain routing.</td></tr>
-        <tr><td>Observability</td><td>Vercel function logs (structured <code>console.log("[area]", payload)</code>). Supabase logs for query-level issues.</td></tr>
-        <tr><td>Cron monitoring</td><td>Vercel Cron dashboard + each handler returns JSON with <code>{ ran, failed, errors }</code>.</td></tr>
+        <tr><td>Secrets</td><td>Vercel Project Environment Variables. Never committed. Local dev uses <code>.env.local</code>. <code>npm run check:env</code> validates an environment against <code>src/lib/env-checklist.ts</code>.</td></tr>
+        <tr><td>Auth config</td><td>The <code>[auth]</code> settings in <code>supabase/config.toml</code> (such as the 12 h session timebox) are <strong>not</strong> migrations. Push them with <code>supabase config push</code>, or set them in the Dashboard.</td></tr>
+        <tr><td>Feature rollout</td><td>Features that need a controlled start sit behind a feature flag (§28) and, for automated sends, a per-branch Automations task. Shipping the code and switching a feature on are separate steps.</td></tr>
+        <tr><td>Custom domains</td><td><strong>Parked</strong> (<code>docs/custom-domains.md</code>, #454). <code>organizations.custom_domain</code> exists but the resolver never routes on it; it will be bundled with the mini-site (§26) if it's built.</td></tr>
+        <tr><td>Observability</td><td>Sentry (<code>@sentry/nextjs</code>, with a snapshot in <code>/admin/health</code>). Vercel function logs (structured <code>console.log("[area]", payload)</code>). Supabase logs for query-level issues.</td></tr>
+        <tr><td>Cron monitoring</td><td>Each run writes to <code>cron_runs</code> and returns JSON <code>{ ran, failed, errors }</code>. A <code>cron_stale_mins</code> alert rule catches crons that have stopped firing (§28).</td></tr>
         <tr><td>Backups</td><td>Supabase automated daily backups (7-day retention on default plan).</td></tr>
       </table>
     </section>
@@ -1793,7 +2077,7 @@ erDiagram
         <li><strong>Approve does not auto-add items to a job</strong> — there is no job yet. Status flips to <code>approved</code> + staff are notified to schedule a booking. Items remain in the snapshot until the staff-created booking is started.</li>
         <li><strong>Rebook CTA is hidden</strong> on the customer page — a standalone quote <em>is</em> the booking-precursor, so "decline and rebook" makes no sense.</li>
         <li><strong>Deposit-on-approve</strong> — same Stripe Checkout flow as DVI v2; webhook handles both <code>quote_id</code> and <code>standalone_quote_id</code> metadata.</li>
-        <li><strong>Cron expiry</strong> — <code>/api/cron/quote-expiry</code> sweeps both tables for <code>status='pending' AND expires_at &lt; now()</code>.</li>
+        <li><strong>Cron expiry</strong> — <code>/api/cron/quote-expiry</code> sweeps the unified <code>quotes</code> table for <code>status='pending' AND expires_at &lt; now()</code>, for both quote types.</li>
       </ul>
 
       <h3>Staff surfaces</h3>
@@ -1822,7 +2106,7 @@ erDiagram
         <div>
           <h3>Hierarchy</h3>
           <ul>
-            <li><strong>Org-level</strong> (<code>org_users</code>): <code>owner</code> / <code>admin</code> — full access across every location in the org. Bypass all <code>hasPermission</code> checks.</li>
+            <li><strong>Org-level</strong> (<code>org_users</code>): <code>owner</code> / <code>admin</code> have full access across every location in the org and bypass all <code>hasPermission</code> checks. <code>accountant</code> is an org-wide, finance-only role: it reads invoices, credit notes, reports and accounting through <code>private.is_org_finance()</code> without branch membership (<code>canFinance</code> on the dashboard).</li>
             <li><strong>Location-level</strong> (<code>location_users</code>): <code>manager</code> · <code>service_advisor</code> · <code>mechanic</code> · <code>apprentice</code> · <code>receptionist</code> · <code>parts</code> · <code>bookkeeper</code> · <code>staff</code> (legacy alias). Each has a <code>permissions</code> JSONB column + <code>template_id</code> snapshot reference.</li>
             <li><strong>MOT flags</strong> — <code>mot_tester</code> and <code>mot_qc_reviewer</code> live as separate booleans, not capabilities. DVSA MTS enforces tester separation externally; we just label.</li>
           </ul>
@@ -1922,18 +2206,20 @@ erDiagram
         <div>
           <h3>Tiers (<code>TIERS</code>)</h3>
           <table class="tbl dense">
-            <tr><td>Starter</td><td>free · 2.0% fee · 1 location</td></tr>
-            <tr><td>Pro</td><td>£49/mo · 1.5% fee · 3 locations · Xero/campaigns/automations</td></tr>
-            <tr><td>Growth</td><td>£99/mo · 1.0% fee · ∞ locations · all features</td></tr>
+            <tr><td>Starter</td><td>free · 2% fee · 1 location</td></tr>
+            <tr><td>Pro</td><td>£49/mo · 1% fee · 3 locations · accounting / campaigns / automations</td></tr>
+            <tr><td>Growth</td><td>£149/mo · 0% fee · 7 locations, then £25 per extra site · + AI receptionist</td></tr>
           </table>
-          <p>Prices map to Stripe Prices via <code>STRIPE_TENANT_PRICE_{PRO,GROWTH}_{MONTHLY,ANNUAL}</code> env ids.</p>
+          <p>The fee tapers to zero as the tier rises, and annual billing is 10× monthly. Prices map to Stripe Prices via the <code>STRIPE_TENANT_PRICE_{PRO,GROWTH}_{MONTHLY,ANNUAL}</code> env ids, plus <code>STRIPE_TENANT_PRICE_GROWTH_OVERAGE</code>. Those Stripe Prices must match the amounts in <code>TIERS</code>, or the billing page and the receipt will disagree.</p>
         </div>
         <div>
           <h3>Enforcement</h3>
           <ul>
             <li><code>effectiveFeePercent(org)</code> — the tier's rate while in good standing, else the Starter rate (a lapsed tier loses its discount).</li>
-            <li><code>entitledTo(org, feature)</code> — gates Xero / campaigns / automations.</li>
-            <li><code>tenantBillingActive()</code> — soft + grace (<code>TENANT_BILLING_GRACE_DAYS</code> = 7) so a <code>past_due</code> tenant keeps core trading inside the window.</li>
+            <li><code>entitledTo(org, feature)</code> — gates <code>accounting</code> / <code>campaigns</code> / <code>automations</code> / <code>receptionist</code>. The tier must include the feature <em>and</em> billing must be active.</li>
+            <li><code>tenantBillingActive()</code> — allows a grace window (<code>TENANT_BILLING_GRACE_DAYS</code> = 7), so a <code>past_due</code> tenant keeps its tier inside the window.</li>
+            <li><code>tenantBillingState()</code> — <code>ok / trial_ending / grace / trial_ended / lapsed</code>. It drives persistent owner banners (<code>docs/billing-lapse-policy.md</code>). <strong>Core trading is never billing-gated.</strong></li>
+            <li><strong>Growth overage</strong> — <code>lib/tenant-overage.ts</code> keeps a quantity item for extra sites on the subscription. Adding an 8th+ site asks for confirmation first, and the sync is idempotent, run from the add-location action, the webhook and the <code>overage-reconcile</code> pass.</li>
           </ul>
         </div>
       </div>
@@ -1952,15 +2238,16 @@ erDiagram
       <div class="sec-head">
         <div class="num">18</div>
         <h2>Refunds &amp; credit notes</h2>
-        <div class="tag">stripe refunds · xero</div>
+        <div class="tag">stripe refunds · accounting sync</div>
       </div>
 
-      <p class="lede2">Refunding a paid invoice records a <code>credit_notes</code> row and reflects it on the invoice + in Xero. Helpers in <code>src/lib/credit-notes.ts</code>.</p>
+      <p class="lede2">Refunding a paid invoice records a <code>credit_notes</code> row and reflects it on the invoice and in the connected accounting package (Xero, QuickBooks or Sage). Helpers are in <code>src/lib/credit-notes.ts</code>.</p>
 
       <ul>
         <li>Staff issue a full/partial refund from the invoice actions; Stripe processes the refund on the connected account.</li>
         <li>Webhook <code>charge.refunded</code> → <code>recordRefundCreditNote()</code> (idempotent on <code>stripe_refund_id</code>, which is unique) + <code>recomputeInvoiceRefundStatus()</code> updates the invoice.</li>
-        <li><code>credit_notes</code> stores <code>invoice_id</code>, <code>credit_number</code>, <code>reason</code>, amounts, and the <code>xero_credit_note_id</code> once mirrored to Xero.</li>
+        <li><code>credit_notes</code> stores <code>invoice_id</code>, <code>credit_number</code>, <code>reason</code>, amounts, and <code>accounting_credit_note_id</code> once the note is mirrored through the accounting seam (§09).</li>
+        <li>The money-path dry run (#443) caught every in-app refund being recorded twice. Stripe API 2022-11+ leaves <code>charge.refunds</code> out of the webhook payload, so the handler's fallback booked the whole <code>amount_refunded</code> under a synthetic id. The fix fetches the real refunds (<code>stripe.refunds.list</code>), whose <code>re_…</code> ids dedupe against the row the staff action already wrote. Runbook: <code>docs/money-path-dryrun.md</code>.</li>
       </ul>
     </section>
 
@@ -1977,7 +2264,7 @@ erDiagram
           <h3>Stock &amp; purchasing</h3>
           <ul>
             <li><code>products</code> — parts catalogue with <code>stock_qty</code>, <code>cost_price</code> and a <code>reorder_at</code> low-stock threshold.</li>
-            <li><code>suppliers</code> + <code>purchase_orders</code> + <code>purchase_order_items</code> — raise a PO, receive it to increment stock. Items can reference a <code>product_id</code>.</li>
+            <li><code>suppliers</code> + <code>purchase_orders</code> + <code>purchase_order_items</code> — raise a PO, send it to the factor, paste in the confirmation, and receive it to increment stock. Items can reference a <code>product_id</code>. Markup pricing, AI part suggestion and the supplier connector seam are covered in §27.</li>
             <li>Job + quote line items carry an optional <code>product_id</code> so parts usage ties back to stock, and a <code>service_id</code> so catalogue services map to the membership allowance.</li>
           </ul>
         </div>
@@ -2020,48 +2307,355 @@ erDiagram
       </div>
     </section>
 
-    <!-- ============== 21. TESTING &amp; CI ============== -->
-    <section id="testing">
+    <!-- ============== 21. WORKSHOP: eVHC, AUTHORISATION, PROFITABILITY, COURTESY CARS ============== -->
+    <section id="workshop">
       <div class="sec-head">
         <div class="num">21</div>
-        <h2>Testing &amp; CI</h2>
-        <div class="tag">vitest · github-actions · pre-commit</div>
+        <h2>Workshop floor</h2>
+        <div class="tag">evhc · authorisation · margin · courtesy cars</div>
       </div>
 
-      <p class="lede2">Vitest 2.1 runs ~180 unit tests in &lt;2 s. GitHub Actions blocks merges on typecheck + tests. Husky pre-commit hook scopes lint + typecheck to staged files.</p>
+      <p class="lede2">Four features that sit on the job card. Each one reuses an existing rail rather than building a new one: the eVHC hands its red and amber items to the unified quote, work authorisation snapshots what the quote or the counter showed, profitability reads the job lines that already exist, and courtesy cars hang off the job.</p>
+
+      <h3>Electronic vehicle health check (eVHC, #497)</h3>
+      <div class="cols-2">
+        <div>
+          <ul>
+            <li><strong>Capture, not approval.</strong> <code>inspections</code> → <code>inspection_items</code> (RAG <code>green / amber / red / not_checked</code>, tech shorthand, outcome) → <code>inspection_media</code> (photos in the private <code>inspection-media</code> bucket, uploaded by signed PUT and existence-checked before the path is saved).</li>
+            <li><strong>Templates are org-scoped</strong> (<code>inspection_templates</code> + <code>_items</code>; staff read via <code>is_org_staff</code>, admins write via <code>is_org_admin</code>); a ~32-point UK template is seeded. Inspections themselves are operational, scoped by <code>location_id</code>.</li>
+            <li><strong>Speed trick</strong> — the mobile capture at <code>/staff/jobs/[id]/inspection</code> defaults every point to green, so the tech only marks the exceptions. RAG autosaves.</li>
+          </ul>
+        </div>
+        <div>
+          <ul>
+            <li><strong>AI rewrite</strong> — <code>lib/ai-inspection.ts</code> turns the shorthand for every amber and red item into customer wording in one batched call, and suggests a repair line. The model only picks a catalogue entry by number; the price always comes from the catalogue row.</li>
+            <li><strong>"Quote the red/amber items"</strong> creates a normal unified quote (<code>quote_type = 'job'</code>), with each line linked back through <code>quote_items.inspection_item_id</code>.</li>
+            <li><strong>Customer report</strong> — <code>/check/[slug]?t=…</code> (slug prefix <code>hc-</code>, token handling as in <code>lib/inspection-links.ts</code>). Per-item approval drives the <em>existing</em> quote approval, deposit, reminder and expiry machinery.</li>
+            <li>Gated by the <code>evhc</code> feature flag.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note warn">
+        <span class="label">Double FK</span>
+        <code>quotes</code> and <code>inspections</code> reference each other, so an unhinted PostgREST embed between them fails with PGRST201 and returns null data. Always hint the embed with the FK column (<code>!fk_column</code>) and check <code>error</code>, not just <code>data</code>. The same applies to jobs → invoices since <code>invoice_jobs</code> landed (§25).
+      </div>
+
+      <h3>Work authorisation (#503)</h3>
+      <p>One table, <code>work_authorisations</code>, of <strong>immutable artefacts</strong>. Each row snapshots the items and terms exactly as the customer saw them (<code>items_snapshot</code>, <code>terms_snapshot</code>, <code>authorised_total</code>), plus how they said yes and who they were: <code>signed_name</code>, IP, user agent, and a signature image in the private <code>authorisation-signatures</code> bucket. Staff RLS allows select and insert only. There are no update or delete policies, so the rows are immutable by construction, and lifecycle writes go through the admin client.</p>
+      <table class="tbl dense">
+        <tr><th>Method</th><th>Where it's captured</th></tr>
+        <tr><td><code>counter_signature</code></td><td>The customer signs on a canvas at the counter; the sheet shows the inc-VAT total from <code>lib/work-auth-shared.ts</code>, the same maths the invoice will bill.</td></tr>
+        <tr><td><code>quote_approval</code></td><td>Recorded after the atomic claim in both <code>approveQuote</code> paths (<code>/quote</code> and <code>/check</code>). Approval needs a typed name plus a tick, and only the approved lines are snapshotted.</td></tr>
+        <tr><td><code>reauth_link</code></td><td>The variation loop. <code>kind = 'initial' | 'variation'</code>.</td></tr>
+      </table>
+      <p><strong>Variation loop.</strong> When the job's live total exceeds the newest authorised total by more than <code>organizations.variation_threshold_pct</code> (default 10%), the job card warns. It never blocks. <code>requestReauthorisation</code> supersedes any older pending request (setting it to <code>declined</code>) and sends a <code>/authorise/[slug]</code> link (slug prefix <code>wa-</code>) showing the previous total struck through, the £ delta, and the new lines. A pending request that already covers the live total quiets the warning. <code>/staff/authorisations</code> lists the artefacts. The terms text is set per org in <code>organizations.authorisation_terms</code>.</p>
+
+      <h3>Job profitability (#502)</h3>
+      <ul>
+        <li><strong>Pure, ex-VAT maths</strong> in <code>lib/margin.ts</code>. Part cost is snapshotted onto <code>job_items.unit_cost</code> when the part is fitted, because the product's cost can change later. Labour cost is clocked hours (<code>job_time_entries</code>) × <code>organizations.labour_cost_rate</code>.</li>
+        <li><strong>Unknowns stay unknown.</strong> A part line with no cost, or a missing labour rate, makes the margin <code>null</code> plus a counter, never a guess.</li>
+        <li><strong>Period aggregation</strong> — <code>lib/margin-data.ts → fetchPeriodMargin</code> is the one fetch behind the reports page, the dashboard tiles and the digest note (<code>lib/ai-margin.ts</code>). A job belongs to a period when its invoice was <em>paid</em> in the window, so margins reconcile with the money reports; its clocked time counts in full.</li>
+      </ul>
+
+      <h3>Courtesy cars</h3>
+      <ul>
+        <li><code>courtesy_cars</code> (fleet) + <code>courtesy_car_loans</code> (a loan per hand-over, linked to the job). A loan records the check-out and return: <code>fuel_out/in</code> (0–8 eighths), <code>odometer_out/in</code>, <code>photos_out/in</code>, <code>due_back_at</code> and <code>returned_at</code>.</li>
+        <li><strong>Digital agreement</strong> — the customer types their name as the signature. Each loan pins <code>agreement_version</code> from <code>lib/courtesy-agreement.ts</code>, so an old signature keeps meaning what it meant when the wording changes.</li>
+        <li><strong>Damage map</strong> — <code>damage_out</code> / <code>damage_in</code> jsonb markers on a car diagram, using UK hire codes and size bands (<code>lib/courtesy-damage.ts</code>). Fair-wear thresholds are shown to staff as guidance, not enforced. Per-car photo history comes from <code>lib/courtesy-photos.ts</code>.</li>
+        <li><strong>UI</strong> — <code>/staff/courtesy-cars</code> is a 7-day lane board with a 3-step loan wizard. The brand colour arrives as a runtime CSS variable, and times render via <code>useClientNow</code> to avoid hydration mismatches.</li>
+      </ul>
+    </section>
+
+    <!-- ============== 22. DEFERRED WORK ============== -->
+    <section id="deferred">
+      <div class="sec-head">
+        <div class="num">22</div>
+        <h2>Deferred-work recovery</h2>
+        <div class="tag">bank · follow-up · attribution</div>
+      </div>
+
+      <p class="lede2">Work the customer declined, or was advised about but never priced, goes into a <strong>bank</strong>. It resurfaces on the next visit and is chased on a gentle schedule until it's booked, dismissed, or goes quiet (#498). Library code: <code>lib/deferred-work.ts</code> (bank) and <code>lib/deferred-followup.ts</code> (sequence).</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>The bank</h3>
+          <ul>
+            <li><code>deferred_work</code> — one snapshot row per outstanding repair: <code>source</code> (<code>quote_item | inspection_item</code>), a short description, price, RAG, status <code>open / recovered / dismissed</code>.</li>
+            <li><strong>Written by</strong> <code>declineQuote</code> (job, standalone and portal owner), partial <code>approveQuote</code>, and the report send. eVHC declines are banked through the same quote hooks, because findings-quote lines are ordinary <code>quote_items</code>.</li>
+            <li><strong>Dedupe</strong> — one <em>open</em> row per <code>(vehicle, lower(description))</code>. Banking the same repair again refreshes the row and restarts its clock instead of adding a duplicate.</li>
+            <li><strong>Read by</strong> the "Previously advised" panels on the job, the booking and the eVHC, and by <code>/staff/deferred</code> (tabs; dismiss with a reason, mark recovered, reopen).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>The follow-up sequence</h3>
+          <ul>
+            <li><code>/api/cron/deferred-followups</code> runs through the tick. It is <strong>double-gated</strong>: the global <code>deferred_followups</code> flag <em>and</em> the per-location Automations task must both be on.</li>
+            <li><strong>Stages</strong> come from <code>organizations.deferred_followup_days</code> (default <code>[14, 30]</code>). A record that missed several windows catches up with a single stage, never a burst.</li>
+            <li>One message per <code>(customer, vehicle)</code> naming the actual repairs, drafted by <code>lib/ai-deferred.ts</code>. The plain builder is the fallback, so an AI failure never blocks the send.</li>
+            <li><strong>7-day cross-sender cap</strong> (<code>FOLLOWUP_CAP_DAYS</code>) checked against the <code>reminders</code> log and CSAT pulses. Consent and the prelive gate (§24) apply.</li>
+            <li><strong>Attribution</strong> — each message carries a book-it token (<code>book_token_hash</code>). <code>/book?dw=…</code> pre-fills the widget and stamps <code>recovered_booking_id</code> / <code>recovered_at</code>. The dashboard tile counts recoveries.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note">
+        <span class="label">Rollout</span>
+        Prod is not flipped yet. It needs the <code>deferred_followups</code> flag on, plus the Automations task enabled per branch. <code>scheduled_tasks</code> rows are seeded lazily by <code>ensureDefaultTasks</code>, and a route missing from the tick's <code>TASK_ROUTE</code> map silently never fires.
+      </div>
+    </section>
+
+    <!-- ============== 23. TYRE CARE ============== -->
+    <section id="tyre-care">
+      <div class="sec-head">
+        <div class="num">23</div>
+        <h2>Tyre-care recommendations</h2>
+        <div class="tag">rules engine · review queue · #596</div>
+      </div>
+
+      <p class="lede2">Each night the engine looks for vehicles that are genuinely due a <strong>rotation</strong> or an <strong>alignment check</strong>, and queues a recommendation for staff to review with its evidence attached. Nothing sends until a person approves it. Gated by the <code>tyre_care</code> flag, which stays off until the data-protection review of the marketing sends is done.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Engine (<code>lib/tyre-care.ts</code>, pure)</h3>
+          <ul>
+            <li><strong>Mileage estimate</strong> — a weighted regression over dated odometer readings from MOT tests, jobs, tyre checks and imported history. Odometers only go up, so when two readings contradict each other the newer one wins. Implausible rates (over about 330 miles a day) are dropped. The estimate is shown on the vehicle page.</li>
+            <li><strong>Rotation</strong> — the baseline is the later of the last rotation and the last fitment (<code>wheel_service_events</code>, <code>tyre_checks</code>). It fires every 6,000 miles, or on a front/rear tread gap of 1&nbsp;mm or more on its own. A car without a confirmed standard <code>vehicle_wheel_profile</code> is flagged, and can't be sent until staff confirm it, because staggered and directional setups can't be rotated.</li>
+            <li><strong>Alignment</strong> — three evidence rules: a left/right gap of 1.5&nbsp;mm or more on one axle, an MOT advisory about uneven wear, or steering/suspension work done without an alignment afterwards. Evidence must be ≤180 days old (advisories ≤730) and must post-date the last alignment.</li>
+            <li><strong>Balancing</strong> (12,000 miles) is too weak a signal to message a customer about, so it shows as a point-of-service prompt on the job card instead (<code>customerContactable: false</code>).</li>
+            <li><strong>Cooldown</strong> — nothing is re-recommended until <em>both</em> 3 months and 3,000 miles have passed since the matching service. <strong>Confidence</strong>: <code>high</code> = measured evidence, <code>low</code> = mileage estimate only; the queue sorts high first.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Pipeline</h3>
+          <ul>
+            <li><code>/api/cron/tyre-care</code> (tick task) evaluates the <strong>home-branch</strong> fleet and upserts <code>tyre_recommendations</code>. It is idempotent per vehicle and service, and an item whose evidence no longer holds moves to <code>expired</code>. Each run also writes a <code>tyre_care_runs</code> row with coverage counts.</li>
+            <li><strong>Queue</strong> — <code>/staff/tyre-care</code>, tabs <code>pending_review / approved_sent / converted / dismissed / expired</code>. It flags an MOT due within 45 days (so the two can be bundled), a wheel setup that isn't confirmed yet, and the contact cap.</li>
+            <li><strong>Approve &amp; send</strong> is compose-first (§07). It starts from a plain template that states the evidence, and AI touches the text only through the assist menu. A channel without marketing consent can't be ticked, and every ticked channel must have a message: nothing is skipped silently.</li>
+            <li><strong>Attribution</strong> — <code>/book?tc=…</code> pre-selects the service and marks the recommendation <code>converted</code>.</li>
+            <li><strong>Results</strong> — <code>/staff/tyre-care/results</code> shows 90-day booked %, paid revenue (followed through the booking → job → invoice), dismissal rate with ranked reasons, unsubscribes, coverage, and conversion split by service × evidence. There is also a dashboard tile for revenue roles.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note warn">
+        <span class="label">RLS lesson (#619)</span>
+        <code>tyre_checks</code>, <code>wheel_service_events</code> and <code>vehicle_wheel_profile</code> had insert policies that checked the caller's branch but never tied <code>vehicle_id</code> to the caller's org. The hardening added <code>private.vehicle_in_location_org()</code> to every <code>WITH CHECK</code>. Any new table with both a vehicle FK and a location FK needs the same cross-check.
+      </div>
+    </section>
+
+    <!-- ============== 24. CUSTOMER COMMS &amp; COMPLIANCE ============== -->
+    <section id="comms">
+      <div class="sec-head">
+        <div class="num">24</div>
+        <h2>Customer comms &amp; compliance</h2>
+        <div class="tag">prelive · caps · consent · unsubscribe · csat</div>
+      </div>
+
+      <p class="lede2">The rules every customer-facing message follows, whichever feature sends it. Sends go through <code>lib/email.ts</code>, <code>lib/sms.ts</code> and <code>lib/whatsapp.ts</code>; branded emails use the shared shell in <code>lib/email-layout.ts</code>.</p>
+
+      <table class="tbl">
+        <tr><th>Rule</th><th>How it's enforced</th></tr>
+        <tr><td><strong>Name the branch</strong></td><td>Every message identifies the branch (name + address), not just the org, via <code>lib/garage-identity.ts</code> (<code>garageLabel</code>, <code>garageLocationBlock</code>/<code>Inline</code>).</td></tr>
+        <tr><td><strong>Route by home branch</strong></td><td>Customer-level automation (reminders, campaigns, tyre care) sends from <code>customers.preferred_location_id</code>, once per customer. Event-level mail (dunning, booking confirmations, review requests) comes from the branch of record.</td></tr>
+        <tr><td><strong>Prelive gate</strong> (#584)</td><td><code>locations.live_at</code> null = prelive, per <em>branch</em>. <strong>If a human pressed a button, it sends; if a cron decided, it holds.</strong> The gate lives in each cron route (<code>lib/prelive.ts</code>), never in the send layer, so password resets, invites and support mail keep working during setup. Held sends are upserted into <code>held_comms</code>, a pending set keyed <code>(location, kind, ref)</code> that goes stale after 48 h and is pruned after 7 days. <code>/staff/go-live</code> shows what will send, and going live (owner only) stamps <code>live_at</code>.</td></tr>
+        <tr><td><strong>First run after go-live</strong></td><td>Two controls on <code>locations</code>, both set on the Go-live screen. <code>first_run_cap</code> (default 25) limits each run during the first 24 h; the remainder rolls to the next run and nothing is marked sent. <code>chase_prelive_debt</code> defaults to false and is permanent, so dunning never chases invoices that were already overdue when the branch went live.</td></tr>
+        <tr><td><strong>Contact caps</strong></td><td>Automated nags check the <code>reminders</code> log across senders. Examples: deferred work's 7-day window; CSAT's 1 pulse per customer per 30 days (the <code>suppressed</code> status keeps the response rate honest); tyre care's cap check. Held rows are <strong>never</strong> written to <code>reminders</code>, because that table is the dedupe source.</td></tr>
+        <tr><td><strong>Consent</strong></td><td>Marketing sends (campaigns, win-back, tyre care) need <code>marketing_email_consent</code> / <code>marketing_sms_consent</code>. Service reminders are transactional. Anonymised customers (<code>anonymized_at</code>) are never contacted.</td></tr>
+        <tr><td><strong>Unsubscribe</strong> (PECR)</td><td><code>unsubscribe_tokens</code> holds one 128-bit token per message (hash only, never overwritten, so every old link keeps working). Opting out flips the per-channel consent boolean on <code>customers</code>. <code>/unsubscribe</code> needs a button press, so link scanners can't opt people out. <code>/api/unsubscribe</code> accepts the RFC 8058 one-click POST. <code>sendEmail({ unsubscribe })</code> sets the <code>List-Unsubscribe</code> and <code>List-Unsubscribe-Post</code> headers.</td></tr>
+        <tr><td><strong>Suppression</strong> (#444)</td><td>Hard bounces and spam complaints land in <code>email_suppressions</code> through the Resend webhook. <code>lib/email.ts</code> checks that list before every send (<code>lib/email-suppression.ts</code>).</td></tr>
+        <tr><td><strong>Compose-first</strong> (#594)</td><td>Staff write the message and AI is opt-in via <code>AiAssistMenu</code>. There are no silent channel drops: a ticked channel with an empty body blocks the send.</td></tr>
+      </table>
+
+      <h3>CSAT pulse &amp; review interception (#508)</h3>
+      <ul>
+        <li>A post-service pulse (<code>review_requests</code>, status <code>queued / sent / responded / failed / suppressed</code>) goes out on one channel per ask, trying email, then SMS, then WhatsApp.</li>
+        <li><code>/review/[token]</code> intercepts the score: 4–5★ goes on to Google, and 1–3★ stays private and raises a staff alert that deep-links to <code>/staff/customers/[id]?tab=comms&amp;draft=…</code> for recovery.</li>
+        <li><code>lib/csat.ts</code>: delivered = sent + responded; CSAT = share of responses scoring 4–5; average stars shown alongside. It feeds the "CSAT · 90d" dashboard tile.</li>
+      </ul>
+    </section>
+
+    <!-- ============== 25. TRADE ACCOUNTS &amp; FINANCE ============== -->
+    <section id="trade">
+      <div class="sec-head">
+        <div class="num">25</div>
+        <h2>Trade accounts &amp; consumer finance</h2>
+        <div class="tag">account customers · statements · bumper</div>
+      </div>
+
+      <p class="lede2">Fleet and trade customers buy on account (#504). There is <strong>no parallel billing system</strong>: an account is a flag and terms on <code>customers</code>, a consolidated invoice is an ordinary <code>invoices</code> row, and payments go through a small ledger.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Data model</h3>
+          <ul>
+            <li><code>customers.account_customer</code>, <code>payment_terms_days</code> (default 30), <code>credit_limit</code>, <code>consolidated_billing</code>. <code>organizations.credit_control_mode</code> (<code>warn</code> by default).</li>
+            <li><strong>Consolidated invoice</strong> — an <code>invoices</code> row with <code>job_id</code> null, plus <code>invoice_jobs</code> rows. <code>job_id</code> is unique there, so a job can never be billed twice. Month-end runs across the whole org (<code>runMonthEnd</code>).</li>
+            <li><strong>Ledger</strong> — <code>payments</code> + <code>payment_allocations</code>, allocated oldest invoice first (<code>lib/allocation.ts</code>). <code>invoices.amount_paid</code> is the rollup; <code>paid</code> still means fully covered. Ledger RLS is select-only (financial pattern) and writes go through the admin client.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Surfaces</h3>
+          <ul>
+            <li><strong>Credit control</strong> — <code>checkCredit</code> runs at <code>createBooking</code> and at quote → booking, and asks staff to confirm through a warning when the limit would be exceeded.</li>
+            <li><strong>Statements</strong> — <code>lib/statement.ts</code> (pure): opening balance, running balance, and aging on <em>outstanding</em> amounts. A synthetic settlement credit covers invoices paid outside the ledger (Stripe, mark-paid). Print page at <code>/staff/customers/[id]/statement</code>, plus email.</li>
+            <li><strong>Dunning groups account customers</strong> — one email per customer, with the stage taken from the oldest invoice.</li>
+            <li><strong>Portal</strong> — <code>/dashboard/account</code> for the account holder, with pay-balance-by-card through Stripe on the connected account. <code>lib/account-payments.ts → applyAccountPayment</code> is the one applier used by both staff and Stripe.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note">
+        <span class="label">Legal position</span>
+        Trade accounts are exempt trade credit only while no interest or charges are applied: see <code>docs/trade-credit-position.md</code>. Consumer finance is separate: <code>finance_applications</code> + <code>finance_provider_configs</code>, launched from <code>/staff/finance</code> through the Bumper integration (<code>/api/finance/bumper</code>). The lender, not the garage, carries the credit agreement.
+      </div>
+    </section>
+
+    <!-- ============== 26. ONBOARDING, MIGRATION &amp; MINI-SITE ============== -->
+    <section id="onboarding">
+      <div class="sec-head">
+        <div class="num">26</div>
+        <h2>Onboarding, migration &amp; mini-site</h2>
+        <div class="tag">activation · import · public site</div>
+      </div>
+
+      <p class="lede2">Getting a new garage from signup to trading without a call from us: a derived setup checklist, a demo sandbox, a first-week email sequence, a switcher's import wizard, and a public site on the tenant's subdomain.</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Self-serve activation (#506)</h3>
+          <ul>
+            <li><strong>Signup</strong> sends the platform welcome email (<code>sendOrgWelcomeEmail</code>) and routes the owner to <code>/staff/onboarding</code>. The AI survey there writes <code>organizations.ai_brief</code> (§07).</li>
+            <li><strong>Setup checklist</strong> — <code>lib/setup-checklist.ts</code> <em>derives</em> each step from real data (opening hours, services, bays, team, Stripe, logo…). Nothing is ticked by hand. It can be dismissed (<code>setup_checklist_dismissed_at</code>), and "Ask AI" opens the support assist pre-filled.</li>
+            <li><strong>Demo sandbox</strong> — <code>lib/demo-sandbox.ts</code> seeds 6 customers (<code>@demo.invalid</code>), a week of bookings, jobs, an invoice and a quote, all flagged <code>is_demo</code>. It's idempotent and can be wiped in one click.</li>
+            <li><strong>Day 1/3/7 emails</strong> — <code>lib/activation-emails.ts</code>, sent by the 09:00 tick pass behind the <code>activation_emails</code> flag. <code>organizations.activation_stage</code> counts the touches. The sequence stops as soon as the garage takes a real booking or invoice.</li>
+            <li><strong>Go-live</strong> — see the prelive gate in §24.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Migration toolkit (#505)</h3>
+          <ul>
+            <li>A 3-step wizard at <code>/staff/customers/import</code> (upload → map → dry run → commit). <code>lib/import-engine.ts</code> is pure: it parses CSVs (BOM stripped, semicolon delimiter sniffed), auto-maps columns, validates each row, and parses UK/ISO dates and money.</li>
+            <li><strong>Presets</strong> for TechMan, Garage Hive and AWO exports (<code>lib/import-presets.ts</code>). AI column mapping (<code>lib/ai-import-mapping.ts</code>) is the fallback.</li>
+            <li><strong>History ≠ jobs.</strong> Service history lands in <code>vehicle_history_entries</code>, so it never pollutes the board, margins or reports.</li>
+            <li><strong>Imported invoices ≠ invoices.</strong> They go to <code>imported_invoices</code>: read-only, badged, and structurally excluded from numbering, VAT, revenue, dunning and accounting sync.</li>
+            <li><strong>Reminder dates</strong> fill <em>blank</em> <code>vehicles.mot_expiry / service_due / tax_due_date</code> (overwrite is opt-in), so the existing crons simply fire.</li>
+            <li>Every row carries an <code>import_batch_id</code> (<code>import_batches</code>); a commit that fails partway deletes its whole batch.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Garage mini-site (#507)</h3>
+      <ul>
+        <li><strong>One <code>org_sites</code> row per org</strong>: <code>published</code>, a <code>sections</code> toggle map, <code>strapline</code>, <code>about</code>, <code>gallery_paths</code>. Anon can select published rows only. Edited under Settings → Website.</li>
+        <li><strong>Where it renders</strong> — the tenant subdomain root. An unpublished org keeps the original splash, byte for byte. <code>/b/[locationSlug]</code> serves per-branch pages.</li>
+        <li><strong>Performance</strong> — RSC only, no client JS beyond the Book button. Opening hours resolve today's times through <code>resolveHoursForDate</code>, so special days win.</li>
+        <li><strong>SEO</strong> — <code>lib/minisite-seo.ts</code> emits <code>AutoRepair</code> JSON-LD with grouped opening hours. Sitemap and robots are tenant-aware, and unpublished pages are <code>noindex</code>.</li>
+        <li><strong>AI copy</strong> — <code>lib/ai-minisite-copy.ts</code> drafts the strapline and about text, with server-side length caps. Gallery images go in the public <code>site-gallery</code> bucket, up to 8 × 4&nbsp;MB.</li>
+        <li><strong>Custom domains are parked</strong> (<code>docs/custom-domains.md</code>, #454): the <code>custom_domain</code> column is dead, and the resolver never routed on it.</li>
+      </ul>
+    </section>
+
+    <!-- ============== 27. PARTS &amp; SUPPLIERS ============== -->
+    <section id="parts">
+      <div class="sec-head">
+        <div class="num">27</div>
+        <h2>Parts pricing &amp; supplier ordering</h2>
+        <div class="tag">markup · ai parts · supplier seam</div>
+      </div>
+
+      <p class="lede2">Parts are <code>products</code> rows matched by <code>(location_id, sku)</code>, priced from cost by an org markup rule, and ordered from factors through a connector seam, so a trade-API integration can replace the manual path supplier by supplier without any caller changing (epic #499).</p>
+
+      <div class="cols-2">
+        <div>
+          <h3>Pricing &amp; AI suggestion</h3>
+          <ul>
+            <li><strong>Banded markup</strong> — <code>organizations.parts_markup_rules</code> (jsonb, ordered bands of cost ceiling → multiplier, plus a catch-all) and <code>parts_target_margin_pct</code>. The maths lives in <code>lib/parts-pricing.ts</code> (pure, ex-VAT). Invalid rules fall back to a default multiplier, so a price always resolves. Edited under Settings → Payments &amp; quotes.</li>
+            <li><strong>AI parts</strong> — <code>lib/ai-parts.ts</code> proposes the parts a job likely needs, with fitment caveats. <code>matchProduct</code> ties each suggestion to the branch catalogue (0.7 match threshold) and the caller prices it. A <strong>margin guardrail</strong> warns below the target.</li>
+            <li><strong>Cost snapshot</strong> — the fitted cost is copied onto <code>job_items.unit_cost</code>, which feeds job margin (§21).</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Supplier connector seam</h3>
+          <ul>
+            <li><code>lib/suppliers/types.ts</code> — the <code>SupplierConnector</code> interface (quote, place order, fetch confirmation), registered in <code>connectors.ts</code>.</li>
+            <li><strong>Launch connector: manual.</strong> Orders go out as a structured email to the factor's parts desk (<code>order-email.ts</code>, naming the org, the branch, the trade account and our PO reference) or through a punch-out deep link into the factor's own basket (<code>punchout.ts</code>, http(s) only).</li>
+            <li><strong>Confirmations</strong> are pasted in by staff. <code>confirmation.ts</code> parses them conservatively, and <code>reconcile.ts</code> matches lines one-to-one, strongest rule first, before confirmed costs overwrite the PO rows. Anything it can't place is left for a human, never guessed.</li>
+            <li><code>supplier_integrations</code> — per-branch credentials, AES-encrypted and write-only, with service-role-only RLS (the <code>accounting_connections</code> pattern). <code>purchase_orders</code> gained <code>sent_at</code>, <code>sent_channel</code>, <code>supplier_order_ref</code> and <code>confirmation_*</code>.</li>
+            <li><strong>Not built yet:</strong> reg → catalogue lookup (#569) and electronic PO + receive (#570). Both need a trade-API account (GSF / Euro Car Parts); see <code>docs/supplier-connectivity-spike.md</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============== 28. PLATFORM OPERATIONS ============== -->
+    <section id="platform-ops">
+      <div class="sec-head">
+        <div class="num">28</div>
+        <h2>Platform operations</h2>
+        <div class="tag">operator portal · flags · reliability · support</div>
+      </div>
+
+      <p class="lede2">The operator side, served at <code>admin.&lt;root&gt;</code>. Access needs a <code>platform_admins</code> row or an address in <code>PLATFORM_ADMIN_EMAILS</code>, checked by <code>requirePlatformAdmin()</code> in <code>lib/platform-admin.ts</code>. Admin pages read across tenants with the service-role client.</p>
+
+      <table class="tbl">
+        <tr><th>Area</th><th>Route</th><th>What it does</th></tr>
+        <tr><td><strong>Tenants</strong></td><td><code>/admin/orgs/[id]</code></td><td>Tenant list plus a per-org drill-down: AI usage by feature (tokens and estimated £ from <code>ai_usage_events</code>), 30-day web traffic, web address and slug history, AI receptionist numbers.</td></tr>
+        <tr><td><strong>Feature flags</strong></td><td><code>/admin/feature-flags</code></td><td>Global on/off overrides. The registry in <code>lib/feature-flags.ts</code> is the source of truth, and <code>feature_flags</code> stores only overrides. <code>isFeatureEnabled()</code> is Redis-cached for 30 s and <strong>fails open to the code default</strong>. Toggles are audited (<code>feature_flag.set</code>). Current consumers include <code>evhc</code>, <code>deferred_followups</code>, <code>activation_emails</code> and <code>tyre_care</code>.</td></tr>
+        <tr><td><strong>Beta tracker</strong></td><td><code>/admin/beta</code></td><td><code>lib/beta-registry.ts</code> lists every surface wearing a BETA chip, with its launch date and usage signal. The graduation metric is distinct orgs over 7 days, with 4-week trend bars. A unit test keeps the registry in lockstep with the nav <code>beta: true</code> flags, so graduating a surface means removing its chip and its registry entry in the same PR.</td></tr>
+        <tr><td><strong>Reliability</strong></td><td><code>/admin/health</code>, <code>/admin/incidents</code>, public <code>/status</code></td><td>Uptime probes every 3 min (<code>uptime_checks</code> → <code>uptime_rollup</code>), a golden-path check against the canary tenant every 10 min, <code>latency_samples</code>, the <code>cron_runs</code> history, and a Sentry snapshot. <code>alert_rules</code> open <code>incidents</code> (with <code>incident_updates</code>). <strong>Email is the delivery floor</strong>; Slack is added when <code>SLACK_OPS_WEBHOOK_URL</code> is set. <code>last_delivery</code> flags an alert that reached nobody, a <code>cron_stale_mins</code> rule catches dead crons, and "Send test alert" is available. Runbook: <code>docs/ops-escalation.md</code>.</td></tr>
+        <tr><td><strong>Traffic</strong></td><td><code>/admin/traffic</code></td><td>First-party, Plausible-style. A beacon posts to <code>/api/collect</code>. The visitor hash is <code>sha256(secret ∥ utc-day ∥ ip ∥ ua ∥ host)</code>, rotated daily; raw IPs are never stored and there are no cookies. Token path segments are always masked. <code>page_views</code> (90-day retention) roll up into <code>page_view_daily</code>. Multi-day uniques are a sum of daily uniques, by design.</td></tr>
+        <tr><td><strong>Support</strong></td><td><code>/admin/support</code></td><td><code>support_tickets</code> + <code>support_ticket_messages</code>, raised from the staff support widget. Internal notes are excluded in the RLS select policy itself (<code>internal = false</code>). The assist (<code>/api/support/assist</code>) answers from the manual, a curated KB and the org's own resolved tickets, and can call 7 role-gated live tools.</td></tr>
+        <tr><td><strong>Doc shares</strong></td><td><code>/admin/doc-shares</code></td><td>Signed links to internal docs such as this one (§30). Admin only; the table is deny-all under RLS.</td></tr>
+        <tr><td><strong>Release notes</strong></td><td><code>/staff/whats-new</code></td><td>Tenant-facing notes, maintained by hand in <code>lib/release-notes.ts</code>. CalVer labels (<code>YYYY.MM</code>), no SemVer. <code>npm run notes:draft</code> drafts a release from merged PRs.</td></tr>
+      </table>
+
+      <div class="note">
+        <span class="label">Billing lapse invariant</span>
+        <code>tenantBillingState()</code> in <code>lib/tenant-plans.ts</code> returns one of <code>ok / trial_ending / grace / trial_ended / lapsed</code>. These drive persistent owner banners and, once lapsed, remove paid-tier features and the fee discount. <strong>Core trading is never billing-gated</strong>: bookings, jobs, invoices and payments keep working in every state (<code>docs/billing-lapse-policy.md</code>).
+      </div>
+    </section>
+
+    <!-- ============== 29. TESTING &amp; CI ============== -->
+    <section id="testing">
+      <div class="sec-head">
+        <div class="num">29</div>
+        <h2>Testing &amp; CI</h2>
+        <div class="tag">vitest · playwright · github-actions · pre-commit</div>
+      </div>
+
+      <p class="lede2">Vitest 4 runs 1,026 unit tests across 129 colocated files (at this revision), in about 20 s. GitHub Actions blocks merges on typecheck, tests and lint, and a separate Playwright smoke job runs alongside. <code>main</code> needs one review plus a strict, up-to-date CI pass. Husky's pre-commit hook scopes lint and typecheck to staged files.</p>
 
       <div class="cols-2">
         <div>
           <h3>Test layout</h3>
           <ul>
-            <li>Tests colocate next to source as <code>*.test.ts</code> / <code>*.test.tsx</code>.</li>
-            <li><code>vitest.config.mts</code> — node env by default; jsdom opt-in per-file via <code>*.dom.test.tsx</code> glob.</li>
-            <li><code>vitest.setup.ts</code> seeds stable env defaults so libs that read env at module-load don't crash under test.</li>
-            <li><code>src/test/helpers/</code> — <code>mockStaffContext</code>, <code>mockStaffContextMember</code>, <code>createSupabaseMock</code> (fluent builder).</li>
+            <li>Tests sit next to their source as <code>*.test.ts</code> / <code>*.test.tsx</code>. Most of them cover pure <code>src/lib/**</code> modules.</li>
+            <li><code>vitest.config.mts</code> — node environment by default. A DOM test opts in with <code>// @vitest-environment jsdom</code> at the top of the file (Vitest 4 removed <code>environmentMatchGlobs</code>).</li>
+            <li><code>vitest.setup.ts</code> seeds stable env defaults, so libs that read env when the module loads don't crash under test.</li>
+            <li><code>src/test/helpers/</code> — <code>staff-context-mock.ts</code> (<code>mockStaffContext</code>, <code>mockStaffContextMember</code>) and <code>supabase-mock.ts</code> (a fluent query-builder mock).</li>
           </ul>
         </div>
         <div>
-          <h3>Coverage focus</h3>
+          <h3>What gets tested</h3>
           <ul>
-            <li><strong>Phase A</strong> — pure libs (<code>src/lib/**</code>): permissions, tenant, quote-links, encryption, oauth-state, doc-shares, cron/schedule, registration, slug, stripe, sms, whatsapp, email, dvla, utils.</li>
-            <li><strong>Phase B</strong> — server-action permission gates: every mutating action under <code>src/app/staff/**/actions.ts</code> tested for the <code>Permission denied</code> shape.</li>
-            <li><strong>Out of scope</strong> (future PRs): webhook signature + idempotency tests, Playwright E2E, component tests.</li>
+            <li><strong>Pure-core pattern.</strong> Each feature keeps its rules in a pure module that is unit-tested (<code>tyre-care</code>, <code>margin</code>, <code>work-auth-shared</code>, <code>statement</code>, <code>allocation</code>, <code>import-engine</code>, <code>deferred-followup</code>, <code>prelive</code>, <code>parts-pricing</code>, <code>suppliers/*</code>, <code>traffic</code>…). The IO lives in thin server actions and cron routes.</li>
+            <li><strong>Permission gates</strong> — mutating staff actions are tested for the <code>{ error: "Permission denied." }</code> shape.</li>
+            <li><strong>Lockstep tests</strong> hold registries and the UI together, for example <code>beta-registry.test.ts</code> against the nav's <code>beta</code> flags.</li>
+            <li><strong>End-to-end drives</strong> — each feature PR is driven against local Supabase with Playwright, and screenshots are embedded in the PR. Any send path runs with the provider keys blanked.</li>
           </ul>
         </div>
       </div>
 
       <h3>CI workflow (<code>.github/workflows/ci.yml</code>)</h3>
       <table class="tbl">
-        <tr><th>Step</th><th>Gate</th></tr>
+        <tr><th>Job / step</th><th>Gate</th></tr>
         <tr><td><code>npm run typecheck</code></td><td><strong>Hard</strong> — blocks merge</td></tr>
         <tr><td><code>npm run test:coverage</code></td><td><strong>Hard</strong> — blocks merge</td></tr>
-        <tr><td><code>npx eslint src/</code></td><td>Soft (<code>continue-on-error</code>) while Next 16 strict-mode warning backlog is cleared</td></tr>
-        <tr><td>Upload coverage artifact</td><td>Always — 14-day retention</td></tr>
+        <tr><td><code>npx eslint src/</code></td><td><strong>Hard</strong> on errors now that the backlog is cleared. Warnings are advisory.</td></tr>
+        <tr><td>Coverage artifact</td><td>Always uploaded, kept 14 days</td></tr>
+        <tr><td><code>e2e</code> job — <code>npx playwright test</code></td><td>Smoke only: public, no-auth pages (<code>e2e/home</code>, <code>not-found</code>, <code>staff-login</code>) against placeholder Supabase env. Kept separate so a flaky smoke test can't block the hard gates.</td></tr>
       </table>
-      <p>Concurrency group cancels in-progress runs on force-push. Runs on every push + pull_request. Total CI ~3-4 min — well under GitHub free-tier budget.</p>
+      <p>Other Playwright configs: <code>playwright.pr.config.ts</code> for PR screenshot drives, and <code>playwright.screenshots.config.ts</code> for the user-manual capture (the manifest, a seed, and 30 generated screenshots behind <code>/docs/userguide</code>). In production, the golden-path cron (§08) exercises the critical write and render path against the canary tenant every 10 minutes: tenant lookup, a booking inserted, read back and deleted, and an invoice render.</p>
 
       <h3>Pre-commit hook</h3>
-      <p><code>.husky/pre-commit</code> runs <code>npx lint-staged</code>. The <code>lint-staged</code> config in <code>package.json</code> scopes <code>eslint --fix</code> + <code>tsc --noEmit</code> to staged <code>.ts</code>/<code>.tsx</code> files. Bypass with <code>git commit --no-verify</code>.</p>
+      <p><code>.husky/pre-commit</code> runs <code>npx lint-staged</code>, which applies <code>eslint --fix</code> and <code>tsc --noEmit</code> to staged <code>.ts</code>/<code>.tsx</code> files. Note that only <code>next build</code> catches a client component that transitively imports server-only code (such as <code>next/server</code>'s <code>after</code>). That's why the <code>-shared.ts</code> split exists (§07).</p>
 
       <h3>Writing a new server-action test</h3>
       <pre style="background:var(--aig-paper-2); padding:12px; border-radius:6px; font-family:var(--font-mono); font-size:12px; overflow-x:auto; line-height:1.5"><code>vi.mock("@/lib/staff-context", () =&gt; ({ requireStaffContext: vi.fn() }));
@@ -2077,47 +2671,48 @@ it("denies without my_perm", async () =&gt; {
   );
   expect(await myAction(args)).toEqual({ error: "Permission denied." });
 });</code></pre>
-
-      <div class="note">
-        <span class="label">Branch protection</span>
-        After the CI PR merges, enable required status check <code>ci / ci</code> on <code>main</code> via GitHub → Settings → Branches → branch protection rule. The check appears in the search box only after CI has run at least once on any branch.
-      </div>
     </section>
 
-    <!-- ============== 17. SECURITY ============== -->
+    <!-- ============== 30. SECURITY ============== -->
     <section id="security">
       <div class="sec-head">
-        <div class="num">22</div>
+        <div class="num">30</div>
         <h2>Security &amp; compliance</h2>
-        <div class="tag">rls · gdpr · pci</div>
+        <div class="tag">rls · gdpr · pecr · pci</div>
       </div>
 
-      <p class="lede2">Tenant isolation is enforced at the database. PCI is offloaded to Stripe Checkout (we never see card data). The platform takes a DPA acceptance per organisation and supports customer data deletion with an auditable log.</p>
+      <p class="lede2">Tenant isolation is enforced in the database, with RLS helpers keyed to the org and the branch. PCI is offloaded to Stripe Checkout, so card data never reaches us. The platform records DPA acceptance per organisation, honours erasure with an auditable log, and treats marketing consent and opt-out as first-class data.</p>
 
       <div class="cols-2">
         <div>
           <h3>Application-level</h3>
           <ul>
-            <li><strong>RLS</strong> on every tenant-scoped table. Policy keys off <code>is_garage_staff(location_id)</code> (security definer) or <code>auth.uid()</code>-matched self-reads.</li>
-            <li><strong>Service-role key</strong> only in <code>lib/supabase/admin.ts</code>; reachable only from webhooks, cron, and the tenant lookup in <code>staff-context.ts</code>.</li>
-            <li><strong>12-hour absolute session timeout</strong> in <code>updateSession()</code>, in addition to Supabase's refresh window.</li>
-            <li><strong>Passkeys</strong> for high-privilege re-auth (settings changes, payments setup) — RP id is the root domain.</li>
-            <li><strong>CRON_SECRET bearer</strong> on every cron handler.</li>
-            <li><strong>Stripe + Resend signature verification</strong> on every webhook; signature failures return 400 with no DB side effect.</li>
-            <li><strong>Stripe-hosted Checkout</strong> — card data never touches our infrastructure. PCI scope is SAQ A.</li>
-            <li><strong>Doc share links</strong> — internal HTML docs gated by signed tokens at <code>/docs/[slug]?t=&lt;token&gt;</code>. Tokens are 32 random bytes; database stores only the SHA-256 hash. Constant-time compare via <code>crypto.timingSafeEqual</code>. Files live outside <code>public/</code> so the gated route is the only way in. Platform-admin managed in the operator portal at <code>/admin/doc-shares</code>; revoke / expire / view-cap built in.</li>
+            <li><strong>RLS</strong> on every tenant table, through the <code>private</code>-schema helpers (§03): <code>is_org_staff</code> for customer-global data, <code>is_location_member</code> for operational data, and <code>is_org_finance</code> alongside branch membership for financial rows. New tables ship with policies scoped <code>to authenticated</code>, with <code>(select auth.uid())</code> wrapped.</li>
+            <li><strong>RLS audit</strong> (#458) — each role was simulated in psql against every table. It found and fixed anonymous exposure on <code>organizations</code>. The #619 hardening added a vehicle → org cross-check to the tyre tables' <code>WITH CHECK</code> clauses.</li>
+            <li><strong>Deny-all tables</strong> — <code>doc_shares</code>, <code>page_views</code>, <code>accounting_connections</code> and <code>supplier_integrations</code> have no client policies at all, and are reached only through the service role.</li>
+            <li><strong>Service-role key</strong> only in <code>lib/supabase/admin.ts</code>. It's used by webhooks, cron, token-gated public routes, the operator portal, and staff actions <em>after</em> an explicit permission check.</li>
+            <li><strong>12-hour absolute session</strong> — enforced server-side by GoTrue <code>[auth.sessions] timebox = "12h"</code>. The <code>ai_session_started_at</code> cookie in <code>updateSession()</code> gives a friendlier early sign-out. Prod needs <code>supabase config push</code> (or the Dashboard setting), because the <code>[auth]</code> config isn't a migration.</li>
+            <li><strong>MFA</strong> — a passkey step-up for owners, admins and accountants (<code>lib/mfa.ts</code>). It nudges by default and hard-blocks with <code>OWNER_MFA_ENFORCED=true</code>. Passkeys are available to staff and customers, with the root domain as RP id.</li>
+            <li><strong>Signed webhooks</strong> — Stripe, Resend (svix) and Twilio are verified; a failed signature returns 400 with no side effects. Stripe events are claimed once in <code>stripe_webhook_events</code>.</li>
+            <li><strong>Cron auth</strong> — the <code>CRON_SECRET</code> bearer is compared with <code>safeEqual</code> (constant time).</li>
+            <li><strong>Token-gated links</strong> — quotes (<code>q-</code>/<code>sq-</code>), eVHC reports (<code>hc-</code>), re-authorisation (<code>wa-</code>), plan invites, reviews, deferred and tyre-care booking links, unsubscribe and doc shares. Only <code>sha256(token)</code> is stored, and comparisons are constant time.</li>
+            <li><strong>Encrypted credentials</strong> — accounting OAuth tokens and supplier credentials are AES-256-GCM encrypted (<code>lib/encryption.ts</code>, <code>APP_ENCRYPTION_KEY</code>) and write-only from the UI.</li>
+            <li><strong>Rate limiting</strong> — Upstash Redis throttles login, reset, magic-link, passkey and set-session. It fails open when unconfigured, so it must be set in prod.</li>
           </ul>
         </div>
         <div>
           <h3>Compliance hooks</h3>
           <ul>
-            <li><strong>DPA acceptance</strong> — <code>organizations.dpa_accepted_at · dpa_version · dpa_accepted_by_user_id</code>. Enforced via <code>/staff/dpa-acceptance</code> redirect.</li>
-            <li><strong>Marketing consent</strong> — <code>customers.marketing_email_consent · marketing_sms_consent · consent_updated_at</code>. Broadcast send paths must check.</li>
-            <li><strong>Right to erasure</strong> — anonymisation pass sets <code>customers.anonymized_at</code>; <code>data_deletion_log</code> records reason, requester and email hash.</li>
-            <li><strong>Audit log</strong> — append-only <code>audit_log</code> table records ~35 actions (settings, GDPR ops, financial events, integrations, DVI quotes) with actor, IP, user-agent, and JSON metadata. RLS restricts reads to org owners/admins.</li>
-            <li><strong>Data retention</strong> — <code>organizations.data_retention_years</code> drives scheduled cleanup of historical communications.</li>
-            <li><strong>Cookie banner</strong> — <code>components/cookie-banner.tsx</code>; non-essential cookies gated.</li>
-            <li><strong>Privacy policy</strong> — <code>organizations.privacy_policy_url</code> per tenant; <code>/privacy</code> hosts the platform-level policy.</li>
+            <li><strong>DPA acceptance</strong> — <code>organizations.dpa_accepted_at · dpa_version · dpa_accepted_by_user_id</code>, enforced through the <code>/staff/dpa-acceptance</code> redirect.</li>
+            <li><strong>Marketing consent</strong> — <code>customers.marketing_email_consent · marketing_sms_consent · consent_updated_at</code>, checked by campaigns, win-back and tyre care. Channels without consent can't be selected.</li>
+            <li><strong>PECR opt-out</strong> — every marketing email carries a per-message unsubscribe token and RFC 8058 one-click headers, and SMS carries an opt-out link (§24).</li>
+            <li><strong>Deliverability</strong> — hard bounces and complaints are suppressed before send (<code>email_suppressions</code>).</li>
+            <li><strong>Right to erasure</strong> — anonymisation sets <code>customers.anonymized_at</code>, and <code>data_deletion_log</code> records the reason, the requester and an email hash. Anonymised customers are excluded from every automated sender.</li>
+            <li><strong>Legal artefacts</strong> — work authorisations and courtesy-car agreements are immutable snapshots with a pinned wording version (§21).</li>
+            <li><strong>Audit log</strong> — append-only <code>audit_log</code>, written by <code>lib/audit.ts</code> for staff mutations (settings, GDPR ops, money, integrations, quotes, authorisations, go-live, flag toggles) with actor, IP, user agent and JSON metadata.</li>
+            <li><strong>First-party analytics</strong> — daily-rotating hashes and no cookies, so no consent banner is needed for traffic stats (§28). Non-essential cookies elsewhere stay behind the cookie banner.</li>
+            <li><strong>MTD positioning</strong> — AI Garage is a digital-link source for bridging software, not an HMRC filer. Never describe it as "HMRC-recognised" (§09).</li>
+            <li><strong>Data retention</strong> — <code>organizations.data_retention_years</code>. <code>page_views</code> are purged after 90 days and <code>held_comms</code> after 7 days.</li>
           </ul>
         </div>
       </div>
@@ -2125,23 +2720,19 @@ it("denies without my_perm", async () =&gt; {
       <h3>Threat surface summary</h3>
       <table class="tbl">
         <tr><th>Vector</th><th>Mitigation</th></tr>
-        <tr><td>Cross-tenant read via API</td><td>RLS policies fail closed; service role unreachable from session-authenticated paths.</td></tr>
-        <tr><td>Hijacked session</td><td>12 h absolute timeout; <code>signOut()</code> on suspicious paths; passkeys for re-auth.</td></tr>
-        <tr><td>Replayed webhook</td><td>Signature verification + idempotent writes guarded by <code>xero_*_id</code> and <code>stripe_payment_intent_id</code> uniqueness checks.</td></tr>
-        <tr><td>Subdomain takeover</td><td>Wildcard CNAME to Vercel; custom domains require DNS proof.</td></tr>
-        <tr><td>Reminder spam</td><td>30-day dedupe per (vehicle, type, channel); per-location channel allowlist; consent flags enforced by broadcast send.</td></tr>
-        <tr><td>AI prompt injection from customer input</td><td>System prompt is fixed; user input is template-interpolated into a single structured field; output is plain text inserted into a templated email shell. No tool use, no code execution.</td></tr>
-        <tr><td>Secret leakage</td><td>Service-role key, Stripe secret, Xero tokens, Twilio creds — all server-only. Tokens-at-rest in DB (Xero refresh) are kept in <code>organizations</code>; rotation requires re-OAuth.</td></tr>
+        <tr><td>Cross-tenant read or write via the API</td><td>RLS fails closed. <code>WITH CHECK</code> ties every FK to the caller's org (the #619 lesson). Server actions scope by <code>ctx.organization</code> / <code>ctx.location</code>, and the <code>active_location</code> cookie is re-checked against membership.</td></tr>
+        <tr><td>Hijacked session</td><td>12 h GoTrue timebox, MFA, passkeys, and rate-limited auth endpoints.</td></tr>
+        <tr><td>Replayed webhook</td><td>Signature verification plus the <code>stripe_webhook_events</code> claim, with idempotent writes keyed on <code>stripe_refund_id</code>, <code>stripe_payment_intent_id</code> and the accounting ids.</td></tr>
+        <tr><td>Link scanner opting a customer out</td><td><code>/unsubscribe</code> needs a button press, and only a real one-click POST acts without it.</td></tr>
+        <tr><td>Message spam</td><td>Per-stream dedupe, cross-sender caps via the <code>reminders</code> log, the prelive gate, the first-run cap, consent flags, and anonymised-customer exclusion.</td></tr>
+        <tr><td>AI prompt injection from customer input</td><td>Fixed system prompts, with input interpolated into structured fields. Outputs are plain text that staff review (compose-first) before anything sends. Models pick catalogue entries by index, so prices never come from the model. The receptionist and the support assist have narrow, role-gated tools.</td></tr>
+        <tr><td>Open-redirect / script injection via supplier URLs</td><td>Punch-out templates accept http(s) only (<code>suppliers/punchout.ts</code>).</td></tr>
+        <tr><td>Secret leakage</td><td>All provider secrets are server-only. Tenant credentials are encrypted at rest, and <code>npm run check:env</code> validates every environment against <code>lib/env-checklist.ts</code>.</td></tr>
       </table>
-
-      <div class="note">
-        <span class="label">Shipped since rev 01</span>
-        Xero refresh tokens are now encrypted at the application layer (AES-256-GCM, <code>src/lib/encryption.ts</code>) on top of Supabase at-rest encryption. Structured <code>audit_log</code> covers ~35 staff actions across settings, GDPR-sensitive customer ops, financial actions, integrations, and DVI quotes — readable by org owners/admins via RLS.
-      </div>
 
       <div class="note warn">
         <span class="label">Open follow-ups</span>
-        Vercel Cron health alerting to PagerDuty / Slack. Auto-orphan-video GC pass on the <code>job-quote-videos</code> bucket. Per-staff notification toggles beyond the weekly digest (booking / quote email alerts) once those senders exist.
+        Push the GoTrue session timebox to prod. Complete the data-protection review of tyre-care marketing sends before the <code>tyre_care</code> flag goes on. Get accountant sign-off on the VAT treatment (#451). Add a GC pass for orphaned videos in <code>job-quote-videos</code>.
       </div>
     </section>
 
