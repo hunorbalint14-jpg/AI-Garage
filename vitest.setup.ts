@@ -18,7 +18,7 @@ process.env.XERO_CLIENT_ID ??= "xero-client-id";
 process.env.XERO_CLIENT_SECRET ??= "xero-secret";
 process.env.XERO_TOKEN_ENCRYPTION_KEY ??= "0".repeat(64);
 process.env.DVLA_API_KEY ??= "test-dvla";
-process.env.DVSA_MOT_API_KEY ??= "test-dvsa";
+process.env.DVSA_API_KEY ??= "test-dvsa";
 process.env.DVLA_VES_API_KEY ??= "test-ves";
 
 // Silence noisy console.error / console.warn in tests unless TEST_VERBOSE=1.
