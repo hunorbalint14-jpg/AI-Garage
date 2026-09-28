@@ -9,6 +9,15 @@ updates:
       day: "monday"
     open-pull-requests-limit: 5
     groups:
+      # vitest and its plugins pin each other EXACTLY (@vitest/coverage-v8@5.0.2
+      # peers vitest@5.0.2), so a lone bump can never install — #629 bumped the
+      # coverage plugin to 5 without vitest and npm ci failed ERESOLVE. Group
+      # them for every update type, majors included. Must stay above
+      # minor-and-patch: a dependency joins the FIRST group it matches.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
       # Collapse routine minor/patch bumps into one PR to cut review noise.
       # Major bumps stay separate so breaking changes get individual scrutiny.
       minor-and-patch:
@@ -19,8 +28,9 @@ updates:
     labels:
       - "dependencies"
     ignore:
-      # Keep @types/node aligned to the Node runtime (currently Node 20). Skip
-      # major bumps; minor/patch within the current major still flow.
+      # Keep @types/node aligned to the Node runtime (currently Node 22 — CI
+      # and .nvmrc). Skip major bumps; minor/patch within the current major
+      # still flow. Raise it by hand alongside a runtime move.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
       # ESLint 10 crashes eslint-config-next@16's bundled eslint-plugin-react
