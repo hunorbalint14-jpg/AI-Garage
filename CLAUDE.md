@@ -75,7 +75,7 @@ Defined in [vercel.json](vercel.json), gated by a `CRON_SECRET` header check ins
 - `/api/cron/mot-delta` — daily 03:45 UTC; applies DVSA's daily delta files (vehicles whose MOT data changed in 24h) → `mot_expiry`, `last_mot_test_date`, `moted_elsewhere_at` (win-back)
 - `/api/cron/mot-reconcile` — daily 04:15 UTC; per-registration re-check of vehicles whose stored expiry has passed / is due soon / is missing — the delta can't correct tests that predate our sync. Both share [src/lib/mot-sync.ts](src/lib/mot-sync.ts)
 
-New cron jobs must be added to `SCHEDULES` (and `MAX_AGE_MINS` if Vercel-scheduled) in [src/lib/platform/cron-runs.ts](src/lib/platform/cron-runs.ts) — unlisted jobs never appear on `/admin/health` and are never stale-checked.
+New cron jobs must be added to `SCHEDULES` in [src/lib/platform/cron-runs.ts](src/lib/platform/cron-runs.ts) — unlisted jobs never appear on `/admin/health` and are never stale-checked. Vercel-scheduled jobs and the tick's daily 09:00 platform passes also go in `MAX_AGE_MINS`, and a watched job must `recordCronRun` on every path, skips included. A newly watched job with no run history also needs a `WATCHED_SINCE` entry (its production deploy time), or it alerts "not running" from deploy until its first scheduled slot. `cron-runs.test.ts` enforces all three against the source (a job name passed to `recordCronRun` must be a string literal).
 
 ### Audit log
 Staff actions are recorded via [src/lib/audit.ts](src/lib/audit.ts) into the `audit_log` table and surfaced at `/staff/audit-log`. New staff-side mutations should call the audit helper.

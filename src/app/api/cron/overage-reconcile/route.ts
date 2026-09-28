@@ -17,12 +17,15 @@ export async function GET(request: NextRequest) {
   if (!authHeader || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!process.env[OVERAGE_PRICE_ENV]) {
-    return NextResponse.json({ success: true, skipped: "no_price_configured" });
-  }
-
   const admin = createAdminClient();
   const __t0 = Date.now();
+
+  // Record the skip: /admin/health watches this job for a missing daily run,
+  // and an unset price is worth seeing there rather than looking like a dead job.
+  if (!process.env[OVERAGE_PRICE_ENV]) {
+    await recordCronRun(admin, "cron/overage-reconcile", true, Date.now() - __t0, `skipped: ${OVERAGE_PRICE_ENV} unset`);
+    return NextResponse.json({ success: true, skipped: "no_price_configured" });
+  }
   const { data } = await admin
     .from("organizations")
     .select("id, slug")
