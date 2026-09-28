@@ -68,6 +68,26 @@ const MAX_AGE_MINS: Record<string, number> = {
   "cron/accounting-backfill": DAILY_VIA_TICK_MAX_MINS,
 };
 
+// When a job STARTED being watched, for jobs added to the watch list with no
+// run history. A watched job with no run in the window is normally dead — but a
+// newly watched one simply hasn't reached its first slot yet: cron/mot-reconcile
+// deployed at 08:51 UTC with its first run due at 04:15 the next morning, and
+// alerted "not running" for the whole gap. Listed jobs get one full allowance
+// from this moment to make that first run; after that, never-ran = dead again,
+// so a cron that never registered with the scheduler is still caught.
+//
+// Use the production deploy time, erring LATER (a date in the future just means
+// "not yet due"). Entries stop mattering once the job has run; delete at will.
+const WATCHED_SINCE: Record<string, string> = {
+  "cron/mot-reconcile": "2026-09-28T08:51:00Z", // #626 deploy
+  // Newly watched in #627, and they only began recording their skip runs there.
+  "cron/activation": "2026-09-29T00:00:00Z",
+  "cron/overage-reconcile": "2026-09-29T00:00:00Z",
+};
+
+/** The age reported for a job with no run at all in the retention window. */
+const NEVER_RAN_MINS = 7 * 24 * 60;
+
 export type StaleCron = { job: string; ageMins: number; maxMins: number; overdueMins: number };
 
 /**
@@ -75,7 +95,8 @@ export type StaleCron = { job: string; ageMins: number; maxMins: number; overdue
  *
  * A job with no run at all in the retention window is reported as stale with
  * its age measured from the window start — a job that has never run is exactly
- * as broken as one that stopped.
+ * as broken as one that stopped — unless it is newly watched (WATCHED_SINCE)
+ * and still inside the allowance for its first run.
  *
  * Pure, so the rules are unit-tested without a database.
  */
@@ -84,9 +105,12 @@ export function staleCronJobs(jobs: CronJob[], now: Date = new Date()): StaleCro
   for (const job of jobs) {
     const maxMins = MAX_AGE_MINS[job.job];
     if (!maxMins) continue;
+    const since = WATCHED_SINCE[job.job];
     const ageMins = job.lastRunAt
       ? Math.floor((now.getTime() - new Date(job.lastRunAt).getTime()) / 60_000)
-      : 7 * 24 * 60;
+      : since
+        ? Math.min(NEVER_RAN_MINS, Math.floor((now.getTime() - Date.parse(since)) / 60_000))
+        : NEVER_RAN_MINS;
     if (ageMins > maxMins) {
       stale.push({ job: job.job, ageMins, maxMins, overdueMins: ageMins - maxMins });
     }

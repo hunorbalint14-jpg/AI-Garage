@@ -71,6 +71,26 @@ describe("staleCronJobs", () => {
     expect(staleCronJobs([job("cron/tick", minsAgo(91))], NOW)).toHaveLength(1);
   });
 
+  it("gives a newly watched job one allowance to make its first run, then treats never-ran as dead", () => {
+    // mot-reconcile: deployed 2026-09-28 08:51 UTC, first slot 04:15 the next
+    // morning. It alerted "not running" for that whole gap before this rule.
+    const at = (iso: string) => new Date(iso);
+    const neverRan = [job("cron/mot-reconcile", null)];
+    expect(staleCronJobs(neverRan, at("2026-09-28T10:02:00Z"))).toEqual([]); // the false alarm
+    expect(staleCronJobs(neverRan, at("2026-09-29T10:50:00Z"))).toEqual([]); // 25h59m in
+    const dead = staleCronJobs(neverRan, at("2026-09-29T10:52:00Z")); // 26h01m in
+    expect(dead).toHaveLength(1);
+    expect(dead[0]).toMatchObject({ job: "cron/mot-reconcile", ageMins: 26 * 60 + 1, overdueMins: 1 });
+    // Age is capped at the window, like any never-ran job.
+    expect(staleCronJobs(neverRan, at("2027-01-01T00:00:00Z"))[0].ageMins).toBe(7 * 24 * 60);
+  });
+
+  it("measures a newly watched job from its last run once it has one", () => {
+    const ran = [job("cron/mot-reconcile", "2026-09-29T04:15:00Z")];
+    expect(staleCronJobs(ran, new Date("2026-09-30T06:00:00Z"))).toEqual([]); // 25h45m
+    expect(staleCronJobs(ran, new Date("2026-09-30T06:30:00Z"))).toHaveLength(1); // 26h15m
+  });
+
   it("tolerates one missed day for the tick's daily platform passes, alerts on the second", () => {
     // Fired only by the 09:00 UTC tick; a missed hour runs the next day by design.
     expect(staleCronJobs([job("cron/activation", minsAgo(47 * 60))], NOW)).toEqual([]);
@@ -85,7 +105,9 @@ describe("staleCronJobs", () => {
 describe("cron registry lockstep", () => {
   const repo = process.cwd();
   const cronDir = path.join(repo, "src/app/api/cron");
-  const isWatched = (name: string) => staleCronJobs([job(name, null)], NOW).length === 1;
+  // A never-ran job is stale iff watched — probed far enough ahead that any
+  // newly-watched grace period has lapsed.
+  const isWatched = (name: string) => staleCronJobs([job(name, null)], new Date("2100-01-01T00:00:00Z")).length === 1;
 
   function routeSources(): { file: string; src: string }[] {
     const out: { file: string; src: string }[] = [];
