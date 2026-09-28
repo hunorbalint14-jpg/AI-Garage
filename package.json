@@ -27,7 +27,7 @@
     "@base-ui/react": "^1.8.0",
     "@sentry/nextjs": "^10.75.0",
     "@simplewebauthn/browser": "^13.3.0",
-    "@simplewebauthn/server": "^13.3.2",
+    "@simplewebauthn/server": "^14.0.2",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.1",
     "@upstash/ratelimit": "^2.2.0",
