@@ -17,6 +17,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// globals.css maps the Tailwind token as `--font-sans: var(--font-sans)` under
+// `@theme inline`, so `font-sans` reads whatever `--font-sans` is where it's
+// used — and nothing defined it at the root: that declaration is
+// self-referential (invalid), so every public page fell back to the browser
+// serif. Define it here on <html>; the /staff and /admin layouts override the
+// same variable inside their subtree for their own fonts, exactly as before.
+const rootFontScope = { "--font-sans": "var(--font-geist-sans)" } as React.CSSProperties;
+
 export const metadata: Metadata = {
   title: {
     default: "AI Garage",
@@ -75,6 +83,7 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      style={rootFontScope}
     >
       <body className="min-h-full flex flex-col">
         <ConfirmProvider>{children}</ConfirmProvider>
