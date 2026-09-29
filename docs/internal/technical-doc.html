@@ -1570,13 +1570,13 @@ erDiagram
       <p>Only five crons are registered with Vercel. Everything per-branch rides the hourly tick: adding a task type needs the <code>scheduled_tasks_task_type_check</code> constraint widened, an entry in tick's <code>TASK_ROUTE</code>, the automations defaults / run-now path map, and a card in the automations UI. Miss one and the job silently never runs.</p>
       <table class="tbl">
         <tr><th style="width: 26%">Job</th><th style="width: 20%">Trigger</th><th>What it does</th></tr>
-        <tr><td><code>cron/tick</code></td><td>Vercel · hourly</td><td>Dispatches due <code>scheduled_tasks</code> (concurrency 4) and advances <code>next_run_at</code>; on the 09:00 UTC tick also runs the four platform passes below.</td></tr>
+        <tr><td><code>cron/tick</code></td><td>Vercel · hourly</td><td>Dispatches due <code>scheduled_tasks</code> (concurrency 4) to the public root domain via <code>dispatchCron</code> (see "Dispatch" below) and advances <code>next_run_at</code>; on the 09:00 UTC tick also runs the four platform passes below.</td></tr>
         <tr><td><code>cron/quote-expiry</code></td><td>Vercel · :30</td><td>Expires lapsed quotes; sends quote reminders.</td></tr>
         <tr><td><code>cron/uptime</code></td><td>Vercel · every 3 min</td><td>Synthetic probes, latency samples, alert-rule evaluation incl. dead-cron detection (§28).</td></tr>
         <tr><td><code>cron/golden-path</code></td><td>Vercel · every 10 min</td><td>Synthetic check: exercises the critical write + render path against a canary tenant, so a break pages the team before a garage calls.</td></tr>
         <tr><td><code>cron/mot-delta</code></td><td>Vercel · 03:45</td><td>DVSA bulk delta files → refreshes <code>mot_expiry</code>, flags vehicles MOT'd elsewhere (win-back), persists the full test series to <code>mot_tests</code> at no extra API quota.</td></tr>
         <tr><td><code>reminders</code> (mot · service · tax)</td><td>task · per branch</td><td>Routes on the customer's home branch; AI-drafted with template fallback; 30-day dedupe.</td></tr>
-        <tr><td><code>dunning</code> · <code>review-requests</code> · <code>booking-confirmations</code></td><td>task · per branch</td><td>Overdue-invoice chasers; post-job feedback pulse (30-day cap); day-before confirm / reschedule links.</td></tr>
+        <tr><td><code>dunning</code> · <code>review-requests</code> · <code>booking-confirmations</code></td><td>task · per branch</td><td>Overdue-invoice chasers (1/7/14-day cadence, stages spaced by the cadence gap — §24); post-job feedback pulse (30-day cap); day-before confirm / reschedule links.</td></tr>
         <tr><td><code>deferred-followups</code></td><td>task · per branch</td><td>Staged 14/30-day recovery messages for the deferred-work bank (§22). Behind the <code>deferred_followups</code> flag.</td></tr>
         <tr><td><code>tyre-care</code></td><td>task · per branch</td><td>Evaluates every home-branch vehicle and fills the tyre-care review queue — never sends (§23). Behind the <code>tyre_care</code> flag.</td></tr>
         <tr><td><code>digest</code></td><td>task · weekly</td><td>Staff digest to org owners / admins.</td></tr>
@@ -1607,12 +1607,18 @@ erDiagram
         <li><strong>Prelive gate</strong> — a branch with <code>locations.live_at IS NULL</code> sends no unattended comms; each cron still works out what it <em>would</em> send and records it in <code>held_comms</code> for the Go-live screen (§24). The gate lives in the cron routes, not in the send helpers, so password resets and staff-initiated sends keep working.</li>
         <li><strong>First-run cap</strong> — in the 24 hours after a branch goes live, reminders are capped at <code>locations.first_run_cap</code> (default 25); over-cap items roll to the next run rather than being marked sent.</li>
         <li><strong>Cross-sender caps</strong> — the deferred-work and tyre-care paths read the <code>reminders</code> log (plus review requests and deferred follow-ups) so a customer never gets stacked nudges. Every automated send must write its <code>reminders</code> row: a silently failed insert defeats every cap that reads it.</li>
-        <li><strong>Run history</strong> — handlers call <code>recordCronRun()</code>; the Vercel-scheduled jobs are watched for staleness by an alert rule (via-tick jobs aren't, since a quiet day is normal for them).</li>
+        <li><strong>Run history</strong> — handlers call <code>recordCronRun()</code> on every path, skips included. The Vercel-scheduled jobs and the four 09:00 platform passes are watched for staleness by the <code>ar-cron-stale</code> rule (§28). The per-branch via-tick jobs aren't, since a quiet day is normal for them.</li>
+        <li><strong>Dispatch (#638)</strong> — the tick calls its children through <code>lib/cron/dispatch.ts</code>. <code>cronBaseUrl()</code> returns the public root domain (<code>https://${NEXT_PUBLIC_ROOT_DOMAIN}</code>, or <code>CRON_BASE_URL</code> if set). It is <strong>never</strong> <code>request.url</code>'s origin: Vercel Cron invokes the tick on the <code>*.vercel.app</code> deployment URL, which Deployment Protection guards. <code>dispatchCron()</code> uses <code>redirect: "manual"</code> and counts only a JSON 2xx as success, so a protection redirect or an HTML 200 can't pass as a run.</li>
       </ul>
 
       <div class="note warn">
         <span class="label">Failure mode</span>
-        If <code>cron/tick</code> partially fails (a single task's HTTP call errors), the orchestrator still advances <code>next_run_at</code> so we don't loop on the same failure. The error is recorded in the response payload and shows in Vercel cron logs. Channel-level failures (e.g. Twilio rejects a number) <em>are</em> written to <code>reminders.status='failed'</code> with the error message.
+        If a dispatch fails (a child returns non-2xx, redirects, answers HTML, or the request errors), the tick still advances <code>next_run_at</code> so it doesn't loop on the same failure. It counts the failure (daily passes included), records its own run as <code>ok: false</code>, and puts the first error in the run detail on <code>/admin/health</code>. Channel-level failures (e.g. Twilio rejects a number) are written to <code>reminders.status='failed'</code> with the error message.
+      </div>
+
+      <div class="note">
+        <span class="label">Incident · June–September 2026</span>
+        Before #638 the tick fanned out to <code>new URL(request.url).origin</code>. Every child request got Deployment Protection's 302 to vercel.com/sso-api, <code>fetch</code> followed it, and the login page answered 200. So the tick logged <code>ran N, failed 0</code> while no child route ran at all, from at least June until 29 Sep 2026 (the last automated reminder had gone out on 6 June). It surfaced only when the daily passes were added to the stale watch (#627). Diagnose a repeat by comparing <code>cron_runs</code> for Vercel-direct jobs against tick children.
       </div>
     </section>
 
@@ -2464,6 +2470,24 @@ erDiagram
         <tr><td><strong>Compose-first</strong> (#594)</td><td>Staff write the message and AI is opt-in via <code>AiAssistMenu</code>. There are no silent channel drops: a ticked channel with an empty body blocks the send.</td></tr>
       </table>
 
+      <h3>Message cadence</h3>
+      <p>How often each automated sender can reach a customer. Everything here also passes the prelive gate and the consent and anonymisation rules above, and respects the first-run cap on the day a branch goes live.</p>
+      <table class="tbl dense">
+        <tr><th>Sender</th><th>When</th><th>Spacing &amp; caps</th><th>Configured in</th></tr>
+        <tr><td>MOT · service · tax reminders</td><td>30 days before the due date (<code>remind_days_before</code>), at the branch's task hour</td><td>At most once per <code>(vehicle, type, channel)</code> in 30 days (<code>DEDUP_DAYS</code>). Sent from the home branch, once per customer.</td><td>Automations (days before, channels, hour)</td></tr>
+        <tr><td>Booking confirmations</td><td>The day before (<code>hours_before</code>, default 24)</td><td>One per booking</td><td>Automations</td></tr>
+        <tr><td>Quote reminders</td><td>3 and 7 days after sending (<code>quote_reminder_days</code>)</td><td>At most <code>quote_reminder_max</code> (default 2, clamp 10). Watermarked on <code>last_reminder_at</code>: a missed window catches up with one reminder, never a burst.</td><td>Settings → Quote reminders (org-wide)</td></tr>
+        <tr><td><strong>Overdue invoice reminders</strong> (dunning)</td><td>Email at 1, 7 and 14 days overdue (<code>cadence_days</code>, default <code>[1, 7, 14]</code>)</td><td>Up to <code>cadence.length</code> reminders, then stop. Each stage after the first also waits the cadence gap since the last send (<code>stageGapDays</code>: 6 then 7 days), counted in UTC calendar days (<code>daysSinceLastDunning</code>), so a long-overdue invoice gets stage 1, then +6 days, then +7 — not three on consecutive days (#639). Never two on the same UTC day. Account customers get one reminder covering all overdue invoices, staged off the oldest. Skipped: paid, no email, sandbox (<code>is_demo</code>), and debt that predates <code>live_at</code> unless <code>chase_prelive_debt</code> is set.</td><td>Automations (on/off, hour). The cadence lives in task <code>settings</code>; there's no UI for it.</td></tr>
+        <tr><td>Feedback request (CSAT pulse)</td><td>Queued when a job completes; sent at the branch's task hour</td><td>One per customer per 30 days (<code>PULSE_CAP_DAYS</code>); over-cap rows become <code>suppressed</code>. One channel per ask.</td><td>Automations (channels, hour)</td></tr>
+        <tr><td>Deferred-work follow-ups</td><td>14 and 30 days after the item was banked (<code>deferred_followup_days</code>, 1–3 stages)</td><td>One message per <code>(customer, vehicle)</code> and one batch per customer per run. Skipped if the customer had any automated message (reminder, feedback request, follow-up) in the last 7 days (<code>FOLLOWUP_CAP_DAYS</code>). A missed stage catches up once.</td><td>Automations card (org-wide offsets)</td></tr>
+        <tr><td>Tyre-care suggestions</td><td>Only when staff approve an item from the queue</td><td>Blocked if the customer had any automated nudge in the last 30 days (<code>CONTACT_CAP_DAYS</code>), and at most 6 tyre-care sends a year (<code>ANNUAL_TYRE_CARE_CAP</code>). Marketing, so consent is required.</td><td>Automations (intervals)</td></tr>
+        <tr><td>Campaigns · win-back</td><td>Only when staff send</td><td>Marketing consent required; each customer contacted once, from the home branch</td><td>Campaigns</td></tr>
+      </table>
+      <div class="note warn">
+        <span class="label">Known gap · feedback-request cap</span>
+        The 30-day cap is checked against pulses sent <em>before</em> the run. Several queued rows for one customer (a backlog, or two jobs finished the same day) all send in the same run, and two branches' runs can race. After the #638 outage the first run sent 9 requests to 5 customers, one of whom got 3. The fix is to dedupe per customer within a run and suppress the rest.
+      </div>
+
       <h3>CSAT pulse &amp; review interception (#508)</h3>
       <ul>
         <li>A post-service pulse (<code>review_requests</code>, status <code>queued / sent / responded / failed / suppressed</code>) goes out on one channel per ask, trying email, then SMS, then WhatsApp.</li>
@@ -2496,7 +2520,7 @@ erDiagram
           <ul>
             <li><strong>Credit control</strong> — <code>checkCredit</code> runs at <code>createBooking</code> and at quote → booking, and asks staff to confirm through a warning when the limit would be exceeded.</li>
             <li><strong>Statements</strong> — <code>lib/statement.ts</code> (pure): opening balance, running balance, and aging on <em>outstanding</em> amounts. A synthetic settlement credit covers invoices paid outside the ledger (Stripe, mark-paid). Print page at <code>/staff/customers/[id]/statement</code>, plus email.</li>
-            <li><strong>Dunning groups account customers</strong> — one email per customer, with the stage taken from the oldest invoice.</li>
+            <li><strong>Dunning groups account customers</strong> — one email per customer, with the stage taken from the oldest invoice and spaced by the cadence like any other chaser (§24).</li>
             <li><strong>Portal</strong> — <code>/dashboard/account</code> for the account holder, with pay-balance-by-card through Stripe on the connected account. <code>lib/account-payments.ts → applyAccountPayment</code> is the one applier used by both staff and Stripe.</li>
           </ul>
         </div>
