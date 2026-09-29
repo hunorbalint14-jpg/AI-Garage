@@ -197,7 +197,7 @@
         <input id="search-input" type="search" placeholder="Search the manual…" aria-label="Search the manual" />
         <div id="search-meta" class="search__meta"></div>
       </div>
-      <div class="toc__group"><div class="toc__h">How it works</div><ul><li><a href="#concept-overview">How AI Garage fits together</a></li><li><a href="#concept-lifecycle">From booking to paid — the journey of a job</a></li><li><a href="#concept-org-roles">Branches, roles &amp; who sees what</a></li><li><a href="#concept-payments">Payments, deposits &amp; finance</a></li><li><a href="#concept-memberships">Membership plans &amp; the 'funding gate'</a></li><li><a href="#concept-comms">Messages to customers — what sends, when, and from which branch</a></li><li><a href="#concept-signs">Badges &amp; signs — what they mean</a></li><li><a href="#concept-integrations">Integrations — what plugs in</a></li><li><a href="#concept-getting-help">Getting help — the support widget</a></li><li><a href="#faq-concept">Common questions</a></li></ul></div>
+      <div class="toc__group"><div class="toc__h">How it works</div><ul><li><a href="#concept-overview">How AI Garage fits together</a></li><li><a href="#concept-lifecycle">From booking to paid — the journey of a job</a></li><li><a href="#concept-org-roles">Branches, roles &amp; who sees what</a></li><li><a href="#concept-payments">Payments, deposits &amp; finance</a></li><li><a href="#concept-memberships">Membership plans &amp; the 'funding gate'</a></li><li><a href="#concept-comms">Messages to customers — what sends, when, and from which branch</a></li><li><a href="#concept-message-cadence">How often customers hear from you</a></li><li><a href="#concept-signs">Badges &amp; signs — what they mean</a></li><li><a href="#concept-integrations">Integrations — what plugs in</a></li><li><a href="#concept-getting-help">Getting help — the support widget</a></li><li><a href="#faq-concept">Common questions</a></li></ul></div>
 <div class="toc__group"><div class="toc__h">Customer guide</div><ul><li><a href="#customer-register">Create your account</a></li><li><a href="#customer-login">Sign in</a></li><li><a href="#customer-dashboard">Your dashboard</a></li><li><a href="#customer-mot-history">MOT history</a></li><li><a href="#customer-book">Book an appointment</a></li><li><a href="#customer-quotes">Quotes</a></li><li><a href="#customer-quote-detail">Reviewing a quote</a></li><li><a href="#customer-history">Service history</a></li><li><a href="#customer-documents">Documents</a></li><li><a href="#customer-invoice">Invoices &amp; paying</a></li><li><a href="#customer-plans">Plans &amp; membership</a></li><li><a href="#customer-settings">Settings</a></li><li><a href="#customer-health-check-report">Your vehicle health check report</a></li><li><a href="#customer-tyre-care-message">Tyre-care suggestions from your garage</a></li><li><a href="#customer-account">Your account (trade &amp; fleet)</a></li><li><a href="#faq-customer">Common questions</a></li></ul></div>
     </nav>
     <main>
@@ -205,7 +205,7 @@
         <div class="eyebrow">User manual</div>
         <h1>AI Garage — Customer Guide</h1>
         <p>How to use your garage's online portal: bookings, quotes, invoices and plans.</p>
-        <div class="meta">Generated 28 September 2026</div>
+        <div class="meta">Generated 29 September 2026</div>
       </div>
       
   <div class="part" id="part-concept">
@@ -358,8 +358,26 @@
       <p class="prose">Event messages follow the work: a booking confirmation, a quote link, an invoice or a payment receipt is sent by the branch where that work happens, with that branch's name and address on it — so a customer of a multi-branch group always knows which site to attend.</p>
 <p class="prose">Scheduled messages follow the customer: MOT/service reminders and marketing campaigns go out from the customer's home branch, and each customer is contacted once even if their vehicles are serviced at several branches.</p>
 <p class="prose">Channels. Email is always available; SMS and WhatsApp send where the garage has connected Twilio. Essential service messages (reminders, confirmations) send regardless of marketing consent; campaigns respect the customer's marketing opt-in.</p>
-<p class="prose">Overdue invoices get a gentle automatic chase (dunning); pending quotes get reminder emails on the schedule set in Settings; completed visits can trigger a review request with the garage's Google review link.</p>
+<p class="prose">Overdue invoices get a gentle automatic chase (dunning); pending quotes get reminder emails on the schedule set in Settings; completed visits can trigger a feedback request with the garage's Google review link. How often each of these can reach a customer is set out in 'How often customers hear from you'.</p>
       <div class="notes"><div class="notes__h">Good to know</div><ul><li>Customers manage marketing consent themselves in their portal Settings; staff can see (not edit) consent on the customer record.</li></ul></div>
+      
+    </div>
+  </section>
+
+  <section class="sec sec--concept" id="concept-message-cadence">
+    <header class="sec__head">
+      <h3>How often customers hear from you</h3>
+      <p class="purpose">The schedule and the limits for every automatic message, so customers are kept informed without being nagged.</p>
+    </header>
+    <div class="sec__prose">
+      
+      <p class="prose">MOT, service and road-tax reminders go out 30 days before the due date by default (change the number of days, the channels and the time of day per branch in Automations). The same reminder never goes to the same vehicle on the same channel twice within 30 days.</p>
+<p class="prose">Booking confirmations go the day before the booking. Quote reminders go 3 and 7 days after a quote is sent, up to 2 reminders by default (Settings → Quote reminders). If a reminder window is missed, only one catch-up reminder goes, never a burst.</p>
+<p class="prose">Overdue invoice reminders go by email at 1, 7 and 14 days overdue: three reminders at most, then they stop. Each one also waits for the gap before it, so an invoice that is already several weeks overdue gets its first reminder, the second 6 days later and the final one 7 days after that, never three days in a row. Reminders stop as soon as the invoice is paid, and a customer never gets two on the same day. Trade account customers get one reminder covering all their overdue invoices instead of one per invoice.</p>
+<p class="prose">Feedback requests follow completed visits: at most one per customer every 30 days, sent on one channel.</p>
+<p class="prose">Deferred-work follow-ups go 14 and 30 days after a repair was declined or advised (change the stages on the Automations card). A follow-up is held back if the customer had any other automatic message in the previous 7 days, so messages never stack up.</p>
+<p class="prose">Tyre-care suggestions only go when a member of staff approves them. They're blocked if the customer had any automatic message in the last 30 days, and are limited to 6 a year. Like campaigns and win-back offers, they're marketing, so they only go to customers who have agreed to marketing messages.</p>
+      <div class="notes"><div class="notes__h">Good to know</div><ul><li>Nothing automatic reaches customers while a branch is prelive. On the day a branch goes live, a first-day limit spreads out anything that was waiting (see 'Prelive and going live').</li><li>Invoices that were already overdue when the branch went live are not chased automatically, unless the owner chose to on the Go-live screen. Collect that older debt by hand. Sample (sandbox) invoices are never chased.</li></ul></div>
       
     </div>
   </section>
@@ -741,6 +759,10 @@
     <details class="faq__item">
       <summary>Can I stop marketing messages but keep reminders?</summary>
       <p>Yes. Settings → toggle marketing email/SMS off. Reminders and booking confirmations still arrive because they're about your vehicle, not marketing.</p>
+    </details>
+    <details class="faq__item">
+      <summary>How often will the garage message me?</summary>
+      <p>Only when there's a reason. You'll get an MOT, service or tax reminder about a month before it's due, a confirmation the day before a booking, and up to two reminders about a quote you haven't answered. If an invoice goes unpaid, there are up to three reminders spread over about two weeks, never two on consecutive days. Suggestions and offers only come if you've agreed to marketing, and the garage's system spaces its automatic messages out so they don't pile up.</p>
     </details>
     <details class="faq__item">
       <summary>How do I cancel my plan?</summary>

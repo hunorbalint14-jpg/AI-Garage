@@ -183,10 +183,30 @@ const concepts: Section[] = [
       "Event messages follow the work: a booking confirmation, a quote link, an invoice or a payment receipt is sent by the branch where that work happens, with that branch's name and address on it — so a customer of a multi-branch group always knows which site to attend.",
       "Scheduled messages follow the customer: MOT/service reminders and marketing campaigns go out from the customer's home branch, and each customer is contacted once even if their vehicles are serviced at several branches.",
       "Channels. Email is always available; SMS and WhatsApp send where the garage has connected Twilio. Essential service messages (reminders, confirmations) send regardless of marketing consent; campaigns respect the customer's marketing opt-in.",
-      "Overdue invoices get a gentle automatic chase (dunning); pending quotes get reminder emails on the schedule set in Settings; completed visits can trigger a review request with the garage's Google review link.",
+      "Overdue invoices get a gentle automatic chase (dunning); pending quotes get reminder emails on the schedule set in Settings; completed visits can trigger a feedback request with the garage's Google review link. How often each of these can reach a customer is set out in 'How often customers hear from you'.",
     ],
     notes: [
       "Customers manage marketing consent themselves in their portal Settings; staff can see (not edit) consent on the customer record.",
+    ],
+  },
+  {
+    id: "message-cadence",
+    title: "How often customers hear from you",
+    persona: "public",
+    route: "",
+    noShot: true,
+    purpose: "The schedule and the limits for every automatic message, so customers are kept informed without being nagged.",
+    prose: [
+      "MOT, service and road-tax reminders go out 30 days before the due date by default (change the number of days, the channels and the time of day per branch in Automations). The same reminder never goes to the same vehicle on the same channel twice within 30 days.",
+      "Booking confirmations go the day before the booking. Quote reminders go 3 and 7 days after a quote is sent, up to 2 reminders by default (Settings → Quote reminders). If a reminder window is missed, only one catch-up reminder goes, never a burst.",
+      "Overdue invoice reminders go by email at 1, 7 and 14 days overdue: three reminders at most, then they stop. Each one also waits for the gap before it, so an invoice that is already several weeks overdue gets its first reminder, the second 6 days later and the final one 7 days after that, never three days in a row. Reminders stop as soon as the invoice is paid, and a customer never gets two on the same day. Trade account customers get one reminder covering all their overdue invoices instead of one per invoice.",
+      "Feedback requests follow completed visits: at most one per customer every 30 days, sent on one channel.",
+      "Deferred-work follow-ups go 14 and 30 days after a repair was declined or advised (change the stages on the Automations card). A follow-up is held back if the customer had any other automatic message in the previous 7 days, so messages never stack up.",
+      "Tyre-care suggestions only go when a member of staff approves them. They're blocked if the customer had any automatic message in the last 30 days, and are limited to 6 a year. Like campaigns and win-back offers, they're marketing, so they only go to customers who have agreed to marketing messages.",
+    ],
+    notes: [
+      "Nothing automatic reaches customers while a branch is prelive. On the day a branch goes live, a first-day limit spreads out anything that was waiting (see 'Prelive and going live').",
+      "Invoices that were already overdue when the branch went live are not chased automatically, unless the owner chose to on the Go-live screen. Collect that older debt by hand. Sample (sandbox) invoices are never chased.",
     ],
   },
   {
@@ -473,6 +493,7 @@ const customerFaq: Faq[] = [
   { q: "Do I have to pay online?", a: "No — online card payment is a convenience. You can always pay at the garage; the invoice simply stays open until it's settled either way." },
   { q: "Will I get reminded before my MOT?", a: "Yes — the garage sends MOT and service reminders automatically as the due date approaches, by email (and SMS where enabled). These are service messages, separate from marketing." },
   { q: "Can I stop marketing messages but keep reminders?", a: "Yes. Settings → toggle marketing email/SMS off. Reminders and booking confirmations still arrive because they're about your vehicle, not marketing." },
+  { q: "How often will the garage message me?", a: "Only when there's a reason. You'll get an MOT, service or tax reminder about a month before it's due, a confirmation the day before a booking, and up to two reminders about a quote you haven't answered. If an invoice goes unpaid, there are up to three reminders spread over about two weeks, never two on consecutive days. Suggestions and offers only come if you've agreed to marketing, and the garage's system spaces its automatic messages out so they don't pile up." },
   { q: "How do I cancel my plan?", a: "Plans page → Cancel plan. It stops immediately and refunds your unspent balance (services already used are charged at the normal price). Consumer plans have no minimum term." },
   { q: "Is my card stored?", a: "Card details are held by Stripe, the payment provider — the garage and AI Garage never see the full number. Saving a card is optional and only used for the purposes shown when you save it (e.g. no-show protection)." },
 ];
@@ -690,10 +711,11 @@ const staff: Section[] = [
       "Line items, VAT and any plan credit/discount are itemised exactly as the customer sees them.",
       "Send (or re-send) by email; the customer pays from the link — or record a payment taken in person.",
       "Issue a credit note or refund where needed; everything lands in the audit log.",
-      "Overdue invoices are chased automatically (dunning); you can see what's been sent.",
+      "Overdue invoices are chased automatically by email at 1, 7 and 14 days overdue (three reminders at most, spaced out even for old debt); you can see what's been sent.",
     ],
     troubleshooting: [
       { problem: "Customer paid but it shows unpaid", fix: "Card payments mark themselves within moments. For bank transfers or cash, record the payment manually here." },
+      { problem: "An overdue invoice isn't being chased", fix: "Check the usual reasons. The customer has no email address. All three reminders have already gone. The invoice was already overdue when the branch went live (older debt is collected by hand unless the owner opted in on the Go-live screen). It's a sample invoice. Or Overdue invoice reminders is switched off for this branch in Automations. The next reminder may also just be waiting for its gap: 6 days after the first, 7 after the second." },
     ],
   },
   {
@@ -864,6 +886,7 @@ const staff: Section[] = [
     ],
     notes: [
       "Two automations never message customers themselves. The weekly digest goes to staff, and Tyre-care recommendations (where enabled) fills the Tyre care queue for staff to review.",
+      "Overdue invoice reminders follow a fixed 1 / 7 / 14-days-overdue schedule with the gaps kept even for old debt. The full schedule and limits for every automation are in 'How often customers hear from you'.",
     ],
   },
   {
