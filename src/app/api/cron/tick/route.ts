@@ -5,6 +5,7 @@ import { computeNextRunAt, type Frequency } from "@/lib/cron/schedule";
 import { runUptimeMaintenance } from "@/lib/platform/uptime-maintenance";
 import { reconcileFinanceApplications } from "@/lib/finance/reconcile";
 import { recordCronRun } from "@/lib/platform/cron-runs";
+import { cronBaseUrl, dispatchCron } from "@/lib/cron/dispatch";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -75,33 +76,27 @@ export async function GET(request: NextRequest) {
 
   const tasks = (due ?? []) as TaskRow[];
 
-  const origin = new URL(request.url).origin;
+  // NOT request.url's origin: Vercel Cron invokes the tick on the *.vercel.app
+  // deployment URL, which Deployment Protection guards — see lib/cron/dispatch.
+  const origin = cronBaseUrl(new URL(request.url).origin);
   const secret = process.env.CRON_SECRET!;
 
-  const results = { ran: 0, failed: 0, errors: [] as string[] };
+  const results = { ran: 0, failed: 0, passes: 0, errors: [] as string[] };
 
   await mapPool(tasks, DISPATCH_CONCURRENCY, async (task) => {
     const path = TASK_ROUTE[task.task_type];
     if (!path) return;
 
-    try {
-      const params = new URLSearchParams({
-        location_id: task.location_id,
-        task_type: task.task_type,
-      });
-      const res = await fetch(`${origin}${path}?${params}`, {
-        headers: { authorization: `Bearer ${secret}` },
-        cache: "no-store",
-      });
-      if (res.ok) {
-        results.ran++;
-      } else {
-        results.failed++;
-        results.errors.push(`${task.task_type} @ ${task.location_id}: HTTP ${res.status}`);
-      }
-    } catch (e) {
+    const params = new URLSearchParams({
+      location_id: task.location_id,
+      task_type: task.task_type,
+    });
+    const r = await dispatchCron(`${origin}${path}?${params}`, secret);
+    if (r.ok) {
+      results.ran++;
+    } else {
       results.failed++;
-      results.errors.push(`${task.task_type} @ ${task.location_id}: ${(e as Error).message}`);
+      results.errors.push(`${task.task_type} @ ${task.location_id}: ${r.error}`);
     }
 
     const nextRunAt = computeNextRunAt(task.frequency, task.hour, task.day_of_week, now);
@@ -124,21 +119,25 @@ export async function GET(request: NextRequest) {
 
   // Daily platform-level passes on the 09:00 tick — both routes are
   // idempotent, so a double fire is safe and a missed hour runs next day.
+  // A failed pass counts as a failed dispatch — it used to be logged only, so
+  // the tick's own run history said "failed 0" while every pass was dead.
   if (now.getUTCHours() === 9) {
     for (const path of ["/api/cron/activation", "/api/cron/overage-reconcile", "/api/cron/traffic-rollup", "/api/cron/accounting-backfill"]) {
-      try {
-        const res = await fetch(`${origin}${path}`, {
-          headers: { authorization: `Bearer ${secret}` },
-          cache: "no-store",
-        });
-        if (!res.ok) results.errors.push(`${path}: HTTP ${res.status}`);
-      } catch (e) {
-        results.errors.push(`${path}: ${(e as Error).message}`);
+      const r = await dispatchCron(`${origin}${path}`, secret);
+      if (r.ok) {
+        results.passes++;
+      } else {
+        results.failed++;
+        results.errors.push(`${path}: ${r.error}`);
       }
     }
   }
 
-  await recordCronRun(admin, "cron/tick", results.failed === 0, Date.now() - __t0, `ran ${results.ran}, failed ${results.failed}`);
+  const detail =
+    `ran ${results.ran}, failed ${results.failed}` +
+    (results.passes ? `, passes ${results.passes}` : "") +
+    (results.errors.length ? ` — ${results.errors[0]}`.slice(0, 200) : "");
+  await recordCronRun(admin, "cron/tick", results.failed === 0, Date.now() - __t0, detail);
 
   console.log("[cron/tick]", results);
   return NextResponse.json({ success: true, ...results, tasks_checked: tasks.length });
