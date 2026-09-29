@@ -5,7 +5,7 @@ import { sendEmail } from "@/lib/email";
 import { tenantPayUrl } from "@/lib/stripe";
 import { logAudit } from "@/lib/audit";
 import { recordCronRun } from "@/lib/platform/cron-runs";
-import { dunningStage, daysOverdue, DEFAULT_DUNNING_CADENCE } from "@/lib/dunning";
+import { dunningStage, daysOverdue, daysSinceLastDunning, DEFAULT_DUNNING_CADENCE } from "@/lib/dunning";
 import { garageLabel, addressOneLine } from "@/lib/garage-identity";
 import { isPrelive } from "@/lib/prelive";
 import { recordHeld, type HeldRow } from "@/lib/held-comms";
@@ -146,7 +146,12 @@ export async function GET(request: NextRequest) {
         continue;
       }
       const overdue = daysOverdue(oldest.due_at, now);
-      const { send, stage } = dunningStage(overdue, oldest.dunning_count ?? 0, cadence);
+      const { send, stage } = dunningStage(
+        overdue,
+        oldest.dunning_count ?? 0,
+        cadence,
+        daysSinceLastDunning(oldest.last_dunned_at, now),
+      );
       if (!send || (oldest.last_dunned_at && sameUtcDay(new Date(oldest.last_dunned_at), now))) {
         results.skipped++;
         continue;
@@ -216,7 +221,12 @@ export async function GET(request: NextRequest) {
       }
 
       const overdue = daysOverdue(inv.due_at, now);
-      const { send, stage } = dunningStage(overdue, inv.dunning_count ?? 0, cadence);
+      const { send, stage } = dunningStage(
+        overdue,
+        inv.dunning_count ?? 0,
+        cadence,
+        daysSinceLastDunning(inv.last_dunned_at, now),
+      );
       if (!send) {
         results.skipped++;
         continue;
