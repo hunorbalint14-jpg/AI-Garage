@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
   if (insErr) console.error("[cron/golden-path] insert failed", insErr.message);
 
   // Same alert machinery as the uptime probe → Slack + auto-incidents.
-  const declared = await evaluateAlerts(admin, samples);
+  const { opened: declared } = await evaluateAlerts(admin, samples, { source: "golden-path" });
 
   const failed = samples.filter((s) => !s.ok);
   const summary = failed.length
