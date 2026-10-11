@@ -199,10 +199,16 @@ export async function GET(request: NextRequest) {
   await refreshSentry(admin);
 
   // Evaluate alert rules against this run → Slack + auto-declare incidents.
-  const declared = await evaluateAlerts(admin, results);
+  const { opened: declared, resolved } = await evaluateAlerts(admin, results, { source: "uptime" });
 
   const down = results.filter((r) => !r.ok).length;
-  await recordCronRun(admin, "cron/uptime", true, Date.now() - __t0, `checked ${results.length}, down ${down}, declared ${declared}`);
-  console.log("[cron/uptime]", { checked: results.length, down, declared });
+  await recordCronRun(
+    admin,
+    "cron/uptime",
+    true,
+    Date.now() - __t0,
+    `checked ${results.length}, down ${down}, declared ${declared}${resolved ? `, resolved ${resolved}` : ""}`,
+  );
+  console.log("[cron/uptime]", { checked: results.length, down, declared, resolved });
   return NextResponse.json({ success: true, checked: results.length, down, declared });
 }
