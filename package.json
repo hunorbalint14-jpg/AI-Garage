@@ -23,8 +23,8 @@
     "check:env": "tsx scripts/check-env.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.132.1",
-    "@base-ui/react": "^1.8.0",
+    "@anthropic-ai/sdk": "^0.133.0",
+    "@base-ui/react": "^1.9.0",
     "@sentry/nextjs": "^11.6.0",
     "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^14.0.3",
@@ -36,7 +36,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "html-to-image": "^1.11.13",
-    "lucide-react": "^1.53.0",
+    "lucide-react": "^1.54.0",
     "next": "16.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
