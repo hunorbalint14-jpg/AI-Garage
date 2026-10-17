@@ -8,7 +8,9 @@ import {
   orgMrrPence,
   formatGbp,
 } from "@/lib/platform-stats";
+import { hasBilledSubscription } from "@/lib/courtesy-trial";
 import { OrgSlugEditor } from "./org-slug-editor";
+import { CourtesyTrial } from "./courtesy-trial";
 import { ReceptionistNumbers, type ReceptionistLoc } from "./receptionist-numbers";
 import { fetchTrafficStats } from "@/lib/platform/traffic-stats";
 import { RankPanel, Sparkline } from "@/components/admin/traffic-panels";
@@ -64,7 +66,9 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
 
   // AI usage for the org over the last 30 days, aggregated in TS.
   // eslint-disable-next-line react-hooks/purity -- server component: a 30-day window boundary; freshness is the point
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+  const since = new Date(nowMs - 30 * 24 * 60 * 60 * 1000).toISOString();
   const [{ data: aiEvents }, traffic] = await Promise.all([
     admin
       .from("ai_usage_events")
@@ -119,6 +123,19 @@ export default async function OrgDetailPage({ params }: { params: Promise<{ id: 
             orgRow.stripe_charges_enabled ? "Stripe" : null,
             orgRow.accounting_provider === "quickbooks" ? "QuickBooks" : orgRow.accounting_provider === "sage" ? "Sage" : orgRow.accounting_provider === "xero" ? "Xero" : null,
           ].filter(Boolean).join(" + ") || "None"}
+        />
+      </div>
+
+      {/* Courtesy trial — paid tier with no card / no Stripe subscription */}
+      <div>
+        <h2 className="mb-2 text-sm font-semibold">Free trial</h2>
+        <CourtesyTrial
+          orgId={id}
+          planName={planName(orgRow)}
+          trialEnd={orgRow.tenant_trial_end}
+          subscriptionStatus={orgRow.tenant_subscription_status}
+          billed={hasBilledSubscription(orgRow)}
+          nowIso={nowIso}
         />
       </div>
 

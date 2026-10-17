@@ -11,7 +11,16 @@ export type BillingNudgeReason = "trial_ending" | "trial_ended" | "grace" | "lap
 // a full reload, mirroring MfaNudge). The other three are persistent — premium
 // features are (about to be) off and only the owner can fix it, so there is no
 // dismiss until billing is back in good standing.
-export function TenantBillingNudge({ reason, date }: { reason: BillingNudgeReason; date?: string | null }) {
+export function TenantBillingNudge({
+  reason,
+  date,
+  planName,
+}: {
+  reason: BillingNudgeReason;
+  date?: string | null;
+  /** The trial tier's name ("Pro" / "Growth") — trials aren't always Pro. */
+  planName: string;
+}) {
   const [show, setShow] = useState(true);
   if (!show) return null;
 
@@ -19,9 +28,9 @@ export function TenantBillingNudge({ reason, date }: { reason: BillingNudgeReaso
 
   const message =
     reason === "trial_ending"
-      ? `Your Pro trial ends${date ? ` on ${date}` : " soon"}. Pick a plan to keep the extra features.`
+      ? `Your ${planName} trial ends${date ? ` on ${date}` : " soon"}. Pick a plan to keep the extra features.`
       : reason === "trial_ended"
-        ? "Your Pro trial has ended, so your account is on Starter features. Pick a plan to switch them back on — nothing has been deleted."
+        ? `Your ${planName} trial has ended, so your account is on Starter features. Pick a plan to switch them back on — nothing has been deleted.`
         : reason === "grace"
           ? `Your AI Garage payment failed. Update your card${date ? ` by ${date}` : ""} to keep your plan's features.`
           : "Your AI Garage subscription has lapsed, so your account is on Starter features and the 2% platform fee. Jobs, invoices and payments are unaffected — pick a plan to restore your features.";

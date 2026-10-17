@@ -102,7 +102,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     billingState.state === "grace"
       ? `Your last payment failed. Your ${current.name} features continue until ${fmtDate(billingState.until)} — update your card in the billing portal to keep them.`
       : billingState.state === "trial_ended"
-        ? `Your Pro trial ended on ${fmtDate(billingState.since)}. The account is on Starter features until you pick a plan — nothing has been deleted.`
+        ? `Your ${current.name} trial ended on ${fmtDate(billingState.since)}. The account is on Starter features until you pick a plan — nothing has been deleted.`
         : billingState.state === "lapsed"
           ? "Your subscription has lapsed. The account is on Starter features and the 2% platform fee. Jobs, invoices and payments are unaffected — pick a plan to restore your features."
           : null;
@@ -131,7 +131,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
             <p className="text-xs text-muted-foreground">
               {effectiveFee === 0 ? "No platform fee" : `${effectiveFee}% platform fee`}
               {org.tenant_subscription_status ? ` · ${org.tenant_subscription_status}` : ""}
-              {trialActive ? ` · Pro trial until ${fmtDate(org.tenant_trial_end)}` : ""}
+              {trialActive ? ` · ${current.name} trial until ${fmtDate(org.tenant_trial_end)}` : ""}
               {org.tenant_current_period_end && subscribed
                 ? ` · renews ${fmtDate(org.tenant_current_period_end)}`
                 : ""}

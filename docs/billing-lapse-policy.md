@@ -30,10 +30,17 @@ or deletes data. There is no "read-only mode" and no hard gate, by design.
 
 Notes:
 
-- **Courtesy trial** = `tenant_trial_end`, the 30-day Pro trial granted to
-  grandfathered orgs in migration `20260605030000_tenant_billing.sql`. New
-  signups start on free Starter with no trial. Paid-tier trials created
-  through Stripe Checkout surface as `trialing` status instead.
+- **Courtesy trial** = `tenant_trial_end` on a paid `tenant_plan` with no
+  Stripe subscription — no card, no commitment, nothing charged on expiry.
+  Originally the 30-day Pro trial granted to grandfathered orgs in migration
+  `20260605030000_tenant_billing.sql`; platform admins now grant them per
+  garage at `/admin/orgs/[id]` → *Free trial* (Pro or Growth, 1/3/6/12
+  months; audited as `org.trial_grant` / `org.trial_end`; refused while the
+  org has a billed Stripe subscription). "End trial now" sets the end to now,
+  so the org lands in `trial_ended` like a natural expiry. Trials count £0
+  towards admin MRR. New signups start on free Starter with no trial.
+  Paid-tier trials created through Stripe Checkout surface as `trialing`
+  status instead.
 - A live courtesy trial outranks a dead subscription status (a canceled org
   still inside its trial keeps features until the trial ends).
 - `canceled` / `incomplete_expired` webhooks also reset `tenant_plan` to

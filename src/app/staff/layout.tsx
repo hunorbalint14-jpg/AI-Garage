@@ -31,9 +31,9 @@ import { DemoDataBanner } from "@/components/staff/demo-data-banner";
 import { PreliveBanner } from "@/components/staff/prelive-banner";
 import { isPrelive } from "@/lib/prelive";
 import { hasDemoData } from "@/lib/demo-sandbox";
-import { tenantBillingState, type OrgBilling } from "@/lib/tenant-plans";
+import { tenantBillingState, tierFor, type OrgBilling } from "@/lib/tenant-plans";
 
-type BillingNudge = { reason: BillingNudgeReason; date: string | null };
+type BillingNudge = { reason: BillingNudgeReason; date: string | null; planName: string };
 
 const fmtNudgeDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
@@ -41,15 +41,16 @@ const fmtNudgeDate = (iso: string) =>
 function computeBillingNudge(billing: OrgBilling | null, eligible: boolean): BillingNudge | null {
   if (!eligible || !billing) return null;
   const s = tenantBillingState(billing);
+  const planName = tierFor(billing).name;
   switch (s.state) {
     case "trial_ending":
-      return { reason: "trial_ending", date: fmtNudgeDate(s.until) };
+      return { reason: "trial_ending", date: fmtNudgeDate(s.until), planName };
     case "trial_ended":
-      return { reason: "trial_ended", date: fmtNudgeDate(s.since) };
+      return { reason: "trial_ended", date: fmtNudgeDate(s.since), planName };
     case "grace":
-      return { reason: "grace", date: fmtNudgeDate(s.until) };
+      return { reason: "grace", date: fmtNudgeDate(s.until), planName };
     case "lapsed":
-      return { reason: "lapsed", date: null };
+      return { reason: "lapsed", date: null, planName };
     default:
       return null;
   }
@@ -204,7 +205,7 @@ export default async function StaffLayout({
     }
   }
 
-  // Owner billing nudge: payment past-due, or a Pro trial ending within 7 days.
+  // Owner billing nudge: payment past-due, or a paid-tier trial ending within 7 days.
   const billingNudge = computeBillingNudge(
     ctx.tenantBilling,
     ctx.orgRole === "owner" && !pathname.startsWith("/staff/settings/billing"),
@@ -260,7 +261,7 @@ export default async function StaffLayout({
         hiddenNavKeys={hiddenNavKeys}
       >
         {showMfaNudge && <MfaNudge userId={ctx.user.id} />}
-        {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} />}
+        {billingNudge && <TenantBillingNudge reason={billingNudge.reason} date={billingNudge.date} planName={billingNudge.planName} />}
         {isPrelive(ctx.activeLocation) && <PreliveBanner locationName={ctx.activeLocation.name} />}
         {demoActive && <DemoDataBanner canWipe={ctx.orgRole === "owner" || ctx.orgRole === "admin"} />}
         {children}
