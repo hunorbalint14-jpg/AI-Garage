@@ -23,6 +23,7 @@ const SCHEDULES: Record<string, string> = {
   "cron/overage-reconcile": "daily via tick (09:00 UTC)",
   "cron/traffic-rollup": "daily via tick (09:00 UTC)",
   "cron/accounting-backfill": "daily via tick (09:00 UTC)",
+  "cron/trial-ending": "daily via tick (09:00 UTC)",
   // Per-branch: the tick dispatches these when a location's scheduled_tasks
   // row falls due.
   "cron/reminders": "via tick",
@@ -66,6 +67,7 @@ const MAX_AGE_MINS: Record<string, number> = {
   "cron/overage-reconcile": DAILY_VIA_TICK_MAX_MINS,
   "cron/traffic-rollup": DAILY_VIA_TICK_MAX_MINS,
   "cron/accounting-backfill": DAILY_VIA_TICK_MAX_MINS,
+  "cron/trial-ending": DAILY_VIA_TICK_MAX_MINS,
 };
 
 // When a job STARTED being watched, for jobs added to the watch list with no
@@ -83,6 +85,7 @@ const WATCHED_SINCE: Record<string, string> = {
   // Newly watched in #627, and they only began recording their skip runs there.
   "cron/activation": "2026-09-29T00:00:00Z",
   "cron/overage-reconcile": "2026-09-29T00:00:00Z",
+  "cron/trial-ending": "2026-10-19T00:00:00Z", // courtesy-trial follow-ups deploy (erring later)
 };
 
 /** The age reported for a job with no run at all in the retention window. */

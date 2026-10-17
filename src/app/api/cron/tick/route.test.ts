@@ -68,7 +68,7 @@ describe("cron/tick dispatch", () => {
     expect(secret).toBe(SECRET);
   });
 
-  it("runs the four daily passes at 09:00 UTC and records a failed pass as a failed tick", async () => {
+  it("runs the five daily passes at 09:00 UTC and records a failed pass as a failed tick", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-29T09:00:04Z"));
     dispatchCron.mockImplementation(async (url: string) =>
@@ -85,8 +85,9 @@ describe("cron/tick dispatch", () => {
       "https://ai-garage.co.uk/api/cron/overage-reconcile",
       "https://ai-garage.co.uk/api/cron/traffic-rollup",
       "https://ai-garage.co.uk/api/cron/accounting-backfill",
+      "https://ai-garage.co.uk/api/cron/trial-ending",
     ]);
-    expect(body).toMatchObject({ passes: 3, failed: 1 });
+    expect(body).toMatchObject({ passes: 4, failed: 1 });
     const [, job, ok, , detail] = recordCronRun.mock.calls[0];
     expect(job).toBe("cron/tick");
     expect(ok).toBe(false);

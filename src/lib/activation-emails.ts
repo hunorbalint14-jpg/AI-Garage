@@ -30,7 +30,7 @@ type OrgRow = {
   primary_location_id: string | null;
 };
 
-async function ownerContact(admin: Admin, organizationId: string): Promise<{ email: string; first: string } | null> {
+export async function ownerContact(admin: Admin, organizationId: string): Promise<{ email: string; first: string } | null> {
   const { data: owner } = await admin
     .from("org_users")
     .select("user_id")

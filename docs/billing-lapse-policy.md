@@ -41,6 +41,19 @@ Notes:
   towards admin MRR. New signups start on free Starter with no trial.
   Paid-tier trials created through Stripe Checkout surface as `trialing`
   status instead.
+- **Courtesy trial → subscription carry-over.** An owner who subscribes
+  (Settings → Billing checkout) while a courtesy trial is live keeps the
+  rest of it: checkout passes `subscription_data.trial_end` =
+  `tenant_trial_end` (`checkoutTrialEnd`), so the subscription starts
+  `trialing` and the first charge is on the granted end date. Stripe refuses
+  a trial end under 48h out, so inside the last ~2 days the owner is billed
+  from today. A `trialing` sub is `ok`, so no trial nudge or email follows.
+- **Trial-ending email.** `cron/trial-ending` (tick's daily 09:00 UTC pass)
+  emails the org owner once, inside the last `TRIAL_ENDING_WINDOW_DAYS` of a
+  courtesy trial: tier + end date, what switches off, the carry-over, no
+  prices. Once per trial via `organizations.tenant_trial_notice_for` (the end
+  date it was sent for — a re-granted trial gets its own notice). Skipped
+  when Stripe bills the org (Stripe sends its own trial reminders).
 - A live courtesy trial outranks a dead subscription status (a canceled org
   still inside its trial keeps features until the trial ends).
 - `canceled` / `incomplete_expired` webhooks also reset `tenant_plan` to
