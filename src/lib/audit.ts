@@ -73,6 +73,8 @@ export type AuditAction =
   | "location.slug_change"
   | "org.slug_change"
   | "org.data_export"
+  | "org.trial_grant"
+  | "org.trial_end"
   // Platform reliability incidents
   | "incident.declare"
   | "incident.update"

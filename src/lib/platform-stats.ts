@@ -76,9 +76,12 @@ export function planName(row: OrgOverviewRow): string {
 // Normalised monthly recurring revenue for one org, in pence. Only paid tiers in
 // good standing contribute. Annual subscribers are approximated at the tier's
 // monthly price (interval isn't stored on the org), so this is an estimate.
+// Trials (Stripe `trialing` or a no-card courtesy trial) pay nothing yet, so
+// they contribute 0 — otherwise every admin-granted trial would inflate MRR.
 export function orgMrrPence(row: OrgOverviewRow, now: Date = new Date()): number {
   const tier = TIERS[(row.tenant_plan as TierKey) ?? "starter"] ?? TIERS.starter;
   if (tier.key === "starter") return 0;
+  if (billingState(row, now) === "trialing") return 0;
   if (!tenantBillingActive(billingOf(row), now)) return 0;
   return tier.monthlyPence;
 }
