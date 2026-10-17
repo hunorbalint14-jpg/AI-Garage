@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe, tenantOrigin } from "@/lib/stripe";
 import { logAudit } from "@/lib/audit";
 import { tenantPriceId, type TierKey } from "@/lib/tenant-plans";
+import { checkoutTrialEnd } from "@/lib/courtesy-trial";
 
 export type BillingResult = { error: string } | { url: string };
 
@@ -68,12 +69,28 @@ export async function startTenantCheckout(
   const origin = tenantOrigin(ctx.organization.slug);
   const metadata = { kind: "tenant_billing", organization_id: ctx.organization.id, tier };
 
+  // A live courtesy trial carries over: the subscription starts `trialing`
+  // until the granted end date, so subscribing early never costs the owner the
+  // free months they were given. Read fresh — the staff context's org row is
+  // cached and a platform admin may have just granted or ended the trial.
+  const { data: trialRow } = await admin
+    .from("organizations")
+    .select("tenant_trial_end, tenant_subscription_status")
+    .eq("id", ctx.organization.id)
+    .maybeSingle();
+  const trialEnd = trialRow
+    ? checkoutTrialEnd(
+        trialRow as { tenant_trial_end: string | null; tenant_subscription_status: string | null },
+        new Date(),
+      )
+    : null;
+
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: { metadata },
+      subscription_data: { metadata, ...(trialEnd ? { trial_end: trialEnd } : {}) },
       metadata,
       success_url: `${origin}/staff/settings/billing?upgraded=1`,
       cancel_url: `${origin}/staff/settings/billing`,
@@ -86,7 +103,11 @@ export async function startTenantCheckout(
       action: "tenant.subscribe",
       entityType: "organization",
       entityId: ctx.organization.id,
-      metadata: { tier, interval },
+      metadata: {
+        tier,
+        interval,
+        ...(trialEnd ? { trial_carried_to: new Date(trialEnd * 1000).toISOString() } : {}),
+      },
     });
 
     if (!session.url) return { error: "Stripe did not return a checkout URL." };

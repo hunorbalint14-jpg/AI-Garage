@@ -28,3 +28,24 @@ export function courtesyTrialEnd(now: Date, months: number): Date {
   end.setUTCDate(Math.min(day, lastDay));
   return end;
 }
+
+// Stripe refuses a Checkout `subscription_data.trial_end` under 48h out. An
+// hour of headroom covers clock skew between us and Stripe.
+const STRIPE_MIN_TRIAL_MS = 49 * 60 * 60 * 1000;
+
+// The `subscription_data.trial_end` (unix seconds) to carry a live courtesy
+// trial into a new subscription, or null to bill immediately. An owner who
+// subscribes mid-trial keeps the free months they were granted instead of
+// paying from today; the webhook then records the sub as `trialing`, which
+// tenantBillingState treats as ok. Null when there's no live courtesy trial,
+// Stripe already bills the org, or the trial ends inside Stripe's 48h floor
+// (those last hours are forfeited — Stripe won't schedule them).
+export function checkoutTrialEnd(
+  org: { tenant_trial_end: string | null; tenant_subscription_status: string | null },
+  now: Date,
+): number | null {
+  if (!org.tenant_trial_end || hasBilledSubscription(org)) return null;
+  const end = new Date(org.tenant_trial_end).getTime();
+  if (Number.isNaN(end) || end - now.getTime() < STRIPE_MIN_TRIAL_MS) return null;
+  return Math.floor(end / 1000);
+}

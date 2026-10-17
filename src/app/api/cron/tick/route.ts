@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
   // A failed pass counts as a failed dispatch — it used to be logged only, so
   // the tick's own run history said "failed 0" while every pass was dead.
   if (now.getUTCHours() === 9) {
-    for (const path of ["/api/cron/activation", "/api/cron/overage-reconcile", "/api/cron/traffic-rollup", "/api/cron/accounting-backfill"]) {
+    for (const path of ["/api/cron/activation", "/api/cron/overage-reconcile", "/api/cron/traffic-rollup", "/api/cron/accounting-backfill", "/api/cron/trial-ending"]) {
       const r = await dispatchCron(`${origin}${path}`, secret);
       if (r.ok) {
         results.passes++;
